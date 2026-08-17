@@ -15,7 +15,7 @@
 | V1.2 | 建立标准 DOCX 能力 | [PLAN](./v1.2/PLAN.md) | [RESULT](./v1.2/RESULT.md) | 直接 ResumeDocument 路径通过；JD 路径未闭环 |
 | V1.2.1 | 清理工程问题并恢复向量存储 | [PLAN](./v1.2.1/PLAN.md) | [RESULT](./v1.2.1/RESULT.md) | PII、依赖、下载、死代码和 Chroma 专项通过 |
 | V1.3 | 闭合 V1 的 JD → DOCX 主链 | [PLAN](./v1.3/PLAN.md) | [RESULT](./v1.3/RESULT.md) | 第三轮修正、源码复核和人工 E2E 通过；V1 核心链路收口完成 |
-| V1.4 | 源码—数据解耦与 GitHub 首发 | [PLAN](./v1.4/PLAN.md) | [RESULT](./v1.4/RESULT.md) | 待验收；第三轮本地 T9 通过，下一门为 MIG-3，之后执行 T10/T11 与用户验收 |
+| V1.4 | 源码—数据解耦与 GitHub 首发 | [PLAN](./v1.4/PLAN.md) | [RESULT](./v1.4/RESULT.md) | 待验收；T9 与 MIG-3 已通过，T10 Private 验证中 |
 
 ## 推荐历史阅读顺序
 

@@ -402,7 +402,7 @@ def main() -> int:
     if capacity_warnings:
         for w in capacity_warnings: print(f"     · CAPACITY WARN: {w}")
     if render_stats.get("unreplaced_placeholders"):
-        print(f"     · ⚠️ 未替换占位符 = {render_stats['unreplaced_placeholders']}")
+        print(f"     · [WARN] 未替换占位符 = {render_stats['unreplaced_placeholders']}")
 
     # 9. 保存 DOCX 到 DOCX_OUTPUT_DIR
     output_dir = Path(settings.DOCX_OUTPUT_DIR)
@@ -410,7 +410,7 @@ def main() -> int:
     out_file = output_dir / "demo_resume.docx"
     doc.save(str(out_file))
     size_kb = round(out_file.stat().st_size / 1024, 1)
-    print(f"\n✅ Stub Demo 完成！")
+    print("\n[STUB_DEMO_OK] Stub Demo 完成！")
     print(f"   · DOCX：{out_file}  ({size_kb} KB)")
     print(f"   · 页面估计：{final_page_count} 页")
     print(f"   · 命中条目：{[m['id'] for m in matched]}")

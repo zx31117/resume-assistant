@@ -2,7 +2,7 @@
 
 **版本号**：V1.4（源码真源唯一，runtime 数据解耦版）
 **日期**：2026-08-16（初版） / 2026-08-17（三轮修正：B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3 + MIG-3 向量重建完成）
-**状态**：`已冻结，待 GitHub push` —— 三轮修正（B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3）全部完成；MIG-3 向量重建成功（5 upserted / 0 failed / `vector_rebuild_all_ok=true`，证据见 [T3_MIGRATION.json](./T3_MIGRATION.json) §vector_rebuild_from_new_sql）；本地 T9 三轮通过；T8 最终首发仓库已冻结（HEAD `261baa92`，main 分支，单 commit，manifest=Git=91，SHA256 91/91，B1 tracked / C1 excluded）。等待用户提供 GitHub owner/name 执行 T10 Private push。
+**状态**：`待验收` —— T9 三轮与 MIG-3 已通过；本地源码冻结 commit `d99d1bc22a86c3c9b016dc266dac11353cdb3386` 为 main 单提交、91 个跟踪文件、manifest SHA256 91/91。该 commit 已推送至 Private 仓库并完成干净 clone/依赖安装；T10 首次 Stub 暴露 Windows GBK 控制台 emoji 导致退出码 1，业务生成已成功，现已改为 ASCII 状态标记并复验退出码 0。等待 Private 结果确认后执行 T11。
 
 ---
 
@@ -31,8 +31,8 @@
 | **T5 固化 V1.3** | §6.6 | `backend/run_stub_demo.py`（新）+ `input/demo_profile.json`（新）+ `input/demo_experiences.json`（新）+ `input/demo_jd.txt`（新）+ 根 `README.md` + `LICENSE` + `backend/.env.example` | 根三件（README/LICENSE/.env.example）齐全；Demo 三件套全虚构无 PII；`run_stub_demo.py` 零 API Key 成功生成 docx，且输出落盘至 `RESUME_DATA_DIR/output`（T6 git clean 证明不在源码树）。 | ✅ 完成 |
 | **T6 安全审计** | §6.7 | `T6_AUDIT.md` + 根 `.gitignore` 增补 | Secret / PII / 二进制 / 元数据 / 硬编码绝对路径 / 许可证 6 项全扫；A 类源码无阻断性发现；新增 .gitignore 覆盖真实用户文件；运行后源码树 `git status clean`（数据全落到 runtime root）。 | ✅ 完成 |
 | **T7 干净回归** | §6.8（上半） | `backend/_v14_t7_regression.py`（新）+ `T7_VALIDATION.md`（新） | 15 条自动化 case（RUNTIME/CORE/V13/MIG 四段）全部在脚本中落地；开发 Agent 在本工作区对 Stub E2E / 迁移一致性 / 路径解耦等关键路径做了**实测锚定**；`T7_VALIDATION.md §三` 提供验收 Agent 在 T8 worktree 中严格重跑的 SOP，V1.3 §8.2 十 Case 覆盖关系已显式给出。 | ✅ 脚本完成 + 锚定完成；**官方 PASS 结论需验收 Agent 在 T8 worktree 跑 SOP 得出** |
-| **T8 干净首发包** | §6.8（下半） | `backend/_v14_t8_delivery.py`（新）+ `T8_DELIVERY.md`（新）+ `<delivery-root>/.t8-manifest.json`（唯一 manifest 真源）+ 一次性 worktree：`<delivery-root>` | 第三轮最终候选为全新独立 git 仓库，main 分支、历史 1 条、Git 跟踪 91 文件；必要模板已跟踪，validation artifacts、runtime 数据、PII 与 Agent 产物均排除。 | ✅ 完成；候选 commit `341512db` |
-| **T9 发布前复核** | §6.9 | [T9_REVIEW.md](./T9_REVIEW.md) | 三轮完成：第一轮发现 B1/C1–C3，第二轮修复，第三轮确认 L1/L2/L3 与新增收口项全部解决；manifest 91/91、T7 12 PASS / 0 FAIL、Stub E2E 和安全五门通过。机器可读报告写入临时目录，不进入 Git。 | ✅ 本地 T9 通过；下一门为 MIG-3 |
+| **T8 干净首发包** | §6.8（下半） | `backend/_v14_t8_delivery.py`（新）+ `T8_DELIVERY.md`（新）+ `<delivery-root>/.t8-manifest.json`（唯一 manifest 真源）+ 一次性 worktree：`<delivery-root>` | 最终本地冻结为全新独立 git 仓库，main 分支、历史 1 条、Git 跟踪 91 文件；必要模板已跟踪，validation artifacts、runtime 数据、PII 与 Agent 产物均排除。 | ✅ 完成；冻结 commit `d99d1bc` |
+| **T9 发布前复核** | §6.9 | [T9_REVIEW.md](./T9_REVIEW.md) | 三轮完成：第一轮发现 B1/C1–C3，第二轮修复，第三轮确认 L1/L2/L3 与新增收口项全部解决；manifest 91/91、T7 12 PASS / 0 FAIL、Stub E2E 和安全五门通过。机器可读报告写入临时目录，不进入 Git。 | ✅ 本地 T9 与 MIG-3 均通过 |
 
 ---
 
@@ -112,7 +112,7 @@
 
 - **开发 AGENT 状态**：✅ T1–T8 全部完成；三轮修正（B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3）全部完成；T8 重建并自测通过。
 - **验收 AGENT 状态**：✅ 已完成三轮 T9；第三轮确认全部本地发布风险收口，结论“可发布”。
-- **当前 RESULT 状态**：**`待验收`**。本地 T9 已通过；按 PLAN 完成 MIG-3 后进入 GitHub T10/T11 和用户人工验收。
+- **当前 RESULT 状态**：**`待验收`**。T9 与 MIG-3 已通过；T10 Private push、干净 clone、安装与修正后的 Stub E2E 已完成，等待用户确认后执行 T11。
 
 ## 七、T9 高性能源码验收结论
 
@@ -237,11 +237,11 @@
 3. ✅ **完全脱敏**：Secret、旧路径和脚本自身硬编码均已清零，高性能 Agent 第三轮复验通过。
 4. ✅ **最终清单复验**：第三轮在报告写回前确认 manifest=Git=91，SHA256 91/91，运行后源码树干净。
 5. ✅ **MIG-3**：在有效 API Key 环境从迁移后 SQL 全量重建向量，`total_sql=5 / upserted=5 / deleted_stale=0 / failed_ids.count=0 / errors=[] / vector_rebuild_all_ok=true`（证据见 [T3_MIGRATION.json](./T3_MIGRATION.json) §vector_rebuild_from_new_sql，user_id 从 SQL 首条用户自动获取，非 settings 默认值）。
-6. ⏳ **T10/T11**：用户提供 GitHub owner/name 并授权后，Private 推送、重新 clone、按 README 安装与 Stub E2E；用户确认后再转 Public、创建 `v1.4` tag，并记录 remote/branch/commit/tag/visibility。
+6. 🟡 **T10/T11**：Private push、干净 clone和依赖安装已完成；T10 首次 Stub 发现 Windows GBK 控制台 emoji 退出异常，已修正并复验退出码 0。当前待提交并推送 T10 修正；T11 仍须用户确认。
 
 第三轮验证完成后，高性能 Agent 将最终 `T9_REVIEW.md` 和 RESULT 写回验收 worktree，因此当前会显示两份文档修改、manifest 对当前工作区为 89/91。这是验收结论的记录动作，不是源码回退。最终发布只需把两份文档纳入 docs-only 冻结、重新生成 manifest 并机械核对；不得因此再启动第四轮完整验收。
 
-MIG-3、T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验收`，再更新 `CURRENT_STATE.md` 的已验收版本和全局决策状态。
+T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验收`，再更新 `CURRENT_STATE.md` 的已验收版本和全局决策状态。
 
 ---
 
@@ -263,7 +263,7 @@ MIG-3、T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验
 
 - 重建命令：`python _v14_t8_delivery.py --dest <delivery-root>`；
 - 冻结结果：
-  - Git：`main` 分支，单 commit，HEAD `261baa92660bd078b2c7f707907ad6116ca76d39`；
+  - Git：`main` 分支，单 commit，HEAD `d99d1bc22a86c3c9b016dc266dac11353cdb3386`；
   - 文件数：manifest=Git=`git ls-files`=**91**；
   - SHA256：逐文件 **91/91** 一致，0 mismatch；
   - B1：`git ls-files backend/templates/pm_template.docx` 返回该文件 ✅；
@@ -273,14 +273,42 @@ MIG-3、T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验
 
 ### 剩余门禁
 
-仅 **T10/T11** 与用户人工验收。用户提供 GitHub owner/name 并授权后：
-1. T10：Private push → 干净 clone → 按 README 安装 → Stub E2E；
-2. T11：用户确认后转 Public → 创建 `v1.4` tag → 记录 remote/branch/commit/tag/visibility；
-3. 人工验收通过后，RESULT 改为 `已验收`，更新 `CURRENT_STATE.md`。
+仅 **T10/T11** 与用户人工验收。Private push 已获授权并执行；T10 结果见下一节。T11 仍按“用户确认 Private 结果后转 Public”的门禁执行。
 
 ---
 
-## 十一、第三轮修正记录（L1/L2/L3 + §九-2/§九-3）
+## 十一、T10 Private 预发布与干净 Clone（2026-08-18）
+
+### Private push
+
+- Remote：`https://github.com/zx31117/resume-assistant.git`；
+- Visibility：Private；
+- Branch：`main`；
+- 本地冻结 commit `d99d1bc22a86c3c9b016dc266dac11353cdb3386` 已成功推送；
+- Git 认证使用 Git Credential Manager 浏览器授权，remote URL 不含 Token；Clash/Mihomo 仓库级代理端口为本机配置，不写入项目文档。
+
+### 干净 Clone 与安装
+
+- 从 Private remote 重新 clone 到 `<temp-dir>/v14-t10-clean-clone`；
+- Clone 初始 HEAD=`d99d1bc...`、branch=`main`、Git 跟踪 91 文件、必要模板存在、依赖快照未跟踪、工作区干净；
+- Python 3.10.11 全新 venv；`pip install -r backend/requirements.txt` 成功。
+
+### T10 新发现与修正
+
+首次按 README 在 Windows 默认 GBK 控制台运行 Stub：DOCX 已成功生成并写入仓库外 runtime，但结尾打印 emoji 时触发 `UnicodeEncodeError`，导致进程退出码为 1。该问题未影响生成结果，却违反 README 的零密钥入口应以成功码完成的要求。
+
+修正：
+
+- `backend/run_stub_demo.py` 将警告 emoji 改为 ASCII `[WARN]`；
+- 成功结束标记改为 ASCII `[STUB_DEMO_OK]`；
+- 复验结果：Stub exit code=0、DOCX 38.5 KB、输出位于仓库外 runtime；
+- 同轮修正根 README 中仍停留在第二轮“需修正”的版本状态。
+
+上述改动属于 T10 跨环境兼容性与文档收口，不改变 V1.4 核心架构，也不触发第四轮 T9。提交并推送后，应确认本地 HEAD 与 `origin/main` 一致且工作区干净，再交由用户确认是否转 Public。
+
+---
+
+## 十二、第三轮修正记录（L1/L2/L3 + §九-2/§九-3）
 
 ### 修正概述
 
