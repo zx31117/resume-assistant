@@ -1,0 +1,23 @@
+# ===== AI 栈：钉在 langchain 0.3.x + openai 1.x（基于 httpx）=====
+# 升级到 langchain 1.x / openai 2.x 会引入 httpx2，与 langchain-openai 的 httpx 注入冲突。
+# 以下版本锁定 V1.2 验证环境实际版本，不在 V1.2.1 做升级，留待 V2。
+langchain==0.3.30
+langchain-core==0.3.86
+langchain-openai==0.3.35
+openai==1.109.1
+httpx==0.28.1
+
+# ===== 非 AI 栈依赖：锁定 V1.2 验证环境实际版本 =====
+# 以下版本由 pip freeze 获取，确保干净 venv 可重现。
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+sqlalchemy==2.0.52
+pydantic==2.13.4
+python-multipart==0.0.32
+pdfplumber==0.11.10
+chromadb==1.5.9
+numpy==2.2.6
+python-dotenv==1.2.2
+
+# ===== V1.2：DOCX 读写（成熟、稳定、纯 Python，无 Office 依赖）=====
+python-docx==1.2.0

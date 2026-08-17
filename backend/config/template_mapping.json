@@ -1,0 +1,7 @@
+{
+  "pm_template": {
+    "docx": "templates/pm_template.docx",
+    "json": "templates/pm_template.json",
+    "default": true
+  }
+}

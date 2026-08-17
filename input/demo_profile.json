@@ -1,0 +1,19 @@
+{
+  "name": "林示例",
+  "gender": "男",
+  "age": 27,
+  "city": "杭州",
+  "phone": "138****0000",
+  "email": "example.demo@example.com",
+  "job_intent": "高级 Java 开发工程师 / 后端研发",
+  "years_of_experience": 4,
+  "education": [
+    {
+      "school": "示例大学",
+      "major": "计算机科学与技术",
+      "degree": "本科",
+      "start_date": "2017-09",
+      "end_date": "2021-06"
+    }
+  ]
+}

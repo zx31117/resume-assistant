@@ -1,0 +1,128 @@
+{
+  "ts_utc": 1786977319.1182451,
+  "before": {
+    "old_sqlite": "<repo-root>\\backend\\data\\app.db",
+    "old_sqlite_exists": true,
+    "old_sqlite_size": 57344,
+    "new_sqlite": "<user-profile>\\AppData\\Local\\ResumeAssistant\\database\\app.db",
+    "new_sqlite_exists_pre": true,
+    "new_vectorstore": "<user-profile>\\AppData\\Local\\ResumeAssistant\\vectorstore\\chroma"
+  },
+  "old_db": {
+    "tables": [
+      "experiences",
+      "users",
+      "vector_index_jobs"
+    ],
+    "counts": {
+      "experiences": 5,
+      "users": 1,
+      "vector_index_jobs": 9
+    },
+    "key_ids": {
+      "users": [
+        "53ed02a6-3a45-4c53-b8a7-0a39b1bee71e"
+      ],
+      "experiences": [
+        "325ffc19-747a-4ecf-a5dc-101aef449c33",
+        "70269e4b-ec12-4447-98a4-8eacf58b3788",
+        "86fae7ed-d089-44ac-8f23-789c272cee4d",
+        "9c59bb21-0ee7-4d0d-bc7e-ba9576eb162b",
+        "c8ff7f2d-2af9-43b5-b4d2-84f74888a012"
+      ],
+      "vector_index_jobs": [
+        "31d4eee3-dd17-4bdf-b01a-7d4d29f1a903",
+        "61e6e280-5cdc-4b02-a2fd-76038326e3f9",
+        "61ebd9e0-a772-473e-bb76-f5e305315114",
+        "805f2246-c31b-4c32-863c-440e188dfbff",
+        "8b0b2ebc-4457-4842-bf40-bb5072e1a4af",
+        "aa682450-dfe4-4b1e-a553-141caae57b3e",
+        "bb50b4b5-ce2a-4525-aad1-44a8f48a8795",
+        "c4c533df-78b3-43b5-b17c-cf7e8a233417",
+        "d0063891-d7c2-4656-94be-b3b0e5f673e4"
+      ]
+    }
+  },
+  "preexisting_new_db_backed_up_to": "<user-profile>\\AppData\\Local\\ResumeAssistant\\database\\app.db.bak-1786977319",
+  "copy_done": true,
+  "after_copy": {
+    "new_sqlite_size": 57344,
+    "size_equal": true
+  },
+  "new_db_after_copy": {
+    "tables": [
+      "experiences",
+      "users",
+      "vector_index_jobs"
+    ],
+    "counts": {
+      "experiences": 5,
+      "users": 1,
+      "vector_index_jobs": 9
+    },
+    "key_ids": {
+      "users": [
+        "53ed02a6-3a45-4c53-b8a7-0a39b1bee71e"
+      ],
+      "experiences": [
+        "325ffc19-747a-4ecf-a5dc-101aef449c33",
+        "70269e4b-ec12-4447-98a4-8eacf58b3788",
+        "86fae7ed-d089-44ac-8f23-789c272cee4d",
+        "9c59bb21-0ee7-4d0d-bc7e-ba9576eb162b",
+        "c8ff7f2d-2af9-43b5-b4d2-84f74888a012"
+      ],
+      "vector_index_jobs": [
+        "31d4eee3-dd17-4bdf-b01a-7d4d29f1a903",
+        "61e6e280-5cdc-4b02-a2fd-76038326e3f9",
+        "61ebd9e0-a772-473e-bb76-f5e305315114",
+        "805f2246-c31b-4c32-863c-440e188dfbff",
+        "8b0b2ebc-4457-4842-bf40-bb5072e1a4af",
+        "aa682450-dfe4-4b1e-a553-141caae57b3e",
+        "bb50b4b5-ce2a-4525-aad1-44a8f48a8795",
+        "c4c533df-78b3-43b5-b17c-cf7e8a233417",
+        "d0063891-d7c2-4656-94be-b3b0e5f673e4"
+      ]
+    }
+  },
+  "migration_checks": {
+    "tables_equal": true,
+    "counts_equal": true,
+    "users_ids_equal": true,
+    "experiences_ids_equal": true,
+    "jobs_ids_equal": true
+  },
+  "sql_identical": {
+    "tables_equal": true,
+    "counts_equal": true,
+    "users_ids_equal": true,
+    "experiences_ids_equal": true,
+    "jobs_ids_equal": true,
+    "new_counts": {
+      "experiences": 5,
+      "users": 1,
+      "vector_index_jobs": 9
+    },
+    "old_counts": {
+      "experiences": 5,
+      "users": 1,
+      "vector_index_jobs": 9
+    },
+    "users_ids_set_equal": true,
+    "experiences_ids_set_equal": true,
+    "jobs_ids_set_equal": true
+  },
+  "OLD_DATA_NOT_DELETED": true,
+  "rollback_hint": "Set env SQLITE_PATH=str(OLD_SQLITE) to switch back to old data.",
+  "vector_rebuild_user_id": "53ed02a6-3a45-4c53-b8a7-0a39b1bee71e",
+  "vector_rebuild_user_id_source": "sql_first_user",
+  "vector_rebuild_from_new_sql": {
+    "total_sql": 5,
+    "upserted": 5,
+    "deleted_stale": 0,
+    "failed_ids": {
+      "count": 0
+    },
+    "errors": []
+  },
+  "vector_rebuild_all_ok": true
+}
