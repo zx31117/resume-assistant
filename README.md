@@ -102,7 +102,7 @@ DOCX_OUTPUT_DIR=./output
 - [项目总览 / 产品目标 / 版本边界](docs/README.md)
 - [当前实现事实](docs/CURRENT_STATE.md)
 - [版本索引（每版一份 PLAN + RESULT）](docs/versions/README.md)
-  - **V1.4**：[PLAN](docs/versions/v1.4/PLAN.md) · [RESULT](docs/versions/v1.4/RESULT.md) = `待验收`（T9 与 MIG-3 已通过，T10 Private 验证中）
+  - **V1.4**：[PLAN](docs/versions/v1.4/PLAN.md) · [RESULT](docs/versions/v1.4/RESULT.md) = `待验收`（T9、MIG-3、T10 已通过；T11 转 Public 与创建 `v1.4` tag 已获授权，待执行）
 
 ## 4. 安全 & 可公开保证（V1.4 新增）
 

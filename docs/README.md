@@ -123,6 +123,6 @@ RESULT 不粘贴源码或长日志。未经验证的内容不能写入 `CURRENT_
 | V1.2 | 标准模板与 DOCX 输出 | [PLAN](./versions/v1.2/PLAN.md) | [RESULT](./versions/v1.2/RESULT.md) | 路径 A 已验收；JD 路径未闭环 |
 | V1.2.1 | 工程清理与基线稳定 | [PLAN](./versions/v1.2.1/PLAN.md) | [RESULT](./versions/v1.2.1/RESULT.md) | 已验收 |
 | V1.3 | V1 核心链路收口 | [PLAN](./versions/v1.3/PLAN.md) | [RESULT](./versions/v1.3/RESULT.md) | 已验收；第三轮修正、源码复核和人工 E2E 通过 |
-| V1.4 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4/PLAN.md) | [RESULT](./versions/v1.4/RESULT.md) | 待验收；T9 与 MIG-3 已通过，T10 Private 验证中 |
+| V1.4 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4/PLAN.md) | [RESULT](./versions/v1.4/RESULT.md) | 待验收；T9、MIG-3、T10 已通过，T11 转 Public 与创建 `v1.4` tag 已获授权，执行中 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

@@ -1,7 +1,7 @@
 # AI Career Resume Assistant V1.4 源码—数据解耦与 GitHub 首发方案
 
 > 文档角色：当前活动版本执行计划
-> 状态：IN PROGRESS；T1–T9 与 MIG-3 已完成；T10 Private 验证中，随后等待用户确认转 Public 并执行 T11
+> 状态：IN PROGRESS；T1–T10 与 MIG-3 已完成；T11 转 Public 与创建 `v1.4` tag 已获用户授权，执行中
 > 基线：[V1.3 RESULT](../v1.3/RESULT.md)
 > 开发必读：[项目总览](../../README.md) → [当前状态](../../CURRENT_STATE.md) → 本文
 > 重要依据：[D-014 PII 不依赖 gitignore 保护](../../DECISIONS.md#d-014-pii-不依赖-gitignore-保护)、[D-020 运行数据与源码仓库物理解耦](../../DECISIONS.md#d-020-运行数据与源码仓库物理解耦)

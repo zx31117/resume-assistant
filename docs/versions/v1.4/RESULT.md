@@ -2,7 +2,7 @@
 
 **版本号**：V1.4（源码真源唯一，runtime 数据解耦版）
 **日期**：2026-08-16（初版） / 2026-08-17（三轮修正：B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3 + MIG-3 向量重建完成）
-**状态**：`待验收` —— T9 三轮与 MIG-3 已通过；本地源码冻结 commit `d99d1bc22a86c3c9b016dc266dac11353cdb3386` 为 main 单提交、91 个跟踪文件、manifest SHA256 91/91。该 commit 已推送至 Private 仓库并完成干净 clone/依赖安装；T10 首次 Stub 暴露 Windows GBK 控制台 emoji 导致退出码 1，业务生成已成功，现已改为 ASCII 状态标记并复验退出码 0。等待 Private 结果确认后执行 T11。
+**状态**：`待验收` —— T9 三轮、MIG-3 与 T10 已通过；源码冻结 commit 为 `d99d1bc22a86c3c9b016dc266dac11353cdb3386`，T10 跨环境修正 commit 为 `e631531d93f23f0d4f3bc37f43aee2a0b982fc82`。Private `main` 已与修正 commit 对齐且工作区干净；用户已授权 T11 转 Public 与创建 `v1.4` tag，现进入外部发布与匿名访问复核。
 
 ---
 
@@ -112,7 +112,7 @@
 
 - **开发 AGENT 状态**：✅ T1–T8 全部完成；三轮修正（B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3）全部完成；T8 重建并自测通过。
 - **验收 AGENT 状态**：✅ 已完成三轮 T9；第三轮确认全部本地发布风险收口，结论“可发布”。
-- **当前 RESULT 状态**：**`待验收`**。T9 与 MIG-3 已通过；T10 Private push、干净 clone、安装与修正后的 Stub E2E 已完成，等待用户确认后执行 T11。
+- **当前 RESULT 状态**：**`待验收`**。T9、MIG-3 与 T10 已通过；Private `main` 已对齐到 `e631531d`，用户已授权执行 T11，当前仅剩 Public、`v1.4` tag、匿名访问复核与最终状态同步。
 
 ## 七、T9 高性能源码验收结论
 
@@ -237,11 +237,11 @@
 3. ✅ **完全脱敏**：Secret、旧路径和脚本自身硬编码均已清零，高性能 Agent 第三轮复验通过。
 4. ✅ **最终清单复验**：第三轮在报告写回前确认 manifest=Git=91，SHA256 91/91，运行后源码树干净。
 5. ✅ **MIG-3**：在有效 API Key 环境从迁移后 SQL 全量重建向量，`total_sql=5 / upserted=5 / deleted_stale=0 / failed_ids.count=0 / errors=[] / vector_rebuild_all_ok=true`（证据见 [T3_MIGRATION.json](./T3_MIGRATION.json) §vector_rebuild_from_new_sql，user_id 从 SQL 首条用户自动获取，非 settings 默认值）。
-6. 🟡 **T10/T11**：Private push、干净 clone和依赖安装已完成；T10 首次 Stub 发现 Windows GBK 控制台 emoji 退出异常，已修正并复验退出码 0。当前待提交并推送 T10 修正；T11 仍须用户确认。
+6. 🟡 **T10/T11**：T10 Private push、干净 clone、依赖安装及修正后的 Stub E2E 均已通过，修正 commit `e631531d` 已推送且本地与 `origin/main` 对齐；T11 已获用户授权，执行中。
 
 第三轮验证完成后，高性能 Agent 将最终 `T9_REVIEW.md` 和 RESULT 写回验收 worktree，因此当前会显示两份文档修改、manifest 对当前工作区为 89/91。这是验收结论的记录动作，不是源码回退。最终发布只需把两份文档纳入 docs-only 冻结、重新生成 manifest 并机械核对；不得因此再启动第四轮完整验收。
 
-T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验收`，再更新 `CURRENT_STATE.md` 的已验收版本和全局决策状态。
+T11 的 Public、tag 与匿名访问复核完成后，再把 RESULT 改为 `已验收`，并同步 `CURRENT_STATE.md`、入口索引和全局决策状态。
 
 ---
 
@@ -273,7 +273,7 @@ T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验收`，�
 
 ### 剩余门禁
 
-仅 **T10/T11** 与用户人工验收。Private push 已获授权并执行；T10 结果见下一节。T11 仍按“用户确认 Private 结果后转 Public”的门禁执行。
+仅剩 **T11** 的 Public、`v1.4` tag、匿名访问复核与最终状态同步。用户已确认旧令牌撤销，并明确授权转 Public。
 
 ---
 
@@ -304,7 +304,20 @@ T10/T11 和用户人工验收完成后，才能把 RESULT 改为 `已验收`，�
 - 复验结果：Stub exit code=0、DOCX 38.5 KB、输出位于仓库外 runtime；
 - 同轮修正根 README 中仍停留在第二轮“需修正”的版本状态。
 
-上述改动属于 T10 跨环境兼容性与文档收口，不改变 V1.4 核心架构，也不触发第四轮 T9。提交并推送后，应确认本地 HEAD 与 `origin/main` 一致且工作区干净，再交由用户确认是否转 Public。
+上述改动属于 T10 跨环境兼容性与文档收口，不改变 V1.4 核心架构，也不触发第四轮 T9。修正已作为 commit `e631531d93f23f0d4f3bc37f43aee2a0b982fc82` 推送；本地 HEAD 与 `origin/main` 一致，最终 Stub 退出码为 0，工作区干净。T10 通过。
+
+---
+
+## 十三、T11 Public 发布（2026-08-18）
+
+- 目标仓库：`https://github.com/zx31117/resume-assistant`
+- 默认分支：`main`
+- 源码冻结 commit：`d99d1bc22a86c3c9b016dc266dac11353cdb3386`
+- T10 跨环境修正 commit：`e631531d93f23f0d4f3bc37f43aee2a0b982fc82`
+- 目标可见性：Public
+- 目标发布标签：`v1.4`（annotated tag）
+- 用户授权：2026-08-18 已确认旧令牌撤销，并明确授权转 Public
+- 当前阶段：发布前文档定版；Public、tag 与匿名访问复核待执行
 
 ---
 
