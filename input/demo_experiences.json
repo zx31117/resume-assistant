@@ -1,0 +1,43 @@
+[
+  {
+    "id": "exp_demo_001",
+    "job_title": "Java 后端开发工程师",
+    "company": "示例云科技有限公司",
+    "department": "电商业务中台",
+    "start_date": "2022-03",
+    "end_date": "2024-12",
+    "location": "杭州",
+    "summary": "负责电商订单、支付、库存三个核心业务域的后端研发与线上稳定性保障。",
+    "responsibilities": [
+      "主导订单服务从单体拆分到微服务的重构与灰度上线，支撑日常 2 万 TPS；",
+      "设计支付回调幂等方案，解决重复扣款问题，上线后零客诉；",
+      "推动数据库索引优化与热点数据缓存改造，核心查询 P99 从 320ms 降至 80ms。"
+    ],
+    "achievements": [
+      "双十一峰值 15 万 TPS 压测通过；",
+      "主导的『多租户库存隔离』项目获公司季度『技术落地奖』；",
+      "在团队内输出 8 篇技术方案文档，3 次内部分享。"
+    ],
+    "skills": ["Java", "Spring Boot", "MySQL", "Redis", "Kafka", "Docker", "K8s"]
+  },
+  {
+    "id": "exp_demo_002",
+    "job_title": "后端研发实习生",
+    "company": "示例网络科技",
+    "department": "数据平台组",
+    "start_date": "2020-07",
+    "end_date": "2021-05",
+    "location": "南京",
+    "summary": "参与数据接入平台的开发，负责 ETL 任务的调度与元数据管理模块。",
+    "responsibilities": [
+      "实现定时任务的可视化编排界面；",
+      "编写 MySQL 到 Hive 的增量同步脚本；",
+      "输出内部使用的『数据源接入规范』V1。"
+    ],
+    "achievements": [
+      "接入任务接入效率提升 30%；",
+      "个人负责的模块在实习期零线上事故。"
+    ],
+    "skills": ["Java", "Hive", "Airflow", "SQL", "Git"]
+  }
+]

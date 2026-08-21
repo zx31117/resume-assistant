@@ -1,0 +1,20 @@
+# backend/.gitignore — 源码树级别：仅忽略"不应进 GitHub 公开仓库"的文件。
+# 运行时数据根目录（RESUME_DATA_DIR）默认位于 Git checkout 外，不受本文件影响。
+
+pip_freeze_baseline.txt
+
+# 历史遗留位置：迁移前 backend/data 与 backend/output 作为数据真源使用，
+# V1.4 起这些位置不再写入（仅作为"迁移回滚开关"时的只读源），但本地仍可能存在，
+# 继续保持不提交。
+data/
+output/
+*.db
+*.sqlite
+*.sqlite3
+chroma/
+chroma.sqlite3
+
+# 个人验收脚本产生的中间报告（runtime 下的 report 会写到 RESUME_DATA_DIR/logs，
+# 这里保留的是本地跑脚本时偶尔落到源码树的同名备份——不提交）
+*.bad-dir-*
+

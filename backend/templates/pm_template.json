@@ -1,0 +1,173 @@
+{
+  "$schema": "./template_schema.json",
+  "id": "pm_template",
+  "version": "1.2",
+  "description": "产品岗标准模板（v1.2 参照 input/用户上传PDF.pdf 布局：页边距0.92/1.39/1.13/1.09cm/字号20-12-10.6-10pt/⚫bullet前缀/经历标题三列Tab/章节标题底分隔线/右上角照片占位框/bullet全部常规无关键词加粗）",
+  "docx_file": "pm_template.docx",
+  "layout": {
+    "page_limit": 1,
+    "density": "normal",
+    "optimize_order": ["paragraph_spacing", "font_size", "line_spacing", "page_margin"]
+  },
+  "sections": [
+    {
+      "id": "profile",
+      "type": "profile",
+      "required": true,
+      "max_items": 1,
+      "title_style": null,
+      "rows": [
+        {
+          "style": "Profile_Name",
+          "cells": [
+            { "placeholder": "profile.name", "description": "姓名 20pt 加粗居中" }
+          ]
+        },
+        {
+          "style": "Profile_Target",
+          "cells": [
+            { "placeholder": "profile.target_position", "description": "求职意向（模板前缀已写「求职意向：」，10pt 常规左对齐）" }
+          ]
+        },
+        {
+          "style": "Profile_Line",
+          "cells": [
+            { "placeholder": "profile.phone", "description": "电话（模板前缀已写「电话：」）" },
+            { "placeholder": "profile.email", "description": "邮箱（模板前缀已写「邮箱：」）" },
+            { "placeholder": "profile.location", "description": "所在地（模板前缀已写「所在地：」）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "type": "education",
+      "required": true,
+      "max_items": 3,
+      "title_style": "SectionTitle_Education",
+      "item_block": [
+        {
+          "style": "Education_ItemTitle",
+          "cells": [
+            { "placeholder": "edu.start_time", "bold": true, "description": "开始时间（模板顺序：时间-时间 空格 学校 空格 专业（学历））" },
+            { "placeholder": "edu.end_time", "bold": true, "description": "结束时间" },
+            { "placeholder": "edu.school", "bold": true, "description": "学校名称" },
+            { "placeholder": "edu.major", "bold": true, "description": "专业名称" },
+            { "placeholder": "edu.degree", "bold": true, "description": "学历（本/硕/博）" }
+          ]
+        },
+        {
+          "style": "Education_Body",
+          "cells": [
+            { "placeholder": "edu.description", "description": "描述行（含「：」自动关键词加粗）" }
+          ]
+        },
+        {
+          "style": "Education_Body",
+          "cells": [
+            { "placeholder": "edu.gpa", "description": "绩点/荣誉 行（含「：」自动关键词加粗）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "type": "work",
+      "required": true,
+      "max_items": 3,
+      "title_style": "SectionTitle_Work",
+      "item_block": [
+        {
+          "style": "Work_ItemTitle",
+          "cells": [
+            { "placeholder": "work.start_time", "bold": true, "description": "开始时间（顺序：时间-时间 空格 公司 空格 职位，与原模板一致）" },
+            { "placeholder": "work.end_time", "bold": true, "description": "结束时间" },
+            { "placeholder": "work.company", "bold": true, "description": "公司名称" },
+            { "placeholder": "work.role", "bold": true, "description": "职位" }
+          ]
+        },
+        {
+          "style": "Work_Bullet",
+          "repeat": "work.bullets",
+          "cells": [
+            { "placeholder": "work.bullet", "description": "工作描述行（含「：」则关键词加粗，原模板粗细区分）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "type": "project",
+      "required": true,
+      "max_items": 3,
+      "title_style": "SectionTitle_Project",
+      "item_block": [
+        {
+          "style": "Project_ItemTitle",
+          "cells": [
+            { "placeholder": "project.start_time", "bold": true, "description": "开始时间（顺序：时间-时间 空格 项目 空格 角色）" },
+            { "placeholder": "project.end_time", "bold": true, "description": "结束时间" },
+            { "placeholder": "project.name", "bold": true, "description": "项目名称" },
+            { "placeholder": "project.role", "bold": true, "description": "角色" }
+          ]
+        },
+        {
+          "style": "Project_Bullet",
+          "repeat": "project.bullets",
+          "cells": [
+            { "placeholder": "project.bullet", "description": "项目描述行（含「：」则关键词加粗）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "type": "skills",
+      "required": true,
+      "max_items": 8,
+      "title_style": "SectionTitle_Skills",
+      "item_block": [
+        {
+          "style": "Skill_Line",
+          "repeat": "resume_doc.skills",
+          "cells": [
+            { "placeholder": "skill.category", "bold": true, "description": "技能分类（模板 Run 已加粗，保留 rPr）" },
+            { "placeholder": "skill.items", "description": "技能项列表（顿号分隔）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "awards",
+      "type": "awards",
+      "required": false,
+      "max_items": 8,
+      "title_style": "SectionTitle_Awards",
+      "item_block": [
+        {
+          "style": "Award_Line",
+          "repeat": "resume_doc.awards",
+          "cells": [
+            { "placeholder": "award", "description": "奖项名称（无 • 前缀）" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "type": "summary",
+      "required": false,
+      "max_items": 10,
+      "title_style": "SectionTitle_Summary",
+      "item_block": [
+        {
+          "style": "Summary_Bullet",
+          "repeat": "profile.summary_lines",
+          "cells": [
+            { "placeholder": "summary.bullet", "description": "自我评价行（按换行从 profile.summary 拆分；含「：」自动关键词加粗，对应原模板「自我评价」章节）" }
+          ]
+        }
+      ]
+    }
+  ]
+}

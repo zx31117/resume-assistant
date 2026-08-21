@@ -1,0 +1,75 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+*.whl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+*.manifest
+*.spec
+
+# ===== Virtual Envs =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.log
+
+# ===== Secrets =====
+.env
+.env.local
+.env.*
+!.env.example
+
+# ===== Runtime Data / Build Output =====
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+vectors.json
+backend/output/
+backend/templates/*.docx
+!backend/templates/_build_templates.py
+!backend/templates/pm_template.docx
+
+# ===== 真实用户输入（C 类 PII，防误入仓库）=====
+# 注：input/ 下仅 demo_* 虚构文件进入仓库；真实 PDF/DOCX/JD 默认在 RESUME_DATA_DIR/input
+input/模板.docx
+input/用户上传PDF.pdf
+input/简历.pdf
+input/JD.txt
+input/*.pdf
+input/*.docx
+!input/demo_*.json
+!input/demo_*.txt
+
+# ===== V1.4 T3 误建目录备份（一次性迁移产物，不入仓库）=====
+*.bad-dir-*
+
+# ===== 验收产物（验收时生成，含本机路径，不入仓库；目录重命名后仍对所有版本生效）=====
+docs/versions/*/validation-artifacts/
+
+# ===== Agent 产物（会话/缓存，不入仓库）=====
+.workbuddy/
