@@ -1,15 +1,15 @@
 # 当前实现状态
 
 > 文档角色：当前已验收实现事实的唯一真源
-> 已验收版本：V1.4.1
-> 当前开发版本：[V1.4.2 PLAN](./versions/v1.4.2/PLAN.md)；未验收内容不进入本文当前事实
+> 已验收版本：V1.4.2
+> 当前开发版本：暂无；[V1.5.0](./versions/v1.5.0/DRAFT.md) 仍是远期草稿，不是开发指令
 > 状态日期：2026-08-22
 
 ## 1. 当前结论
 
 V1 核心链路已经闭环。系统可以在一次核心请求中完成 JD 分析、经历匹配、SQL 事实回读、受约束内容生成、ResumeBuilder 构建、模板渲染和 DOCX 保存，并返回下载地址与阶段诊断。
 
-当前公开正式基线为 `main` 与 annotated tag `v1.4.1` 共同指向的 commit `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`。版本过程、失败候选、验收 commit 和发布修正分别保留在对应 RESULT；本文不重复版本流水账。
+当前公开正式基线由 `main` 与 annotated tag `v1.4.2` 共同标识，具体发布 commit 以 tag 解引用后的目标为唯一真值。版本过程、失败候选、验收 commit 和发布修正分别保留在对应 RESULT；本文不重复版本流水账。
 
 ## 2. 已实现核心流程
 
@@ -61,7 +61,7 @@ POST /api/resume/generate-docx
 | Embedding / LLM | 豆包模型；关键结构化阶段 strict failure |
 | 模板 | 系统内置 DOCX + TemplateSpec JSON |
 | 输出 | `<runtime data root>/output` 本地 DOCX；可用 `DOCX_OUTPUT_DIR` 显式覆盖 |
-| 公开发布 | GitHub Public；MIT；V1.4.0 发布标识为 `v1.4`；V1.4.1 发布标识为 annotated tag `v1.4.1`，最终 commit 以 tag 目标为准 |
+| 公开发布 | GitHub Public；MIT；V1.4.0 发布标识为 `v1.4`；V1.4.1、V1.4.2 使用 annotated tag，最终 commit 以对应 tag 目标为准 |
 | 用户形态 | 本地单用户；服务器化和多用户属于 V3 |
 
 主要契约：
@@ -110,10 +110,10 @@ POST /api/resume/generate-docx
 ## 7. 验收基线
 
 - 核心业务链路、事实来源、错误可见性和人工 E2E 已完成 V1 阶段验收；
-- V1.4.1 无真实 Key 的干净 runtime Stub E2E 为 20/20，T7 为 12 PASS / 0 FAIL / 3 项预期 SUSPEND；
+- V1.4.2 Stub E2E 在独立临时 runtime 连续两次为 20/20；成功、导入失败、提前退出和清理失败路径均通过独立复验，真实 runtime 未变化且无临时目录残留；
 - 版本元数据单一真源、身份提取死代码退出和 request/JD 来源边界已通过定向源码复核；
 - 源码仓库与 runtime 数据隔离，必要 DOCX 模板已跟踪，公开基线不含真实用户数据、密钥和运行产物；
-- 当前发布标识为 `v1.4.1@cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`。详细证据按需读取 [V1.4.1 RESULT](./versions/v1.4.1/RESULT.md) 及其引用的历史版本 RESULT。
+- 当前发布标识为 annotated tag `v1.4.2`，具体 commit 以 tag 解引用后的目标为准。详细证据按需读取 [V1.4.2 RESULT](./versions/v1.4.2/RESULT.md) 及其引用的历史版本 RESULT。
 
 ## 8. 已知边界与后续方向
 
@@ -125,6 +125,6 @@ POST /api/resume/generate-docx
 4. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、异步 Worker、监控和生产部署；属于 V3。
 5. 索引就绪与全量重建当前是 service 层能力；服务器化后可再提供运维接口。
 
-当前维护缺口（不阻断 V1.4.1 产品发布）：`_v13_stub_e2e.py` 的清理逻辑仍指向 V1.4.0 前的 `backend/data`，污染过的 runtime 会累积 `stub-user` 数据并使个别断言波动；独立临时 runtime 下稳定 20/20。后续修改测试时，应让该脚本强制使用独立临时 `RESUME_DATA_DIR`，或按用户清理 runtime 测试数据。
+V1.4.2 已关闭原有 Stub E2E 误用真实 runtime、退出后残留临时数据库/向量文件，以及清理失败仍返回成功的问题。当前没有已知会阻断 V1.4.2 发布的维护缺口；后续产品架构调整仍以单独版本 PLAN 为准。
 
 版本过程和开发经验由 [版本档案](./versions/README.md) 保存，不继续堆入本文。
