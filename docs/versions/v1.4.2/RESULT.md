@@ -78,12 +78,42 @@
 
 当前不能标记 V1.4.2 完成，也不能把 V1.4.2 写入 CURRENT_STATE 的已验收版本。
 
-## 6. T9 前预检返工（2026-08-22）
+## 6. 发布检查脚本返工与修正（2026-08-22）
 
-文档 Agent在 clean detached review worktree 运行 `python backend/_v14_release_check.py --repo-root .`：
+### 6.1 问题
 
-1. Windows 默认 GBK 控制台在输出 Unicode 图标时抛出 `UnicodeEncodeError`，脚本未能完成；
-2. 临时强制 UTF-8 只用于继续诊断，脚本随后把仓库已有的 `example.com`、`should-not-appear.com` 等明确虚构测试邮箱判为真实 PII，退出码为 2；
+文档 Agent 在 clean detached review worktree 运行 python backend/_v14_release_check.py --repo-root . 时发现：
+
+1. Windows 默认 GBK 控制台在输出 Unicode 图标时抛出 UnicodeEncodeError，脚本未能完成；
+2. 临时强制 UTF-8 只用于继续诊断，脚本随后把仓库已有的 example.com、should-not-appear.com 等明确虚构测试邮箱判为真实 PII，退出码为 2；
 3. Git 跟踪规则、工作区 clean 和正常父提交检查本身通过。
 
-开发 Agent需修正发布检查自身：默认 Windows 控制台可运行；测试/演示中的明确虚构邮箱不会阻断；真实邮箱检测能力仍保留，并增加正反向自测。修复必须作为新的正常增量 commit，不 amend 或覆盖既有提交。RESULT 更新后再由文档 Agent重建 review worktree。
+### 6.2 修正内容
+
+开发 Agent 作为新的正常增量 commit（不 amend 既有提交）完成以下修正：
+
+1. **GBK 安全输出**：全部输出标记从 emoji 改为 ASCII（[PASS]/[FAIL]/[WARN]），在默认 Windows GBK 控制台直接运行不乱码。
+
+2. **正确排除虚构域名**：按 RFC 2606 / RFC 6761 建立保留域名排除列表：
+   - example.com、example.org、example.net、example.edu
+   - .invalid、.test、.example、.localhost TLD
+   - 旧测试域名 should-not-appear.com（向后兼容）
+
+3. **测试邮箱改为明确保留域名**：_v13_stub_e2e.py 中 leaked-fake@should-not-appear.com 改为 leaked-fake@example.invalid（.invalid 是 RFC 2606 保留 TLD）。docs/versions/v1.4.1/RESULT.md 中引用同步修正。
+
+4. **正反向自测**：发布检查脚本末尾新增 Self-test: email detection 节：
+   - 正向（必须检出）：4 个非保留域名邮箱（gmail.com / company.cn / real-domain.org / university.edu）
+   - 反向（必须排除）：8 个保留域名邮箱（example.com/.org/.net/.edu、.invalid、should-not-appear.com 等）
+   - 自测自身不触发 PII 扫描（脚本自排除）
+
+5. **clean 仓库退出 0**：工作区 clean 时无 [WARN]，所有检查 [PASS]，退出码 0。
+
+### 6.3 验证
+
+- Stub E2E 连续运行 20/20（邮箱改名后回归通过）；
+- 发布检查脚本在 clean 仓库退出 0（仅工作区未提交时 [WARN]，退出码 1）；
+- 自测节 4 正向 + 8 反向全部 [PASS]。
+
+### 6.4 交接
+
+不恢复 MANIFEST.txt，不操作公开 main/tag。文档 Agent 在本增量 commit 基础上重建 review worktree 执行 T9。

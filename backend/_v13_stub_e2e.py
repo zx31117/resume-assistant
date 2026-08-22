@@ -364,7 +364,7 @@ def _run_profile_boundary() -> list[dict]:
     # 构造一个"注入虚构身份信息"的经历 raw_text（真实姓名、手机、邮箱）
     FAKE_NAME = "欧阳不该出现在文档里"
     FAKE_PHONE = "13999998888"
-    FAKE_EMAIL = "leaked-fake@should-not-appear.com"
+    FAKE_EMAIL = "leaked-fake@example.invalid"
     fake_raws = [
         f"姓名：{FAKE_NAME}",
         f"联系方式：{FAKE_PHONE} / {FAKE_EMAIL}",

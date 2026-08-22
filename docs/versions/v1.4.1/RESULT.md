@@ -71,7 +71,7 @@
 | 场景 | 结果 | 核心断言 |
 |---|---|---|
 | Profile边界A1: request空 → profile全空, source=empty | ✅ PASS | `name/phone/email/location` 全 `""`，`profile_source="empty"` |
-| Profile边界A2: request空 + 经历注入虚构联系方式 → 全空, 不回填 | ✅ PASS | `欧阳不该出现在文档里 / 13999998888 / leaked-fake@should-not-appear.com` 都未进入 Profile |
+| Profile边界A2: request空 + 经历注入虚构联系方式 → 全空, 不回填 | ✅ PASS | `欧阳不该出现在文档里 / 13999998888 / leaked-fake@example.invalid` 都未进入 Profile |
 | Profile边界A3: request仅提供 phone+email, 无 name → 仅保留显式值, 不经历补 name | ✅ PASS | `name=""`，`phone/email` = STUB_PROFILE 显式值，`profile_source="request"` |
 | Profile边界A4: profile_source 只取值 request 或 empty | ✅ PASS | A1~A4 三个场景返回值 ∈ {request, empty} |
 | Profile边界B1: name空但 phone+email 存在 → 核心链路成功（不再 PROFILE_INCOMPLETE） | ✅ PASS | `resp.ok=True`，所有 stages.status=done，无异常抛出 |
