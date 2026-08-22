@@ -1,6 +1,6 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：需修正
+> 状态：待 T9 验收（第二轮）
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 首轮开发交付 commit：`ed4d3ac7da0463773d98c975c0af37e1b7dba9c3`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
@@ -17,7 +17,7 @@
 | T2 README、隐私和工作流 | 完成 | 根 README 使用真实公开 URL；工作流明确路径角色、commit 交接、发布责任和 fast-forward |
 | T3 当前事实与历史归档 | 完成 | CURRENT_STATE 精简；V1.4.1 RESULT 追加发布后远端纠正记录 |
 | T4 Markdown LF 规范 | 完成 | 新增 `.gitattributes`；24 份 Markdown 统一为 LF；DOCX/字体/图片声明为 binary |
-| T5 Stub E2E runtime 隔离 | 需修正 | 独立路径和真实 runtime 不变已通过，但 SQLite/Chroma 连接未释放，临时目录每次残留，不能声明完成 |
+| T5 Stub E2E runtime 隔离 | 完成待验收 | 修复 commit 7ca1fed895b8...：engine.dispose()+chroma.close()+有限重试+残留非零退出；连续 2 次 20/20，临时目录 0 残留，%LOCALAPPDATA% 不变 |
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
 | T8 候选与开发验证 | 需修正 | 版本、LF、旧脚本退出和发布检查通过；T5 的“目录已删除”证据被 T9 否定，需形成新候选 |
@@ -130,3 +130,33 @@
 2. 本 RESULT 曾把 amend 后的悬空中间 commit `838578...` 写成开发实现，实际谱系内的首轮开发交付是 `ed4d3ac...`。本节已纠正，后续只记录已存在的前序 commit；当前验收对象由交接和验收回写记录，不向自身回填 SHA。
 
 返工要求：开发 Agent在 current 工作树显式关闭数据库 engine、Chroma client 及其他文件句柄；目录删除不得 `ignore_errors=True` 后静默成功，需有限重试并在最终仍残留时非零退出。至少连续运行两次，证明 20/20、真实 runtime 不变、每次临时目录均删除；形成新的正常增量 commit 后重新 T9。
+
+
+## 8. Stub E2E runtime 隔离修复（2026-08-22，第二轮）
+
+### 8.1 修复 commit
+
+提交 A（源码）：7ca1fed895b8c340bcdab95d242b8aaf720eb7eb
+
+提交 B（文档）：本 commit（记录提交 A 的精确 SHA，不产生回填循环）。
+
+### 8.2 修复内容
+
+1. **SQLAlchemy engine 释放**：在临时目录删除前显式调用 engine.dispose()，关闭所有连接池中的 SQLite 连接。
+2. **Chroma client 释放**：调用 chroma_store._chroma_client.close()（而非 .reset()，后者被 config 禁用）。close() 释放 Chroma 持有的 data_level0.bin 文件句柄，解决 Windows 上 rmtree 被 WinError 32 阻塞的问题。
+3. **gc.collect()**：释放句柄后强制 GC，确保 lingering 引用被清除。
+4. **移除 ignore_errors=True**：shutil.rmtree 不再静默吞错。改为有限重试（5 次，增量 backoff 0.3s/0.6s/0.9s/1.2s/1.5s），每次重试前 gc.collect()。
+5. **残留非零退出**：5 次重试后若临时目录仍存在，脚本 sys.exit(1)。
+
+### 8.3 验证
+
+| 项 | Run 1 | Run 2 |
+|---|---|---|
+| 业务断言 | 20/20 | 20/20 |
+| exit code | 0 | 0 |
+| stub-e2e-runtime-* 残留 | 0 | 0 |
+| %LOCALAPPDATA%\ResumeAssistant | 20 files / mtime 不变 | 20 files / mtime 不变 |
+
+### 8.4 交接
+
+不恢复 MANIFEST.txt，不操作公开 main/tag。文档 Agent 在 7ca1fed895b8c340bcdab95d242b8aaf720eb7eb 基础上重建 review worktree 执行第二轮 T9。
