@@ -17,7 +17,7 @@
 | V1.3.0 | 闭合 V1 的 JD → DOCX 主链 | [PLAN](./v1.3.0/PLAN.md) | [RESULT](./v1.3.0/RESULT.md) | 第三轮修正、源码复核和人工 E2E 通过；V1 核心链路收口完成 |
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./v1.4.0/PLAN.md) | [RESULT](./v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 对外版本一致性与身份边界清理 | [PLAN](./v1.4.1/PLAN.md) | [RESULT](./v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
-| V1.4.2 | 发布基线与开发档案收口 | [PLAN](./v1.4.2/PLAN.md) | [RESULT](./v1.4.2/RESULT.md) | 开发完成；待 T9 独立源码验收 |
+| V1.4.2 | 发布基线与开发档案收口 | [PLAN](./v1.4.2/PLAN.md) | [RESULT](./v1.4.2/RESULT.md) | 需修正；只读发布检查未通过 T9 前预检 |
 
 ## 远期草稿（非开发指令）
 

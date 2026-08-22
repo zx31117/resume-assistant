@@ -1,11 +1,11 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：待验收
+> 状态：需修正
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 开发实现 commit：`8385787676ae985e64c5b79cbb44fe6970d2acd8`；开发 Agent 交接 HEAD `ed4d3ac7da0463773d98c975c0af37e1b7dba9c3` 仅继续修改本 RESULT 与已退出的 manifest
 > T9 验收对象：以文档 Agent创建 review worktree 时提供的 clean HEAD 为准；不在该 commit 内回填自身 SHA
-> 功能验收：开发 Agent验证通过，待独立验收与用户确认
+> 功能验收：开发 Agent验证通过；T9 前只读发布检查自身不可用，修复后才能送独立验收
 > 结构变更验收：待高性能源码验收 Agent复核
 
 ## 1. PLAN Task 对照
@@ -21,7 +21,7 @@
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
 | T8 候选与开发验证 | 完成 | 开发实现 commit `838578...`；版本、LF、旧脚本退出、两次 Stub 和只读发布检查均由开发侧验证 |
-| T9 独立源码验收 | 未开始 | 文档交接收口后，在 clean review worktree 执行 |
+| T9 独立源码验收 | 阻断前置检查 | review 已建立，但新发布检查在默认 Windows 编码崩溃，并把仓库既有虚构邮箱误报为真实 PII；尚未交给高性能验收 Agent |
 | T10 文档收口与发布 | 未开始 | 需 T9 通过、文档最终同步和用户发布确认 |
 
 ## 2. 实际全局变化
@@ -58,7 +58,8 @@
 | LF | 通过 | 24 份 Markdown 属性均为 `eol: lf`，无 CRCRLF/混合换行 |
 | 一次性工具退出 | 通过 | 旧脚本删除；新检查只读 |
 | 文档链接与隐私 | 通过 | 相对链接无缺失；本机绝对路径和真实凭据无命中 |
-| 高性能源码验收 | 未执行 | 待 T9 |
+| 只读发布检查 | 失败 | 默认 Windows GBK 输出 `✅` 时触发 `UnicodeEncodeError`；强制 UTF-8 后又把 `example.com` 等既有虚构 fixture 误报为真实 PII，clean 仓库退出码 2 |
+| 高性能源码验收 | 未执行 | 发布检查工具需先返工；本次预检不能算 T9 |
 | 人工验收 | 未执行 | 本版本无新产品功能，最终由用户审核文档和发布结果 |
 
 开发提交自身涉及 12 个文件；从 V1.4.1 基线计算的完整版本 diff 还包含前一文档阶段提交和历史 Markdown 换行规范化，不能把“单个开发 commit 的 12 个文件”表述成“整个 V1.4.2 只改变 12 个文件”。
@@ -76,3 +77,13 @@
 5. 开发实现 `838578...` 到 T9 HEAD 之间只有文档交接收口，没有未复验的源码变化。
 
 当前不能标记 V1.4.2 完成，也不能把 V1.4.2 写入 CURRENT_STATE 的已验收版本。
+
+## 6. T9 前预检返工（2026-08-22）
+
+文档 Agent在 clean detached review worktree 运行 `python backend/_v14_release_check.py --repo-root .`：
+
+1. Windows 默认 GBK 控制台在输出 Unicode 图标时抛出 `UnicodeEncodeError`，脚本未能完成；
+2. 临时强制 UTF-8 只用于继续诊断，脚本随后把仓库已有的 `example.com`、`should-not-appear.com` 等明确虚构测试邮箱判为真实 PII，退出码为 2；
+3. Git 跟踪规则、工作区 clean 和正常父提交检查本身通过。
+
+开发 Agent需修正发布检查自身：默认 Windows 控制台可运行；测试/演示中的明确虚构邮箱不会阻断；真实邮箱检测能力仍保留，并增加正反向自测。修复必须作为新的正常增量 commit，不 amend 或覆盖既有提交。RESULT 更新后再由文档 Agent重建 review worktree。
