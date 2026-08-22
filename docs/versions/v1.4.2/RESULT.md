@@ -1,6 +1,6 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：需修正
+> 状态：待 T9 验收（第三轮）
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 首轮开发交付 commit：`ed4d3ac7da0463773d98c975c0af37e1b7dba9c3`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
@@ -170,3 +170,33 @@
 根因是脚本先执行 `tempfile.mkdtemp()`，真实 `_cleanup_stub_runtime()` 却只在 `main()` 成功末尾调用；当前 `atexit.register(lambda: None)` 是空占位，不会在 import 失败、断言失败或提前 `sys.exit` 时清理。
 
 返工要求：创建临时目录并定义 cleanup 后立即注册真实兜底；成功路径可以主动清理并避免重复处理，异常路径必须在进程退出时尝试释放已创建资源并删除目录。至少验证：依赖导入失败后无新目录、成功 20/20 后无新目录、业务断言失败后无新目录；成功路径残留仍必须非零退出。采用源码提交 A、RESULT 提交 B，均正常增量提交且不 amend。
+
+
+## 10. Stub E2E runtime 隔离修复（2026-08-22，第三轮返工）
+
+### 10.1 修复 commit
+
+提交 A（源码）：8c042ffa446ec0c5dea4e93aafe2664026f80a59
+
+提交 B（文档）：本 commit（记录提交 A 的精确 SHA，不产生回填循环）。
+
+### 10.2 修复内容
+
+1. **幂等 cleanup**：_cleanup_stub_runtime 通过 _CLEANUP_DONE 标志实现幂等，可被 main() 成功路径主动调用，也可被 atexit 兜底再次调用，不会重复执行。
+2. **立即注册 atexit**：移除 atexit.register(lambda: None) 空占位，在 _cleanup_stub_runtime 定义后立即注册真实清理函数。覆盖所有退出路径：import 失败、sys.exit、未捕获异常。
+3. **main() try/finally**：main() body 包裹在 try/finally 中，无论成功、失败或提前 sys.exit(1)，finally 块都执行 cleanup。
+4. **成功路径清理失败仍非零退出**：finally 中检查 _ok 和 _removed，若 cleanup 失败或残留，sys.exit(1)。
+5. **无 ignore_errors=True**：shutil.rmtree 使用有限重试（5 次 backoff），不静默吞错。
+
+### 10.3 验证
+
+| 项 | python -S | Run 1 | Run 2 |
+|---|---|---|---|
+| exit code | 1 (non-zero) | 0 | 0 |
+| stub-e2e-runtime-* 残留 | 0 | 0 | 0 |
+| 业务断言 | N/A (import fail) | 20/20 | 20/20 |
+| %LOCALAPPDATA%\ResumeAssistant | 不变 | 20 files / 不变 | 20 files / 不变 |
+
+### 10.4 交接
+
+不恢复 MANIFEST.txt，不操作公开 main/tag。文档 Agent 在 8c042ffa446ec0c5dea4e93aafe2664026f80a59 基础上重建 review worktree 执行第三轮 T9。
