@@ -1,12 +1,12 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：待 T9 验收（第二轮）
+> 状态：需修正
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 首轮开发交付 commit：`ed4d3ac7da0463773d98c975c0af37e1b7dba9c3`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
 > 第一轮 T9 验收对象：`ca1f1b9cd053a56fe61b36484953b2ccf51639fc`（不通过）
-> 功能验收：不通过；Stub 业务断言 20/20，但临时 runtime 资源未释放、目录未删除
-> 结构变更验收：不通过；T9 发现测试生命周期未闭环及 RESULT 引用悬空 SHA
+> 功能验收：不通过；成功路径返工自测通过，但 T9 前异常路径预检发现依赖导入失败仍泄漏临时目录
+> 结构变更验收：不通过；T5 尚未覆盖 import/断言/异常退出时的清理生命周期
 
 ## 1. PLAN Task 对照
 
@@ -17,10 +17,10 @@
 | T2 README、隐私和工作流 | 完成 | 根 README 使用真实公开 URL；工作流明确路径角色、commit 交接、发布责任和 fast-forward |
 | T3 当前事实与历史归档 | 完成 | CURRENT_STATE 精简；V1.4.1 RESULT 追加发布后远端纠正记录 |
 | T4 Markdown LF 规范 | 完成 | 新增 `.gitattributes`；24 份 Markdown 统一为 LF；DOCX/字体/图片声明为 binary |
-| T5 Stub E2E runtime 隔离 | 完成待验收 | 修复 commit 7ca1fed895b8...：engine.dispose()+chroma.close()+有限重试+残留非零退出；连续 2 次 20/20，临时目录 0 残留，%LOCALAPPDATA% 不变 |
+| T5 Stub E2E runtime 隔离 | 需再次修正 | `7ca1fed...` 的成功路径自测通过，但清理只在 `main()` 成功末尾执行；依赖导入失败会在注册真实 cleanup 前退出并泄漏目录 |
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
-| T8 候选与开发验证 | 需修正 | 版本、LF、旧脚本退出和发布检查通过；T5 的“目录已删除”证据被 T9 否定，需形成新候选 |
+| T8 候选与开发验证 | 需修正 | 版本、LF、旧脚本退出和发布检查通过；T5 成功路径已修，异常路径仍未闭环，需形成新候选 |
 | T9 独立源码验收 | 不通过 | `ca1f1b9...`：6 项通过，Stub 临时目录清理失败；RESULT 另引用不在谱系内的悬空 `838578...` |
 | T10 文档收口与发布 | 未开始 | 需 T9 通过、文档最终同步和用户发布确认 |
 
@@ -160,3 +160,13 @@
 ### 8.4 交接
 
 不恢复 MANIFEST.txt，不操作公开 main/tag。文档 Agent 在 7ca1fed895b8c340bcdab95d242b8aaf720eb7eb 基础上重建 review worktree 执行第二轮 T9。
+
+## 9. 第二轮 T9 前异常路径预检（2026-08-22）
+
+文档 Agent在 current clean 工作树尝试连续运行 Stub。该环境未安装 `python-dotenv`，脚本在导入 `core.config` 时以 `ModuleNotFoundError` 非零退出，因此这次运行不评价 20/20，也不替代高性能 Agent 的完整依赖环境验收。
+
+但临时目录集合提供了有效的失败路径证据：运行前为 0；两次导入失败后新增两个 `stub-e2e-runtime-*` 空目录。文档 Agent按本次精确目录名完成清理，未删除其他临时数据，Git 工作区仍 clean。
+
+根因是脚本先执行 `tempfile.mkdtemp()`，真实 `_cleanup_stub_runtime()` 却只在 `main()` 成功末尾调用；当前 `atexit.register(lambda: None)` 是空占位，不会在 import 失败、断言失败或提前 `sys.exit` 时清理。
+
+返工要求：创建临时目录并定义 cleanup 后立即注册真实兜底；成功路径可以主动清理并避免重复处理，异常路径必须在进程退出时尝试释放已创建资源并删除目录。至少验证：依赖导入失败后无新目录、成功 20/20 后无新目录、业务断言失败后无新目录；成功路径残留仍必须非零退出。采用源码提交 A、RESULT 提交 B，均正常增量提交且不 amend。
