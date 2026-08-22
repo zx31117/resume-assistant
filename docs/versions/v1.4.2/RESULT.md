@@ -5,8 +5,9 @@
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 首轮开发交付 commit：`ed4d3ac7da0463773d98c975c0af37e1b7dba9c3`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
 > 第一轮 T9 验收对象：`ca1f1b9cd053a56fe61b36484953b2ccf51639fc`（不通过）
-> 功能验收：不通过；成功路径返工自测通过，但 T9 前异常路径预检发现依赖导入失败仍泄漏临时目录
-> 结构变更验收：不通过；T5 尚未覆盖 import/断言/异常退出时的清理生命周期
+> 第三轮 cleanup 源码修正 commit：`8c042ffa446ec0c5dea4e93aafe2664026f80a59`
+> 功能验收：开发自验成功路径通过，文档预检异常导入路径通过；待第三轮 T9 独立复验
+> 结构变更验收：第一轮 T9 不通过；第三轮修正已形成，待新 review HEAD 复核
 
 ## 1. PLAN Task 对照
 
@@ -17,11 +18,11 @@
 | T2 README、隐私和工作流 | 完成 | 根 README 使用真实公开 URL；工作流明确路径角色、commit 交接、发布责任和 fast-forward |
 | T3 当前事实与历史归档 | 完成 | CURRENT_STATE 精简；V1.4.1 RESULT 追加发布后远端纠正记录 |
 | T4 Markdown LF 规范 | 完成 | 新增 `.gitattributes`；24 份 Markdown 统一为 LF；DOCX/字体/图片声明为 binary |
-| T5 Stub E2E runtime 隔离 | 需再次修正 | `7ca1fed...` 的成功路径自测通过，但清理只在 `main()` 成功末尾执行；依赖导入失败会在注册真实 cleanup 前退出并泄漏目录 |
+| T5 Stub E2E runtime 隔离 | 完成待验收 | `8c042ffa...` 建立幂等 cleanup、立即注册真实 atexit 并以 try/finally 覆盖成功、失败和提前退出；成功 20/20×2 与 `python -S` 异常导入均 0 残留 |
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
-| T8 候选与开发验证 | 需修正 | 版本、LF、旧脚本退出和发布检查通过；T5 成功路径已修，异常路径仍未闭环，需形成新候选 |
-| T9 独立源码验收 | 不通过 | `ca1f1b9...`：6 项通过，Stub 临时目录清理失败；RESULT 另引用不在谱系内的悬空 `838578...` |
+| T8 候选与开发验证 | 完成待验收 | 版本、LF、旧脚本退出、发布检查和 T5 第三轮修正完成；源码 A / 文档 B 正常增量提交 |
+| T9 独立源码验收 | 待第三轮 | 第一轮 `ca1f1b9...` 不通过已留存；第三轮需在最新 clean review 对全部验收面和修正路径重新复核 |
 | T10 文档收口与发布 | 未开始 | 需 T9 通过、文档最终同步和用户发布确认 |
 
 ## 2. 实际全局变化
@@ -43,7 +44,7 @@
 | 变更 | 新状态 | 旧状态退出 | 回归证据 |
 |---|---|---|---|
 | Git 发布方式 | 公开 main 上正常增量开发；发布前只读检查 | `_v14_t8_delivery.py` 删除，无常规 orphan/single-commit 重建入口 | 基线祖先关系成立；发布检查不含 push/commit/reset |
-| Stub runtime | 每次运行使用临时 `RESUME_DATA_DIR` | 不再清理旧 `backend/data`，不接触真实 runtime | 部分完成：连续两次 20/20、真实 runtime 不变；临时目录删除失败，待返工 |
+| Stub runtime | 每次运行使用临时 `RESUME_DATA_DIR` | 不再清理旧 `backend/data`，不接触真实 runtime | 开发自验连续两次 20/20、真实 runtime 不变；文档预检 `python -S` 异常导入非零退出且目录 0→0；待 T9 独立复验 |
 | Markdown 换行 | `*.md text eol=lf` | CRCRLF/混合换行退出 | `git check-attr` 和字节扫描通过 |
 | 版本元数据 | `APP_VERSION=1.4.2` 单一真源 | 活动对外入口不保留 1.4.1 硬编码 | FastAPI/OpenAPI/健康检查/Stub Banner 一致性待 T9 独立复核 |
 
@@ -53,13 +54,13 @@
 |---|---|---|
 | 基线谱系 | 通过 | V1.4.1 基线是 V1.4.2 HEAD 的祖先 |
 | 工作区 | 通过 | 交接时分支 `version/v1.4.2`、HEAD `ed4d3ac...`、status clean |
-| Stub E2E | 失败 | 连续两次业务断言 20/20、真实 runtime 不变，但每次残留一个 `stub-e2e-runtime-*` 目录；清理自检发现失败仍退出 0 |
+| Stub E2E | 通过（开发自验/文档异常路径预检） | 完整依赖连续两次 20/20、0 残留、真实 runtime 不变；`python -S` 导入失败非零退出、0 残留；待高性能 Agent独立复验完整依赖路径 |
 | 版本一致性 | 通过 | `APP_VERSION=1.4.2`，所有对外入口从该模块导入 |
 | LF | 通过 | 24 份 Markdown 属性均为 `eol: lf`，无 CRCRLF/混合换行 |
 | 一次性工具退出 | 通过 | 旧脚本删除；新检查只读 |
 | 文档链接与隐私 | 通过 | 相对链接无缺失；本机绝对路径和真实凭据无命中 |
 | 只读发布检查 | 通过 | 默认 Windows 控制台直接运行：Git 跟踪、隐私/PII、clean/历史和邮箱正反向自测全部 `[PASS]`，退出码 0 |
-| 高性能源码验收 | 失败 | 第一轮 T9 绑定 `ca1f1b9...`；Git、工具只读、GBK/邮箱、版本、LF、目录契约、隐私和无产品变更通过，Stub 资源清理阻断 |
+| 高性能源码验收 | 待第三轮 | 第一轮绑定 `ca1f1b9...` 且不通过；第三轮修正尚未由独立 Agent复验 |
 | 人工验收 | 未执行 | 本版本无新产品功能，最终由用户审核文档和发布结果 |
 
 开发提交自身涉及 12 个文件；从 V1.4.1 基线计算的完整版本 diff 还包含前一文档阶段提交和历史 Markdown 换行规范化，不能把“单个开发 commit 的 12 个文件”表述成“整个 V1.4.2 只改变 12 个文件”。
