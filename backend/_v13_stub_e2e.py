@@ -29,9 +29,53 @@ os.environ["CHROMA_PATH"] = str(_STUB_RUNTIME_TMP / "vectorstore" / "chroma")
 os.environ["DOCX_OUTPUT_DIR"] = str(_STUB_RUNTIME_TMP / "output")
 
 def _cleanup_stub_runtime():
+    """Release resources then remove the temp runtime directory with limited retry.
+
+    Returns True if the directory was fully removed, False if residual remains.
+    Does NOT use ignore_errors=True — failures are surfaced, not hidden.
+    """
+    # 1. Release SQLAlchemy engine (closes all pooled connections)
+    try:
+        from database.session import engine as _engine
+        _engine.dispose()
+    except Exception as e:
+        print(f"[cleanup][WARN] engine.dispose failed: {e}")
+
+    # 2. Release Chroma client (releases file handles on Windows)
+    try:
+        from vectorstore import chroma_store
+        if chroma_store._chroma_client is not None:
+            chroma_store._chroma_client.close()
+            chroma_store._chroma_client = None
+    except Exception as e:
+        print(f"[cleanup][WARN] chroma close failed: {e}")
+
+    # 3. Force GC to release lingering file handles
+    import gc
+    gc.collect()
+
+    # 4. Remove temp directory with limited retry (no ignore_errors=True)
+    if not _STUB_RUNTIME_TMP.exists():
+        return True
+
+    import time
+    last_err = None
+    for attempt in range(5):
+        try:
+            shutil.rmtree(_STUB_RUNTIME_TMP)
+            return True
+        except Exception as e:
+            last_err = e
+            time.sleep(0.3 * (attempt + 1))
+            gc.collect()
+    # Final check
     if _STUB_RUNTIME_TMP.exists():
-        shutil.rmtree(_STUB_RUNTIME_TMP, ignore_errors=True)
-atexit.register(_cleanup_stub_runtime)
+        print(f"[cleanup][FAIL] residual after 5 retries: {last_err}")
+        return False
+    return True
+
+_CLEANUP_OK = True
+atexit.register(lambda: None)  # placeholder; real cleanup in main()
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
@@ -79,13 +123,14 @@ STUB_PROFILE = {"name": "张三", "phone": "13800000001", "email": "zhangsan@exa
 STUB_JD_TEXT = "AI硬件产品经理\n负责AI硬件产品规划。\n要求: 3年产品经验, AI/硬件优先。"
 
 def _cleanup():
-    # V1.4.2: 不再访问真实 runtime。测试目录是临时隔离的，每次子测试前清空
-    # output 下 DOCX（避免同一个测试 run 内前序残留影响渲染断言）。
-    # 整个临时目录会在脚本退出时通过 atexit 删除。
+    # V1.4.2: Clear DOCX files from temp output before each subtest.
+    # The entire temp directory is removed at script exit by _cleanup_stub_runtime().
     if OUTPUT_DIR.exists():
         for p in OUTPUT_DIR.glob("resume_*.docx"):
-            try: p.unlink()
-            except: pass
+            try:
+                p.unlink()
+            except Exception as e:
+                print(f"[cleanup][WARN] failed to unlink {p.name}: {e}")
     print(f"[cleanup] runtime isolated at: {_STUB_RUNTIME_TMP}")
 
 def _build_stub_gc(exp_ids):
@@ -548,9 +593,15 @@ def main():
     if hp != ht or ep != et:
         print("\n存在未通过的测试项!")
         sys.exit(1)
-    # V1.4.2: 隔离完整性证明 — 临时 runtime 在结束时整体删除
-    _cleanup_stub_runtime()
-    print(f"  [isolation] 临时 runtime 已删除: {Path(str(_STUB_RUNTIME_TMP)).exists()} (False 为预期)")
+    # V1.4.2: Release all resources then remove temp runtime with limited retry.
+    # If residual remains after retries, exit non-zero.
+    global _CLEANUP_OK
+    _CLEANUP_OK = _cleanup_stub_runtime()
+    _removed = not _STUB_RUNTIME_TMP.exists()
+    print(f"  [isolation] temp runtime removed: {_removed}")
+    if not _removed:
+        print("  [isolation][FAIL] residual temp directory after cleanup — cannot pass isolation")
+        sys.exit(1)
     return all_results
 
 if __name__ == "__main__":
