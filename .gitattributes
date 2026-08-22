@@ -1,0 +1,30 @@
+# 统一 Markdown 为 LF，避免跨平台反复改写整篇文档
+*.md text eol=lf
+*.markdown text eol=lf
+
+# 常见文本格式
+*.txt   text eol=lf
+*.py    text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.sh    text eol=lf
+*.ps1   text eol=lf
+*.css   text eol=lf
+*.js    text eol=lf
+*.ts    text eol=lf
+*.html  text eol=lf
+
+# 明确声明二进制：DOCX 模板、字体、图片
+*.docx binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary

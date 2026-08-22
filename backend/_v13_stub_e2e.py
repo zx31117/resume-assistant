@@ -1,5 +1,10 @@
-"""V1.3 Stub E2E - 固定 LLM/Embedding mock，CI 可重复"""
-import json, os, re, shutil, sys
+"""V1.3 Stub E2E - 固定 LLM/Embedding mock，CI 可重复（V1.4.2 隔离修复）。
+
+每次运行强制使用临时独立 RESUME_DATA_DIR，测试结束后整体清理，
+完全不接触或污染用户真实 runtime。连续运行两次都应 20/20。
+"""
+import atexit
+import json, os, re, shutil, sys, tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
@@ -13,6 +18,20 @@ from unittest.mock import patch, MagicMock
 # 用 setdefault：若外部已注入真实 Key 也不覆盖（测试验收时会清空真实 Key，故此处实际写入假 Key）。
 os.environ.setdefault("ARK_API_KEY", "stub-e2e-ark-key-not-real")
 os.environ.setdefault("OPENAI_API_KEY", "stub-e2e-openai-key-not-real")
+
+# V1.4.2: 强制使用独立临时 RESUME_DATA_DIR，完全隔离用户真实 runtime。
+# 隔离证明：真实 %LOCALAPPDATA%/ResumeAssistant 等目录不会被本脚本读取或写入。
+_STUB_RUNTIME_TMP = Path(tempfile.mkdtemp(prefix="stub-e2e-runtime-")).resolve()
+os.environ["RESUME_DATA_DIR"] = str(_STUB_RUNTIME_TMP)
+# 显式覆盖三条显式路径，防止用户本机有残留环境变量绕过隔离
+os.environ["SQLITE_PATH"] = str(_STUB_RUNTIME_TMP / "database" / "app.db")
+os.environ["CHROMA_PATH"] = str(_STUB_RUNTIME_TMP / "vectorstore" / "chroma")
+os.environ["DOCX_OUTPUT_DIR"] = str(_STUB_RUNTIME_TMP / "output")
+
+def _cleanup_stub_runtime():
+    if _STUB_RUNTIME_TMP.exists():
+        shutil.rmtree(_STUB_RUNTIME_TMP, ignore_errors=True)
+atexit.register(_cleanup_stub_runtime)
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
@@ -60,13 +79,14 @@ STUB_PROFILE = {"name": "张三", "phone": "13800000001", "email": "zhangsan@exa
 STUB_JD_TEXT = "AI硬件产品经理\n负责AI硬件产品规划。\n要求: 3年产品经验, AI/硬件优先。"
 
 def _cleanup():
-    d = BACKEND_ROOT / "data"
-    if d.exists():
-        shutil.rmtree(d, ignore_errors=True)
-    for p in OUTPUT_DIR.glob("resume_*.docx"):
-        try: p.unlink()
-        except: pass
-    print("[cleanup] done")
+    # V1.4.2: 不再访问真实 runtime。测试目录是临时隔离的，每次子测试前清空
+    # output 下 DOCX（避免同一个测试 run 内前序残留影响渲染断言）。
+    # 整个临时目录会在脚本退出时通过 atexit 删除。
+    if OUTPUT_DIR.exists():
+        for p in OUTPUT_DIR.glob("resume_*.docx"):
+            try: p.unlink()
+            except: pass
+    print(f"[cleanup] runtime isolated at: {_STUB_RUNTIME_TMP}")
 
 def _build_stub_gc(exp_ids):
     items = [{"experience_id": eid, "bullets": [f"[STUB] AI bullet for {eid[:8]}"]} for eid in exp_ids]
@@ -528,6 +548,9 @@ def main():
     if hp != ht or ep != et:
         print("\n存在未通过的测试项!")
         sys.exit(1)
+    # V1.4.2: 隔离完整性证明 — 临时 runtime 在结束时整体删除
+    _cleanup_stub_runtime()
+    print(f"  [isolation] 临时 runtime 已删除: {Path(str(_STUB_RUNTIME_TMP)).exists()} (False 为预期)")
     return all_results
 
 if __name__ == "__main__":
