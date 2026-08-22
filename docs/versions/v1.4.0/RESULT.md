@@ -62,7 +62,7 @@
 3. [backend/_v14_t3_migrate.py](../../../backend/_v14_t3_migrate.py) — 迁移主逻辑；`OLD_DATA_NOT_DELETED` 标志；严格 SQL 一致性断言；向量重建 `--rebuild-vectors` 可选。
 4. [backend/run_stub_demo.py](../../../backend/run_stub_demo.py) — T5 零 API Key 单条可运行入口；Demo Profile/Experiences/JD 全虚构；证明事实→渲染→落盘链路。
 5. [backend/_v14_t7_regression.py](../../../backend/_v14_t7_regression.py) — 15 条 T7 自动化 case；V1.3.0 十 Case 覆盖关系和最终结果已合并在本 RESULT §四/§七。
-6. [backend/_v14_t8_delivery.py](../../../backend/_v14_t8_delivery.py) — T8 构建脚本；四道安全屏障；交付 manifest JSON。
+6. `backend/_v14_t8_delivery.py` — 当时的 T8 构建脚本、四道安全屏障和交付 manifest JSON；该一次性首发工具已在 V1.4.2 退出，因此不再链接到当前源码。
 
 ---
 
