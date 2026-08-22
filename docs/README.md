@@ -2,8 +2,8 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V1.4.1；源码验收 commit `317c5266`；发布归档使用 annotated tag `v1.4.1`，其目标 commit 是最终发布标识
-> 下一候选版本：[V1.5.0 草稿](./versions/v1.5.0/DRAFT.md)；尚未转为开发 PLAN
+> 当前已验收版本：V1.4.1；公开 `main` 与 annotated tag `v1.4.1` 的基线 commit 为 `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`
+> 当前开发版本：[V1.4.2 PLAN](./versions/v1.4.2/PLAN.md)；未验收内容不得写成当前能力
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -29,7 +29,7 @@
 |---|---|---|
 | V1 | 核心流程完整运行、内容正确、关键失败可见 | 精细体验、生产部署 |
 | V2 | 匹配、生成、交互、性能、模板和排版体验完善 | 多用户服务器化 |
-| V3.0.0 | 登录、多用户、持久化 Profile、服务器与生产体验 | 重做已经稳定的核心事实链路 |
+| V3 | 登录、多用户、持久化 Profile、服务器与生产体验 | 重做已经稳定的核心事实链路 |
 
 V1 不要求严格一页纸、像素级排版、高性能体验、多用户或公网部署，也不生成个人总结/自我评价。个人总结只在后续版本针对履历单薄等场景评估；一页纸和视觉精修属于 V2；用户系统、PostgreSQL、对象存储、异步任务、限流和监控属于 V3。
 
@@ -122,12 +122,12 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 2. PLAN、RESULT、CURRENT_STATE 中的“计划 / 实际 / 已验收”没有混写；
 3. README、CURRENT_STATE、DECISIONS 和两个版本索引的版本号、状态与链接一致；
 4. 只写入已验证事实；未完成项保留在 PLAN 或 RESULT，不进入 CURRENT_STATE；
-5. 已验收的历史 PLAN / RESULT 不反向改写；活动版本可在最终验收前按用户确认和实际实现收敛；
+5. 历史 PLAN / RESULT 不改写当时的目标、结论和决策；允许隐私脱敏、路径/链接迁移、编码/换行、明显笔误等机械修正，也允许用注明日期和性质的附录补记发布后才能确认的事实；
 6. 相对链接、决策锚点和已删除路径检查通过。
 7. 根 README 对 GitHub 用户自包含，且不要求读者理解 PLAN、RESULT、T 编号、Agent 分工或内部验收状态。
 8. 功能验收与结构变更验收分别有结论；替换型变更具有正向、反向和回归证据。
 9. 开发验证、源码验收、最终实现和发布标识指向同一条可追溯的 commit 链；验收后的相关修改已经重验。
-10. 拟公开文档已扫描本机绝对路径、用户名、真实凭据和不安全的 Token URL；需要保留的执行步骤使用语义路径或可复用变量，commit、branch 和验收数据不得以脱敏为由删除。
+10. 拟公开文档已扫描本机绝对路径、用户名、真实凭据和不安全的 Token URL；公开项目名、公开仓库 URL 和 release/tag 属于正常用户入口，不应误删；需要保留的内部执行路径使用语义别名，commit、branch 和验收数据不得以脱敏为由删除。
 11. RESULT 记录被验收源码 commit 和冻结核对结果；最终发布 commit 不回写自身 SHA，发布后由 annotated tag 的目标 commit 作为唯一发布标识，避免“写入 SHA 导致 commit 再变化”的循环。
 
 ## 9. 版本索引
@@ -141,5 +141,6 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 | V1.3.0 | V1 核心链路收口 | [PLAN](./versions/v1.3.0/PLAN.md) | [RESULT](./versions/v1.3.0/RESULT.md) | 已验收；第三轮修正、源码复核和人工 E2E 通过 |
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4.0/PLAN.md) | [RESULT](./versions/v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
+| V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 开发中；当前事实仍以 V1.4.1 为准 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

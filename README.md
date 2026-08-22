@@ -2,7 +2,7 @@
 
 一个本地运行的 AI 简历生成后端：保存用户的完整职业经历，再根据目标岗位 JD 检索相关事实、生成针对性表达，并输出 DOCX 简历。
 
-当前代码版本为 **V1.4.1**。本版本在 V1.4.0 源码—数据解耦的基础上，统一了对外版本元数据真源、清理了与身份事实边界冲突的历史死代码，并修正了根 README 与完整开发档案的自然分层。
+当前开发版本为 **V1.4.2**。本补丁不增加简历功能，主要修正发布基线、Git 增量迭代、测试隔离和开发档案一致性；当前稳定业务能力延续自 V1.4.1。
 
 ## 项目能做什么
 
@@ -34,10 +34,10 @@ PDF 简历 → 文本解析 → 经历提取 → SQLite 事实库 → Chroma 向
 
 ### 1. 获取源码并安装依赖
 
-要求 Python 3.10 或更高版本。V1.4.1 的干净环境验证使用 Python 3.10.11。
+要求 Python 3.10 或更高版本。当前发布基线的干净环境验证使用 Python 3.10.11。
 
 ```bash
-git clone https://github.com/<github-owner>/resume-assistant.git
+git clone https://github.com/ZX31117/resume-assistant.git
 cd resume-assistant
 python -m venv backend/.venv
 ```
