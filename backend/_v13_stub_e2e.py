@@ -28,12 +28,20 @@ os.environ["SQLITE_PATH"] = str(_STUB_RUNTIME_TMP / "database" / "app.db")
 os.environ["CHROMA_PATH"] = str(_STUB_RUNTIME_TMP / "vectorstore" / "chroma")
 os.environ["DOCX_OUTPUT_DIR"] = str(_STUB_RUNTIME_TMP / "output")
 
+_CLEANUP_DONE = False
+_CLEANUP_RESULT = None
+
 def _cleanup_stub_runtime():
     """Release resources then remove the temp runtime directory with limited retry.
 
-    Returns True if the directory was fully removed, False if residual remains.
+    Idempotent: safe to call from both main() success path and atexit fallback.
+    Returns True if the directory was fully removed (or already removed).
     Does NOT use ignore_errors=True — failures are surfaced, not hidden.
     """
+    global _CLEANUP_DONE, _CLEANUP_RESULT
+    if _CLEANUP_DONE:
+        return _CLEANUP_RESULT
+
     # 1. Release SQLAlchemy engine (closes all pooled connections)
     try:
         from database.session import engine as _engine
@@ -56,6 +64,8 @@ def _cleanup_stub_runtime():
 
     # 4. Remove temp directory with limited retry (no ignore_errors=True)
     if not _STUB_RUNTIME_TMP.exists():
+        _CLEANUP_DONE = True
+        _CLEANUP_RESULT = True
         return True
 
     import time
@@ -63,6 +73,8 @@ def _cleanup_stub_runtime():
     for attempt in range(5):
         try:
             shutil.rmtree(_STUB_RUNTIME_TMP)
+            _CLEANUP_DONE = True
+            _CLEANUP_RESULT = True
             return True
         except Exception as e:
             last_err = e
@@ -71,11 +83,16 @@ def _cleanup_stub_runtime():
     # Final check
     if _STUB_RUNTIME_TMP.exists():
         print(f"[cleanup][FAIL] residual after 5 retries: {last_err}")
+        _CLEANUP_DONE = True
+        _CLEANUP_RESULT = False
         return False
+    _CLEANUP_DONE = True
+    _CLEANUP_RESULT = True
     return True
 
-_CLEANUP_OK = True
-atexit.register(lambda: None)  # placeholder; real cleanup in main()
+# Register real atexit cleanup immediately after definition.
+# This covers all exit paths: import failure, sys.exit, uncaught exception.
+atexit.register(_cleanup_stub_runtime)
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
@@ -566,42 +583,44 @@ def _profile_snapshot(p: _ProfileDoc) -> dict:
     }
 
 def main():
-    print("=" * 72)
-    print("V1.3 Stub E2E - 固定 LLM/Embedding mock, CI 可重复")
-    print("=" * 72)
-    print("\n[1/2] Happy Path ...")
-    happy = run_happy_path()
-    for k, v in happy.items():
-        print(f"  [{'PASS' if v['status']=='通过' else 'FAIL'}] {k}: {v['status']}")
-    print("\n[2/2] 错误分支 + 身份边界 ...")
-    errors = run_error_branches()
-    for r in errors:
-        print(f"  [{'PASS' if r['status']=='通过' else 'FAIL'}] {r['scenario']}")
-    all_results = {"happy_path": happy, "error_branches": errors,
-                   "__summary__": {"happy_path": {k: v["status"] for k,v in happy.items()},
-                                   "error_branches": {r["scenario"]: r["status"] for r in errors}}}
-    hp = sum(1 for v in happy.values() if v["status"]=="通过")
-    ht = len(happy)
-    ep = sum(1 for r in errors if r["status"]=="通过")
-    et = len(errors)
-    out = OUTPUT_DIR / "V1.3_StubE2E_验证表.json"
-    out.write_text(json.dumps(all_results, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\n{'=' * 72}")
-    print(f"Stub E2E 完成 - {out}")
-    print(f"  Happy Path: {hp}/{ht}  错误分支: {ep}/{et}  总计: {hp+ep}/{ht+et}")
-    print("=" * 72)
-    if hp != ht or ep != et:
-        print("\n存在未通过的测试项!")
-        sys.exit(1)
-    # V1.4.2: Release all resources then remove temp runtime with limited retry.
-    # If residual remains after retries, exit non-zero.
-    global _CLEANUP_OK
-    _CLEANUP_OK = _cleanup_stub_runtime()
-    _removed = not _STUB_RUNTIME_TMP.exists()
-    print(f"  [isolation] temp runtime removed: {_removed}")
-    if not _removed:
-        print("  [isolation][FAIL] residual temp directory after cleanup — cannot pass isolation")
-        sys.exit(1)
+    try:
+        print("=" * 72)
+        print("V1.3 Stub E2E - 固定 LLM/Embedding mock, CI 可重复")
+        print("=" * 72)
+        print("\n[1/2] Happy Path ...")
+        happy = run_happy_path()
+        for k, v in happy.items():
+            print(f"  [{'PASS' if v['status']=='通过' else 'FAIL'}] {k}: {v['status']}")
+        print("\n[2/2] 错误分支 + 身份边界 ...")
+        errors = run_error_branches()
+        for r in errors:
+            print(f"  [{'PASS' if r['status']=='通过' else 'FAIL'}] {r['scenario']}")
+        all_results = {"happy_path": happy, "error_branches": errors,
+                       "__summary__": {"happy_path": {k: v["status"] for k,v in happy.items()},
+                                       "error_branches": {r["scenario"]: r["status"] for r in errors}}}
+        hp = sum(1 for v in happy.values() if v["status"]=="通过")
+        ht = len(happy)
+        ep = sum(1 for r in errors if r["status"]=="通过")
+        et = len(errors)
+        out = OUTPUT_DIR / "V1.3_StubE2E_验证表.json"
+        out.write_text(json.dumps(all_results, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"\n{'=' * 72}")
+        print(f"Stub E2E 完成 - {out}")
+        print(f"  Happy Path: {hp}/{ht}  错误分支: {ep}/{et}  总计: {hp+ep}/{ht+et}")
+        print("=" * 72)
+        if hp != ht or ep != et:
+            print("\n存在未通过的测试项!")
+            sys.exit(1)
+    finally:
+        # V1.4.2: Always cleanup, whether success, failure, or sys.exit.
+        # _cleanup_stub_runtime is idempotent — atexit will call it again
+        # as a no-op if we already did it here.
+        _ok = _cleanup_stub_runtime()
+        _removed = not _STUB_RUNTIME_TMP.exists()
+        print(f"  [isolation] temp runtime removed: {_removed}")
+        if not _ok or not _removed:
+            print("  [isolation][FAIL] cleanup failed — cannot pass isolation")
+            sys.exit(1)
     return all_results
 
 if __name__ == "__main__":
