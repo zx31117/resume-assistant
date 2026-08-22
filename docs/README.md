@@ -141,6 +141,6 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 | V1.3.0 | V1 核心链路收口 | [PLAN](./versions/v1.3.0/PLAN.md) | [RESULT](./versions/v1.3.0/RESULT.md) | 已验收；第三轮修正、源码复核和人工 E2E 通过 |
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4.0/PLAN.md) | [RESULT](./versions/v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
-| V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 第三轮修正完成、待 T9；当前事实仍以 V1.4.1 为准 |
+| V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 第三轮 T9 通过、待用户确认；当前事实仍以 V1.4.1 为准 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

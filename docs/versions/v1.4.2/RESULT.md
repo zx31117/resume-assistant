@@ -1,13 +1,14 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：待 T9 验收（第三轮）
+> 状态：待验收
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
 > 首轮开发交付 commit：`ed4d3ac7da0463773d98c975c0af37e1b7dba9c3`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
 > 第一轮 T9 验收对象：`ca1f1b9cd053a56fe61b36484953b2ccf51639fc`（不通过）
 > 第三轮 cleanup 源码修正 commit：`8c042ffa446ec0c5dea4e93aafe2664026f80a59`
-> 功能验收：开发自验成功路径通过，文档预检异常导入路径通过；待第三轮 T9 独立复验
-> 结构变更验收：第一轮 T9 不通过；第三轮修正已形成，待新 review HEAD 复核
+> 第三轮 T9 验收对象：`46fb00cdf61dfc4d12b92119a99b3c26135a0da7`（通过，9/9）
+> 功能验收：通过；Stub 成功、导入失败、提前退出、幂等和删除失败路径均已独立复验，待用户最终确认
+> 结构变更验收：通过；Git、发布工具、版本、LF、目录契约、隐私和无产品变更均无回归
 
 ## 1. PLAN Task 对照
 
@@ -18,12 +19,12 @@
 | T2 README、隐私和工作流 | 完成 | 根 README 使用真实公开 URL；工作流明确路径角色、commit 交接、发布责任和 fast-forward |
 | T3 当前事实与历史归档 | 完成 | CURRENT_STATE 精简；V1.4.1 RESULT 追加发布后远端纠正记录 |
 | T4 Markdown LF 规范 | 完成 | 新增 `.gitattributes`；24 份 Markdown 统一为 LF；DOCX/字体/图片声明为 binary |
-| T5 Stub E2E runtime 隔离 | 完成待验收 | `8c042ffa...` 建立幂等 cleanup、立即注册真实 atexit 并以 try/finally 覆盖成功、失败和提前退出；成功 20/20×2 与 `python -S` 异常导入均 0 残留 |
+| T5 Stub E2E runtime 隔离 | 完成 | `8c042ffa...` 建立幂等 cleanup、立即注册真实 atexit 并以 try/finally 覆盖成功、失败和提前退出；第三轮 T9 复验通过 |
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
-| T8 候选与开发验证 | 完成待验收 | 版本、LF、旧脚本退出、发布检查和 T5 第三轮修正完成；源码 A / 文档 B 正常增量提交 |
-| T9 独立源码验收 | 待第三轮 | 第一轮 `ca1f1b9...` 不通过已留存；第三轮需在最新 clean review 对全部验收面和修正路径重新复核 |
-| T10 文档收口与发布 | 未开始 | 需 T9 通过、文档最终同步和用户发布确认 |
+| T8 候选与开发验证 | 完成 | 版本、LF、旧脚本退出、发布检查和 T5 第三轮修正完成；源码 A / 文档 B 正常增量提交 |
+| T9 独立源码验收 | 完成 | 第三轮绑定 `46fb00c...`，9/9 通过；第一轮不通过及两次返工过程保留在本文 |
+| T10 文档收口与发布 | 进行中 | T9 结论已回写；等待用户确认后更新当前事实并执行远端 preflight、fast-forward 和 tag |
 
 ## 2. 实际全局变化
 
@@ -44,9 +45,9 @@
 | 变更 | 新状态 | 旧状态退出 | 回归证据 |
 |---|---|---|---|
 | Git 发布方式 | 公开 main 上正常增量开发；发布前只读检查 | `_v14_t8_delivery.py` 删除，无常规 orphan/single-commit 重建入口 | 基线祖先关系成立；发布检查不含 push/commit/reset |
-| Stub runtime | 每次运行使用临时 `RESUME_DATA_DIR` | 不再清理旧 `backend/data`，不接触真实 runtime | 开发自验连续两次 20/20、真实 runtime 不变；文档预检 `python -S` 异常导入非零退出且目录 0→0；待 T9 独立复验 |
+| Stub runtime | 每次运行使用临时 `RESUME_DATA_DIR` | 不再清理旧 `backend/data`，不接触真实 runtime | T9：20/20×2；成功、导入失败和提前退出均 0 残留；真实 runtime 不变；清理失败非零退出 |
 | Markdown 换行 | `*.md text eol=lf` | CRCRLF/混合换行退出 | `git check-attr` 和字节扫描通过 |
-| 版本元数据 | `APP_VERSION=1.4.2` 单一真源 | 活动对外入口不保留 1.4.1 硬编码 | FastAPI/OpenAPI/健康检查/Stub Banner 一致性待 T9 独立复核 |
+| 版本元数据 | `APP_VERSION=1.4.2` 单一真源 | 活动对外入口不保留 1.4.1 硬编码 | T9 复核 `main.py`、`run_stub_demo.py` 和根 README 一致 |
 
 ## 4. 开发 Agent 验证
 
@@ -54,22 +55,22 @@
 |---|---|---|
 | 基线谱系 | 通过 | V1.4.1 基线是 V1.4.2 HEAD 的祖先 |
 | 工作区 | 通过 | 交接时分支 `version/v1.4.2`、HEAD `ed4d3ac...`、status clean |
-| Stub E2E | 通过（开发自验/文档异常路径预检） | 完整依赖连续两次 20/20、0 残留、真实 runtime 不变；`python -S` 导入失败非零退出、0 残留；待高性能 Agent独立复验完整依赖路径 |
+| Stub E2E | 通过 | T9 完整依赖连续两次 20/20、0 残留；`python -S`、提前退出、幂等、不误删和删除失败路径全部通过 |
 | 版本一致性 | 通过 | `APP_VERSION=1.4.2`，所有对外入口从该模块导入 |
 | LF | 通过 | 24 份 Markdown 属性均为 `eol: lf`，无 CRCRLF/混合换行 |
 | 一次性工具退出 | 通过 | 旧脚本删除；新检查只读 |
 | 文档链接与隐私 | 通过 | 相对链接无缺失；本机绝对路径和真实凭据无命中 |
 | 只读发布检查 | 通过 | 默认 Windows 控制台直接运行：Git 跟踪、隐私/PII、clean/历史和邮箱正反向自测全部 `[PASS]`，退出码 0 |
-| 高性能源码验收 | 待第三轮 | 第一轮绑定 `ca1f1b9...` 且不通过；第三轮修正尚未由独立 Agent复验 |
+| 高性能源码验收 | 通过 | 第三轮绑定 `46fb00c...`，9/9 通过；review 全程 clean，验收 Agent未修改源码 |
 | 人工验收 | 未执行 | 本版本无新产品功能，最终由用户审核文档和发布结果 |
 
 开发提交自身涉及 12 个文件；从 V1.4.1 基线计算的完整版本 diff 还包含前一文档阶段提交和历史 Markdown 换行规范化，不能把“单个开发 commit 的 12 个文件”表述成“整个 V1.4.2 只改变 12 个文件”。
 
 阶段性 manifest 已退出版本目录。正式版本长期只保留 PLAN 与 RESULT；文件数和校验结论写入 RESULT 或验收汇总，不建立第三个真源。
 
-## 5. T9 交接
+## 5. T9 验收范围
 
-文档 Agent完成本节收口后创建 clean `<review-worktree>`，并在任务中给出其精确 HEAD。高性能源码验收 Agent只读取当前 PLAN、RESULT 和实际 diff，独立复核：
+高性能源码验收 Agent已在 clean `<review-worktree>` 对当前 PLAN、RESULT 和实际 diff 完成以下独立复核：
 
 1. V1.4.1 → T9 HEAD 的父子谱系和实际文件范围；
 2. 一次性首发脚本退出、只读检查无写入/发布副作用；
@@ -201,3 +202,21 @@
 ### 10.4 交接
 
 不恢复 MANIFEST.txt，不操作公开 main/tag。文档 Agent 在 8c042ffa446ec0c5dea4e93aafe2664026f80a59 基础上重建 review worktree 执行第三轮 T9。
+
+## 11. 第三轮 T9 源码验收（2026-08-22）
+
+验收对象：`46fb00cdf61dfc4d12b92119a99b3c26135a0da7`，detached、clean，父提交 `d521a5b6ef661fa96ce68ddf784841281ec0d59b`。结论：**通过，9/9**。验收 Agent全程未修改 review worktree，临时 harness 和哨兵均已自清。
+
+| 验收面 | 结论与证据 |
+|---|---|
+| 完整依赖成功路径 | 连续两次均 Happy Path 10/10 + 错误分支 10/10，exit 0；临时目录运行前后恒为 0 |
+| 导入失败 | `python -S` 触发 `ModuleNotFoundError`、exit 1，atexit 清理后目录 0→0 |
+| 提前退出 | harness 触发断言失败/提前 `sys.exit(1)`，atexit 清理且 0 残留 |
+| 幂等与边界 | cleanup 两次调用均成功；同级哨兵文件和目录未被误删 |
+| 文件句柄 | engine 与 Chroma client 释放后，包含 SQLite/Chroma 文件的临时目录可删除且无 warning |
+| 真实 runtime | 前后 20 个文件清单和 mtime diff 为空 |
+| 删除失败 | monkeypatch `rmtree` 持续失败时 cleanup 返回 False，打印 FAIL，主流程非零退出 |
+| 工程回归 | Git 线性增量、无 orphan；发布检查只读且 exit 0；版本 1.4.2；24 份 Markdown LF；隐私/链接/目录契约通过 |
+| 产品边界 | 相对 V1.4.1 的 backend 变化仅版本文件和验收辅助脚本；API、models、database、services 无产品改动 |
+
+第一轮“成功测试仍残留临时目录”和“当前实现引用悬空 SHA”均已闭合。V1.4.2 可以进入 T10：文档 Agent先完成最终状态同步和文档检查；用户确认发布后，再执行远端 preflight、fast-forward main 和 annotated tag `v1.4.2`。
