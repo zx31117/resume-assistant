@@ -1,11 +1,11 @@
 # V1.4.2 RESULT：发布基线与开发档案收口
 
-> 状态：需修正
+> 状态：待验收
 > 分支：`version/v1.4.2`
 > 基线 commit：`cbccdc8f40c9d4c2952c08504c14aa248fbfa29a`（`main` / `v1.4.1`）
-> 开发实现 commit：`8385787676ae985e64c5b79cbb44fe6970d2acd8`；开发 Agent 交接 HEAD `ed4d3ac7da0463773d98c975c0af37e1b7dba9c3` 仅继续修改本 RESULT 与已退出的 manifest
+> 开发实现 commit：`8385787676ae985e64c5b79cbb44fe6970d2acd8`；发布检查返工 commit：`bda3b351a510df36d32756b29062606a2ddf7348`
 > T9 验收对象：以文档 Agent创建 review worktree 时提供的 clean HEAD 为准；不在该 commit 内回填自身 SHA
-> 功能验收：开发 Agent验证通过；T9 前只读发布检查自身不可用，修复后才能送独立验收
+> 功能验收：开发 Agent验证和文档 Agent的 T9 前预检通过，待独立验收与用户确认
 > 结构变更验收：待高性能源码验收 Agent复核
 
 ## 1. PLAN Task 对照
@@ -21,7 +21,7 @@
 | T6 V1.5.0 草稿同步 | 完成 | 补齐 SQLite 单一持久化、退出 Chroma/numpy+JSON 和内部 Provider 边界 |
 | T7 版本元数据 | 完成 | `APP_VERSION="1.4.2"`；根 README 和对外运行入口同步 |
 | T8 候选与开发验证 | 完成 | 开发实现 commit `838578...`；版本、LF、旧脚本退出、两次 Stub 和只读发布检查均由开发侧验证 |
-| T9 独立源码验收 | 阻断前置检查 | review 已建立，但新发布检查在默认 Windows 编码崩溃，并把仓库既有虚构邮箱误报为真实 PII；尚未交给高性能验收 Agent |
+| T9 独立源码验收 | 未开始 | GBK 与虚构邮箱误报已在 `bda3b351...` 修复；文档 Agent默认 Windows 预检退出 0，待以最新 clean HEAD 重建 review |
 | T10 文档收口与发布 | 未开始 | 需 T9 通过、文档最终同步和用户发布确认 |
 
 ## 2. 实际全局变化
@@ -58,8 +58,8 @@
 | LF | 通过 | 24 份 Markdown 属性均为 `eol: lf`，无 CRCRLF/混合换行 |
 | 一次性工具退出 | 通过 | 旧脚本删除；新检查只读 |
 | 文档链接与隐私 | 通过 | 相对链接无缺失；本机绝对路径和真实凭据无命中 |
-| 只读发布检查 | 失败 | 默认 Windows GBK 输出 `✅` 时触发 `UnicodeEncodeError`；强制 UTF-8 后又把 `example.com` 等既有虚构 fixture 误报为真实 PII，clean 仓库退出码 2 |
-| 高性能源码验收 | 未执行 | 发布检查工具需先返工；本次预检不能算 T9 |
+| 只读发布检查 | 通过 | 默认 Windows 控制台直接运行：Git 跟踪、隐私/PII、clean/历史和邮箱正反向自测全部 `[PASS]`，退出码 0 |
+| 高性能源码验收 | 未执行 | 待最新 clean HEAD 的 T9 review |
 | 人工验收 | 未执行 | 本版本无新产品功能，最终由用户审核文档和发布结果 |
 
 开发提交自身涉及 12 个文件；从 V1.4.1 基线计算的完整版本 diff 还包含前一文档阶段提交和历史 Markdown 换行规范化，不能把“单个开发 commit 的 12 个文件”表述成“整个 V1.4.2 只改变 12 个文件”。
