@@ -61,7 +61,7 @@
 | 一次性工具退出 | 通过 | 旧脚本删除；新检查只读 |
 | 文档链接与隐私 | 通过 | 相对链接无缺失；本机绝对路径和真实凭据无命中 |
 | 只读发布检查 | 通过 | 默认 Windows 控制台直接运行：Git 跟踪、隐私/PII、clean/历史和邮箱正反向自测全部 `[PASS]`，退出码 0 |
-| 高性能源码验收 | 通过 | 第三轮绑定 `46fb00c...`，9/9 通过；review 全程 clean，验收 Agent未修改源码 |
+| 源码验收 | 通过 | 第三轮绑定 `46fb00c...`，9/9 通过；review 全程 clean，验收 Agent 未修改源码 |
 | 人工验收 | 通过 | 用户于 2026-08-22 确认 V1.4.2 验收通过并授权发布 |
 
 开发提交自身涉及 12 个文件；从 V1.4.1 基线计算的完整版本 diff 还包含前一文档阶段提交和历史 Markdown 换行规范化，不能把“单个开发 commit 的 12 个文件”表述成“整个 V1.4.2 只改变 12 个文件”。
@@ -70,7 +70,7 @@
 
 ## 5. T9 验收范围
 
-高性能源码验收 Agent已在 clean `<review-worktree>` 对当前 PLAN、RESULT 和实际 diff 完成以下独立复核：
+验收 Agent 已在 clean `<review-worktree>` 对当前 PLAN、RESULT 和实际 diff 完成以下独立复核：
 
 1. V1.4.1 → T9 HEAD 的父子谱系和实际文件范围；
 2. 一次性首发脚本退出、只读检查无写入/发布副作用；
@@ -122,7 +122,7 @@
 
 ## 7. 第一轮 T9 源码验收（2026-08-22）
 
-验收对象：`ca1f1b9cd053a56fe61b36484953b2ccf51639fc`，detached、clean；高性能源码验收 Agent未修改 review worktree。
+验收对象：`ca1f1b9cd053a56fe61b36484953b2ccf51639fc`，detached、clean；验收 Agent 未修改 review worktree。
 
 通过项：正常增量 Git 谱系；旧首发脚本退出和新工具只读；默认 Windows GBK 与邮箱正反向检测；对外版本 1.4.2；Markdown LF 与 `.gitattributes`；正式版本只有 PLAN + RESULT；隐私、相对链接及无产品 API/数据模型变化。
 
@@ -131,7 +131,7 @@
 1. Stub E2E 连续两次均为 20/20，真实 runtime 未变化，但 SQLite/Chroma 连接未关闭，`shutil.rmtree(ignore_errors=True)` 静默失败；每次运行残留一个含数据库和向量文件的临时目录。脚本已检测到“未删除”，却仍以 0 退出；
 2. 本 RESULT 曾把 amend 后的悬空中间 commit `838578...` 写成开发实现，实际谱系内的首轮开发交付是 `ed4d3ac...`。本节已纠正，后续只记录已存在的前序 commit；当前验收对象由交接和验收回写记录，不向自身回填 SHA。
 
-返工要求：开发 Agent在 current 工作树显式关闭数据库 engine、Chroma client 及其他文件句柄；目录删除不得 `ignore_errors=True` 后静默成功，需有限重试并在最终仍残留时非零退出。至少连续运行两次，证明 20/20、真实 runtime 不变、每次临时目录均删除；形成新的正常增量 commit 后重新 T9。
+返工要求：开发 Agent 在 current 工作树显式关闭数据库 engine、Chroma client 及其他文件句柄；目录删除不得 `ignore_errors=True` 后静默成功，需有限重试并在最终仍残留时非零退出。至少连续运行两次，证明 20/20、真实 runtime 不变、每次临时目录均删除；形成新的正常增量 commit 后重新 T9。
 
 
 ## 8. Stub E2E runtime 隔离修复（2026-08-22，第二轮）
@@ -165,9 +165,9 @@
 
 ## 9. 第二轮 T9 前异常路径预检（2026-08-22）
 
-文档 Agent在 current clean 工作树尝试连续运行 Stub。该环境未安装 `python-dotenv`，脚本在导入 `core.config` 时以 `ModuleNotFoundError` 非零退出，因此这次运行不评价 20/20，也不替代高性能 Agent 的完整依赖环境验收。
+文档 Agent 在 current clean 工作树尝试连续运行 Stub。该环境未安装 `python-dotenv`，脚本在导入 `core.config` 时以 `ModuleNotFoundError` 非零退出，因此这次运行不评价 20/20，也不替代验收 Agent 的完整依赖环境验收。
 
-但临时目录集合提供了有效的失败路径证据：运行前为 0；两次导入失败后新增两个 `stub-e2e-runtime-*` 空目录。文档 Agent按本次精确目录名完成清理，未删除其他临时数据，Git 工作区仍 clean。
+但临时目录集合提供了有效的失败路径证据：运行前为 0；两次导入失败后新增两个 `stub-e2e-runtime-*` 空目录。文档 Agent 按本次精确目录名完成清理，未删除其他临时数据，Git 工作区仍 clean。
 
 根因是脚本先执行 `tempfile.mkdtemp()`，真实 `_cleanup_stub_runtime()` 却只在 `main()` 成功末尾调用；当前 `atexit.register(lambda: None)` 是空占位，不会在 import 失败、断言失败或提前 `sys.exit` 时清理。
 
@@ -205,7 +205,7 @@
 
 ## 11. 第三轮 T9 源码验收（2026-08-22）
 
-验收对象：`46fb00cdf61dfc4d12b92119a99b3c26135a0da7`，detached、clean，父提交 `d521a5b6ef661fa96ce68ddf784841281ec0d59b`。结论：**通过，9/9**。验收 Agent全程未修改 review worktree，临时 harness 和哨兵均已自清。
+验收对象：`46fb00cdf61dfc4d12b92119a99b3c26135a0da7`，detached、clean，父提交 `d521a5b6ef661fa96ce68ddf784841281ec0d59b`。结论：**通过，9/9**。验收 Agent 全程未修改 review worktree，临时 harness 和哨兵均已自清。
 
 | 验收面 | 结论与证据 |
 |---|---|
@@ -219,10 +219,10 @@
 | 工程回归 | Git 线性增量、无 orphan；发布检查只读且 exit 0；版本 1.4.2；24 份 Markdown LF；隐私/链接/目录契约通过 |
 | 产品边界 | 相对 V1.4.1 的 backend 变化仅版本文件和验收辅助脚本；API、models、database、services 无产品改动 |
 
-第一轮“成功测试仍残留临时目录”和“当前实现引用悬空 SHA”均已闭合。用户已确认验收并授权发布；文档 Agent完成最终状态同步后，以 fast-forward 更新公开 `main` 并创建 annotated tag `v1.4.2`，禁止 force push。
+第一轮“成功测试仍残留临时目录”和“当前实现引用悬空 SHA”均已闭合。用户已确认验收并授权发布；文档 Agent 完成最终状态同步后，以 fast-forward 更新公开 `main` 并创建 annotated tag `v1.4.2`，禁止 force push。
 
 ## 12. T10 用户验收与发布收口（2026-08-22）
 
-用户确认 V1.4.2 验收通过并授权发布。文档 Agent据此把 V1.4.2 写入 `CURRENT_STATE.md`，同步开发入口和版本索引，并执行发布前远端核对。
+用户确认 V1.4.2 验收通过并授权发布。文档 Agent 据此把 V1.4.2 写入 `CURRENT_STATE.md`，同步开发入口和版本索引，并执行发布前远端核对。
 
 最终发布不把提交 SHA 回填到本 RESULT，避免“写入自身 SHA 后 commit 再变化”的循环。公开 `main` 只允许从 V1.4.1 基线正常 fast-forward；annotated tag `v1.4.2` 的目标 commit 是本版本唯一发布标识，不改写历史、不使用 force push。

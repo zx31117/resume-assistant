@@ -113,7 +113,7 @@ backend/
 
 **实际**：Chroma 优先 + numpy 余弦检索 + JSON 持久化回退。
 
-**原因**：当前 Windows 环境下 Chroma 的 Rust 扩展（`chromadb_rust_bindings`）DLL 加载失败，原因是缺少 VC++ 运行时或 MSVC 编译环境。为保证 V1 可跑通，在 [chroma_store.py](../../../backend/vectorstore/chroma_store.py) 中实现了自动回退机制：Chroma 初始化失败时，使用 numpy 进行余弦相似度检索 + JSON 文件持久化向量数据。
+**原因**：当前 Windows 环境下 Chroma 的 Rust 扩展（`chromadb_rust_bindings`）DLL 加载失败，原因是缺少 VC++ 运行时或 MSVC 编译环境。为保证 V1 可跑通，在历史路径 `backend/vectorstore/chroma_store.py` 中实现了自动回退机制：Chroma 初始化失败时，使用 numpy 进行余弦相似度检索 + JSON 文件持久化向量数据。
 
 **影响**：
 - 对外接口完全一致（`upsert / delete / query_by_embedding`），上层 `rag_service` 无感知。
@@ -156,7 +156,7 @@ backend/
 
 2. **API endpoint 与格式不同**：豆包 vision embedding 使用专属 endpoint `/api/v3/embeddings/multimodal`（非标准 `/embeddings`），请求体为对象数组 `input: [{type: "text", text: "..."}]`，响应体 `data` 是 dict（`data.embedding`）而非 list（`data[0].embedding`）。OpenAI 原生客户端也不兼容此格式。
 
-**实现细节**（见 [rag_service.py](../../../backend/services/rag_service.py)）：
+**实现细节**（历史路径 `backend/services/rag_service.py`）：
 ```python
 # 直接 HTTP 调用豆包多模态向量化 API
 url = f"{settings.ARK_BASE_URL}/embeddings/multimodal"

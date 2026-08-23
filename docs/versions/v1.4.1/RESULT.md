@@ -2,7 +2,7 @@
 
 **版本号**：V1.4.1（对外版本一致性 + 身份边界清理补丁）
 **日期**：2026-08-19（核心补丁） / 2026-08-22（N4 最终验收）
-**状态**：`已验收` — 高性能源码验收 Agent 已于 2026-08-22 完成 N4 后最终源码验收：候选 commit `317c5266` 的 manifest/SHA256/Git 三一致 88/88/88、T7 12 PASS / 0 FAIL、Stub E2E 干净环境 20/20、身份边界独立推导 10/10，源码与 runtime 安全门通过。首轮纯文档冻结候选 `2b6e8f9` 机械核对通过，但因包内仍保留“待最终冻结”状态文字，且文档复核另发现两处历史 GitHub 用户名未脱敏而退出发布；发布档案随后完成稳定语义和隐私收口，最终发布 commit 由 annotated tag `v1.4.1` 标识。遗留 1 项测试隔离缺陷（非阻断，见 §九末尾）。
+**状态**：`已验收` — 验收 Agent 已于 2026-08-22 完成 N4 后最终源码验收：候选 commit `317c5266` 的 manifest/SHA256/Git 三一致 88/88/88、T7 12 PASS / 0 FAIL、Stub E2E 干净环境 20/20、身份边界独立推导 10/10，源码与 runtime 安全门通过。首轮纯文档冻结候选 `2b6e8f9` 机械核对通过，但因包内仍保留“待最终冻结”状态文字，且文档复核另发现两处历史 GitHub 用户名未脱敏而退出发布；发布档案随后完成稳定语义和隐私收口，最终发布 commit 由 annotated tag `v1.4.1` 标识。遗留 1 项测试隔离缺陷（非阻断，见 §九末尾）。
 
 源码基线公开仓库 commit 仍基于 V1.4.0；既有 v1.4 tag 保持不动。
 
@@ -13,7 +13,7 @@
 
 ## 一、V1.4.1 目标回顾（对照 PLAN.md §2）
 
-本版本是补丁收口：V1.4.0 发布后 Work Buddy 发现公开源码存在版本漂移和死代码风险，不改变 V1.4.0 的 API、数据、生成流程和运行数据边界。
+本版本是补丁收口：V1.4.0 发布后验收 Agent 发现公开源码存在版本漂移和死代码风险，不改变 V1.4.0 的 API、数据、生成流程和运行数据边界。
 
 | # | V1.4.0 暴露的问题 | V1.4.1 解决方案 | 对应 T |
 |---|----------------|---------------|--------|
@@ -46,9 +46,9 @@
 
 ---
 
-## 三、验证矩阵（开发 AGENT 锚定结论）
+## 三、验证矩阵（开发 Agent 锚定结论）
 
-> 开发侧锚定在本 worktree（非 T8 干净环境）执行，仅用于防止 V1.4.1 代码本身连开发侧都坏了；最终验收必须由高性能源码验收 AGENT 在 **T8 干净首发包 + 全新 venv** 中重跑，不得直接采信下表。
+> 开发侧锚定在本 worktree（非 T8 干净环境）执行，仅用于防止 V1.4.1 代码本身连开发侧都坏了；最终验收必须由验收 Agent 在 **T8 干净首发包 + 全新 venv** 中重跑，不得直接采信下表。
 
 ### 3.1 T1：版本元数据单一真源
 
@@ -89,7 +89,7 @@
 | V13-3 | ❌ FAIL：OperationalError 沙箱拒写 `app.db-journal` | 等价夹具（全新 TEMP runtime）✅ PASS：fallback bullets 有 "下单/618零事故/TPS翻2倍"，fb_w 在 fallback_sql_experience_ids |
 | V13-4/5 | ✅ PASS | 渲染不裁条目；Stub DOCX 输出落在 DOCX_OUTPUT_DIR |
 | MIG-1 | ✅ PASS（兼容） | A/B 分类一致，旧 backend/data 不进首发 |
-| MIG-2 | ❌ FAIL：实际 counts 24/1/24 ≠ V1.4.0 基线 5/1/9 | **开发 worktree 的 baseline 文件 `backend/data/app.db` 被历史 stub e2e 反复运行污染成 6 倍**（非代码回归）；等价夹具对比 old=new 的 SQL count=24/1/24（copy 正确性无问题）。**T8 干净首发包因排除 `backend/data/`，此文件不在首发范围。**高性能验收 AGENT 在 T8 环境不会遇到此文件。 |
+| MIG-2 | ❌ FAIL：实际 counts 24/1/24 ≠ V1.4.0 基线 5/1/9 | **开发 worktree 的 baseline 文件 `backend/data/app.db` 被历史 stub e2e 反复运行污染成 6 倍**（非代码回归）；等价夹具对比 old=new 的 SQL count=24/1/24（copy 正确性无问题）。**T8 干净首发包因排除 `backend/data/`，此文件不在首发范围。**验收 Agent 在 T8 环境不会遇到此文件。 |
 | MIG-3 | ⏸ SUSPEND：需 ARK_API_KEY | V1.4.0 已在 MIG-3 通过，V1.4.1 不修改向量代码；如机器配置 API Key 可在 T8 环境补跑 |
 
 ### 3.4 运行时安全与干净性（5 项）
@@ -132,21 +132,21 @@
 1. `docs/versions/README.md` 和 `docs/README.md` 增加本 RESULT 与实际阶段结论；
 2. `docs/CURRENT_STATE.md` 将已验收实现基线更新为 V1.4.1；
 3. 根 README 已由开发侧统一为 V1.4.1，且对普通 GitHub 读者保持自包含；
-4. 将高性能源码验收对象、结论和关键证据合并进本 RESULT §九，不保留独立验收文档；
+4. 将源码验收对象、结论和关键证据合并进本 RESULT §九，不保留独立验收文档；
 5. 对全部拟公开 Markdown 执行本机路径、用户名和凭据写法扫描，完成 N2/N3；
 6. `DECISIONS.md` 中既有 D-019 与 V1.4.1 流程复盘仍有效，本版本没有新增需要单独编号的架构决策。
 
 ---
 
-## 七、源码 AGENT 复验 SOP（独立推导身份边界，防止开发 AGENT 测试自证）
+## 七、验收 Agent 复验 SOP（独立推导身份边界，防止开发 Agent 测试自证）
 
-> 开发 AGENT 写的测试不能代表验收结论。源码 AGENT 必须：
+> 开发 Agent 写的测试不能代表验收结论。验收 Agent 必须：
 > 1) **独立写出** D-019 + V1.4.1 PLAN 推导的身份边界反向场景；
 > 2) 在 **T8 干净首发包 + 全新 venv** 下重跑所有验证；
 > 3) 不直接引用 §三 的测试代码和断言文字；
 > 4) 把简短结论、被验收 commit SHA 和必要证据写入本 RESULT §九/§十，不创建独立验收报告。
 
-源码 AGENT 最小必做清单：
+验收 Agent 最小必做清单：
 
 ```
 1. 在本机 CMD 构建 T8 干净首发包（见 §八）
@@ -156,7 +156,7 @@
    ⚠️ T8 干净首发包中 backend/data/app.db 不存在，MIG-2 会按 PLAN.A/B 兼容规则 PASS（不需 baseline DB）
 5. Stub E2E: backend/_v13_stub_e2e.py → 20/20
 6. Stub Demo: backend/run_stub_demo.py → [STUB_DEMO_OK]
-7. 独立验证身份边界（开发 AGENT 不允许代做）：
+7. 独立验证身份边界（开发 Agent 不允许代做）：
    a. ProfileResolver.resolve(None, "PM") → name/phone/email == ""，profile_source="empty"
    b. 构造 experiences，把 raw_text 里塞入真实手机号/邮箱/姓名，调用 ProfileResolver → Profile 里完全不出现
    c. 在 generate_docx 流程中，name 为空但 phone/email 有值 → 流程不应 PROFILE_INCOMPLETE
@@ -196,7 +196,7 @@ git -C $DeliveryRoot ls-files
 
 ---
 
-## 九、高性能源码验收结论
+## 九、源码验收结论
 
 ```
 首轮验收 commit SHA：da1754f1e0c4d8ce1cfe69c8ae04366cd8db6bdd
@@ -211,7 +211,7 @@ Stub Demo：[STUB_DEMO_OK]
 manifest / SHA256 / git ls-files：96 / 96 / 96 PASS
 简短结论：核心结构和事实边界通过；N1 已定向修复并复验，N2/N3 由文档 Agent 完成公开化收口。
 
-验收 AGENT 签名 / 日期：高性能源码验收 Agent / 2026-08-19
+验收 Agent 签名 / 日期：验收 Agent / 2026-08-19
 ```
 
 ### 最终验收（N4 后，2026-08-22）
@@ -235,7 +235,7 @@ C 类隔离 / 许可证    ：通过（无 data/output/logs/cache/.venv/.db/.env
 运行后源码树        ：干净（仅 .t8-manifest.json 未跟踪）
 简短结论：N4 源码收束与最终 T8 复验全部通过，V1.4.1 满足发布条件。遗留 1 项测试隔离缺陷（非阻断，见下）。
 
-验收 AGENT 签名 / 日期：高性能源码验收 Agent / 2026-08-22
+验收 Agent 签名 / 日期：验收 Agent / 2026-08-22
 ```
 
 ### 遗留：测试隔离缺陷（非阻断，建议后续修复）
@@ -256,7 +256,7 @@ T8 commit count        ：1
 N1 二次验收文件 SHA256：67EEE4643480D4D7C3DDD4ADA582978ED30FB553A8A21D180C15F13E97D156D0（开发目录逻辑内容一致；最终以新 manifest 为准）
 B1 pm_template.docx tracked ：✅
 最终 manifest 三一致  ：git = manifest = SHA256：88 / 88 / 88
-N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性能验收对象）
+N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（源码验收对象）
 首轮纯文档冻结候选    ：2b6e8f9ad69ca8ee481c824e38461bb698f671e7（机械核对通过；档案状态未收口，不发布）
 最终发布标识          ：annotated tag `v1.4.1` 的目标 commit；不在 commit 自身文档中回填自身 SHA
 对外发布归档          ：以远端 `v1.4.1^{commit}` 为核验真源
@@ -269,7 +269,7 @@ N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性�
 ## 十一、状态
 
 - **开发 Agent 状态**：✅ T1–T5、N1 与 N4 源码侧同步全部完成。
-- **源码验收 Agent 状态**：✅ 已完成最终验收（N4 后）：manifest/SHA256 三一致 88/88/88、T7 12 PASS / 0 FAIL、Stub E2E 干净环境 20/20、身份边界独立推导 10/10，源码与 runtime 安全门通过；公开 Markdown 用户名漏项由文档 Agent 后续修正。
+- **验收 Agent 状态**：✅ 已完成最终验收（N4 后）：manifest/SHA256 三一致 88/88/88、T7 12 PASS / 0 FAIL、Stub E2E 干净环境 20/20、身份边界独立推导 10/10，源码与 runtime 安全门通过；公开 Markdown 用户名漏项由文档 Agent 后续修正。
 - **文档 Agent 状态**：✅ N2/N3 与 N4 文档收束已完成。
 - **发布档案状态**：✅ 入包文档已完成稳定语义收口；最终机械冻结与 annotated tag `v1.4.1` 只产生 Git 发布元数据，不再反向修改本 RESULT。
 - **当前 RESULT 状态**：**`已验收`**（遗留 1 项测试隔离缺陷，非阻断，见 §九末尾）。
@@ -305,13 +305,13 @@ N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性�
 - 功能验收：T1–T3、N1 对应的版本元数据、身份事实边界和无 Key Stub 结论仍有效；N4 不改变业务 API、数据库或生成内容。
 - 结构变更验收：N4 文档侧与源码侧均已完成并复验通过。
 - 最终源码验收：T8 HEAD `317c5266`，manifest/Git/SHA256 = 88/88/88，已通过。
-- 发布档案冻结：首轮纯文档候选 `2b6e8f9` 已完成单 commit、`main`、88 个文件、864,358 bytes、manifest/Git 文件列表与 SHA256 全量一致；开发侧安全断言报告为通过，但文档 Agent 复核另发现 V1.4.0 RESULT 中两处真实 GitHub 用户名，且候选包仍保留“待最终冻结”语义，因此不作为最终 tag 目标。两处用户名现已替换为 `<github-owner>`。最终发布包从已收口文档重新机械冻结；只要不混入源码、测试或配置变化，就不重跑功能 E2E 或高性能源码验收。
+- 发布档案冻结：首轮纯文档候选 `2b6e8f9` 已完成单 commit、`main`、88 个文件、864,358 bytes、manifest/Git 文件列表与 SHA256 全量一致；开发侧安全断言报告为通过，但文档 Agent 复核另发现 V1.4.0 RESULT 中两处真实 GitHub 用户名，且候选包仍保留“待最终冻结”语义，因此不作为最终 tag 目标。两处用户名现已替换为 `<github-owner>`。最终发布包从已收口文档重新机械冻结；只要不混入源码、测试或配置变化，就不重跑功能 E2E 或源码验收。
 
 ---
 
 ## 十三、验收回写后的发布档案冻结
 
-高性能 Agent 的验收对象是 commit `317c52660335a9dc35107d4627c25739c8eb4f9f`。验收完成后，验收结论写入本 RESULT，文档 Agent同时同步了 PLAN 状态、CURRENT_STATE、两个版本索引和 V1.5.0 草稿状态。这些都是必要的公开档案变更，但不包含产品源码、测试逻辑或配置变化。
+验收 Agent 的验收对象是 commit `317c52660335a9dc35107d4627c25739c8eb4f9f`。验收完成后，验收结论写入本 RESULT，文档 Agent 同时同步了 PLAN 状态、CURRENT_STATE、两个版本索引和 V1.5.0 草稿状态。这些都是必要的公开档案变更，但不包含产品源码、测试逻辑或配置变化。
 
 首轮纯文档冻结候选结果：
 
@@ -330,7 +330,7 @@ N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性�
 
 1. `317c5266` 继续作为 V1.4.1 最终源码验收 commit；功能、结构以及源码/runtime 安全结论有效；公开 Markdown 隐私收口以本节后续修正为准。
 2. PLAN、RESULT、CURRENT_STATE、版本索引已收口为最终公开语义；根 README 原本已是稳定的 V1.4.1 用户介绍，不需要额外状态文字。
-3. 最终候选从上述已收口内容重新运行 T8，只做单 commit、`main`、正式版本目录、manifest=`git ls-files`=SHA256、安全扫描和工作区状态核对；没有源码、测试或配置变化时不重跑功能及高性能验收。
+3. 最终候选从上述已收口内容重新运行 T8，只做单 commit、`main`、正式版本目录、manifest=`git ls-files`=SHA256、安全扫描和工作区状态核对；没有源码、测试或配置变化时不重跑功能及源码验收。
 4. RESULT 不再要求把最终发布 commit SHA 回填进该 commit 自身，否则写入 SHA 会再次改变 commit，形成无限冻结循环。
 5. 机械核对通过后直接创建 annotated tag `v1.4.1`；最终发布 commit 由该 tag 的目标 commit 唯一标识。tag 创建与远端核验结果留在 Git/GitHub 发布记录，不再修改本版本入包文档。
 
@@ -342,7 +342,7 @@ N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性�
 
 > 本节由 V1.4.2 分支在发布后追加，不属于 `v1.4.1` tag 内的原始文档，也不因此移动或重建该 tag。
 
-开发侧最后一次汇总曾记录：全新单 commit 候选 `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a` 已推送为远端 `main` 和 annotated tag `v1.4.1`。文档 Agent随后独立读取 GitHub 远端引用，发现实际状态与汇总不一致：远端 `main` 仍指向旧发布 commit，`v1.4.1` 则指向开发基线，而不是已核对的最终候选。
+开发侧最后一次汇总曾记录：全新单 commit 候选 `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a` 已推送为远端 `main` 和 annotated tag `v1.4.1`。文档 Agent 随后独立读取 GitHub 远端引用，发现实际状态与汇总不一致：远端 `main` 仍指向旧发布 commit，`v1.4.1` 则指向开发基线，而不是已核对的最终候选。
 
 在用户授权下，文档 Agent 以读取到的旧 SHA 为精确保护条件完成一次发布事故纠正，并再次从远端核验：
 
@@ -351,4 +351,4 @@ N4 源码验收 commit     ：317c52660335a9dc35107d4627c25739c8eb4f9f（高性�
 | `refs/heads/main` | `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a` |
 | annotated tag `v1.4.1^{commit}` | `cbccdc8f40c9d4c2952c08504c14aa248fbfa29a` |
 
-这次纠正说明，候选文件验收通过并不能替代远端引用核验；开发 Agent 的“已推送”汇总也不能直接作为发布事实。V1.4.2 因此把以下规则设为长期约束：V1.4.0 的单 commit 首发只执行一次；后续从公开 main 正常增量开发；开发 Agent不发布正式 main/tag；文档 Agent在用户确认后执行远端 preflight 和最终发布；正常发布只允许 fast-forward，force 仅作为单独授权并留痕的事故处置。
+这次纠正说明，候选文件验收通过并不能替代远端引用核验；开发 Agent 的“已推送”汇总也不能直接作为发布事实。V1.4.2 因此把以下规则设为长期约束：V1.4.0 的单 commit 首发只执行一次；后续从公开 main 正常增量开发；开发 Agent 不发布正式 main/tag；文档 Agent 在用户确认后执行远端 preflight 和最终发布；正常发布只允许 fast-forward，force 仅作为单独授权并留痕的事故处置。

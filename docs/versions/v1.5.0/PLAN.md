@@ -235,7 +235,7 @@ V1.5.0 必须建立正式 schema version 和顺序迁移记录。迁移脚本对
 | T5 改写与 Builder 收缩 | 开发 Agent | 生成只使用 fact_refs；Builder 只装配并保留来源映射 | 越界输出被拒绝；LLM 不重选或写回；来源不丢失 |
 | T6 旧向量实现退出 | 开发 Agent | 删除 Chroma、numpy + JSON 活动后端及其依赖、配置、分支和旧测试契约 | SQLite 新状态生效，旧状态退出，无并行向量真源 |
 | T7 开发验证与候选 | 开发 Agent | 完成测试矩阵、迁移副本演练、RESULT 和 clean candidate commit | RESULT 满足最低交付契约；不得 push main/tag |
-| T8 高性能源码/数据验收 | 高性能验收 Agent | 在 clean review worktree 独立审查迁移、事实边界、两层选材、失败路径、旧实现退出和核心回归 | 绑定精确 commit，阻断项为 0 |
+| T8 源码/数据验收 | 验收 Agent | 在 clean review worktree 独立审查迁移、事实边界、两层选材、失败路径、旧实现退出和核心回归 | 绑定精确 commit，阻断项为 0 |
 | T9 人工核心流程验收 | 用户 | 使用允许的数据副本从导入/已有库走到 JD → DOCX，确认事实边界和流程可用 | 用户明确通过或给出返工项；不扩大为内容质量验收 |
 | T10 文档与发布 | 文档 Agent | 汇总 RESULT，按实际结果更新 CURRENT_STATE、DECISIONS 和索引；用户确认后 fast-forward main 并创建 annotated tag `v1.5.0` | 远端 main/tag 核对一致；不 force push |
 
@@ -279,7 +279,7 @@ V1.5.0 必须建立正式 schema version 和顺序迁移记录。迁移脚本对
 - V1.5.0 不以 Precision、Recall、Top-K、不同 JD 的表达差异或人工招聘质量评分作为 PASS 条件；
 - RESULT 必须分别给出功能验收与结构变更验收，并明确哪些质量验证未进入本版本。
 
-## 9. 高性能验收要求
+## 9. 验收 Agent 要求
 
 T8 必须读取源码并独立复核：
 
@@ -307,7 +307,7 @@ T8 必须读取源码并独立复核：
 - 固定经历槽位、三年窗口、共享项目/论文池和校园补位规则的结构验证通过；
 - 验收证据没有把粗粒度材料或虚构 fixture 宣传为召回/内容质量通过；
 - 当前豆包主链与既有 V1.3.0–V1.4.2 事实边界、错误可见性、测试隔离和 DOCX 流程无回归；
-- 功能验收与结构变更验收分别通过，高性能验收绑定精确候选 commit；
+- 功能验收与结构变更验收分别通过，验收 Agent 的结论绑定精确候选 commit；
 - RESULT 明确 API、数据模型、模块、配置/依赖的实际变化、验证证据和 PLAN 偏差；
 - CURRENT_STATE、DECISIONS、版本索引和根 README 只按实际实现与发布结果同步；
 - 用户单独确认正式发布。
@@ -322,8 +322,8 @@ T8 必须读取源码并独立复核：
 
 > 性质：本节是对首次实现候选的返工契约，只追加、不覆盖或改写上文最初批准的 PLAN。
 > 审核对象：`version/v1.5.0` 首次开发交接 HEAD `81357200fc6e58714d6b7ce3d6ad497a2775935c`；`0fe1513` 只是其 T6 前序提交，不是最终交接 HEAD。
-> 当前结论：首次候选在进入 WorkBuddy 独立验收前被文档前置审核打回；开发侧 `215 pass / 0 fail` 只证明已执行断言，不等于候选可验收。
-> 证据边界：以下文件与行为证据来自前置审核交接材料；Traework 负责修复和补齐开发自测，WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败场景并复核。
+> 当前结论：首次候选在进入验收 Agent 独立验收前被文档前置审核打回；开发侧 `215 pass / 0 fail` 只证明已执行断言，不等于候选可验收。
+> 证据边界：以下文件与行为证据来自前置审核交接材料；开发 Agent 负责修复和补齐开发自测，验收 Agent 必须在新的 clean 候选上独立读取源码、推导失败场景并复核。
 
 本轮不得拆成零散补丁或新增分项文档。所有返工仍写入本 PLAN 与同版本 RESULT；PLAN 规定接下来必须做什么，RESULT 只记录实际发生的修复、测试和验收状态。
 
@@ -341,7 +341,7 @@ T8 必须读取源码并独立复核：
 | R8 旧实现退出与对外一致 | R2、R7 | 清理活动残留，分类兼容残留与历史档案 | 新状态、旧状态退出和回归三类证据齐全；不改写历史版本事实 |
 | R9 集成验证与冻结交接 | R1–R8 | 汇总矩阵、形成 clean 新候选并外部交接 | RESULT 更新、全量测试通过、精确 HEAD 通过外部消息交接 |
 
-依赖主线为 `R1 → (R2、R4、R5) → R3 → R6 → R7 → R8 → R9`。可以并行实现互不重叠的测试，但必须在 R9 一次性集成，不能修完单个症状就提前进入 WorkBuddy 验收。
+依赖主线为 `R1 → (R2、R4、R5) → R3 → R6 → R7 → R8 → R9`。可以并行实现互不重叠的测试，但必须在 R9 一次性集成，不能修完单个症状就提前进入验收 Agent 验收。
 
 ### 12.2 R1：Experience CRUD 全生命周期
 
@@ -395,7 +395,7 @@ T8 必须读取源码并独立复核：
 ### 12.9 R8：旧实现退出与对外一致
 
 - **前置证据**：根 README、`backend/.env.example`、`backend/run_stub_demo.py` 及部分旧验证入口仍含 Chroma、`CHROMA_PATH`、RAG/fallback 或旧 Builder 语义；现有 legacy-exit 自测未覆盖所有对外入口。
-- **必须实现**：全仓库分类处理三类命中：活动残留必须替换；必要兼容残留必须有明确 guard、不能被正常入口调用；历史 PLAN/RESULT 只保留当时事实，不反向改写。Traework 修正代码、配置样例、脚本和活动测试；根 README 与全局文档由文档 Agent 在 WorkBuddy 通过后按实际结果统一，不提前把 V1.5 能力写入 CURRENT_STATE。
+- **必须实现**：全仓库分类处理三类命中：活动残留必须替换；必要兼容残留必须有明确 guard、不能被正常入口调用；历史 PLAN/RESULT 只保留当时事实，不反向改写。开发 Agent 修正代码、配置样例、脚本和活动测试；根 README 与全局文档由文档 Agent 在验收 Agent 通过后按实际结果统一，不提前把 V1.5 能力写入 CURRENT_STATE。
 - **正向验收**：SQLite BLOB、唯一维护入口和 V1.5 Stub/正常链路均生效；`.env.example`、运行帮助和活动脚本只描述实际配置与调用链。
 - **反向验收与完成标准**：静态扫描 Chroma、CHROMA_PATH、numpy fallback、旧 RAG/Builder 入口，并对每个命中给出“活动/兼容/历史”分类；正常导入和运行不能触达旧实现，V1.3–V1.4.2 历史档案仍保留当时事实，核心回归通过。
 
@@ -410,21 +410,21 @@ T8 必须读取源码并独立复核：
 | 来源与最终链路 | work/project/campus 合法逐 bullet 映射；所有越界/过期/空引用失败；ResumeDocument/sidecar、Pydantic response、DOCX 文本与顺序端到端一致 |
 | 替换与回归 | 活动残留为 0；兼容 guard 不可达；历史档案未改写；Profile/JD/无 summary、Renderer 不裁剪、测试/runtime 隔离和 JD → DOCX 正常/错误路径 |
 
-Traework 完成 R1–R8 后必须：
+开发 Agent 完成 R1–R8 后必须：
 
 1. 在同一 `version/v1.5.0` 分支更新 RESULT，逐项写实际变化、偏差、测试命令与结果；不得把本补充标为已验收，也不得更新 CURRENT_STATE。
 2. 形成 clean 候选 commit。RESULT 不回填该 commit 自身 SHA；由开发 Agent 在仓库外的交接消息中提供完整 40 位 HEAD、基线 commit、分支、clean `git status` 和测试汇总，避免自引用循环。
-3. 明确 `81357200fc6e58714d6b7ce3d6ad497a2775935c` 是被打回的首次候选，新外部交接 HEAD 才是 WorkBuddy 的唯一审核对象；任何相关修改都会使旧验收失效。
-4. 不 push `main`、不创建或移动 tag。WorkBuddy 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，并把绑定精确 commit 的结论交回文档 Agent汇总。
+3. 明确 `81357200fc6e58714d6b7ce3d6ad497a2775935c` 是被打回的首次候选，新外部交接 HEAD 才是验收 Agent 的唯一审核对象；任何相关修改都会使旧验收失效。
+4. 不 push `main`、不创建或移动 tag。验收 Agent 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，并把绑定精确 commit 的结论交回文档 Agent 汇总。
 
 ### 12.11 本轮返工完成标准
 
-R1–R9、上文原 T8/T9/T10 仍是串行门禁：开发自测通过后才进入 WorkBuddy，WorkBuddy 阻断项为 0 后才进入人工核心流程验收，人工通过后文档 Agent 才能同步 CURRENT_STATE、根 README、决策与版本索引。`215 pass / 0 fail` 不得继续作为首次候选可验收的替代结论；任何一个生命周期、故障可见性、来源映射或最终 DOCX 闭环未完成，RESULT 状态都必须保持“前置审核打回，待开发返工”。
+R1–R9、上文原 T8/T9/T10 仍是串行门禁：开发自测通过后才进入验收 Agent，验收 Agent 阻断项为 0 后才进入人工核心流程验收，人工通过后文档 Agent 才能同步 CURRENT_STATE、根 README、决策与版本索引。`215 pass / 0 fail` 不得继续作为首次候选可验收的替代结论；任何一个生命周期、故障可见性、来源映射或最终 DOCX 闭环未完成，RESULT 状态都必须保持“前置审核打回，待开发返工”。
 
-## 13. WorkBuddy 首轮独立验收返工澄清（2026-08-23）
+## 13. 验收 Agent 首轮独立验收返工澄清（2026-08-23）
 
-> 性质：本节只收束 WorkBuddy 对返工候选 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 的首轮独立验收阻断项，不改变 §12 的问题类别、边界或完成标准。
-> 验收结论：WorkBuddy 已完成 T8 首轮独立验收，但 R1、R2、R5 仍有 3 个阻断项；R3、R4、R6、R7、R8 已在该 commit 上通过。任何相关源码修改后，受影响的旧结论自动失效。
+> 性质：本节只收束验收 Agent 对返工候选 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 的首轮独立验收阻断项，不改变 §12 的问题类别、边界或完成标准。
+> 验收结论：验收 Agent 已完成 T8 首轮独立验收，但 R1、R2、R5 仍有 3 个阻断项；R3、R4、R6、R7、R8 已在该 commit 上通过。任何相关源码修改后，受影响的旧结论自动失效。
 
 ### 13.1 本轮只做三项定向返工
 
@@ -443,10 +443,10 @@ W1、W2、W3 可以并行实现，随后统一执行 W4 集成复验。不得借
 3. **W2 正反向**：覆盖空日期、不可解析日期、同日期、在职、0/1/2/3/4 次工作及至少 5 组输入乱序；缺日期/不可解析项必须出现在 excluded/warnings 且不在 slots，其他确定性顺序不变。
 4. **W3 正向**：临时目录中 SQLite 文件不存在时，唯一维护入口完成建库、SchemaVersion、Fact/Embedding 初始状态与 status 指引；第二次 migrate 幂等。
 5. **W3 反向**：既有路径为目录、不可读文件、损坏 SQLite、升级库备份失败和 cleanup 失败时非零退出，不得把异常既有源误判为新库或继续迁移。
-6. **W4 回归**：重跑开发矩阵及 WorkBuddy 首轮通过项中所有受 W1–W3 影响的测试；R3/R4/R6/R7/R8 若相关文件或行为被修改，必须重新独立验收，不能沿用 `ec872f0f...` 的通过结论。
+6. **W4 回归**：重跑开发矩阵及验收 Agent 首轮通过项中所有受 W1–W3 影响的测试；R3/R4/R6/R7/R8 若相关文件或行为被修改，必须重新独立验收，不能沿用 `ec872f0f...` 的通过结论。
 
 ### 13.3 新候选与再次交接
 
-- Traework 在同一 `version/v1.5.0` 分支更新 RESULT，追加 W1–W4 的实际修改、失败注入和测试结果，保留 §9 的首轮 WorkBuddy 失败记录。
+- 开发 Agent 在同一 `version/v1.5.0` 分支更新 RESULT，追加 W1–W4 的实际修改、失败注入和测试结果，保留 §9 的首轮验收 Agent 失败记录。
 - 形成 clean 新候选；RESULT 不回填该提交自身 SHA。完整 40 位 HEAD、基线、分支、clean 状态和测试汇总仍通过仓库外消息交接。
-- WorkBuddy 只对新 HEAD 复验并把第二轮结论追加到同一 RESULT。阻断项为 0 前，不进入人工验收，不更新 CURRENT_STATE、根 README 或版本索引，不 push `main`，不创建或移动 tag。
+- 验收 Agent 只对新 HEAD 复验并把第二轮结论追加到同一 RESULT。阻断项为 0 前，不进入人工验收，不更新 CURRENT_STATE、根 README 或版本索引，不 push `main`，不创建或移动 tag。

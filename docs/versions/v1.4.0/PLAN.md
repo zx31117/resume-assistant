@@ -20,7 +20,7 @@
 - 清理源码树中的中间产物和一次性诊断文件，并检查 PII、凭据和不应公开的大文件；
 - 补齐面向 GitHub 访问者的入口说明、环境配置样例和可复现验证命令；
 - 建立最终 commit、branch、tag、仓库地址与 V1.4.0 RESULT 的对应关系；
-- 在外部发布前安排安全类高性能源码验收。
+- 在外部发布前安排安全类源码验收。
 
 本版本不做：
 
@@ -161,7 +161,7 @@ V1.4.0 发布通过后，新 GitHub 仓库成为后续开发的发布基线。�
 | T6 ⚠️ | 源码树安全审计 | 对整个待发布源码树扫描凭据、PII、二进制、元数据、许可证和绝对路径；运行后 Git 工作区不得产生数据文件；高风险：安全，需源码验收 |
 | T7 | 干净环境与核心回归 | 从全新源码树安装依赖；空 runtime 自动初始化；Stub E2E、V1.3.0 核心回归和迁移回归通过 |
 | T8 | 一次性干净首发仓库 | 从 T6 通过的源码树建立新 `main`，确认不存在旧 `.git`、runtime 数据和隔离区文件；该仓库成为后续开发基线 |
-| T9 ⚠️ | 发布前独立复核 | 高性能 Agent 复核 T1–T8 的数据边界、迁移、实际 Git 清单、敏感扫描、初始化和测试路径；高风险：安全与发布完整性 |
+| T9 ⚠️ | 发布前独立复核 | 验收 Agent 复核 T1–T8 的数据边界、迁移、实际 Git 清单、敏感扫描、初始化和测试路径；高风险：安全与发布完整性 |
 | T10 | GitHub Private 预发布 | 用户提供 owner/name 并授权后才 push；重新 clone 后重跑 README、初始化和 Stub E2E；不得 force push |
 | T11 | Public 发布与 RESULT | Private 验收通过并获用户确认后转 Public；使用 MIT；创建 `v1.4` tag；RESULT 记录分类表、迁移、commit/tag/remote/可见性和验证结论 |
 
@@ -240,7 +240,7 @@ T1 Baseline + 只读框架 / 数据流审计与 A/B/C/D 分类
 → T6 整个源码树安全审计
 → T7 干净环境、迁移和核心回归
 → T8 建立一次性干净首发仓库
-→ T9 高性能安全、迁移与发布复核
+→ T9 验收 Agent 安全、迁移与发布复核
 → 用户提供 GitHub owner / name（可见性与 MIT 已确认）
 → T10 Private 预发布与 clone 验证
 → 用户确认 Private 验收结果后转 Public
@@ -249,7 +249,7 @@ T1 Baseline + 只读框架 / 数据流审计与 A/B/C/D 分类
 → 文档 Agent 更新全局状态
 ~~~
 
-开发 Agent 完成 T1–T8 后创建 `versions/v1.4.0/RESULT.md`，状态为“待验收”；T9 高性能 Agent 把安全、迁移和发布复核结论写入同一份 RESULT。外部 GitHub 写入必须等待用户明确提供目标并授权。
+开发 Agent 完成 T1–T8 后创建 `versions/v1.4.0/RESULT.md`，状态为“待验收”；T9 验收 Agent 把安全、迁移和发布复核结论写入同一份 RESULT。外部 GitHub 写入必须等待用户明确提供目标并授权。
 
 ## 10. V1.4.0 PASS
 
@@ -261,7 +261,7 @@ T1 Baseline + 只读框架 / 数据流审计与 A/B/C/D 分类
 - [x] Secret、PII、二进制、元数据和第三方许可证审计通过；
 - [x] 根 README、MIT License、`.env.example`、启动、测试和虚构 Demo 入口完整；
 - [x] 干净环境安装、启动、Stub E2E 和核心回归通过；
-- [x] T1–T8 已实施，T9 高性能安全、数据迁移与发布复核通过；
+- [x] T1–T8 已实施，T9 验收 Agent 安全、数据迁移与发布复核通过；
 - [x] 发布仓库不携带旧 PII Git 历史；
 - [x] GitHub 私有预发布 clone 验证通过；
 - [x] 用户确认“Private 预发布后转 Public”与 MIT License；

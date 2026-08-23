@@ -2,8 +2,8 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V1.4.2；公开 `main` 与 annotated tag `v1.4.2` 的具体发布 commit 以 tag 目标为准
-> 当前开发版本：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) 已于 2026-08-23 批准执行；定位为事实级内容决策、两层选材与 SQLite 持久化收束，开发从执行时最新的公开 `origin/main` 建立基线
+> 当前已验收版本：V1.5.0；源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`，最终发布 commit 在发布后以 annotated tag `v1.5.0` 的目标为准
+> 当前版本档案：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) / [RESULT](./versions/v1.5.0/RESULT.md)；开发、源码验收、人工确认与文档收口均已完成，用户已于 2026-08-23 授权发布，执行结果在发布后补录
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -36,25 +36,25 @@ V1 不要求严格一页纸、像素级排版、高性能体验、多用户或�
 ## 3. 全局业务链路
 
 ~~~text
-PDF → 文本解析 → 经历提取 → 经历确认并写入 SQL → 向量索引
-JD → JD 分析 → RAG 匹配 → 受事实约束的内容生成
-→ ResumeBuilder → ResumeDocument → TemplateRenderer → DOCX
+PDF → 文本解析 → 经历提取 → Experience / Fact 写入 SQL → SQLite 向量派生
+JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受事实约束的内容生成
+→ ResumeBuilder 确定性装配 → ResumeDocument → TemplateRenderer → DOCX
 ~~~
 
-V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_STATE.md` 为准。
+V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；当前具体实现能力以 `CURRENT_STATE.md` 为准。
 
 ## 4. 事实所有权
 
 | 数据 | 事实源 | 说明 |
 |---|---|---|
-| 用户经历 | SQL Experience | 公司、岗位、学校、项目、时间及原始事实 |
-| 检索数据 | Chroma；故障时可回退 numpy | 可从 SQL 重建，不是事实源 |
+| 用户经历 | SQL Experience / Fact | 公司、岗位、学校、项目、时间、可表达事实及其来源/revision/hash |
+| 检索数据 | SQLite `fact_embeddings` | 可从 Fact 重建，不是事实源；numpy 只用于内存计算，不承担持久化或 fallback |
 | 姓名与联系方式 | 用户请求中的显式输入 | 缺失就留空；禁止从数据库、AI、模板或职业经历推测/回填 |
 | 求职意向 | V1 只使用当前 JD 的 `JDAnalysis.position` | 未来可接受用户明确指定；永远不写入职业经历库 |
 | 个人总结/自我评价 | V1 不生成、不渲染 | V2/V3 仅在履历单薄等场景按需评估 |
 | JD | 用户请求原文 | JDAnalysis 是派生理解 |
 | 定制表达 | AI 结构化结果 | V1 只改写已有经历的 bullets，不生成身份信息或个人总结 |
-| 最终内容集合 | ResumeBuilder | 唯一负责选择、排序和数量限制 |
+| 最终内容集合 | CandidateExperienceSet / SelectedEvidenceSet | 第一层冻结经历名单，第二层只选择入选经历内的事实与表达侧重 |
 | 输出样式 | 系统 DOCX + TemplateSpec | Renderer 只负责展示 |
 
 ## 5. 架构不变量
@@ -63,10 +63,10 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 2. 业务模块不得直接处理 Word XML 或依赖具体 LLM 框架。
 3. LangChain 只能存在于明确的 AI 适配层。
 4. RAG 命中的 ID 必须回 SQL 读取完整经历事实。
-5. 核心流程中的 ResumeDocument 必须由 ResumeBuilder 构建。
+5. 核心流程中的 ResumeDocument 必须由 ResumeBuilder 按已经冻结的两层选材结果构建；Builder 不得重新进行 JD 相关性选择。
 6. TemplateRenderer 和 LayoutOptimizer 不得选择或删除业务内容。
 7. 模板样例文字不得进入用户简历。
-8. SQL 是事实源，向量库是可重建索引；已知索引失败不得被隐藏。
+8. SQL Experience / Fact 是事实源，SQLite `fact_embeddings` 是可重建派生索引；已知索引失败不得被隐藏。
 9. 关键 AI 失败不能伪装成空成功。
 10. 姓名和联系方式要么来自用户显式输入，要么留空；不得使用其他来源补齐。
 11. 求职意向只能来自当前 JD；未来只有用户明确指定才能覆盖，职业经历库不得保存求职意向。
@@ -90,7 +90,7 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 1. 版本号和目录统一采用三段式：文档显示为 `V<major>.<minor>.<patch>`，目录为 `v<major>.<minor>.<patch>`；已经发布的历史 Git tag 保留原名，不因文档规范化而移动或重建。
 2. 正式版本目录长期只保留 `PLAN.md` 与 `RESULT.md`；尚未立项的版本目录只保留 `DRAFT.md`。
 3. 审计、迁移、验证、交付、评审和 manifest 等分项文件属于阶段产物：独有结论必须合并进同版本 `RESULT.md`，机读运行产物写入临时目录或 runtime data root，不在版本档案中形成第三个真源。
-4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由源码验收 Agent复核。文档 Agent 不直接以改源码代替任务交接。
+4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由验收 Agent 复核。文档 Agent 不直接以改源码代替任务交接。
 
 ## 7. RESULT 最低交付契约
 
@@ -142,5 +142,6 @@ V1.3.0 已完成并验收该核心链路；当前具体实现能力以 `CURRENT_
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4.0/PLAN.md) | [RESULT](./versions/v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
 | V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 已验收；第三轮 T9 9/9 通过，正常增量发布 |
+| V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已验收；最终源码验收阻断项为 0，人工确认与文档收口完成，用户已授权发布 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

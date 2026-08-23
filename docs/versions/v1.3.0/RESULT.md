@@ -116,7 +116,7 @@
 
 ## 三、高风险源码验收证据（T3 / T4 / T7）
 
-> 第二轮已由可读取源码的高性能验收 Agent 独立完成并通过。其结论准确反映**当时被审版本**：经历事实隔离、ID 合并、strict failure 与 SQL/向量一致性均成立。
+> 第二轮已由可读取源码的验收 Agent 独立完成并通过。其结论准确反映**当时被审版本**：经历事实隔离、ID 合并、strict failure 与 SQL/向量一致性均成立。
 >
 > 此后产品规则进一步明确（PLAN §3.2/§3.3 + README §4）：V1 不生成个人总结；身份与联系方式仅取请求显式值且允许留空；求职意向仅取当前 JD。T3 / T4 已按此规则修正代码，以下为修正后的源码验收证据。T7 未受影响，无需重验。
 
@@ -213,7 +213,7 @@
 
 **第二轮独立验收结论**：**PASS（最终有效，无需因本次产品规则调整重验）**
 
-源码级验证通过（2026-08-16，高性能验收 Agent 独立执行）：
+源码级验证通过（2026-08-16，验收 Agent 独立执行）：
 
 1. **VectorIndexJob 模型完整**（`models.py:86-109`）：字段 `id/experience_id/user_id/operation(UPSERT|DELETE)/status(PENDING|RUNNING|DONE|FAILED)/retry_count/last_error/created_at/updated_at`，与 PLAN §5 规格完全一致。
 2. **同事务 Job 创建**（`experience_service.py`）：
@@ -266,12 +266,12 @@
 | [x] 关键 LLM 阶段 strict failure 生效 | ✅ 通过 | llm_service / jd_analyzer / resume_content_generator 均为 strict=True，失败抛 DomainError，不返回空默认值 |
 | [x] DOCX 可打开、事实正确、无模板数据与占位符残留 | ✅ 通过 | §8.2 T1/T4/T7 全通过；`_scan_unreplaced_placeholders`=0；模板样例数据=0 |
 | [x] Stub E2E 全通过，Real API Smoke 至少通过一次 | ✅ 通过 | Real API Smoke 通过（本文件 2/2 次真实回归）；Stub E2E 已完成（`_v13_stub_e2e.py`，15/15 全部通过：Happy Path 10/10 + 错误分支 5/5，mock LLM+Embedding，CI 可重复） |
-| [x] T3、T4 第二轮事实正确性源码验收（独立高性能 Agent） | ✅ 已完成 | 独立高性能验收 Agent 已读取当时版本源码并验证经历事实隔离、ID 合并、strict failure 与 Builder 边界，结论均 PASS（详见 §三 3.1 / 3.2） |
+| [x] T3、T4 第二轮事实正确性源码验收（验收 Agent） | ✅ 已完成 | 验收 Agent 已读取当时版本源码并验证经历事实隔离、ID 合并、strict failure 与 Builder 边界，结论均 PASS（详见 §三 3.1 / 3.2） |
 | [x] T3、T4 产品规则修正后的针对性源码复核 | ✅ 通过 | 已复核本轮变更：`GeneratedResumeContent` 无 summary 字段；Prompt 不要求 summary；Generator 不传 summary；ProfileResolver 身份字段 request-only 且允许留空；求职意向 JD-only；summary 恒空；`profile_source` 只返回 request/empty；无 DB/AI/启发式回填路径（详见 §三 3.1 / 3.2）。T7 未变更，不重复验收 |
-| [x] T7 持久化与一致性源码验收（独立高性能 Agent） | ✅ 通过 | 独立高性能验收 Agent 已读取源码并验证：VectorIndexJob 模型完整 + 同事务 Job 创建 + 请求内同步 + 幂等执行 + ensure 就绪守护 + 全量重建，结论 PASS（详见 §三 3.3） |
+| [x] T7 持久化与一致性源码验收（验收 Agent） | ✅ 通过 | 验收 Agent 已读取源码并验证：VectorIndexJob 模型完整 + 同事务 Job 创建 + 请求内同步 + 幂等执行 + ensure 就绪守护 + 全量重建，结论 PASS（详见 §三 3.3） |
 | [x] Experience CRUD 与下载回归通过 | ✅ 通过 | T7/T10 覆盖 create / update / delete / 幂等 / rebuild；下载 URL 由响应返回，对应 DOCX 文件存在且可被 python-docx 读入 |
 | [x] 开发 Agent 已提交“待验收” RESULT，含实现标识、实际全局变化和分类验证表 | ✅ 通过 | 本文件 |
-| [x] 用户完成第二轮完整流程与 E2E 运行 | ✅ 已完成 | 用户确认已重新从头跑完整流程，并运行测试（含 E2E）；该轮对应第二轮高性能源码验收版本 |
+| [x] 用户完成第二轮完整流程与 E2E 运行 | ✅ 已完成 | 用户确认已重新从头跑完整流程，并运行测试（含 E2E）；该轮对应第二轮源码验收版本 |
 | [x] 产品规则修正版人工验收通过 | ✅ 已完成 | 用户确认第三轮修正后的人工 E2E 已通过 |
 | [x] 文档 Agent 验收完成，将 RESULT 标记为“已验收”，更新 CURRENT_STATE（必要时 README / DECISIONS） | ✅ 已完成 | RESULT、CURRENT_STATE、README、DECISIONS 和版本索引已同步 |
 
@@ -288,7 +288,7 @@
 | R5 | RESULT 未完整提供“实际全局变化分类表”与“验证表” | **已解决（本文 §二 + §四）** | §二 分类覆盖 API / 数据模型 / 模块职责 / 配置依赖（无变化项写“无”）；§四 以 PLAN §8.2 为骨架，每项给脚本 key / 状态 / 证据，均选自 `V1.3.0_§8.2_验证表.json` |
 | R6 | Stub E2E、全量重建、CRUD 更新/删除幂等、错误分支、下载链路缺执行证据 | **已解决** | Stub E2E 15/15、Real API Smoke、全量重建、CRUD 幂等和统一错误结构均已有证据；第三轮修正另经针对性源码复核和用户人工 E2E 验收 |
 | R7 | “AI 限定在 3 个模块”与下表列 4 个模块不一致 | **已解决（文案与边界一致）** | 本文 §一 T1~T10 不再提“3 个模块”这种易歧义的数字；AI 边界改为逐条任务描述：llm_service / jd_analyzer / resume_content_generator 做 LLM；rag_service 做 embedding+向量检索；其余模块不直接碰 LLM/Embedding |
-| R8 | T3/T4/T7 高性能源码验收未执行 | **已解决（独立验收 Agent 完成）** | 独立高性能验收 Agent 已读取 T3/T4/T7 全部源码并给出独立 PASS 结论，写入 §三 和 §五 质量门 |
+| R8 | T3/T4/T7 源码验收未执行 | **已解决（独立验收 Agent 完成）** | 验收 Agent 已读取 T3/T4/T7 全部源码并给出独立 PASS 结论，写入 §三 和 §五 质量门 |
 | R9 | 第二轮验收后新增了 T3/T4 产品边界修正 | **已解决（代码已修正 + 针对性源码复核通过）** | T3：`GeneratedResumeContent` 删除 summary、Prompt 不要求 summary、Generator 不传 summary（§三 3.1）；T4：ProfileResolver 重写为 request-only / JD-only / summary 恒空、删除 DB/AI/启发式回填（§三 3.2）。针对性源码复核结论 PASS（§五 质量门）。原第二轮验收结论保留，T7 不受影响且无需重复验收 |
 
 **额外遗留（不属于本轮 V1.3.0 收口）**：
@@ -332,7 +332,7 @@
 ## 九、最终验收结论
 
 1. T3 / T4 第三轮产品规则修正已完成。
-2. T3 / T4 针对性高性能源码复核通过；第二轮 T7 结论继续有效。
+2. T3 / T4 针对性源码复核通过；第二轮 T7 结论继续有效。
 3. Stub E2E、Real API Smoke、§8.2 自动化验证和第三轮人工 E2E 均通过。
 4. 用户确认修正版生成内容与 DOCX 可用，文档 Agent 已完成全局状态同步。
 

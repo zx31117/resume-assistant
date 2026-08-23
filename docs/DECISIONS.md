@@ -55,8 +55,8 @@
 ## D-005 Chroma 不可用时提供 numpy 回退
 
 - 版本：V1.0.0
-- 状态：Partially Superseded
-- 后续决策：D-012 恢复 Chroma 为主后端，但保留本决策定义的 numpy 故障回退。
+- 状态：Superseded
+- 后续决策：D-012 曾恢复 Chroma 为主后端；V1.5.0 的 D-026 最终以 SQLite `fact_embeddings` 取代 Chroma 与 numpy + JSON 活动持久化，numpy 只保留为内存计算库。
 - 背景：Windows 环境的 Chroma Rust 扩展/DLL 加载失败。
 - 决策：保持统一存储接口，失败时使用 numpy 余弦检索和 JSON 持久化。
 - 依据：V1 单用户、少量经历场景需要先跑通。
@@ -128,7 +128,8 @@
 ## D-012 恢复 Chroma 原生后端并保留迁移能力
 
 - 版本：V1.2.1
-- 状态：Accepted
+- 状态：Superseded
+- 后续决策：V1.5.0 的 D-026 用 SQLite `fact_embeddings` 统一向量持久化；本节继续保留 V1.2.1 当时恢复 Chroma 的原因和结果。
 - 背景：环境已经可以正常加载 Chroma；默认 onnx embedding 路径仍可能触发 DLL 问题。
 - 决策：
   - 使用 PersistentClient；
@@ -168,7 +169,8 @@
 ## D-016 Builder 是唯一内容选择入口
 
 - 版本：V1.3.0
-- 状态：Accepted
+- 状态：Superseded
+- 后续决策：V1.5.0 的 D-025 将“经历名单”和“经历内事实”分成两层选择；Builder 收缩为按冻结结果确定性装配。
 - 背景：V1.2.1 的直接 ResumeDocument 路径绕过 Builder，Renderer 还会按模板截断。
 - 决策：核心路径由 Builder 决定条目集合；Renderer 只渲染，max_items 仅告警。
 - 依据：同一 ResumeDocument 更换模板时，业务内容集合不应变化。
@@ -213,7 +215,7 @@
   - 因旧 Git 历史曾包含 PII，V1.4.0 首次公开时只执行一次干净历史迁移；之后以新仓库为开发基线，正常提交和推送，不再逐版本制作人工发布快照；
   - 后续提交仍保留自动 Secret、PII 和运行产物检查，作为安全兜底，而不是人工整理流程。
 - 依据：用物理边界消除长期混放风险，比每次发布人工筛选文件更稳定，也能降低人和执行 Agent 的重复工作与上下文负担。
-- 影响：V1.4.0 已统一路径配置，并对既有本地数据完成可验证、可回滚的迁移和向量重建；数据迁移、持久化和安全边界已由可读取源码的高性能 Agent 独立复核。未改变 API、事实模型或 V1.3.0 业务行为。
+- 影响：V1.4.0 已统一路径配置，并对既有本地数据完成可验证、可回滚的迁移和向量重建；数据迁移、持久化和安全边界已由验收 Agent 独立复核。未改变 API、事实模型或 V1.3.0 业务行为。
 - 验收：2026-08-18 完成 Public 首发、`v1.4` tag 与匿名 clone 复核，决策由 Planned 转为 Accepted。
 
 ## D-021 GitHub 项目介绍与开发档案分层
@@ -240,7 +242,7 @@
   - 替换型变更必须明确新真源、必须退出的旧状态，并提供正向、反向和回归证据；
   - 开发验证、独立源码验收和发布结论绑定具体 Git commit；验收后的相关修改必须重验；
   - 普通版本做定向结构检查，V1/V2/V3 阶段收口或重要公开发布前按 PLAN 安排全局架构一致性审查。
-- 依据：项目以文档驱动多个 Agent 协作，文档 Agent 不读取源码，高性能验收又受 PLAN 范围约束。只有同时验证可观察行为和本次结构迁移，并把证据绑定到实际实现，才能避免把局部 PASS 扩大为整个项目无问题。
+- 依据：项目以文档驱动多个 Agent 协作，文档 Agent 不读取源码，验收 Agent 又受 PLAN 范围约束。只有同时验证可观察行为和本次结构迁移，并把证据绑定到实际实现，才能避免把局部 PASS 扩大为整个项目无问题。
 - 影响：不新增交接或验收文档；规则写入既有 PLAN / RESULT 工作流。阶段性全局审查用于发现 PLAN 范围外的并行旧路径、重复真源和文档—源码偏差，不替代每个版本的定向验收。
 
 ## D-023 公开仓库采用固定基线和正常增量发布
@@ -251,7 +253,7 @@
 - 决策：
   - 公开 `main` 是后续开发的唯一长期 Git 基线，后续版本保留正常父子提交关系，不再逐版本重建 orphan/single-commit 仓库；
   - 本机区分 `<canonical-repo>`、`<current-worktree>` 和 `<review-worktree>` 三种固定角色；交接必须提供基线 commit、候选 commit、分支和 clean 状态；
-  - 开发 Agent只交候选和 RESULT，不操作公开 main/tag；文档 Agent在用户确认后执行远端 preflight、fast-forward main 和新的 annotated tag；
+  - 开发 Agent 只交候选和 RESULT，不操作公开 main/tag；文档 Agent 在用户确认后执行远端 preflight、fast-forward main 和新的 annotated tag；
   - 正常发布禁止 force push；远端非预期变化、非 fast-forward 或 tag 已存在时停止。只有明确事故且用户单独授权时才按精确旧 SHA 保护条件处置，并在 RESULT 留痕；
   - 历史 tag 不因文档补记而移动。发布后才能确认的事实，以后续 main 上的有标记附录追加。
 - 依据：固定路径解决“在哪里工作”，commit 身份解决“看到的是哪一版”；正常增量历史同时保留开发经验、缩小 diff 和审查范围，并避免每次发布都依赖覆盖远端。
@@ -269,3 +271,31 @@
   - 首次打回后，文档 Agent 将症状上升为完整问题类别并一次补齐返工矩阵，开发 Agent 完成该矩阵自验后再进入独立源码验收。
 - 依据：功能正确、结构正确和资源生命周期正确是不同证明对象。若只修验收现场看到的症状，后续 Agent 会继续发现同一类别的其他路径，造成重复轮次和上下文浪费。
 - 影响：不增加新文档或固定验收轮次；详细矩阵写入 `HUMAN_AI_WORKFLOW.md`，具体版本只选择适用场景。小补丁仍可定向验收，但不能因“不增加产品功能”省略失败路径。
+
+## D-025 内容决策采用两层选择并冻结来源
+
+- 版本：V1.5.0
+- 状态：Accepted
+- 背景：旧链路由检索、生成和 Builder 多处决定内容集合，难以证明“哪些经历入选”和“每条表达使用了什么事实”。
+- 决策：
+  - 第一层按确定性规则生成 `CandidateExperienceSet`：工作/实习取日期可解析的最近最多 3 次；项目/论文在三年窗口共享候选池并按 JD 相关性取最多 2 项；两类合计少于 2 项时只补最匹配的 1 项校园经历；
+  - 正式教育背景保持确定性结构，不与校园活动混池；
+  - 第二层只在第一层入选经历中选择版本匹配的 Fact 和表达侧重，生成 `SelectedEvidenceSet`；
+  - LLM 只做受约束改写，每条 bullet 必须保留 fact_refs，不得重选经历、引用越界事实或写回事实库；
+  - Builder 只按冻结结果确定性装配并保留来源映射，Renderer 只展示。
+- 依据：把经历名单、事实选择、表达和展示拆开，才能对固定槽位、事实边界、过期判断和最终来源进行独立验证。
+- 影响：D-016 被取代；召回质量、权重和措辞效果仍属于 V2，不因结构闭环被宣称为已优化。
+
+## D-026 Fact 与 SQLite 向量派生成为唯一活动持久化链路
+
+- 版本：V1.5.0
+- 状态：Accepted
+- 背景：Experience 粒度过粗，Chroma 与 numpy + JSON 双后端又具有不同的 CRUD、失效、迁移和失败语义，无法形成单一可追溯生命周期。
+- 决策：
+  - SQL Experience / Fact 是职业事实源；Fact 保存稳定 ID、来源、revision 与 hash；
+  - `fact_embeddings` 是唯一活动向量持久化表，保存 fingerprint、dimension、dtype、BLOB、Fact revision/hash 和状态；numpy 只负责内存精确相似度计算；
+  - Experience create/update 与 Fact reconciliation 同事务，Fact 修改与旧 Embedding 失效同事务；失败必须回滚或进入明确可重试状态；
+  - Chroma 与 numpy + JSON 活动后端、依赖和配置退出；旧向量字节不迁移，统一从当前 Fact 重建；
+  - `manage.py migrate/status/rebuild/retry` 是唯一受支持的本地维护入口；既有库迁移前备份并核对，全新不存在的 SQLite 路径按空库初始化，备份、核对或 cleanup 失败时 fail closed。
+- 依据：事实身份、派生数据状态和恢复入口必须共享同一事务与持久化语义，才能让增删改、失败、重试、重建和生成阻断一致。
+- 影响：D-005 与 D-012 被取代；V1.4.0 的 runtime data root 和源码—数据物理隔离继续有效。

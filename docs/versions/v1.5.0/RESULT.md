@@ -1,33 +1,36 @@
 # V1.5.0 RESULT：事实级内容决策、两层选材与 SQLite 持久化收束
 
-> 状态：W1–W4 返工完成（开发自测 309/0），待 WorkBuddy 第二轮独立验收
+> 状态：已验收
 > 分支：`version/v1.5.0`
 > 基线 commit：`8c4a0058a4b0a96f6235d3cb09382956c25f39a2`（执行时最新公开 `origin/main`，`v1.4.2` 是其祖先）
 > 首次实现候选 / 开发交接 HEAD：`81357200fc6e58714d6b7ce3d6ad497a2775935c`（已被前置审核打回）
 > 实现链说明：`0fe1513` 是 T6 旧向量退出的前序提交；`8135720` 才是包含 T7 开发验证、RESULT 更新与版本号更新的实际交接 HEAD
-> 第一轮返工候选：`ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；开发自测见 §8，WorkBuddy 首轮独立验收结论见 §9
-> 第二轮（W1–W4）返工候选：见 §11；HEAD 由开发 Agent 仓库外消息交接，本 RESULT 不回填自身 SHA
+> 第一轮返工候选：`ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；开发自测见 §8，验收 Agent 首轮独立验收结论见 §9
+> 第二轮（W1–W4）返工及源码验收对象：`448d21a2c51fc47ac61fca647104c18c787d9e77`
 > PLAN：`docs/versions/v1.5.0/PLAN.md`（已批准执行，2026-08-23）
+> 功能验收：通过；开发矩阵、验收 Agent 独立复验、核心 JD → DOCX 与错误分支证据已收口，用户于 2026-08-23 明确确认完成 V1.5.0 验收
+> 结构变更验收：通过；Fact/Embedding 生命周期、迁移、两层选材、来源映射、旧实现退出及维护入口均已独立复核
+> 发布状态：用户已于 2026-08-23 授权发布；远端执行结果在发布后补录，不在候选提交中回填自身 SHA
 
-> 2026-08-23 状态说明：§1–§6 保留首次候选及 `215 pass / 0 fail` 开发记录；§7 是前置审核打回，§8 是第一轮集中返工及 `287 / 0` 开发自测，§9 是 WorkBuddy 绑定 `ec872f0f...` 的首轮独立验收。§11 是按 PLAN §13 完成的 W1–W4 定向返工及 `309 / 0` 开发自测，当前待 WorkBuddy 第二轮独立验收。
+> 2026-08-23 状态说明：§1–§6 保留首次候选及 `215 pass / 0 fail` 开发记录；§7 是前置审核打回，§8/§9 是第一轮返工及验收 Agent 首轮打回；§11 是 W1–W4 定向返工及 `309 / 0` 开发自测；§12 是验收 Agent 绑定 `448d21a2...` 的第二轮通过结论；§13 是文档 Agent 验收；§14 记录人工确认与最终文档收口。已完成阶段均明确标记，失败历史不删除。
 
-## 1. PLAN Task 对照
+## 1. PLAN Task 对照（✅ 已完成）
 
 | Task | 状态 | 实际结果 |
 |---|---|---|
-| T0 基线与文档冻结 | 完成 | 从 `origin/main@8c4a005...` 建立 `version/v1.5.0`；`v1.4.2` 是其祖先；批准文档形成增量提交 `92ac0ae` + `bc30f18` |
-| T1 源码现状与契约映射 | 完成 | 见 §2；实际文件范围、旧路径和 PLAN 偏差已记录 |
-| T2 Fact Schema 与迁移框架 | 完成 | 新增 `Fact`/`FactType`/`SchemaVersion` 模型、`database/migrations.py`（备份+顺序迁移+幂等 Fact 生成+核对）、`services/fact_service.py`（显式修改+失效钩子）、`_v15_t2_fact_migration.py` 验证（35/35）；errors 增 `FactNotFoundError`/`FactModificationError`/`MigrationError` |
-| T3 SQLite Embedding 与索引任务 | 完成 | 新增 `FactEmbedding`/`EmbeddingStatus` 模型（`fact_embeddings` 表：fact_id+embedding_fingerprint 唯一、BLOB float32 向量、dimension/dtype/revision/hash/status）；新增 `services/embedding_service.py`（fingerprint、BLOB 编解码、upsert、失效钩子 wire、rebuild 全量重建、ensure_ready 阻断、query_facts 内存精确 cosine、status_summary）；`_v15_t3_embedding.py` 验证 45/45 通过 |
-| T4 两层选材与 SelectedEvidenceSet | 完成 | 新增 `services/selection_service.py`：第一层 `select_experiences` 固定槽位（工作/实习最近最多3、项目/论文三年窗口内相关性最多2、合计<2 补1校园）、`CandidateExperienceSet`/`ExperienceSlot` 数据结构；第二层 `select_evidence` 只在入选经历中用 `embedding_service.query_facts` 选 fact_refs、`SelectedEvidenceSet`/`EvidenceEntry`/`FactRef` 可序列化可核对、`is_expired`（jd_hash/rule_version/baseline_date/fact revision-hash 变化即过期）；确定性日期解析与相关性评分（不依赖旧向量后端）；`_v15_t4_selection.py` 验证 53/53 通过 |
-| T5 改写与 Builder 收缩 | 完成 | 新增 `prompts/constrained_rewrite.py`（受约束改写 prompt）；新增 `services/constrained_rewrite.py`（`rewrite_with_evidence`：LLM 只接收入选经历+表达侧重+可使用事实，每条 bullet 返回 fact_refs，越界经历/越界 fact_refs 拒绝并告警，材料不足返回 insufficient=true 不补造，不写回 Fact）；扩展 `api/schemas.py`（`GeneratedBullet`/`GeneratedExperienceItemV15`/`GeneratedResumeContentV15`）；`models/resume_document.py` WorkItem/ProjectItem 增 `fact_refs` 字段；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 candidate_set slot 顺序装配、不排序、不裁剪、不做第二套 JD 相关性判断、fact_refs 保留到 WorkItem/ProjectItem）；`_v15_t5_rewrite.py` 验证 40/40 通过 |
-| T6 旧向量实现退出 | 完成 | 删除 `chroma_store.py`/`vector_index_sync.py`/`rag_service.py`；`config.py` 移除 `CHROMA_PATH`；`models.py` 移除 `VectorIndexJob`/`vector_id`；`migrations.py` 移除 vectorstore 备份；`experience_service.py` 移除向量同步副作用；`resume_generation_service.py` 重写为 V1.5.0 链路（迁移检查→两层选材→受约束改写→build_v15）；`generate.py` 移除 rag_service 依赖、`/generate` 返回 410；`main.py` 移除 chroma_store import；`schemas.py` 移除 `vector_id`；`requirements.txt` 移除 `chromadb`；旧测试文件加 guard；新增 `_v15_t6_legacy_exit.py` 验证 24/24 通过；Stub E2E 适配 V1.5.0 链路 18/18 通过 |
-| T7 开发验证与候选 | 完成开发自测；候选被打回 | 测试矩阵声明 T2(35)+T3(45)+T4(53)+T5(40)+T6(24)+StubE2E(18)=215 pass / 0 fail；APP_VERSION 更新为 1.5.0；开发交接时工作区 clean；实际交接 HEAD 为 `81357200fc6e58714d6b7ce3d6ad497a2775935c`，但前置审核发现结构闭环与最终产物验收不足 |
-| T8 高性能源码/数据验收 | 首轮完成；需修正 | WorkBuddy 在独立 detached review worktree 验收 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；R3/R4/R6/R7/R8 等通过，但 R1 create/update 事务边界、R2 全新库入口、R5 缺日期工作行为仍阻断，详见 §9 |
-| T9 人工核心流程验收 | 未执行 | 等待开发返工与 WorkBuddy 独立验收 |
-| T10 文档与发布 | 未执行 | CURRENT_STATE、全局文档、`main` 和 tag 均未因 V1.5.0 候选更新或发布 |
+| T0 基线与文档冻结 | ✅ 完成 | 从 `origin/main@8c4a005...` 建立 `version/v1.5.0`；`v1.4.2` 是其祖先；批准文档形成增量提交 `92ac0ae` + `bc30f18` |
+| T1 源码现状与契约映射 | ✅ 完成 | 见 §2；实际文件范围、旧路径和 PLAN 偏差已记录 |
+| T2 Fact Schema 与迁移框架 | ✅ 完成 | 新增 `Fact`/`FactType`/`SchemaVersion` 模型、`database/migrations.py`（备份+顺序迁移+幂等 Fact 生成+核对）、`services/fact_service.py`（显式修改+失效钩子）、`_v15_t2_fact_migration.py` 验证（35/35）；errors 增 `FactNotFoundError`/`FactModificationError`/`MigrationError` |
+| T3 SQLite Embedding 与索引任务 | ✅ 完成 | 新增 `FactEmbedding`/`EmbeddingStatus` 模型（`fact_embeddings` 表：fact_id+embedding_fingerprint 唯一、BLOB float32 向量、dimension/dtype/revision/hash/status）；新增 `services/embedding_service.py`（fingerprint、BLOB 编解码、upsert、失效钩子 wire、rebuild 全量重建、ensure_ready 阻断、query_facts 内存精确 cosine、status_summary）；`_v15_t3_embedding.py` 验证 45/45 通过 |
+| T4 两层选材与 SelectedEvidenceSet | ✅ 完成 | 新增 `services/selection_service.py`：第一层 `select_experiences` 固定槽位（工作/实习最近最多3、项目/论文三年窗口内相关性最多2、合计<2 补1校园）、`CandidateExperienceSet`/`ExperienceSlot` 数据结构；第二层 `select_evidence` 只在入选经历中用 `embedding_service.query_facts` 选 fact_refs、`SelectedEvidenceSet`/`EvidenceEntry`/`FactRef` 可序列化可核对、`is_expired`（jd_hash/rule_version/baseline_date/fact revision-hash 变化即过期）；确定性日期解析与相关性评分（不依赖旧向量后端）；`_v15_t4_selection.py` 验证 53/53 通过 |
+| T5 改写与 Builder 收缩 | ✅ 完成 | 新增 `prompts/constrained_rewrite.py`（受约束改写 prompt）；新增 `services/constrained_rewrite.py`（`rewrite_with_evidence`：LLM 只接收入选经历+表达侧重+可使用事实，每条 bullet 返回 fact_refs，越界经历/越界 fact_refs 拒绝并告警，材料不足返回 insufficient=true 不补造，不写回 Fact）；扩展 `api/schemas.py`（`GeneratedBullet`/`GeneratedExperienceItemV15`/`GeneratedResumeContentV15`）；`models/resume_document.py` WorkItem/ProjectItem 增 `fact_refs` 字段；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 candidate_set slot 顺序装配、不排序、不裁剪、不做第二套 JD 相关性判断、fact_refs 保留到 WorkItem/ProjectItem）；`_v15_t5_rewrite.py` 验证 40/40 通过 |
+| T6 旧向量实现退出 | ✅ 完成 | 删除 `chroma_store.py`/`vector_index_sync.py`/`rag_service.py`；`config.py` 移除 `CHROMA_PATH`；`models.py` 移除 `VectorIndexJob`/`vector_id`；`migrations.py` 移除 vectorstore 备份；`experience_service.py` 移除向量同步副作用；`resume_generation_service.py` 重写为 V1.5.0 链路（迁移检查→两层选材→受约束改写→build_v15）；`generate.py` 移除 rag_service 依赖、`/generate` 返回 410；`main.py` 移除 chroma_store import；`schemas.py` 移除 `vector_id`；`requirements.txt` 移除 `chromadb`；旧测试文件加 guard；新增 `_v15_t6_legacy_exit.py` 验证 24/24 通过；Stub E2E 适配 V1.5.0 链路 18/18 通过 |
+| T7 开发验证与候选 | ✅ 完成（经历返工） | 首次 `215 / 0` 候选被打回；集中返工后为 `287 / 0`，定向返工后的最终候选为 `309 / 0`，过程及偏差见 §7–§11 |
+| T8 源码/数据验收 | ✅ 完成（第二轮通过） | 首轮 `ec872f0f...` 发现 3 个阻断项；W1–W4 返工后，验收 Agent 在独立 detached review worktree 对 `448d21a2c51fc47ac61fca647104c18c787d9e77` 复跑矩阵和独立探针，阻断项为 0，详见 §9/§12 |
+| T9 人工核心流程验收 | ✅ 完成 | 用户于 2026-08-23 在开发验证、源码验收与文档验收证据收口后明确确认完成 V1.5.0 验收；不扩大为召回、措辞或招聘效果质量验收 |
+| T10 文档与发布 | 文档 ✅ 完成；发布已授权、待执行 | CURRENT_STATE、根 README、DECISIONS 与版本索引已按实际结果收口；用户已授权在发布前检查通过后更新 `main` 并创建 `v1.5.0` tag，执行结果在发布后补录 |
 
-## 2. 源码现状与契约映射（T1）
+## 2. 源码现状与契约映射（T1，✅ 已完成）
 
 ### 2.1 实际文件范围
 
@@ -94,7 +97,7 @@
    - `llm_service` 的 `langchain_openai.ChatOpenAI` 保留，不切换 Provider、不引入多模型。
    - `rag_service._embed` 的 urllib 豆包 multimodal embedding 调用保留。
 
-## 3. 实际全局变化
+## 3. 实际全局变化（✅ 已完成）
 
 > T2-T7 完成后填入。按 PLAN §7 / §10 要求记录 API、数据表/模型、模块职责、测试、配置/依赖、版本的实际变化。
 
@@ -118,7 +121,7 @@
 | T6 核心链路重写 | `resume_generation_service.generate_docx`：迁移检查(`_ensure_migrations_applied`)→JD分析→第一层`select_experiences`→第二层`select_evidence`→受约束改写`rewrite_with_evidence`→`build_v15`收缩装配→渲染→DOCX；`MigrationRequiredError`(412) 替代旧 `VectorIndexNotReadyError` 阻断 |
 | T3 数据表/模型 | 新增 `fact_embeddings` 表（`FactEmbedding`：id/fact_id/embedding_fingerprint/dimension/vector_blob(LargeBinary)/vector_dtype/fact_revision/fact_content_hash/status(EmbeddingStatus)/error/updated_at + UniqueConstraint(fact_id,embedding_fingerprint)）；新增 `EmbeddingStatus` 枚举（PENDING/VALID/INVALID/FAILED）；`models.py` 导入增 `LargeBinary`/`UniqueConstraint` |
 
-## 4. 替换型变更闭环
+## 4. 替换型变更闭环（✅ 已完成）
 
 > T6 完成后填入：Chroma/numpy+JSON 退出、SQLite BLOB 新状态生效、无并行向量真源。
 
@@ -131,7 +134,7 @@
 | 索引同步 | `embedding_service.rebuild_embeddings`（无 API Key 停 PENDING, 生成阻断） | `vector_index_sync.ensure_user_index_ready` + `VectorIndexJob` 删除 | T3 embedding 45/45 |
 | 测试契约 | `_v15_t*.py` 系列（T2-T6 共 197 assertions） + `_v13_stub_e2e.py` V1.5.0 适配 | `_v13_validation.py`/`_e2e_v13_full.py`/`_v14_t3_migrate.py` 加 guard 退出；`_v14_t7_regression.py` 更新模块列表 | 全量 215/0 |
 
-## 5. 开发 Agent 验证
+## 5. 开发 Agent 验证（首次候选，历史阶段，✅ 已完成）
 
 > T7 完成后填入测试矩阵结果（按 PLAN §8：Fact/选择/改写、SQLite 与迁移生命周期、回归）。
 > 当前证据等级：以下均为首次候选 `81357200fc6e58714d6b7ce3d6ad497a2775935c` 的开发侧自测声明；因前置审核打回，不得解读为候选可验收或独立验收结论。
@@ -193,17 +196,17 @@
 | `_v13_stub_e2e.py`（V1.5.0 适配） | 18 | 18 | 0 |
 | **合计** | **215** | **215** | **0** |
 
-## 6. PLAN 偏差汇总
+## 6. PLAN 偏差汇总（✅ 已记录）
 
 > 开发过程中如有字段名调整或实现细节固化，在此记录并给出等价映射。
 
 - **fact_type 粗粒度映射（T2）**：迁移为确定性、不调 LLM（PLAN §6.1），因此 fact_type 按来源字段粗粒度赋值：`description` → `RESPONSIBILITY`，`achievements[i]` → `RESULT`。PLAN §5.2 明确"粗粒度 bullet 可作为一个较粗 Fact 参与流程，粒度粗不阻断架构验收"，且 fact_type 不是选材 PASS 条件。等价映射：原 description 块保留为较粗 Fact（§6.1.3 不拆细），原成就项保留为结果类 Fact。后续服务层修改不改 fact_type。
 
-## 7. 2026-08-23 文档 Agent 前置审核打回记录
+## 7. 2026-08-23 文档 Agent 前置审核打回记录（历史阶段，✅ 已完成）
 
 ### 7.1 审核对象与结论
 
-| 项目 | 当前实际状态 |
+| 项目 | 当时实际状态 |
 |---|---|
 | 分支 | `version/v1.5.0` |
 | 基线 | `8c4a0058a4b0a96f6235d3cb09382956c25f39a2` |
@@ -212,8 +215,8 @@
 | 开发自测声明 | 215 pass / 0 fail；未等同为独立验收 |
 | 功能验收 | 失败；正常迁移/重建入口、CRUD 后事实闭环及最终 DOCX 证据不足 |
 | 结构变更验收 | 失败；迁移 fail-closed、失效一致性、检索故障可见、逐 bullet 来源与旧实现退出未闭环 |
-| WorkBuddy 独立验收 | 未进入；须先完成开发返工并形成新的 clean 候选 |
-| 当前状态 | **前置审核打回，待开发返工** |
+| 验收 Agent 独立验收 | 未进入；须先完成开发返工并形成新的 clean 候选 |
+| 当时状态 | **前置审核打回，待开发返工**；该阶段已由 §8–§12 完成返工和复验 |
 
 ### 7.2 打回证据摘要
 
@@ -229,17 +232,17 @@
 10. RESULT 原把 `0fe1513` 写成最终候选，和实际开发交接 HEAD `81357200fc6e58714d6b7ce3d6ad497a2775935c` 不一致，现已纠正。
 11. 现有自测主要证明中间 CandidateSet/EvidenceSet 或局部 Builder 行为，没有覆盖最终 ResumeDocument、Pydantic 响应序列化与 DOCX 的逐 bullet 来源闭环，因此 215/0 不能推出候选可验收。
 
-### 7.3 当前等待项与下一次交接
+### 7.3 当时等待项与下一次交接（历史阶段，✅ 已完成）
 
-- Traework 按 [PLAN §12](./PLAN.md#12-文档-agent-前置审核返工补充2026-08-23) 一轮完成 R1–R9，并在本 RESULT 追加实际修复、偏差与新测试结果；不得删除本次失败记录，也不得提前更新 CURRENT_STATE。
-- 新候选必须 clean。为避免提交自回填自身 SHA，RESULT 不写入该提交自身标识；Traework 通过仓库外的交接消息提供完整 40 位 HEAD、分支、基线、clean 状态与测试汇总。
-- WorkBuddy 只验收新的外部交接 HEAD，在 clean review worktree 独立检查源码、失败路径、最终 ResumeDocument/响应/DOCX 和旧实现退出；结论必须绑定该精确 commit。
-- 当前未进行人工验收、全局文档收口、`main` 快进或 `v1.5.0` tag；未经 WorkBuddy 与人工验收的 V1.5.0 能力不得写入 CURRENT_STATE。
+- 开发 Agent 按 [PLAN §12](./PLAN.md#12-文档-agent-前置审核返工补充2026-08-23) 一轮完成 R1–R9，并在本 RESULT 追加实际修复、偏差与新测试结果；不得删除本次失败记录，也不得提前更新 CURRENT_STATE。
+- 新候选必须 clean。为避免提交自回填自身 SHA，RESULT 不写入该提交自身标识；开发 Agent 通过仓库外的交接消息提供完整 40 位 HEAD、分支、基线、clean 状态与测试汇总。
+- 验收 Agent 只验收新的外部交接 HEAD，在 clean review worktree 独立检查源码、失败路径、最终 ResumeDocument/响应/DOCX 和旧实现退出；结论必须绑定该精确 commit。
+- 当时未进行人工验收、全局文档收口、`main` 快进或 `v1.5.0` tag；未经验收 Agent 与人工验收的 V1.5.0 能力不得写入 CURRENT_STATE。
 
-## 8. R1–R9 集中返工（PLAN §12）实际变化与开发自测
+## 8. R1–R9 集中返工（PLAN §12）实际变化与开发自测（历史阶段，✅ 已完成）
 
-> 性质：本节记录按 PLAN §12 对首次候选打回项的一轮集中返工。R1–R9 的开发自测全部通过，但**不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过**；串行门禁仍是「开发自测 → WorkBuddy → 人工 → 文档收口」。
-> 证据边界：以下均为开发侧自测声明；WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败场景并复核，不得仅复跑本节命令。
+> 性质：本节记录按 PLAN §12 对首次候选打回项的一轮集中返工。R1–R9 的开发自测全部通过，但**不代表功能验收、结构变更验收或验收 Agent 独立验收通过**；串行门禁仍是「开发自测 → 验收 Agent → 人工 → 文档收口」。
+> 证据边界：以下均为开发侧自测声明；验收 Agent 必须在新的 clean 候选上独立读取源码、推导失败场景并复核，不得仅复跑本节命令。
 
 ### 8.1 R-item 实际变化对照
 
@@ -252,7 +255,7 @@
 | R5 教育/校园语义与确定性排序 | 正式教育独立于校园活动；校园只在合计<2 时按 JD 相关性补 1 项；同分同日期有最终稳定键 | `select_experiences`：`education` 不再进 campus 池（仅 `campus` 进）；校园按 `(-relevance, -time_ord, id)` 排序取 1 项；工作 `(-end_ord, id)`、项目 `(-rel, -time, id)` 固定最终键；校园入选 bullets+fact_refs 进最终 ResumeDocument | `services/selection_service.py`、`services/resume_builder.py`（campus 分支装配 bullets） |
 | R6 检索健康与故障可见性 | 查询前/时验证 fingerprint/维度/dtype/BLOB/revision/hash/状态；故障阻断不回退全部 Fact；健康低相关与故障不同结果类型 | `query_facts` 收集 dimension/blob-length/orphan/revision/content_hash 不匹配为 health_issues，raise `RetrievalHealthError` 阻断（不再静默 skip 后回退）；新增 `RetrievalHealthError`；健康索引低相关仍走「全部已知 Fact」获准策略 | `services/embedding_service.py`、`core/errors.py` |
 | R7 逐 bullet 来源与最终链路 | 每条 bullet 保留自身 fact_refs；BuildMeta/响应 schema 显式声明并序列化往返；越界/空引用失败不 warning 出 DOCX；campus 分支保留映射 | `BuildMeta` 新增 `bullet_fact_refs`（逐 bullet list of list）、`fact_refs_per_experience`、`builder_mode` 字段；`EducationItem` 新增 `bullets`+`fact_refs`；`build_v15` 保留逐 bullet 映射，非 insufficient bullet 空 fact_refs→raise `ContentGenerationError`；campus 分支装配 bullets+fact_refs 进 EducationItem | `api/schemas.py`、`models/resume_document.py`、`services/resume_builder.py` |
-| R8 旧实现退出与对外一致 | 活动残留替换；必要兼容残留有 guard；历史档案不改写；`.env.example`/运行帮助/活动脚本只描述实际配置 | `.env.example` 移除 `CHROMA_PATH`，改为说明向量统一走 SQLite 派生表 + `manage.py rebuild`；`run_stub_demo.py` docstring 去除 RAG/vector_index_sync 语义；`_v14_t7_regression.py` RUNTIME-3 不再引用 `settings.CHROMA_PATH` 并防御性断言其不存在；根 README 与全局文档按 PLAN §12.9 由文档 Agent 在 WorkBuddy 通过后统一，本版本不提前改 | `backend/.env.example`、`backend/run_stub_demo.py`、`backend/_v14_t7_regression.py` |
+| R8 旧实现退出与对外一致 | 活动残留替换；必要兼容残留有 guard；历史档案不改写；`.env.example`/运行帮助/活动脚本只描述实际配置 | `.env.example` 移除 `CHROMA_PATH`，改为说明向量统一走 SQLite 派生表 + `manage.py rebuild`；`run_stub_demo.py` docstring 去除 RAG/vector_index_sync 语义；`_v14_t7_regression.py` RUNTIME-3 不再引用 `settings.CHROMA_PATH` 并防御性断言其不存在；根 README 与全局文档按 PLAN §12.9 由文档 Agent 在验收 Agent 通过后统一，本版本不提前改 | `backend/.env.example`、`backend/run_stub_demo.py`、`backend/_v14_t7_regression.py` |
 
 > R9（集成验证与冻结交接）见 §8.3/§8.5：本节汇总矩阵、形成 clean 候选并外部交接。
 
@@ -298,18 +301,18 @@
 1. **备份同名冲突处理（R3 偏差）**：首次候选 `_backup_sources` 用 `chmod 0o444` 置备份只读，但同一 UTC 秒内重复迁移（测试与生产快速重试场景）会因同名只读 bak 无法覆盖而 `PermissionError`。返工改为：bak 路径已存在时追加数字后缀生成唯一名，不覆盖既有只读快照；manifest 文件名同步派生自 bak 名，保持配对。等价语义：仍只读、仍校验、仍 fail-closed，仅消除同名冲突崩溃。证据：`_v15_r_rework.py` R3[4]。
 2. **校园补位 bullets 来源（R5 偏差）**：PLAN §12.6 要求校园入选后受约束 bullets 进最终文档。实现中当 LLM 未返回校园 bullets 时，`build_v15` campus 分支回退为 `[exp.description] + exp.achievements` 作为较粗 bullets，并保留 fact_refs 映射。粒度粗不阻断架构验收（PLAN §5.2），但与工作/项目分支的「LLM bullets 优先」一致。等价映射：校园 Fact 仍可追溯，未生成虚构内容。
 3. **`_v14_t7_regression.py` RUNTIME-3（R8 偏差）**：V1.5.0 移除 `settings.CHROMA_PATH` 后，旧 RUNTIME-3 用例 `settings.CHROMA_PATH` 访问抛 `AttributeError`。返工改为只校验 `SQLITE_PATH`/`DOCX_OUTPUT_DIR` 落在 runtime root，并防御性断言 `not hasattr(settings, "CHROMA_PATH")`。这是活动测试随契约退出的必要同步，非新功能。
-4. **R2 入口未单独脚本化测试**：`manage.py` 是 CLI 薄封装，其底层 `run_migrations`/`rebuild_embeddings`/`status_summary` 已分别由 T2/T3/R-rework 覆盖；`manage.py` 本身未新增独立断言脚本，避免重复测底层。WorkBuddy 可在 clean 候选上对 `python manage.py status`/`migrate`/`rebuild` 做真实入口验收。
+4. **R2 入口未单独脚本化测试**：`manage.py` 是 CLI 薄封装，其底层 `run_migrations`/`rebuild_embeddings`/`status_summary` 已分别由 T2/T3/R-rework 覆盖；`manage.py` 本身未新增独立断言脚本，避免重复测底层。验收 Agent 可在 clean 候选上对 `python manage.py status`/`migrate`/`rebuild` 做真实入口验收。
 
-### 8.6 当前状态与下一次交接
+### 8.6 当时状态与下一次交接（历史阶段，✅ 已完成）
 
-- R1–R9 开发自测全部通过；本 RESULT 已记录实际变化、偏差与新测试结果；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §12.9/§12.11 由文档 Agent 在 WorkBuddy + 人工通过后统一）。
+- R1–R9 开发自测全部通过；本 RESULT 已记录实际变化、偏差与新测试结果；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §12.9/§12.11 由文档 Agent 在验收 Agent + 人工通过后统一）。
 - 新候选为 clean `version/v1.5.0` 分支提交；为避免自引用循环，本 RESULT 不回填该 commit 自身 SHA。开发 Agent 通过仓库外交接消息提供完整 40 位 HEAD、基线、分支、clean `git status` 与测试汇总。
-- `81357200fc6e58714d6b7ce3d6ad497a2775935c` 仍是被打回的首次候选；新外部交接 HEAD 是 WorkBuddy 的唯一审核对象，任何相关修改都会使旧验收失效。
-- 未 push `main`、未创建或移动 `v1.5.0` tag。WorkBuddy 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，结论绑定精确 commit 后交回文档 Agent 汇总。
+- `81357200fc6e58714d6b7ce3d6ad497a2775935c` 仍是被打回的首次候选；新外部交接 HEAD 是验收 Agent 的唯一审核对象，任何相关修改都会使旧验收失效。
+- 当时未 push `main`、未创建或移动 `v1.5.0` tag。验收 Agent 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，结论绑定精确 commit 后交回文档 Agent 汇总。
 
-## 9. WorkBuddy 独立源码验收结论（T8，2026-08-23）
+## 9. 验收 Agent 首轮独立源码验收结论（历史阶段，✅ 已完成；2026-08-23）
 
-> 性质：高性能源码验收 Agent 独立结论，按 HUMAN_AI_WORKFLOW §6/§7.3 绑定精确 commit；不替代人工与文档验收。
+> 性质：验收 Agent 独立源码结论，按 HUMAN_AI_WORKFLOW §6/§7.3 绑定精确 commit；不替代人工与文档验收。
 > 被验收实现标识：`version/v1.5.0` 分支 commit `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`（开发仓库工作区当时 clean；`v1.4.2` 与基线 `8c4a005` 均为其祖先）。
 > 验收环境：独立 detached review worktree（`<review-root>/review-v150`）+ 隔离 venv；未修改任何验收目录源码。
 > 结论：**需修正（R1/R2/R5 失败路径与边界未完全闭环；其余项通过）**。被验收 commit 之后任何相关源码修改都会使本结论自动失效。
@@ -347,32 +350,34 @@
 - **§9.5/§9.6**：第一层固定槽位只有一套实现（work 最近 3/项目三年窗口最多 2/校园条件补 1，`education` 不再进校园池）；第二层只引用入选经历 fact_refs；`is_expired` 覆盖 jd_hash/rule_version/baseline_date/revision/hash。
 - **APP_VERSION=1.5.0**；`/api/resume/generate` 返回 410；测试与 runtime 隔离、隐私（产物不含履历正文/Key/用户名）。
 
-### 9.4 建议的返工要求（回到开发 Agent）
+### 9.4 当时返工要求（✅ 已完成）
 
 1. **R5**：缺日期/不可解析日期的工作经历应从 work 槽位排除并给出一致告警（或改文案为"无日期按最旧排序"并明示兼容映射，二者必居其一，不能行为与告警矛盾）；补 `_v15_t4_selection.py` 断言。
 2. **R1**：`create_experience`/`update_experience` 的 Experience 提交与 Fact reconciliation 需形成同事务一致性边界（reconcile 失败不得留下孤儿 Experience 或"新 Experience 旧派生数据"窗口）；补失败注入断言。
 3. **R2**：明确全新安装快速开始的执行顺序（先启动服务或先建库文件），或令 `manage.py migrate` 对缺失 SQLite 文件按空库处理；文档 Agent 收口 README 时按实际行为表述。
 
-返工完成并形成新的 clean 候选后，重新进入 WorkBuddy 独立验收（绑定新 commit）。本结论绑定 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；任何相关修改后原结论自动失效。
+返工完成并形成新的 clean 候选后，重新进入验收 Agent 独立验收（绑定新 commit）。本结论绑定 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；任何相关修改后原结论自动失效。
 
-## 10. 文档 Agent 验收汇总与当前状态（2026-08-23）
+## 10. 文档 Agent 对首轮源码验收的汇总（历史阶段，✅ 已完成；已由 §12 取代；2026-08-23）
 
-### 10.1 汇总结论
+> 本节记录验收 Agent 首轮验收 `ec872f0f...` 后的当时状态和返工交接。其 3 个阻断项随后已在 §11 完成 W1–W4 修复，并由验收 Agent 在 §12 对 `448d21a2...` 第二轮复验通过；当前结论以 §12/§13 为准。
 
-- WorkBuddy 已完成 T8 首轮独立源码验收，验收对象与环境可追溯，复跑矩阵及独立探针证据已记录；“源码验收已完成”不等于“源码验收已通过”。
-- 当前结论为 **需修正**：R1 create/update 事务边界、R2 不存在 SQLite 文件时的全新库入口、R5 缺失/不可解析日期工作排除规则共 3 个阻断项。
-- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 上的 R3、R4、R6、R7、R8 等通过项可以作为定向返工基线，但任何相关源码变化都会使对应结论失效并需重验。
+### 10.1 首轮汇总结论（当时状态）
 
-### 10.2 下一步
+- 验收 Agent 已完成 T8 首轮独立源码验收，验收对象与环境可追溯，复跑矩阵及独立探针证据已记录；“源码验收已完成”不等于“源码验收已通过”。
+- 当时结论为 **需修正**：R1 create/update 事务边界、R2 不存在 SQLite 文件时的全新库入口、R5 缺失/不可解析日期工作排除规则共 3 个阻断项；这 3 项现已由 §11/§12 证明闭环。
+- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 上的 R3、R4、R6、R7、R8 等通过项当时作为定向返工基线；第二轮涉及的范围已经按 §12 重新独立验证，当前有效源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`。
 
-- Traework 按 [PLAN §13](./PLAN.md#13-workbuddy-首轮独立验收返工澄清2026-08-23) 一轮完成 W1–W4，在本 RESULT 追加实际修改和测试，不删除 §9 的失败记录。
-- 新候选通过仓库外消息提供精确 40 位 HEAD、分支、基线、clean 状态与测试汇总；RESULT 不自回填该提交自身 SHA。
-- WorkBuddy 对新 HEAD 完成第二轮独立复验且阻断项为 0 后，才进入人工核心流程验收。当前不更新 CURRENT_STATE、根 README、DECISIONS 或版本索引，不进行 `main`/tag/发布操作。
+### 10.2 当时下一步（现已完成）
 
-## 11. W1–W4 定向返工（PLAN §13）实际变化与开发自测
+- 开发 Agent 已按 [PLAN §13](./PLAN.md#13-验收-agent-首轮独立验收返工澄清2026-08-23) 完成 W1–W4，实际修改和测试见 §11，§9 首轮失败记录继续保留。
+- 新候选已通过外部交接并由验收 Agent 绑定为 `448d21a2c51fc47ac61fca647104c18c787d9e77`；第二轮独立复验阻断项为 0，见 §12。
+- 当时门禁已推进到 §13 所述 T9 人工核心流程验收；CURRENT_STATE、根 README、DECISIONS、版本索引及 `main`/tag/发布仍未提前变更。
 
-> 性质：按 PLAN §13 对 WorkBuddy 首轮独立验收的 R1/R2/R5 三个阻断项定向返工。W1–W4 开发自测全部通过，但**不代表 WorkBuddy 第二轮独立验收通过**；串行门禁仍是「开发自测 → WorkBuddy → 人工 → 文档收口」。
-> 证据边界：以下均为开发侧自测声明；WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败路径并复核，不得仅复跑本节命令。
+## 11. W1–W4 定向返工（PLAN §13）实际变化与开发自测（✅ 已完成）
+
+> 性质：按 PLAN §13 对验收 Agent 首轮独立验收的 R1/R2/R5 三个阻断项定向返工。W1–W4 开发自测全部通过，但**不代表验收 Agent 第二轮独立验收通过**；串行门禁仍是「开发自测 → 验收 Agent → 人工 → 文档收口」。
+> 证据边界：以下均为开发侧自测声明；验收 Agent 必须在新的 clean 候选上独立读取源码、推导失败路径并复核，不得仅复跑本节命令。
 
 ### 11.1 W-item 实际变化对照
 
@@ -407,12 +412,87 @@
 
 ### 11.4 W-返工偏差
 
-1. **W2 测试集中到 `_v15_w_rework.py`**：WorkBuddy §9.4 建议“补 `_v15_t4_selection.py` 断言”。实现按 PLAN §13.3“追加 W1–W4 的失败注入和测试结果”将 W1–W3 正反向断言集中到新增 `_v15_w_rework.py`，避免把失败注入（mock/patch）混入纯确定性规则测试 `_v15_t4_selection.py`；`_v15_t4_selection.py` 原有的工作/项目/校园确定性规则断言保持不变并继续在 W4 复跑通过，等价覆盖“正常日期排序与最终稳定键无回归”。
+1. **W2 测试集中到 `_v15_w_rework.py`**：验收 Agent §9.4 建议“补 `_v15_t4_selection.py` 断言”。实现按 PLAN §13.3“追加 W1–W4 的失败注入和测试结果”将 W1–W3 正反向断言集中到新增 `_v15_w_rework.py`，避免把失败注入（mock/patch）混入纯确定性规则测试 `_v15_t4_selection.py`；`_v15_t4_selection.py` 原有的工作/项目/校园确定性规则断言保持不变并继续在 W4 复跑通过，等价覆盖“正常日期排序与最终稳定键无回归”。
 2. **W1 反向注入点细化**：§13.2 要求“Fact 派生 / reconciliation / Embedding 失效和 commit 前分别注入异常”。对 `create` 的 Embedding 失效注入不适用（新建 Fact 不触发失效），故改为 `_upsert_fact` 注入覆盖 create 的 reconciliation 写入失败；对 `update` 单独注入 `invalidate_fact_embedding` 覆盖“修改后旧向量失效失败”路径。三类注入点（Fact 派生 / reconciliation / Embedding 失效）均已覆盖，且 commit 前回滚。
 
-### 11.5 当前状态与下一次交接
+### 11.5 当时状态与下一次交接（历史阶段，✅ 已完成）
 
-- W1–W4 开发自测全部通过；本 RESULT 已追加实际修改、失败注入与测试结果，保留 §9 的首轮 WorkBuddy 失败记录；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §13.3 由文档 Agent 在 WorkBuddy + 人工通过后统一）。
+- W1–W4 开发自测全部通过；本 RESULT 已追加实际修改、失败注入与测试结果，保留 §9 的首轮验收 Agent 失败记录；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §13.3 由文档 Agent 在验收 Agent + 人工通过后统一）。
 - 新候选为 clean `version/v1.5.0` 分支提交；为避免自引用循环，本 RESULT 不回填该提交自身 SHA。完整 40 位 HEAD、基线、分支、clean 状态与测试汇总通过仓库外交接消息交接。
-- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 仍是被 WorkBuddy 首轮打回的候选；新外部交接 HEAD 是 WorkBuddy 第二轮独立验收的唯一对象，任何相关修改都会使旧结论失效。
-- 未 push `main`、未创建或移动 `v1.5.0` tag。WorkBuddy 对新 HEAD 完成第二轮独立复验且阻断项为 0 后，才进入人工核心流程验收。
+- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 仍是被验收 Agent 首轮打回的候选；新外部交接 HEAD 是验收 Agent 第二轮独立验收的唯一对象，任何相关修改都会使旧结论失效。
+- 当时未 push `main`、未创建或移动 `v1.5.0` tag。验收 Agent 对新 HEAD 完成第二轮独立复验且阻断项为 0 后，才进入人工核心流程验收。
+
+## 12. 验收 Agent 第二轮独立源码验收结论（T8 复验，✅ 已完成；2026-08-23）
+
+> 性质：验收 Agent 对 W1–W4 返工候选的独立复验结论，按 HUMAN_AI_WORKFLOW §6/§7.3 绑定精确 commit；不替代人工与文档验收。
+> 被验收实现标识：`version/v1.5.0` 分支 commit `448d21a2c51fc47ac61fca647104c18c787d9e77`（开发仓库工作区当时 clean；`v1.4.2`、基线 `8c4a005` 与首轮对象 `ec872f0` 均为其祖先）。
+> 验收环境：独立 detached review worktree（`<review-root>/review-v150`，已重建于该 commit）+ 隔离 venv；未修改任何验收目录源码。
+> 结论：**通过（阻断项为 0）**。首轮 3 个阻断项（R1 CRUD 事务边界 / R2 全新库入口 / R5 缺日期工作规则）经独立复验全部闭环；受 W1–W3 影响的 R1/R2/R3/R5 及 R4 相关调用已重新独立验证。被验收 commit 之后任何相关源码修改都会使本结论自动失效。
+
+### 12.1 复跑验证矩阵（独立执行）
+
+| 测试 | 复跑结果 | 说明 |
+|---|---|---|
+| `_v15_t2_fact_migration.py` | 35/0 | 迁移/备份/幂等（R3 受影响，W3 改动后复跑） |
+| `_v15_t3_embedding.py` | 54/0 | R6 检索健康（R4 相关调用回归） |
+| `_v15_t4_selection.py` | 53/0 | 两层选材/校园/过期（R5 改动后回归） |
+| `_v15_t5_rewrite.py` | 40/0 | 受约束改写/Builder 收缩 |
+| `_v15_t6_legacy_exit.py` | 24/0 | 旧实现退出（R8） |
+| `_v15_r_rework.py` | 48/0 | R1/R3/R7（R1 改动后回归） |
+| `_v15_w_rework.py`（新增） | 37/0 | W1 事务正反向 / W2 缺日期 / W3 全新库入口 |
+| `_v13_stub_e2e.py` | 18/18 | JD→DOCX 端到端 + 错误分支 |
+| `_v14_t7_regression.py` | 12P/0F/3SUSPEND | 3 SUSPEND 为环境门禁（Key/首发包） |
+
+与 RESULT §11.3 声明一致（309 断言/0 失败 + T7）。
+
+### 12.2 首轮阻断项独立复验（自写探针，非仅采信开发测试）
+
+| 首轮 FAIL 项 | 第二轮结果 | 证据 |
+|---|---|---|
+| A（R5 缺日期工作） | **PASS** | 缺日期工作 `w-nodate` 不再进入 work 槽（`work_ids=['w-ok']`），进入 `excluded_ids`，告警 `work date missing/unparseable` 与行为一致 |
+| C（R1 create 失败窗口） | **PASS** | 注入 `_reconcile_facts` 失败后，`create_experience` 抛异常且 Experience 残留=0、Fact=0（无孤儿） |
+| C2（R1 update 失败窗口） | **PASS** | 注入 reconcile 失败后，Experience 描述、Fact text/revision、Embedding 状态均保持旧一致值（无"新 Experience 旧派生"窗口） |
+| B（乱序稳定性） | **PASS** | 5 组 shuffle 结果一致；同日期工作按 `experience_id` 升序稳定键 |
+| G1（R2 全新库入口） | **PASS** | `manage.py migrate` 对不存在的 SQLite 文件退出 0 并建库（W3 fresh 分支生效）；`status` 对无 Fact/PENDING 非零且给下一步 |
+| G2/G3（空库/无 Key） | **PASS** | 空库 migrate 幂等（版本门控 skip）；rebuild 无 Key 非零 + `skipped_no_key` |
+
+### 12.3 代码复核要点
+
+- **W1（experience_service.py）**：`create_experience` 与 `update_experience` 的 Experience 写入（`add/setattr` + `flush`）与 `_reconcile_facts` 纳入同一 try，异常 `db.rollback()` 后重抛；不再有 reconciliation 前单独 commit。`_reconcile_facts` 内同事务失效（`invalidate_fact_embedding(commit=False)`）随整体回滚。✓
+- **W2（selection_service.py）**：`work/internship/实习/工作` 类型在 `parseable=False` 时进入 `excluded_ids` + 一致告警并 `continue`；不再有"入选却声称排除"的旧告警；项目缺日期原有排除逻辑不受影响。✓
+- **W3（migrations.py）**：目录源先 fail-closed（`MigrationError`）；`is_fresh = not src_p.exists()` 时跳过备份并记录 `note="fresh empty database; backup skipped"`；已存在源仍必须通过 §12 R3 备份与核对门禁（W-rework 对目录源/损坏 SQLite 注入均非零退出）。✓
+
+### 12.4 第二轮结论（✅ 已完成）
+
+- **功能验收**：源码复核通过后已交人工核心流程验收（T9），最终结论见 §14。
+- **结构变更验收**：源码复核已通过，文档 Agent 已按最终结论收口 CURRENT_STATE、根 README、DECISIONS 与版本索引。
+- **本轮源码验收状态：通过（阻断项为 0）**。首轮 §9 的失败记录保留；本结论绑定 `448d21a2c51fc47ac61fca647104c18c787d9e77`，任何相关源码修改后自动失效。
+
+## 13. 文档 Agent 验收结论（✅ 已完成；2026-08-23）
+
+### 13.1 验收对象与证据一致性
+
+| 核对项 | 结论 | 证据 |
+|---|---|---|
+| 实现身份 | 通过 | 分支 `version/v1.5.0`；最终源码验收对象 `448d21a2c51fc47ac61fca647104c18c787d9e77`；基线 `8c4a0058...` 与历史候选链可追溯 |
+| PLAN 对照 | 通过 | 原 T1–T8、§12 R1–R9、§13 W1–W4 的实际结果、偏差和失败记录均保留在同一 RESULT，未新增第三份版本文档 |
+| 开发验证 | 通过 | 最终返工候选记录 `309 / 0` 开发自测；旧 `215 / 0`、`287 / 0` 仅按当时证据等级保留，不替代最终结论 |
+| 验收 Agent 验收 | 通过 | §12 绑定精确 commit 独立复跑 9 组矩阵并执行自写探针；首轮 3 个阻断项全部复验通过，阻断项为 0 |
+| 功能验收 | 通过 | JD → DOCX、错误分支与最终来源闭环已有开发/源码证据；用户于 2026-08-23 明确确认完成 V1.5.0 验收，见 §14 |
+| 结构变更验收 | 通过 | Fact/Embedding 生命周期、迁移 fail-closed、两层选材、来源映射、旧实现退出和运行入口已由验收 Agent 独立复核通过 |
+| 全局文档同步 | 通过 | CURRENT_STATE、根 README、DECISIONS 与两个版本索引已按已验收事实同步；不把 V2/V3 或未验证质量结论写入当前事实 |
+| 发布 | 已授权、待执行 | 用户已于 2026-08-23 授权发布；仍须先完成远端 `main` 快进关系、tag 冲突与工作区状态检查，执行结果在发布后补录 |
+
+### 13.2 文档验收结论
+
+**通过。** PLAN 规定的目标、两轮返工契约、开发实际结果、失败候选、验收 Agent 首轮打回与第二轮通过结论均可追溯，且开发验证与源码验收最终绑定同一实现 `448d21a2c51fc47ac61fca647104c18c787d9e77`。RESULT 已分别记录功能验收和结构变更验收，没有把开发断言数量扩大为召回、措辞或招聘效果质量验收。
+
+当前版本的开发、源码验收、人工确认与文档验收均已完成。用户已于 2026-08-23 授权更新 `main` 并创建 annotated tag `v1.5.0`；发布仍须通过远端快进关系和 tag 冲突检查，执行事实仅在发布后补录。
+
+## 14. T9 人工确认与 T10 文档收口（✅ 已完成；2026-08-23）
+
+- **人工确认**：用户在开发 Agent 与验收 Agent 已完成交付、文档 Agent 已核对 RESULT 后，明确要求完成 V1.5.0 验收并先整理文档；据此 T9 结论记为“通过”。
+- **验收边界**：本次通过证明 PLAN 约定的事实边界、固定槽位、迁移与故障可见性、来源映射及 JD → DOCX 核心流程闭环，不证明召回优劣、措辞质量、招聘效果、页面排版或 V2/V3 能力。
+- **文档收口**：CURRENT_STATE、根 README、DECISIONS、`docs/README.md` 与 `docs/versions/README.md` 已按 V1.5.0 已验收事实同步；版本目录继续只保留 PLAN/RESULT。
+- **实现冻结**：源码验收仍绑定 `448d21a2c51fc47ac61fca647104c18c787d9e77`。本轮仅整理文档；若此后修改相关源码、测试、配置或公开元数据，受影响范围必须重新验收。
+- **发布状态**：用户已于 2026-08-23 明确授权发布；当前尚未推送 `main`，尚未创建或移动 `v1.5.0` tag。完成发布前检查后执行；最终发布候选不回填自身 SHA，发布身份以 annotated tag 目标为准，远端事实另行追加发布后补录。

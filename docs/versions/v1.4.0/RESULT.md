@@ -14,7 +14,7 @@
 | - | --------- | ------------- | -------- |
 | 1 | **源码兼作数据目录**：SQLite / Chroma / DOCX 输出默认写入 `backend/data/`、`backend/output/`，导致 `git status` 永远脏，无法 GitHub 发布。 | 引入跨平台 `RESUME_DATA_DIR`（默认在 `%LOCALAPPDATA%/ResumeAssistant` 等 Git 仓库外），所有可变路径由其派生；提供自动建目录 + 环境变量覆盖；`T2` 完成。 | T2 |
 | 2 | **缺少"零 API Key 运行链路"**：开源用户下载后无 API Key 跑不通任何链路，GitHub 首发冷启动体验差。 | 新增 `run_stub_demo.py`：虚构 Demo 三件套 + 纯本地构建 ResumeDocument + 渲染 docx，证明"模板→事实→输出"全链路；`T5` 完成。 | T5 |
-| 3 | **发布前缺少"源码真源 / 数据真源 / 交付真源"三重严格隔离**，导致验收 AGENT 容易在开发污染环境中误判通过。 | T8 产出全新独立 git 仓库一次性 worktree：main 分支，历史长度 1，零 runtime 数据/二进制/PII/绝对路径硬编码；验收 AGENT **仅允许**用此目录。 | T8 |
+| 3 | **发布前缺少"源码真源 / 数据真源 / 交付真源"三重严格隔离**，导致验收 Agent 容易在开发污染环境中误判通过。 | T8 产出全新独立 git 仓库一次性 worktree：main 分支，历史长度 1，零 runtime 数据/二进制/PII/绝对路径硬编码；验收 Agent **仅允许**用此目录。 | T8 |
 
 ---
 
@@ -55,7 +55,7 @@
 
 源码树（`BASE_DIR = backend/`）保持 A 类干净，**永不**再写入可变数据。PLAN §6.5 "运行后 git 工作区 clean" 要求由此实现。
 
-### 3.2 关键改动文件（验收 AGENT 建议按此顺序精读）
+### 3.2 关键改动文件（验收 Agent 建议按此顺序精读）
 
 1. [backend/core/config.py](../../../backend/core/config.py) — `RESUME_DATA_DIR` + 5 个子目录派生；尾部 `assert` 保证路径互斥性；尾部 `_ensure_dirs()` 自动建目录。
 2. [backend/api/routes/template.py](../../../backend/api/routes/template.py) — 移除硬编码 `OUTPUT_DIR`；下载接口路径校验兼容旧 `data/output/*` 格式（为 V1.3.0→V1.4.0 平滑切换兜底）。
@@ -66,7 +66,7 @@
 
 ---
 
-## 四、开发 AGENT 已锚定的"本环境实测结论"（供验收 AGENT 对照）
+## 四、开发 Agent 已锚定的"本环境实测结论"（供验收 Agent 对照）
 
 > ⚠️ 以下锚定都在**开发 worktree**（非 T8 干净包）里执行，仅用于防止开发侧关键路径失效；最终结论以 §七记录的 T8 独立复验为准。
 
@@ -109,11 +109,11 @@
 
 ## 六、状态
 
-- **开发 AGENT 状态**：✅ T1–T8 全部完成；三轮修正（B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3）全部完成；T8 重建并自测通过。
-- **验收 AGENT 状态**：✅ 已完成三轮 T9；第三轮确认全部本地发布风险收口，结论“可发布”。
+- **开发 Agent 状态**：✅ T1–T8 全部完成；三轮修正（B1/C1/C2/C3 → L1/L2/L3 → §九-2/§九-3）全部完成；T8 重建并自测通过。
+- **验收 Agent 状态**：✅ 已完成三轮 T9；第三轮确认全部本地发布风险收口，结论“可发布”。
 - **当前 RESULT 状态**：**`已验收`**。T9、MIG-3、T10 与 T11 全部通过；Public、tag、匿名访问和全局文档同步已完成。
 
-## 七、T9 高性能源码验收结论
+## 七、T9 源码验收结论
 
 ### 第一轮已通过部分
 
@@ -140,7 +140,7 @@
 
 ### 第二轮复验
 
-开发 Agent 重建候选仓库后，高性能源码验收 Agent确认：
+开发 Agent 重建候选仓库后，验收 Agent 确认：
 
 - B1：`pm_template.docx` 已进入 commit，干净来源不再缺模板；
 - C1：删除 `pip_freeze_baseline.txt`，`requirements.txt` 为唯一依赖真源；
@@ -148,7 +148,7 @@
 - C3：当前开发者用户名路径已占位符化；旧文档的无用户名盘符路径为低风险历史信息；
 - 第二轮 T7 为 12 PASS / 0 FAIL / 3 SUSPEND，Stub E2E 通过，安全五门通过。
 
-高性能 Agent 的第二轮结论“可发布（有条件）”在本 RESULT 中映射为工作流状态 `待验收`：T9 核心门已通过，但完整版本门禁尚未完成。
+验收 Agent 的第二轮结论“可发布（有条件）”在本 RESULT 中映射为工作流状态 `待验收`：T9 核心门已通过，但完整版本门禁尚未完成。
 
 ---
 
@@ -156,7 +156,7 @@
 
 ### 修正概述
 
-针对第一轮高性能复核指出的 B1 阻断和 C1–C3 同轮修正项，开发 Agent 完成以下工作并重建 T8 首发仓库。
+针对验收 Agent 首轮复核指出的 B1 阻断和 C1–C3 同轮修正项，开发 Agent 完成以下工作并重建 T8 首发仓库。
 
 ### B1：pm_template.docx 进入 Git 跟踪
 
@@ -214,7 +214,7 @@
 | Stub E2E | ✅ 成功生成 38.5 KB demo_resume.docx，输出在仓库外 runtime |
 | 运行后源码树 | clean（无 runtime 数据污染） |
 
-### 交付给高性能验收 Agent 的复验要点
+### 交付给验收 Agent 的复验要点
 
 1. `cd <delivery-root>`；确认 `git rev-list --count HEAD = 1` 且 `git branch --show-current = main`；
 2. `git ls-files backend/templates/pm_template.docx` 必须返回该文件（B1）；
@@ -229,16 +229,16 @@
 
 ## 九、第三轮后剩余门禁
 
-第三轮已经完成本地发布风险收口，不需要第四轮完整高性能验收。各门禁状态如下：
+第三轮已经完成本地发布风险收口，不需要第四轮完整源码验收。各门禁状态如下：
 
 1. ✅ **第三轮候选冻结**：候选 commit `341512db...` 为单提交、91 个跟踪文件；validation artifacts 改写入临时目录，不进入 Git。
-2. ✅ **清理 Agent 产物**：`.workbuddy/` 已同时由 `.gitignore` 和 T8 构建脚本排除。
-3. ✅ **完全脱敏**：Secret、旧路径和脚本自身硬编码均已清零，高性能 Agent 第三轮复验通过。
+2. ✅ **清理 Agent 产物**：本地验收工具产物目录已同时由 `.gitignore` 和 T8 构建脚本排除。
+3. ✅ **完全脱敏**：Secret、旧路径和脚本自身硬编码均已清零，验收 Agent 第三轮复验通过。
 4. ✅ **最终清单复验**：第三轮在报告写回前确认 manifest=Git=91，SHA256 91/91，运行后源码树干净。
 5. ✅ **MIG-3**：在有效 API Key 环境从迁移后 SQL 全量重建向量，`total_sql=5 / upserted=5 / deleted_stale=0 / failed_ids.count=0 / errors=[] / vector_rebuild_all_ok=true`；user_id 从 SQL 首条用户自动获取，非 settings 默认值。
 6. ✅ **T10/T11**：Private 干净 clone、依赖安装、修正后的 Stub E2E、Public、annotated tag `v1.4` 和匿名 clone 全部通过。
 
-第三轮验证完成后，高性能 Agent 将验收结论写回工作区，当时因此出现文档修改、manifest 对当前工作区暂时为 89/91。这是记录动作，不是源码回退；随后完成 docs-only 冻结、重新生成 manifest 并机械核对，未再启动第四轮完整验收。
+第三轮验证完成后，验收 Agent 将验收结论写回工作区，当时因此出现文档修改、manifest 对当前工作区暂时为 89/91。这是记录动作，不是源码回退；随后完成 docs-only 冻结、重新生成 manifest 并机械核对，未再启动第四轮完整验收。
 
 V1.4.0 全部门禁已完成；本 RESULT、`CURRENT_STATE.md`、入口索引与全局决策状态已同步。
 
@@ -358,8 +358,8 @@ V1.4.0 全部门禁已完成；本 RESULT、`CURRENT_STATE.md`、入口索引与
 
 | 措施 | 实现 |
 |---|---|
-| .gitignore | 新增 `.workbuddy/` 排除规则 |
-| T8 构建脚本 | `_DIR_EXCLUDE` 新增 `".workbuddy"`，构建时不拷贝该目录 |
+| .gitignore | 新增本地验收工具产物排除规则 |
+| T8 构建脚本 | `_DIR_EXCLUDE` 新增对应目录名，构建时不拷贝该目录 |
 
 ### §九-3：脱敏脚本不硬编码 PII
 
@@ -383,18 +383,18 @@ V1.4.0 全部门禁已完成；本 RESULT、`CURRENT_STATE.md`、入口索引与
 | L1 key 前缀 | ✅ `ark-********` |
 | L2 旧盘符路径 | ✅ 0 残留 |
 | L3 validation-artifacts | ✅ 不在 Git 跟踪中 |
-| §九-2 .workbuddy | ✅ 排除 |
+| §九-2 本地验收工具产物 | ✅ 排除 |
 | §九-3 脚本无 PII | ✅ 0 硬编码 |
 | T7 回归 | 12 PASS / 0 FAIL / 3 SUSPEND |
 | 运行后源码树 | clean |
 
-### 交付给高性能验收 Agent 的第三轮复验要点
+### 交付给验收 Agent 的第三轮复验要点
 
 1. `cd <delivery-root>`；确认 `git rev-list --count HEAD = 1` 且 `git branch --show-current = main`；
 2. `git grep -E "ark-[a-f0-9]{8,}" -- docs/` → 应返回空（真实 key 前缀不应出现在文档中）；
 3. `git grep -E "[dDeE]:[\\\\/]V1" -- docs/` → 应返回空（旧盘符路径已脱敏）；
 4. `git ls-files docs/versions/v1.4.0/validation-artifacts/` → 应返回空（L3）；
-5. `git ls-files .workbuddy/` → 应返回空（§九-2）；
+5. `git ls-files` 核对本地验收工具产物目录 → 应返回空（§九-2）；
 6. 扫描 `backend/_v14_c2c3_path_redact.py`，确认不含原用户名或原本机路径字面量（§九-3）；
 7. 跑 T7（`python _v14_t7_regression.py --report=$TEMP/t7.json`）确认 12 PASS / 0 FAIL / 3 SUSPEND；
 8. 跑 Stub E2E（`python run_stub_demo.py`）确认零 API Key 成功；
