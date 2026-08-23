@@ -332,8 +332,12 @@ def select_experiences(
             work_pool.append(exp)
         elif t in ("project", "paper", "项目", "论文"):
             project_pool.append(exp)
-        elif t in ("education", "campus", "校园", "教育"):
+        elif t in ("campus", "校园"):
             campus_pool.append(exp)
+        elif t in ("education", "教育"):
+            # R5: formal education stays in deterministic structure,
+            # never enters campus pool (degree-granting education)
+            pass
         else:
             # 未知类型：不计入任何槽位，告警
             cset.warnings.append(f"unknown type skip: {exp.id} type={t}")
@@ -375,7 +379,7 @@ def select_experiences(
             return baseline_ord + 1  # 在进行中视为最新
         return _to_ordinal(parsed["end"]) or _to_ordinal(parsed["start"]) or 0
 
-    project_in_window.sort(key=lambda x: (-x[0], -_proj_time_key(x[1])))
+    project_in_window.sort(key=lambda x: (-x[0], -_proj_time_key(x[1]), x[1].id))
     for rank, (rel, exp) in enumerate(project_in_window[:_MAX_PROJECT], start=1):
         cset.slots.append(ExperienceSlot(
             experience_id=exp.id, slot_type="project", slot_rank=rank,
@@ -388,15 +392,20 @@ def select_experiences(
     # ── 校园补位（前两类合计 <2 才触发） ────────────────────── #
     combined = len([s for s in cset.slots if s.slot_type in ("work", "project")])
     if combined < _MIN_COMBINED_FOR_CAMPUS and campus_pool:
-        campus_ranked = sorted(
-            campus_pool,
-            key=lambda e: -(_to_ordinal(parse_experience_time(e.time or "")["end"])
-                            or _to_ordinal(parse_experience_time(e.time or "")["start"]) or 0),
-        )
+        # R5: campus by JD relevance + time + experience_id (not just time)
+        def _campus_key(e):
+            rel = score_relevance(e, jd_analysis)
+            parsed = parse_experience_time(e.time or "")
+            if parsed["in_progress"]:
+                time_ord = baseline_ord + 1
+            else:
+                time_ord = _to_ordinal(parsed["end"]) or _to_ordinal(parsed["start"]) or 0
+            return (-rel, -time_ord, e.id)
+        campus_ranked = sorted(campus_pool, key=_campus_key)
         exp = campus_ranked[0]
         cset.slots.append(ExperienceSlot(
             experience_id=exp.id, slot_type="campus", slot_rank=1,
-            selection_basis=f"campus fill (combined={combined}<{_MIN_COMBINED_FOR_CAMPUS})",
+            selection_basis=f"campus fill (combined={combined}<{_MIN_COMBINED_FOR_CAMPUS}, relevance={score_relevance(exp, jd_analysis):.3f})",
         ))
     elif combined < _MIN_COMBINED_FOR_CAMPUS and not campus_pool:
         cset.warnings.append("campus fill triggered but no campus material; 保持缺失不生成虚构内容")
@@ -418,14 +427,15 @@ def _fmt(year_month: Optional[tuple[int, int]]) -> str:
 
 
 def _rank_work(work_pool: list[Experience], baseline_ord: int) -> list[Experience]:
-    """工作/实习按结束时间倒序；在职（in_progress 或无 end）视为最新。"""
-    def key(exp: Experience) -> int:
+    """R5: work by end date desc; in_progress = latest; tie-break by experience_id asc."""
+    def key(exp: Experience):
         parsed = parse_experience_time(exp.time or "")
         if parsed["in_progress"]:
-            return baseline_ord + 1  # 在职排在最新
-        end_ord = _to_ordinal(parsed["end"]) or _to_ordinal(parsed["start"]) or 0
-        return end_ord
-    return sorted(work_pool, key=key, reverse=True)
+            end_ord = baseline_ord + 1
+        else:
+            end_ord = _to_ordinal(parsed["end"]) or _to_ordinal(parsed["start"]) or 0
+        return (-end_ord, exp.id)  # end_ord desc, id asc
+    return sorted(work_pool, key=key)
 
 
 def _project_in_window(parsed: dict, baseline_ord: int, window_start_ord: int) -> bool:
@@ -548,7 +558,9 @@ def select_evidence(
             if refs else "无可用向量命中，保留全部已知 Fact（粒度粗）"
         )
 
-        # 无向量命中时回退引用全部已知 Fact（粗粒度，PLAN §5.2.5 / §6.1.3）
+        # R6: 无向量命中时回退引用全部已知 Fact
+        # 仅在索引健康但相关性低时触发（query_facts 健康故障已抛 RetrievalHealthError 阻断）
+        # PLAN §5.2.5 / §6.1.3 粗粒度 Fact 可参与流程
         if not refs:
             for f in exp_facts:
                 refs.append(FactRef(

@@ -384,10 +384,15 @@ def build_v15(
             v15_map[item.experience_id] = item
 
     # 按 candidate_set slot 顺序装配（不排序、不裁剪）
+    # R7: 保留每条 bullet 的 fact_refs（逐 bullet 来源映射）
     education_items: list[EducationItem] = []
     work_items: list[WorkItem] = []
     project_items: list[ProjectItem] = []
     assembled_slot_ids: set[str] = set()
+    # R7: per-bullet fact_refs mapping (experience_id → list of fact_refs per bullet)
+    bullet_fact_refs_map: dict[str, list[list[str]]] = {}
+    # R7: validation errors (non-insufficient bullets with empty fact_refs)
+    _validation_errors: list[str] = []
 
     for slot in candidate_set.slots:
         exp = next((e for e in all_experiences if e.id == slot.experience_id), None)
@@ -395,13 +400,30 @@ def build_v15(
             continue
         assembled_slot_ids.add(exp.id)
         v15_item = v15_map.get(exp.id)
-        bullets = [b.bullet for b in v15_item.bullets if b.bullet and b.bullet.strip()] if v15_item else []
-        fact_refs: list[str] = []
+
+        # R7: preserve per-bullet fact_refs (not compressed to experience-level)
+        per_bullet_refs: list[list[str]] = []
+        bullets: list[str] = []
         if v15_item:
             for b in v15_item.bullets:
-                for r in (b.fact_refs or []):
-                    if r not in fact_refs:
-                        fact_refs.append(r)
+                if b.bullet and b.bullet.strip():
+                    bullets.append(b.bullet)
+                    refs = list(b.fact_refs or [])
+                    per_bullet_refs.append(refs)
+                    # R7: validate non-insufficient bullet must have fact_refs
+                    if not refs and not v15_item.insufficient:
+                        _validation_errors.append(
+                            f"empty fact_refs on non-insufficient bullet: "
+                            f"experience_id={exp.id} bullet={b.bullet[:50]}"
+                        )
+        bullet_fact_refs_map[exp.id] = per_bullet_refs
+
+        # Compressed experience-level fact_refs (backward compat)
+        fact_refs_flat: list[str] = []
+        for refs in per_bullet_refs:
+            for r in refs:
+                if r not in fact_refs_flat:
+                    fact_refs_flat.append(r)
 
         if slot.slot_type == "work":
             work_bullets = bullets if bullets else (
@@ -413,7 +435,7 @@ def build_v15(
                 time=exp.time or "",
                 bullets=work_bullets,
                 experience_id=exp.id,
-                fact_refs=fact_refs,
+                fact_refs=fact_refs_flat,
             ))
         elif slot.slot_type == "project":
             proj_bullets = bullets if bullets else (
@@ -426,9 +448,13 @@ def build_v15(
                 time=exp.time or "",
                 bullets=proj_bullets,
                 experience_id=exp.id,
-                fact_refs=fact_refs,
+                fact_refs=fact_refs_flat,
             ))
         elif slot.slot_type == "campus":
+            # R5/R7: campus bullets + fact_refs enter final ResumeDocument
+            campus_bullets = bullets if bullets else (
+                ([exp.description] if exp.description else []) + list(exp.achievements or [])
+            )
             education_items.append(EducationItem(
                 school=exp.company or exp.title or "",
                 major=exp.role or "",
@@ -436,7 +462,18 @@ def build_v15(
                 time=exp.time or "",
                 description=exp.description or "",
                 experience_id=exp.id,
+                bullets=campus_bullets,
+                fact_refs=fact_refs_flat,
             ))
+
+    # R7: validation — non-insufficient bullets with empty fact_refs must fail
+    if _validation_errors:
+        from core.errors import ContentGenerationError
+        raise ContentGenerationError(
+            f"R7 per-bullet validation failed: {len(_validation_errors)} errors",
+            stage="resume_build",
+            details={"errors": _validation_errors[:20]},
+        )
 
     # 学历（degree-granting education，不在 candidate_set slots 中的）
     for exp in all_experiences:
@@ -494,9 +531,11 @@ def build_v15(
         "insufficient_experience_ids": sorted(
             sid for sid, item in v15_map.items() if item.insufficient
         ),
-        "fact_refs_preserved": {
-            sid: [b.fact_refs for b in v15_map[sid].bullets]
-            for sid in assembled_slot_ids if sid in v15_map
+        # R7: per-bullet fact_refs (structured, not compressed)
+        "bullet_fact_refs": bullet_fact_refs_map,
+        "fact_refs_per_experience": {
+            sid: [r for refs in bullet_fact_refs_map.get(sid, []) for r in refs]
+            for sid in assembled_slot_ids
         },
         "counts": {
             "education": len(doc.education),

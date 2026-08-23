@@ -23,6 +23,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import settings
+from core.errors import MigrationError
 from database.models import Base, Experience, Fact, FactType, SchemaVersion
 
 logger = logging.getLogger(__name__)
@@ -140,29 +141,91 @@ def _upsert_fact(session: Session, experience_id: str, cand: dict) -> tuple[str,
 # ── 备份 ─────────────────────────────────────────────────────── #
 
 def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str] = None) -> dict:
-    """复制源数据库为只读备份（PLAN §6.3.1）。
+    """R3: 复制源数据库为只读备份并验证完整性。
 
-    V1.5.0：vectorstore_dir 参数保留以兼容旧调用签名，但已无副作用
-    （向量持久化统一走 SQLite BLOB 派生表，备份源即 SQLite 本身）。
-    不删除原文件；备份只读（Windows chmod 为 best-effort）。
+    R3 fail closed: 备份失败或完整性核对失败均记入 errors。
+    调用方（run_migrations）检查 errors 非空时 raise，不继续破坏性步骤。
+    保存不含履历正文的 manifest（只记数量/hash/路径）。
     """
+    import json as _json
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    backups: dict = {"timestamp": ts, "sqlite": None, "vectorstore": None, "errors": []}
+    backups: dict = {"timestamp": ts, "sqlite": None, "vectorstore": None, "errors": [], "manifest": None}
 
     sqlite_p = Path(sqlite_path)
-    if sqlite_p.exists():
-        bak = sqlite_p.with_name(f"{sqlite_p.stem}.{ts}.db.bak")
-        try:
-            shutil.copy2(sqlite_p, bak)
-            try:
-                os.chmod(bak, 0o444)
-            except Exception:
-                pass  # Windows 只读语义有限，best-effort
-            backups["sqlite"] = str(bak)
-        except Exception as e:
-            backups["errors"].append(f"sqlite_backup: {e!r}")
+    if not sqlite_p.exists():
+        backups["errors"].append(f"sqlite_backup: source not found: {sqlite_path}")
+        return backups
 
-    # V1.5.0：vectorstore 不再活动（chroma/numpy+JSON 已退出）；旧参数仅作签名兼容
+    # R3: 处理同名备份冲突（同一 UTC 秒内重复迁移、或历史同名只读备份）。
+    # 不覆盖既有备份——追加数字后缀生成唯一名，避免破坏已有只读快照。
+    bak = sqlite_p.with_name(f"{sqlite_p.stem}.{ts}.db.bak")
+    suffix = 1
+    while bak.exists():
+        bak = sqlite_p.with_name(f"{sqlite_p.stem}.{ts}.{suffix}.db.bak")
+        suffix += 1
+    try:
+        shutil.copy2(sqlite_p, bak)
+    except Exception as e:
+        # R3 fix: Windows file lock — fall back to sqlite3.backup() API
+        # which works even when the database is open by another connection
+        try:
+            import sqlite3 as _sqlite3
+            src_conn = _sqlite3.connect(str(sqlite_p))
+            try:
+                dst_conn = _sqlite3.connect(str(bak))
+                try:
+                    src_conn.backup(dst_conn)
+                finally:
+                    dst_conn.close()
+            finally:
+                src_conn.close()
+            logger.info("sqlite_backup: shutil.copy2 failed (%r), used sqlite3.backup() fallback", e)
+        except Exception as e2:
+            backups["errors"].append(f"sqlite_backup copy failed: {e!r}; sqlite3.backup fallback also failed: {e2!r}")
+            return backups
+
+    # R3: 验证备份完整性（存在性 + 可读性 + 大小匹配）
+    if not bak.exists():
+        backups["errors"].append(f"sqlite_backup verify: backup not found after copy: {bak}")
+        return backups
+    src_size = sqlite_p.stat().st_size
+    bak_size = bak.stat().st_size
+    if src_size != bak_size:
+        backups["errors"].append(
+            f"sqlite_backup verify: size mismatch src={src_size} bak={bak_size}"
+        )
+        return backups
+    # 可读性验证：尝试打开读取前 4 字节
+    try:
+        with open(bak, "rb") as f:
+            f.read(4)
+    except Exception as e:
+        backups["errors"].append(f"sqlite_backup verify: unreadable: {e!r}")
+        return backups
+
+    try:
+        os.chmod(bak, 0o444)
+    except Exception:
+        pass  # Windows 只读语义有限，best-effort
+
+    backups["sqlite"] = str(bak)
+
+    # R3: 保存不含履历正文的 manifest（只记路径/大小/时间）
+    manifest = {
+        "timestamp": ts,
+        "source": str(sqlite_p),
+        "source_size": src_size,
+        "backup": str(bak),
+        "backup_size": bak_size,
+        "verified": True,
+    }
+    manifest_path = sqlite_p.with_name(f"{bak.stem}.manifest.json")
+    try:
+        manifest_path.write_text(_json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        backups["manifest"] = str(manifest_path)
+    except Exception as e:
+        backups["errors"].append(f"manifest write failed: {e!r}")
+
     return backups
 
 
@@ -263,9 +326,14 @@ def run_migrations(
 
     engine = None
     session: Optional[Session] = None
+    _cleanup_errors: list[str] = []
     try:
         if backup:
             summary["backup"] = _backup_sources(sqlite_path)
+            # R3: fail closed — backup errors mean we must not continue
+            if summary["backup"].get("errors"):
+                summary["error"] = "backup failed: " + "; ".join(summary["backup"]["errors"])
+                raise MigrationError(summary["error"], stage="migration")
 
         engine = create_engine(
             f"sqlite:///{sqlite_path}",
@@ -298,13 +366,20 @@ def run_migrations(
         summary["verify"] = verify_migration(session)
         return summary
     finally:
+        # R3: track cleanup errors instead of swallowing with pass
         if session is not None:
             try:
                 session.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _cleanup_errors.append(f"session.close: {e!r}")
         if engine is not None:
             try:
                 engine.dispose()
-            except Exception:
-                pass
+            except Exception as e:
+                _cleanup_errors.append(f"engine.dispose: {e!r}")
+        # R3: cleanup failure after retries → non-zero
+        if _cleanup_errors:
+            logger.error("cleanup errors: %s", _cleanup_errors)
+            if not summary.get("error"):
+                summary["error"] = "cleanup failed: " + "; ".join(_cleanup_errors)
+                raise MigrationError(summary["error"], stage="cleanup")

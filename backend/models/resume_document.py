@@ -55,8 +55,11 @@ class EducationItem(ResumeItemMixin):
     start_time: str = ""              # "2022.09"
     end_time: str = ""                # "2026.06" 或 "至今"
     gpa: Optional[str] = None
-    description: Optional[str] = None  # 获奖/主修课/排名（单行或多行字符串，为空则渲染器不占行）
+    description: Optional[str] = None  # 获奖/主修课/排名
     experience_id: str = ""
+    # R7: campus activities may have bullets + fact_refs
+    bullets: List[str] = []
+    fact_refs: List[str] = []
 
     # --- 兼容旧字段：time（V1.1 "2022.09 - 2026.06" 形式） ---
     time: Optional[str] = None

@@ -1,18 +1,25 @@
 """经历业务服务（无 AI，无 LangChain）。
 
-V1.5.0：向量编排已退出本模块。
+V1.5.0 R1：Experience CRUD 全生命周期。
+- create 立即生成确定性 Fact（不等下次迁移）
+- update 对新增、修改、删除的来源项做 reconciliation，更新 revision/hash 并同事务失效旧向量
+- delete 清理 Fact、FactEmbedding，不留孤儿
+- SchemaVersion 只门控一次性 schema/data 升级，不承担日常 CRUD 同步
 - 自身不调用 LLM、不直接计算 embedding，也不 import langchain。
-- Experience CRUD 是纯 SQL；向量持久化统一走 FactEmbedding（由迁移触发，
-  services/embedding_service.rebuild_embeddings 全量重建）。
 - build_index_text / metadata 保留为公开工具方法供其他模块复用。
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from database import models
+from database.models import Fact, FactEmbedding, EmbeddingStatus
+from database.migrations import _iter_fact_candidates, _upsert_fact, derive_fact_id
+
+logger = logging.getLogger(__name__)
 
 
 def build_index_text(exp: models.Experience) -> str:
@@ -37,12 +44,62 @@ def metadata(exp: models.Experience) -> dict:
 _metadata = metadata
 
 
-def create_experience(db: Session, user_id: str, data: dict) -> models.Experience:
-    """创建经历：纯 SQL 写入。
+def _reconcile_facts(db: Session, exp: models.Experience) -> dict:
+    """R1: 对经历的 Fact 进行 reconciliation。
 
-    V1.5.0：不再创建 VectorIndexJob，不做向量同步副作用。
-    Fact 迁移与向量重建由 services/migrations.run_migrations 与
-    embedding_service.rebuild_embeddings 在适当时机触发。
+    根据当前 Experience 字段重新派生 Fact 候选，与现有 Fact 对比：
+    - 新候选且无对应 Fact → 创建
+    - 候选且 source_hash 变化 → 更新 text/revision/hash + 同事务失效旧向量
+    - 现有 Fact 不再有对应候选 → 删除 Fact + 其 Embedding
+    返回 {created, updated, noop, deleted, invalidated} 统计。
+    """
+    candidates = _iter_fact_candidates(exp)
+    candidate_ids = {
+        derive_fact_id(exp.id, c["source_field"], c["source_index"])
+        for c in candidates
+    }
+
+    created = updated = noop = 0
+    invalidated_facts: list[str] = []
+    for cand in candidates:
+        fid, status = _upsert_fact(db, exp.id, cand)
+        if status == "created":
+            created += 1
+        elif status == "updated":
+            updated += 1
+            invalidated_facts.append(fid)
+        else:
+            noop += 1
+
+    # 删除不再有对应候选的 Fact + 其 Embedding
+    existing = db.query(Fact).filter(Fact.experience_id == exp.id).all()
+    deleted = 0
+    for fact in existing:
+        if fact.fact_id not in candidate_ids:
+            db.query(FactEmbedding).filter(FactEmbedding.fact_id == fact.fact_id).delete()
+            db.delete(fact)
+            deleted += 1
+
+    # R4: 同事务失效被更新的 Fact 的旧向量（不单独提交）
+    for fid in invalidated_facts:
+        from services.embedding_service import invalidate_fact_embedding
+        invalidate_fact_embedding(db, fid, commit=False)
+
+    logger.info(
+        "reconcile_facts: exp=%s created=%d updated=%d noop=%d deleted=%d invalidated=%d",
+        exp.id, created, updated, noop, deleted, len(invalidated_facts),
+    )
+    return {
+        "created": created, "updated": updated, "noop": noop,
+        "deleted": deleted, "invalidated": invalidated_facts,
+    }
+
+
+def create_experience(db: Session, user_id: str, data: dict) -> models.Experience:
+    """R1: 创建经历——立即生成确定性 Fact。
+
+    V1.5.0 R1：create 后立即调用 _reconcile_facts 生成 Fact，
+    不等下次迁移。SchemaVersion 不承担日常 CRUD 同步。
     """
     exp = models.Experience(
         user_id=user_id,
@@ -59,6 +116,9 @@ def create_experience(db: Session, user_id: str, data: dict) -> models.Experienc
     db.add(exp)
     db.commit()
     db.refresh(exp)
+    # R1: 立即生成确定性 Fact
+    _reconcile_facts(db, exp)
+    db.commit()
     return exp
 
 
@@ -76,11 +136,10 @@ def get_experience(db: Session, exp_id: str) -> Optional[models.Experience]:
 
 
 def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.Experience]:
-    """更新经历：纯 SQL 更新。
+    """R1: 更新经历——对 Fact 做 reconciliation。
 
-    V1.5.0：不再创建 VectorIndexJob；Experience 内容变化后，
-    Fact 迁移（migrations._upsert_fact）会在下次迁移执行时 bump revision，
-    进而使旧 FactEmbedding 与旧 SelectedEvidenceSet 失效。
+    V1.5.0 R1：update 后调用 _reconcile_facts 对新增、修改、删除的来源项做
+    reconciliation，更新 revision/hash 并同事务失效旧向量。不等下次迁移。
     """
     exp = get_experience(db, exp_id)
     if not exp:
@@ -90,18 +149,25 @@ def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.E
             setattr(exp, key, data[key])
     db.commit()
     db.refresh(exp)
+    # R1: 对 Fact 做 reconciliation（同事务失效旧向量）
+    _reconcile_facts(db, exp)
+    db.commit()
     return exp
 
 
 def delete_experience(db: Session, exp_id: str) -> bool:
-    """删除经历：纯 SQL 删除。
+    """R1: 删除经历——清理 Fact 与 FactEmbedding。
 
-    V1.5.0：不再创建 DELETE Job；Experience 删除后级联删除其 Fact
-    （cascade=all, delete-orphan），残留 FactEmbedding 在下次 rebuild 时清理。
+    V1.5.0 R1：delete 前显式删除其 Fact 的 FactEmbedding，再删除 Experience
+    （级联删除 Fact）。不留孤儿向量行。
     """
     exp = get_experience(db, exp_id)
     if not exp:
         return False
+    # R1: 先删除其 Fact 的 Embedding，再删除 Experience（级联删除 Fact）
+    fact_ids = [f.fact_id for f in db.query(Fact).filter(Fact.experience_id == exp_id).all()]
+    if fact_ids:
+        db.query(FactEmbedding).filter(FactEmbedding.fact_id.in_(fact_ids)).delete(synchronize_session=False)
     db.delete(exp)
     db.commit()
     return True

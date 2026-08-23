@@ -193,7 +193,7 @@ def test_first_layer():
     eng = _setup_empty_db()
     s = _session(eng)
     try:
-        _add_exp(s, id="edu1", user_id="demo", type="education", title="竞赛", company="", time="2020.01-2020.06", description="ACM 金牌", skills=["算法"], achievements=[])
+        _add_exp(s, id="camp1", user_id="demo", type="campus", title="竞赛", company="", time="2020.01-2020.06", description="ACM 金牌", skills=["算法"], achievements=[])
         cset = ss.select_experiences(s.query(Experience).all(), _jd(), baseline_date=baseline)
         campus = [x for x in cset.slots if x.slot_type == "campus"]
         check(len(campus) == 1, f"合计0 → 1 校园 (实际 {len(campus)})")

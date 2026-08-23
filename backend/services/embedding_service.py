@@ -173,10 +173,13 @@ def upsert_embedding(
 
 # ── 失效（Fact 修改钩子） ─────────────────────────────────────── #
 
-def invalidate_fact_embedding(session: Session, fact_id: str) -> int:
+def invalidate_fact_embedding(session: Session, fact_id: str, *, commit: bool = True) -> int:
     """将该 fact_id 的所有 VALID 向量标记为 INVALID（PLAN §6.2 / §4.1）。
 
     返回受影响行数。用于 fact_service 修改钩子与维度/fingerprint 不匹配场景。
+
+    R4：commit=False 时不提交，允许调用方在同一事务内完成 Fact 更新 + 向量失效，
+    保证不存在"新 Fact 已提交但旧 Embedding 仍 VALID"的一致性窗口。
     """
     rows = (
         session.query(FactEmbedding)
@@ -187,7 +190,8 @@ def invalidate_fact_embedding(session: Session, fact_id: str) -> int:
     for row in rows:
         row.status = EmbeddingStatus.INVALID
         row.updated_at = now
-    session.commit()
+    if commit:
+        session.commit()
     return len(rows)
 
 
@@ -442,25 +446,45 @@ def query_facts(
     q_dim = len(query_vector)
     q = np.asarray(query_vector, dtype=_NP_DTYPE)
     results: list[dict] = []
+    health_issues: list[str] = []  # R6: collect health issues
+
     for row in rows:
-        # 维度不匹配 → 不可用（PLAN §6.2）
-        if row.dimension != q_dim or row.dimension <= 0:
+        # R6: health checks — failures collected, not silently skipped
+        if row.dimension != q_dim:
+            health_issues.append(f"dimension mismatch: fact_id={row.fact_id} stored={row.dimension} query={q_dim}")
+            continue
+        if row.dimension <= 0:
+            health_issues.append(f"zero dimension: fact_id={row.fact_id}")
             continue
         v = _decode_vector(row.vector_blob or b"", row.vector_dtype, row.dimension)
         if v.shape[0] != q_dim:
+            health_issues.append(f"blob length mismatch: fact_id={row.fact_id} blob={v.shape[0]} query={q_dim}")
             continue
-        # revision 防御性核对（hook 已标记 INVALID，此处双保险）
         fact = session.get(Fact, row.fact_id)
         if fact is None:
+            health_issues.append(f"orphan fact: fact_id={row.fact_id}")
             continue
-        if (fact.revision or 1) != row.fact_revision or (fact.content_hash or "") != row.fact_content_hash:
+        if (fact.revision or 1) != row.fact_revision:
+            health_issues.append(f"revision mismatch: fact_id={row.fact_id} fact={fact.revision} emb={row.fact_revision}")
             continue
+        if (fact.content_hash or "") != row.fact_content_hash:
+            health_issues.append(f"content_hash mismatch: fact_id={row.fact_id}")
+            continue
+        # All health checks passed — compute score
         score = _cosine(q, v)
         results.append({
             "fact_id": row.fact_id,
             "score": round(score, 6),
             "revision": row.fact_revision,
         })
+
+    # R6: health issues must block — not confused with healthy low relevance
+    if health_issues:
+        from core.errors import RetrievalHealthError
+        raise RetrievalHealthError(
+            f"检索健康检查失败: {len(health_issues)} issues (R6)",
+            issues=health_issues[:20],
+        )
 
     results.sort(key=lambda x: x["score"], reverse=True)
     if top_k is not None:

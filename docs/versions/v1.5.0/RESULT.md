@@ -1,13 +1,14 @@
 # V1.5.0 RESULT：事实级内容决策、两层选材与 SQLite 持久化收束
 
-> 状态：前置审核打回，待开发返工
+> 状态：开发返工完成（R1–R9 自测通过），待 WorkBuddy 独立验收
 > 分支：`version/v1.5.0`
 > 基线 commit：`8c4a0058a4b0a96f6235d3cb09382956c25f39a2`（执行时最新公开 `origin/main`，`v1.4.2` 是其祖先）
 > 首次实现候选 / 开发交接 HEAD：`81357200fc6e58714d6b7ce3d6ad497a2775935c`（已被前置审核打回）
 > 实现链说明：`0fe1513` 是 T6 旧向量退出的前序提交；`8135720` 才是包含 T7 开发验证、RESULT 更新与版本号更新的实际交接 HEAD
+> 返工候选：PLAN §12 R1–R9 已在本分支完成开发自测（详见 §8）；新外部交接 HEAD 由开发 Agent 在仓库外消息提供，WorkBuddy 只验收该精确 commit；本 RESULT 不回填自身 SHA 以避免自引用循环
 > PLAN：`docs/versions/v1.5.0/PLAN.md`（已批准执行，2026-08-23）
 
-> 2026-08-23 前置审核说明：§1–§6 保留首次候选的开发侧实施与 `215 pass / 0 fail` 自测记录，用于追溯“实际发生过什么”；这些记录不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过。接下来必须执行 PLAN §12 的集中返工契约。
+> 2026-08-23 前置审核说明：§1–§6 保留首次候选的开发侧实施与 `215 pass / 0 fail` 自测记录，用于追溯"实际发生过什么"；这些记录不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过。§7 记录前置审核打回证据；§8 记录按 PLAN §12 完成的 R1–R9 集中返工与开发自测结果。
 
 ## 1. PLAN Task 对照
 
@@ -233,3 +234,74 @@
 - 新候选必须 clean。为避免提交自回填自身 SHA，RESULT 不写入该提交自身标识；Traework 通过仓库外的交接消息提供完整 40 位 HEAD、分支、基线、clean 状态与测试汇总。
 - WorkBuddy 只验收新的外部交接 HEAD，在 clean review worktree 独立检查源码、失败路径、最终 ResumeDocument/响应/DOCX 和旧实现退出；结论必须绑定该精确 commit。
 - 当前未进行人工验收、全局文档收口、`main` 快进或 `v1.5.0` tag；未经 WorkBuddy 与人工验收的 V1.5.0 能力不得写入 CURRENT_STATE。
+
+## 8. R1–R9 集中返工（PLAN §12）实际变化与开发自测
+
+> 性质：本节记录按 PLAN §12 对首次候选打回项的一轮集中返工。R1–R9 的开发自测全部通过，但**不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过**；串行门禁仍是「开发自测 → WorkBuddy → 人工 → 文档收口」。
+> 证据边界：以下均为开发侧自测声明；WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败场景并复核，不得仅复跑本节命令。
+
+### 8.1 R-item 实际变化对照
+
+| R | PLAN 要求（§12） | 实际实现 | 关键文件 |
+|---|---|---|---|
+| R1 Experience CRUD 生命周期 | create 立即生成 Fact；update reconciliation + 失效；delete 清理 Fact/Embedding 无孤儿；SchemaVersion 不承担日常 CRUD 同步 | 新增 `_reconcile_facts`：按当前 Experience 字段重新派生候选，对比现有 Fact——新增→创建、source_hash 变化→更新 revision/hash 并同事务失效旧向量、无对应候选→删除 Fact+Embedding；create/update 立即调用（不等下次迁移）；delete 先删其 Fact 的 Embedding 再级联删 Fact | `services/experience_service.py` |
+| R2 可操作升级与重建入口 | 提供唯一受支持本地维护入口，覆盖迁移/状态/重试/重建；正常用户不需 import 私有 service | 新增 CLI `backend/manage.py`：`migrate`/`status`/`rebuild`/`retry` 四命令，统一入口；`status` 诊断 SchemaVersion 缺失、PENDING/FAILED Embedding 并给下一步；非零退出码 + 领域错误文案 | `backend/manage.py`（新增） |
+| R3 迁移 fail-closed 与资源 | 备份源 SQLite + 校验；任一备份/核对失败 fail-closed；成功/异常/提前退出释放 session/engine/文件句柄；cleanup 失败非零 | `_backup_sources`：copy2 失败回退 `sqlite3.backup()`；备份后校验存在性/大小/可读性；写不含正文的 manifest；备份 errors 非空→`run_migrations` raise `MigrationError` 不继续 schema/data；`finally` 追踪 session.close/engine.dispose 异常为 cleanup errors，非空则非零 | `database/migrations.py` |
+| R4 Fact 修改一致性 | Fact 更新与旧派生失效组成可证明一致性边界；失效失败不得 warning 消化；不依赖可选进程内钩子 | `modify_fact` 在同一 session 内调用 `invalidate_fact_embedding(commit=False)` 同事务失效旧 Embedding，再统一 commit；失效异常→rollback + raise `FactModificationError`；钩子保留供测试但生产路径不依赖 | `services/fact_service.py`、`services/embedding_service.py`（`invalidate_fact_embedding(commit=False)`） |
+| R5 教育/校园语义与确定性排序 | 正式教育独立于校园活动；校园只在合计<2 时按 JD 相关性补 1 项；同分同日期有最终稳定键 | `select_experiences`：`education` 不再进 campus 池（仅 `campus` 进）；校园按 `(-relevance, -time_ord, id)` 排序取 1 项；工作 `(-end_ord, id)`、项目 `(-rel, -time, id)` 固定最终键；校园入选 bullets+fact_refs 进最终 ResumeDocument | `services/selection_service.py`、`services/resume_builder.py`（campus 分支装配 bullets） |
+| R6 检索健康与故障可见性 | 查询前/时验证 fingerprint/维度/dtype/BLOB/revision/hash/状态；故障阻断不回退全部 Fact；健康低相关与故障不同结果类型 | `query_facts` 收集 dimension/blob-length/orphan/revision/content_hash 不匹配为 health_issues，raise `RetrievalHealthError` 阻断（不再静默 skip 后回退）；新增 `RetrievalHealthError`；健康索引低相关仍走「全部已知 Fact」获准策略 | `services/embedding_service.py`、`core/errors.py` |
+| R7 逐 bullet 来源与最终链路 | 每条 bullet 保留自身 fact_refs；BuildMeta/响应 schema 显式声明并序列化往返；越界/空引用失败不 warning 出 DOCX；campus 分支保留映射 | `BuildMeta` 新增 `bullet_fact_refs`（逐 bullet list of list）、`fact_refs_per_experience`、`builder_mode` 字段；`EducationItem` 新增 `bullets`+`fact_refs`；`build_v15` 保留逐 bullet 映射，非 insufficient bullet 空 fact_refs→raise `ContentGenerationError`；campus 分支装配 bullets+fact_refs 进 EducationItem | `api/schemas.py`、`models/resume_document.py`、`services/resume_builder.py` |
+| R8 旧实现退出与对外一致 | 活动残留替换；必要兼容残留有 guard；历史档案不改写；`.env.example`/运行帮助/活动脚本只描述实际配置 | `.env.example` 移除 `CHROMA_PATH`，改为说明向量统一走 SQLite 派生表 + `manage.py rebuild`；`run_stub_demo.py` docstring 去除 RAG/vector_index_sync 语义；`_v14_t7_regression.py` RUNTIME-3 不再引用 `settings.CHROMA_PATH` 并防御性断言其不存在；根 README 与全局文档按 PLAN §12.9 由文档 Agent 在 WorkBuddy 通过后统一，本版本不提前改 | `backend/.env.example`、`backend/run_stub_demo.py`、`backend/_v14_t7_regression.py` |
+
+> R9（集成验证与冻结交接）见 §8.3/§8.5：本节汇总矩阵、形成 clean 候选并外部交接。
+
+### 8.2 新增/更新测试
+
+| 测试文件 | 变化 | 覆盖 R | 新断言数 |
+|---|---|---|---|
+| `_v15_r_rework.py`（新增） | R1 CRUD 生命周期 + R3 fail-closed/资源 + R7 逐 bullet 来源闭环 | R1/R3/R7 | 48 |
+| `_v15_t3_embedding.py`（更新） | R6 检索健康：dimension/blob-length/orphan/revision/content_hash 不匹配→`RetrievalHealthError` 阻断；区分健康低相关与故障 | R6 | 45→54（+9） |
+| `_v15_t4_selection.py`（更新） | R5 教育/校园分流与确定性排序微调适配 | R5 | 53（持平） |
+| `_v13_stub_e2e.py`（更新） | V1.5.0 链路 stub 适配 R1/R4 后的 Fact/Embedding 语义 | R1/R4 回归 | 18（持平） |
+| `_v14_t7_regression.py`（更新） | RUNTIME-3 去除 `CHROMA_PATH` 引用，V1.5.0 后断言该属性不存在 | R8 | 12 PASS / 0 FAIL / 3 SUSPEND |
+
+### 8.3 开发自测矩阵结果（PLAN §12.10）
+
+| 测试组 | 结果 | 证据 |
+|---|---|---|
+| 生命周期（R1） | 通过 | `_v15_r_rework.py` R1：create 立即生 3 Fact；update 改 description→revision+1/hash 变/旧 Embedding 同事务 INVALID；update 删 achievement→对应 Fact+Embedding 删除无孤儿；delete→Fact+Embedding 全清无孤儿；重复 delete 幂等 |
+| 迁移与入口（R2/R3） | 通过 | `_v15_r_rework.py` R3：备份成功+manifest+大小核对；源缺失 fail-closed；copy2+sqlite3.connect 双注入→`MigrationError` 且不继续 schema 步骤（SchemaVersion 为 0）；同名冲突追加后缀不覆盖。R2：`manage.py` 四命令在 stub 链路可走通（由 StubE2E 间接覆盖迁移检查入口） |
+| 选材与排序（R5） | 通过 | `_v15_t4_selection.py`：教育/校园分流、合计 0/1/2 校园分支、同日期/同分最终键、输入乱序稳定；`_v15_r_rework.py` R7[4]：合计<2 触发 1 项校园补位且 bullets+fact_refs 进 ResumeDocument |
+| 检索健康（R6） | 通过 | `_v15_t3_embedding.py`：query/row 维度、BLOB 长度、fingerprint、revision、content_hash、orphan、损坏行→`RetrievalHealthError` 阻断；健康低相关仍走全部已知 Fact 获准策略 |
+| 来源与最终链路（R7） | 通过 | `_v15_r_rework.py` R7：`BuildMeta.bullet_fact_refs` 序列化往返保留逐 bullet；`build_v15` 保留逐 bullet（非经历级压缩）+经历级扁平并集；空 fact_refs 非 insufficient bullet→`ContentGenerationError`；campus 分支 bullets+fact_refs 进 EducationItem |
+| 替换与回归（R8） | 通过 | `_v15_t6_legacy_exit.py` 24/24；`_v14_t7_regression.py` 12 PASS/0 FAIL；静态扫描 backend 内 CHROMA_PATH/chroma_store/rag_service 残留均为测试断言、GUARD 退出脚本、注释或防御 env.pop（兼容残留），无活动路径 |
+
+### 8.4 测试汇总
+
+| 测试 | 断言数 | 通过 | 失败 |
+|---|---|---|---|
+| `_v15_t2_fact_migration.py` | 35 | 35 | 0 |
+| `_v15_t3_embedding.py` | 54 | 54 | 0 |
+| `_v15_t4_selection.py` | 53 | 53 | 0 |
+| `_v15_t5_rewrite.py` | 40 | 40 | 0 |
+| `_v15_t6_legacy_exit.py` | 24 | 24 | 0 |
+| `_v15_r_rework.py`（新增） | 48 | 48 | 0 |
+| `_v13_stub_e2e.py`（V1.5.0 适配） | 18 | 18 | 0 |
+| `_v14_t7_regression.py` | 15（12 PASS / 0 FAIL / 3 SUSPEND） | 12 | 0 |
+| **合计** | **287 断言 + T7 矩阵** | **287 / 0** | **0** |
+
+> T7 三项 SUSPEND（MIG-1/MIG-2/MIG-3）依赖干净首发包或本机 ARK_API_KEY，属环境门禁，非失败。
+
+### 8.5 R-返工偏差
+
+1. **备份同名冲突处理（R3 偏差）**：首次候选 `_backup_sources` 用 `chmod 0o444` 置备份只读，但同一 UTC 秒内重复迁移（测试与生产快速重试场景）会因同名只读 bak 无法覆盖而 `PermissionError`。返工改为：bak 路径已存在时追加数字后缀生成唯一名，不覆盖既有只读快照；manifest 文件名同步派生自 bak 名，保持配对。等价语义：仍只读、仍校验、仍 fail-closed，仅消除同名冲突崩溃。证据：`_v15_r_rework.py` R3[4]。
+2. **校园补位 bullets 来源（R5 偏差）**：PLAN §12.6 要求校园入选后受约束 bullets 进最终文档。实现中当 LLM 未返回校园 bullets 时，`build_v15` campus 分支回退为 `[exp.description] + exp.achievements` 作为较粗 bullets，并保留 fact_refs 映射。粒度粗不阻断架构验收（PLAN §5.2），但与工作/项目分支的「LLM bullets 优先」一致。等价映射：校园 Fact 仍可追溯，未生成虚构内容。
+3. **`_v14_t7_regression.py` RUNTIME-3（R8 偏差）**：V1.5.0 移除 `settings.CHROMA_PATH` 后，旧 RUNTIME-3 用例 `settings.CHROMA_PATH` 访问抛 `AttributeError`。返工改为只校验 `SQLITE_PATH`/`DOCX_OUTPUT_DIR` 落在 runtime root，并防御性断言 `not hasattr(settings, "CHROMA_PATH")`。这是活动测试随契约退出的必要同步，非新功能。
+4. **R2 入口未单独脚本化测试**：`manage.py` 是 CLI 薄封装，其底层 `run_migrations`/`rebuild_embeddings`/`status_summary` 已分别由 T2/T3/R-rework 覆盖；`manage.py` 本身未新增独立断言脚本，避免重复测底层。WorkBuddy 可在 clean 候选上对 `python manage.py status`/`migrate`/`rebuild` 做真实入口验收。
+
+### 8.6 当前状态与下一次交接
+
+- R1–R9 开发自测全部通过；本 RESULT 已记录实际变化、偏差与新测试结果；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §12.9/§12.11 由文档 Agent 在 WorkBuddy + 人工通过后统一）。
+- 新候选为 clean `version/v1.5.0` 分支提交；为避免自引用循环，本 RESULT 不回填该 commit 自身 SHA。开发 Agent 通过仓库外交接消息提供完整 40 位 HEAD、基线、分支、clean `git status` 与测试汇总。
+- `81357200fc6e58714d6b7ce3d6ad497a2775935c` 仍是被打回的首次候选；新外部交接 HEAD 是 WorkBuddy 的唯一审核对象，任何相关修改都会使旧验收失效。
+- 未 push `main`、未创建或移动 `v1.5.0` tag。WorkBuddy 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，结论绑定精确 commit 后交回文档 Agent 汇总。

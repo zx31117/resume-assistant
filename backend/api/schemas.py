@@ -284,6 +284,12 @@ class BuildMeta(BaseModel):
     fallback_sql_experience_ids: List[str] = []
     ai_unrecognized_experience_ids: List[str] = []
     max_items_trimmed: dict[str, List[str]] = {}  # section_key → trimmed_ids
+    # R7: per-bullet fact_refs mapping (experience_id → list of fact_refs per bullet)
+    bullet_fact_refs: dict[str, List[List[str]]] = {}
+    # R7: per-experience fact_refs (backward compat, compressed from bullets)
+    fact_refs_per_experience: dict[str, List[str]] = {}
+    # R7: builder mode indicator
+    builder_mode: str = ""
     counts: BuildCounts = BuildCounts()
 
 

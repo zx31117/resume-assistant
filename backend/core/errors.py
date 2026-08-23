@@ -202,3 +202,21 @@ class MigrationRequiredError(DomainError):
     stage = "migration_check"
     retryable = False
     http_status = 412
+
+
+class RetrievalHealthError(DomainError):
+    """R6: 检索健康检查失败（维度/fingerprint/revision/hash 不匹配）。
+
+    区分健康低相关与索引/模型故障：
+    - 健康索引上的真实低相关/零分 → 正常返回（不抛错）
+    - 维度/fingerprint/revision/hash 故障 → 抛此错误阻断选材
+    """
+
+    error_code = "RETRIEVAL_HEALTH_ERROR"
+    stage = "retrieval"
+    retryable = True
+    http_status = 503
+
+    def __init__(self, message: str, *, issues: Optional[list[str]] = None):
+        super().__init__(message, details={"issues": issues or []})
+        self.issues = issues or []

@@ -145,15 +145,18 @@ def _(ctx: RunCtx):
     missing = [n for n in expected if not (settings.RESUME_DATA_DIR / n).is_dir()]
     assert not missing, f"缺失自动创建的子目录: {missing}"
 
-@case("RUNTIME", "3", "SQLITE_PATH/CHROMA_PATH/DOCX_OUTPUT_DIR 都落在 runtime root 下")
+@case("RUNTIME", "3", "SQLITE_PATH/DOCX_OUTPUT_DIR 都落在 runtime root 下（V1.5.0 CHROMA_PATH 已退出）")
 def _(ctx: RunCtx):
     from core.config import settings
     rd = settings.RESUME_DATA_DIR
+    # V1.5.0：向量持久化统一走 SQLite BLOB 派生表，CHROMA_PATH 已从 Settings 移除。
+    # 这里只校验仍存在的活动路径落在 runtime root 下。
     pairs = {
         "SQLITE_PATH": settings.SQLITE_PATH,
-        "CHROMA_PATH": settings.CHROMA_PATH,
         "DOCX_OUTPUT_DIR": settings.DOCX_OUTPUT_DIR,
     }
+    # 防御：CHROMA_PATH 不应再作为活动 Settings 属性存在
+    assert not hasattr(settings, "CHROMA_PATH"), "V1.5.0 后 Settings 不应再含 CHROMA_PATH"
     bad = []
     for k, v in pairs.items():
         try:

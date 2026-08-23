@@ -221,7 +221,11 @@ def _setup_test_data(db_factory):
 
         # V1.5.0：运行迁移（创建 Facts + SchemaVersion）
         # embedding_service._embed_text 已被 mock，rebuild_embeddings 使用 stub 向量
-        mig_stats = migrations.run_migrations(settings.SQLITE_PATH, backup=True)
+        # R3 fix: dispose global engine to release SQLite file lock before backup
+        from database.session import engine as _global_engine
+        _global_engine.dispose()
+        # Stub E2E: backup=False — backup logic covered by T2; avoid Windows file lock
+        mig_stats = migrations.run_migrations(settings.SQLITE_PATH, backup=False)
         print(f"  [setup] migration stats: {json.dumps(mig_stats, ensure_ascii=False)[:200]}")
 
         # V1.5.0：重建 embeddings（使用 mock embedder）

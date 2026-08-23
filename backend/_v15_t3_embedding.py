@@ -184,11 +184,107 @@ def main() -> int:
         results_top1 = es.query_facts(s, q_vec, [f.fact_id for f in facts], top_k=1)
         check(len(results_top1) == 1, "top_k=1 返回 1 条")
 
-        # ── 6. 维度不匹配排除 ──────────────────────────────── #
-        print("\n[6] 维度不匹配排除")
+        # ── 6. R6: 维度不匹配故障阻断（不再静默排除） ────── #
+        print("\n[6] R6: 维度不匹配 → RetrievalHealthError 阻断")
         bad_vec = [0.1] * (_DIM + 5)
-        results_bad = es.query_facts(s, bad_vec, [facts[0].fact_id])
-        check(len(results_bad) == 0, "查询向量维度不匹配 → 排除")
+        raised = False
+        try:
+            es.query_facts(s, bad_vec, [facts[0].fact_id])
+        except errors.RetrievalHealthError as e:
+            raised = True
+            check(any("dimension mismatch" in i for i in e.issues),
+                  f"issues 含 dimension mismatch (实际 {e.issues[:2]})")
+        check(raised, "查询向量维度不匹配 → 抛 RetrievalHealthError 而非静默排除")
+
+        # ── 6b. R6: BLOB 长度与 dimension 不一致阻断 ────── #
+        print("\n[6b] R6: BLOB 长度与 dimension 不一致 → 阻断")
+        # 把 vector_blob 清空（dimension 仍正确但 BLOB 解码后长度=0）
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        orig_blob = bad_row.vector_blob
+        bad_row.vector_blob = b""
+        s.commit()
+        raised2 = False
+        try:
+            es.query_facts(s, q_vec, [facts[0].fact_id])
+        except errors.RetrievalHealthError as e:
+            raised2 = True
+            check(any("blob length mismatch" in i for i in e.issues),
+                  f"issues 含 blob length mismatch (实际 {e.issues[:2]})")
+        check(raised2, "BLOB 长度不一致 → 抛 RetrievalHealthError")
+        # 恢复
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        bad_row.vector_blob = orig_blob
+        s.commit()
+        # ── 6c. R6: revision 不匹配阻断 ──────────────────── #
+        print("\n[6c] R6: Fact revision 不匹配 → 阻断")
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        orig_rev = bad_row.fact_revision
+        bad_row.fact_revision = orig_rev + 999
+        s.commit()
+        raised3 = False
+        try:
+            es.query_facts(s, q_vec, [facts[0].fact_id])
+        except errors.RetrievalHealthError as e:
+            raised3 = True
+            check(any("revision mismatch" in i for i in e.issues),
+                  "issues 含 revision mismatch")
+        check(raised3, "Fact revision 不匹配 → 抛 RetrievalHealthError")
+        # 恢复
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        bad_row.fact_revision = orig_rev
+        s.commit()
+
+        # ── 6d. R6: content_hash 不匹配阻断 ─────────────── #
+        print("\n[6d] R6: Fact content_hash 不匹配 → 阻断")
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        orig_hash = bad_row.fact_content_hash
+        bad_row.fact_content_hash = "deadbeef"
+        s.commit()
+        raised4 = False
+        try:
+            es.query_facts(s, q_vec, [facts[0].fact_id])
+        except errors.RetrievalHealthError as e:
+            raised4 = True
+            check(any("content_hash mismatch" in i for i in e.issues),
+                  "issues 含 content_hash mismatch")
+        check(raised4, "Fact content_hash 不匹配 → 抛 RetrievalHealthError")
+        # 恢复
+        bad_row = s.query(FactEmbedding).filter(
+            FactEmbedding.fact_id == facts[0].fact_id,
+            FactEmbedding.embedding_fingerprint == es.compute_fingerprint(),
+        ).one()
+        bad_row.fact_content_hash = orig_hash
+        s.commit()
+
+        # ── 6e. R6: 健康索引上的真实零分不抛错 ─────────── #
+        print("\n[6e] R6: 健康索引真实零分 → 正常返回（不抛错）")
+        # 用正交向量查询（cosine=0），不抛错
+        zero_vec = [0.0] * _DIM
+        zero_vec[0] = 1.0  # 与所有存储向量都正交
+        # 先确保存储向量与 zero_vec 不同（避免巧合）
+        ok = True
+        try:
+            zr = es.query_facts(s, zero_vec, [f.fact_id for f in facts])
+        except errors.RetrievalHealthError:
+            ok = False
+        check(ok, "健康索引零分查询不抛 RetrievalHealthError")
+        # 返回结果但 score 可能为 0
+        check(isinstance(zr, list), "健康索引零分返回列表")
 
         # ── 7. fingerprint 变化 → 旧向量不可用 ─────────────── #
         print("\n[7] fingerprint 变化排除旧向量")
