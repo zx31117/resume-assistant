@@ -79,6 +79,7 @@ class WorkItem(ResumeItemMixin):
     location: Optional[str] = None
     bullets: List[str] = []           # 职责/成果，每条一行（渲染器按 bullet 克隆行）
     experience_id: str = ""
+    fact_refs: List[str] = []           # V1.5.0 来源映射：该经历 bullets 引用的 fact_id
 
     # --- 兼容旧字段：time / description / achievements ---
     time: Optional[str] = None
@@ -114,6 +115,7 @@ class ProjectItem(ResumeItemMixin):
     bullets: List[str] = []           # 项目背景/技术方案/成果，每条一行
     tech_stack: Optional[List[str]] = None
     experience_id: str = ""
+    fact_refs: List[str] = []           # V1.5.0 来源映射：该项目 bullets 引用的 fact_id
 
     # --- 兼容旧字段：title / time / description / achievements / skills ---
     title: Optional[str] = None

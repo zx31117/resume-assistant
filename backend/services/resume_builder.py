@@ -1,4 +1,4 @@
-"""V1.3 ResumeBuilder（纯业务编排层，不调 AI）。
+﻿"""V1.3 ResumeBuilder（纯业务编排层，不调 AI）。
 
 铁律（PLAN §3.3 事实边界）：
   - **事实唯一来源：SQL Experience**；AI 只提供 bullets 文本改写，不能改公司/岗位/项目/时间
@@ -20,7 +20,8 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from api.schemas import GeneratedResumeContent
+from api.schemas import GeneratedExperienceItemV15, GeneratedResumeContent, GeneratedResumeContentV15
+from services.selection_service import CandidateExperienceSet
 from core.errors import ProfileIncompleteError  # noqa: F401  保持旧导入路径兼容（template.py 用）
 from database import models
 from models.resume_document import (
@@ -347,4 +348,162 @@ def build(
         },
     }
 
+    return doc, build_meta
+
+
+# ── V1.5.0 Builder 收缩（PLAN §5.3 / T5） ──────────────────────── #
+
+def build_v15(
+    db: Session,
+    user_id: str,
+    candidate_set: CandidateExperienceSet,
+    jd_analysis: object,
+    generated_content_v15: GeneratedResumeContentV15,
+    *,
+    request_profile: Optional[dict] = None,
+    all_experiences: Optional[list[models.Experience]] = None,
+) -> tuple[ResumeDocument, dict]:
+    """V1.5.0 Builder 收缩（PLAN §5.3 / T5）。
+
+    Builder 只做确定性装配：
+    - 经历名单由第一层 select_experiences 冻结（按 slot 顺序装配，不做 JD 相关性排序/裁剪）
+    - bullets + fact_refs 来自受约束改写（GeneratedResumeContentV15）
+    - 事实字段（company/role/time）仍只来自 SQL
+    - 来源映射 fact_refs 保留到 WorkItem/ProjectItem（来源不丢失）
+
+    与旧 build() 区别：不做 priority 排序、不做 max_items 裁剪、不做第二套 JD 相关性判断。
+    """
+    if all_experiences is None:
+        from services import experience_service
+        all_experiences = experience_service.list_experiences(db, user_id)
+
+    # V15 bullets + fact_refs 索引（experience_id → item）
+    v15_map: dict[str, GeneratedExperienceItemV15] = {}
+    for item in generated_content_v15.experiences:
+        if item.experience_id:
+            v15_map[item.experience_id] = item
+
+    # 按 candidate_set slot 顺序装配（不排序、不裁剪）
+    education_items: list[EducationItem] = []
+    work_items: list[WorkItem] = []
+    project_items: list[ProjectItem] = []
+    assembled_slot_ids: set[str] = set()
+
+    for slot in candidate_set.slots:
+        exp = next((e for e in all_experiences if e.id == slot.experience_id), None)
+        if exp is None:
+            continue
+        assembled_slot_ids.add(exp.id)
+        v15_item = v15_map.get(exp.id)
+        bullets = [b.bullet for b in v15_item.bullets if b.bullet and b.bullet.strip()] if v15_item else []
+        fact_refs: list[str] = []
+        if v15_item:
+            for b in v15_item.bullets:
+                for r in (b.fact_refs or []):
+                    if r not in fact_refs:
+                        fact_refs.append(r)
+
+        if slot.slot_type == "work":
+            work_bullets = bullets if bullets else (
+                ([exp.description] if exp.description else []) + list(exp.achievements or [])
+            )
+            work_items.append(WorkItem(
+                company=exp.company or "",
+                role=exp.role or "",
+                time=exp.time or "",
+                bullets=work_bullets,
+                experience_id=exp.id,
+                fact_refs=fact_refs,
+            ))
+        elif slot.slot_type == "project":
+            proj_bullets = bullets if bullets else (
+                ([exp.description] if exp.description else []) + list(exp.achievements or [])
+            )
+            project_items.append(ProjectItem(
+                name=exp.title or "",
+                title=exp.title or "",
+                role=exp.role or "",
+                time=exp.time or "",
+                bullets=proj_bullets,
+                experience_id=exp.id,
+                fact_refs=fact_refs,
+            ))
+        elif slot.slot_type == "campus":
+            education_items.append(EducationItem(
+                school=exp.company or exp.title or "",
+                major=exp.role or "",
+                degree="",
+                time=exp.time or "",
+                description=exp.description or "",
+                experience_id=exp.id,
+            ))
+
+    # 学历（degree-granting education，不在 candidate_set slots 中的）
+    for exp in all_experiences:
+        if exp.type == "education" and exp.id not in assembled_slot_ids:
+            education_items.append(EducationItem(
+                school=exp.company or exp.title or "",
+                major=exp.role or "",
+                degree="",
+                time=exp.time or "",
+                description=exp.description or "",
+                experience_id=exp.id,
+            ))
+
+    # Profile（复用 ProfileResolver：身份字段只取 request，求职意向只取 JD）
+    jd_position = _jd_get(jd_analysis, "position", "") or ""
+    profile, profile_source = ProfileResolver.resolve(
+        request_profile=request_profile,
+        jd_position=jd_position,
+    )
+
+    # Skills & awards（复用旧逻辑，不依赖 JD 相关性选择）
+    required_skills = _jd_get(jd_analysis, "required_skills") or []
+    skills_freq = _collect_skills(all_experiences, list(required_skills))
+    skill_groups = _categorize_skills(skills_freq)
+    awards = _extract_awards(all_experiences)[:5]
+
+    doc = ResumeDocument(
+        profile=profile,
+        summary="",
+        education=education_items,
+        work=work_items,
+        projects=project_items,
+        skills=skill_groups,
+        awards=awards,
+        meta={
+            "jd_position": jd_position,
+            "selected_count": len(candidate_set.slots),
+            "total_experiences": len(all_experiences),
+            "user_id": user_id,
+            "profile_source": profile_source,
+            "builder_mode": "v15_selection",
+            "candidate_warnings": list(candidate_set.warnings),
+        },
+    )
+    doc = doc.to_standard()
+
+    build_meta = {
+        "profile_source": profile_source,
+        "builder_mode": "v15_selection",
+        "selected_slot_ids": sorted(assembled_slot_ids),
+        "ai_covered_experience_ids": sorted(
+            sid for sid, item in v15_map.items()
+            if item.bullets and not item.insufficient
+        ),
+        "insufficient_experience_ids": sorted(
+            sid for sid, item in v15_map.items() if item.insufficient
+        ),
+        "fact_refs_preserved": {
+            sid: [b.fact_refs for b in v15_map[sid].bullets]
+            for sid in assembled_slot_ids if sid in v15_map
+        },
+        "counts": {
+            "education": len(doc.education),
+            "work": len(doc.work),
+            "projects": len(doc.projects),
+            "awards": len(doc.awards),
+            "skill_groups": len(doc.skills),
+        },
+    }
     return doc, build_meta

@@ -333,3 +333,57 @@ class ResumeDocxGenerateResponse(BaseModel):
     render_stats: RenderStats = RenderStats()
     template_id: str = ""
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V1.5.0 新增：受约束改写契约（PLAN §4.4 / T5）
+# ═══════════════════════════════════════════════════════════════════════════
+
+class GeneratedBullet(BaseModel):
+    """V1.5.0：单条 bullet + 其引用的 fact_refs（PLAN §4.4）。
+
+    - bullet：受约束改写后的表达（不新增事实）
+    - fact_refs：该 bullet 引用的 fact_id 列表（必须属于该经历的已选事实）
+    """
+
+    bullet: str = ""
+    fact_refs: List[str] = []
+
+    @field_validator("fact_refs", mode="before")
+    @classmethod
+    def _coerce_fact_refs(cls, v):
+        return _coerce_to_list(v)
+
+
+class GeneratedExperienceItemV15(BaseModel):
+    """V1.5.0：单条经历的受约束改写结果。
+
+    - bullets：带 fact_refs 的 bullet 列表
+    - insufficient：材料不足标记（True 时不输出通用空话补齐）
+    - insufficient_reason：不足原因
+    """
+
+    experience_id: str
+    bullets: List[GeneratedBullet] = []
+    insufficient: bool = False
+    insufficient_reason: str = ""
+
+    @field_validator("bullets", mode="before")
+    @classmethod
+    def _coerce_bullets_v15(cls, v):
+        return _coerce_to_list(v)
+
+
+class GeneratedResumeContentV15(BaseModel):
+    """V1.5.0：受约束改写的结构化输出（PLAN §4.4）。
+
+    LLM 只接收目标岗位 + 入选经历 + 表达侧重 + 可使用事实；
+    每条 bullet 必须返回 fact_refs；越界引用被拒绝并告警。
+    """
+
+    experiences: List[GeneratedExperienceItemV15] = []
+
+    @field_validator("experiences", mode="before")
+    @classmethod
+    def _coerce_experiences_v15(cls, v):
+        return _coerce_to_list(v)
