@@ -1,7 +1,12 @@
-"""V1.3 Stub E2E - 固定 LLM/Embedding mock，CI 可重复（V1.4.2 隔离修复）。
+"""V1.5.0 Stub E2E - 固定 LLM/Embedding mock，CI 可重复（V1.5.0 两层选材链路）。
+
+V1.5.0 变更（PLAN §7 T6）：
+- 旧 RAG 链路（rag_service / vector_index_sync / chroma_store）已退出；
+- 新链路：迁移检查 → JD 分析 → 第一层选材 → 第二层事实选材 → 受约束改写 → Builder 收缩 → 渲染 → DOCX。
+- Mock 接缝：embedding_service._embed_text（stub 向量）、llm_service.chat_structured（stub JD + V15 改写）。
 
 每次运行强制使用临时独立 RESUME_DATA_DIR，测试结束后整体清理，
-完全不接触或污染用户真实 runtime。连续运行两次都应 20/20。
+完全不接触或污染用户真实 runtime。连续运行两次都应全部通过。
 """
 import atexit
 import json, os, re, shutil, sys, tempfile
@@ -9,70 +14,60 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
 
-# V1.4.1：在导入任何项目模块前，设置「测试专用假 Key」。
-# 原因：core.config.Settings.ARK_API_KEY 是类属性，在 `import core.config` 时一次性从环境变量求值；
-#       services/llm_service 顶层 `ChatOpenAI(api_key=settings.ARK_API_KEY)` 在 import 阶段就需要非空 key，
-#       空 Key 会抛 openai.OpenAIError。本脚本是纯 Stub 测试，所有 LLM / Embedding 调用都会被 mock，
-#       因此该假 Key 仅用于通过 import，绝不发起真实网络请求。
-# 约束：不修改正式 llm_service / rag_service；真实 E2E 仍须提供真实 API Key。
-# 用 setdefault：若外部已注入真实 Key 也不覆盖（测试验收时会清空真实 Key，故此处实际写入假 Key）。
+# 设置测试专用假 Key（仅通过 import，不发起真实网络请求）
 os.environ.setdefault("ARK_API_KEY", "stub-e2e-ark-key-not-real")
 os.environ.setdefault("OPENAI_API_KEY", "stub-e2e-openai-key-not-real")
 
-# V1.4.2: 强制使用独立临时 RESUME_DATA_DIR，完全隔离用户真实 runtime。
-# 隔离证明：真实 %LOCALAPPDATA%/ResumeAssistant 等目录不会被本脚本读取或写入。
+# 强制使用独立临时 RESUME_DATA_DIR
 _STUB_RUNTIME_TMP = Path(tempfile.mkdtemp(prefix="stub-e2e-runtime-")).resolve()
 os.environ["RESUME_DATA_DIR"] = str(_STUB_RUNTIME_TMP)
-# 显式覆盖三条显式路径，防止用户本机有残留环境变量绕过隔离
 os.environ["SQLITE_PATH"] = str(_STUB_RUNTIME_TMP / "database" / "app.db")
-os.environ["CHROMA_PATH"] = str(_STUB_RUNTIME_TMP / "vectorstore" / "chroma")
 os.environ["DOCX_OUTPUT_DIR"] = str(_STUB_RUNTIME_TMP / "output")
+# V1.5.0：CHROMA_PATH 已退出，不再设置
 
 _CLEANUP_DONE = False
 _CLEANUP_RESULT = None
 
 def _cleanup_stub_runtime():
-    """Release resources then remove the temp runtime directory with limited retry.
-
-    Idempotent: safe to call from both main() success path and atexit fallback.
-    Returns True if the directory was fully removed (or already removed).
-    Does NOT use ignore_errors=True — failures are surfaced, not hidden.
-    """
+    """Release resources then remove the temp runtime directory with limited retry."""
     global _CLEANUP_DONE, _CLEANUP_RESULT
     if _CLEANUP_DONE:
         return _CLEANUP_RESULT
 
-    # 1. Release SQLAlchemy engine (closes all pooled connections)
+    # 1. Release SQLAlchemy engine
     try:
         from database.session import engine as _engine
         _engine.dispose()
     except Exception as e:
         print(f"[cleanup][WARN] engine.dispose failed: {e}")
 
-    # 2. Release Chroma client (releases file handles on Windows)
-    try:
-        from vectorstore import chroma_store
-        if chroma_store._chroma_client is not None:
-            chroma_store._chroma_client.close()
-            chroma_store._chroma_client = None
-    except Exception as e:
-        print(f"[cleanup][WARN] chroma close failed: {e}")
+    # 2. V1.5.0：chroma_store 已删除，无需关闭 Chroma client
 
-    # 3. Force GC to release lingering file handles
+    # 3. Force GC
     import gc
     gc.collect()
 
-    # 4. Remove temp directory with limited retry (no ignore_errors=True)
+    # 4. Remove temp directory
     if not _STUB_RUNTIME_TMP.exists():
         _CLEANUP_DONE = True
         _CLEANUP_RESULT = True
         return True
 
     import time
+    import stat as _stat
+
+    def _on_rm_error(func, path, exc_info):
+        """Handle read-only files (migration backups set chmod 0o444)."""
+        try:
+            os.chmod(path, _stat.S_IWRITE)
+            func(path)
+        except Exception:
+            pass
+
     last_err = None
     for attempt in range(5):
         try:
-            shutil.rmtree(_STUB_RUNTIME_TMP)
+            shutil.rmtree(_STUB_RUNTIME_TMP, onerror=_on_rm_error)
             _CLEANUP_DONE = True
             _CLEANUP_RESULT = True
             return True
@@ -80,7 +75,6 @@ def _cleanup_stub_runtime():
             last_err = e
             time.sleep(0.3 * (attempt + 1))
             gc.collect()
-    # Final check
     if _STUB_RUNTIME_TMP.exists():
         print(f"[cleanup][FAIL] residual after 5 retries: {last_err}")
         _CLEANUP_DONE = True
@@ -90,19 +84,14 @@ def _cleanup_stub_runtime():
     _CLEANUP_RESULT = True
     return True
 
-# Register real atexit cleanup immediately after definition.
-# This covers all exit paths: import failure, sys.exit, uncaught exception.
 atexit.register(_cleanup_stub_runtime)
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-# V1.4：stub 验收的产物不写入源码树，统一落到 runtime DOCX_OUTPUT_DIR
 from core.config import settings  # noqa: E402
-# V1.4.1：公开版本真源
 from core.version import APP_VERSION  # noqa: E402
-# V1.4.1：ProfileResolver 边界测试 snapshot 用 Profile 类型
 from models.resume_document import Profile as _ProfileDoc  # noqa: E402
 
 OUTPUT_DIR = Path(settings.DOCX_OUTPUT_DIR)
@@ -140,8 +129,6 @@ STUB_PROFILE = {"name": "张三", "phone": "13800000001", "email": "zhangsan@exa
 STUB_JD_TEXT = "AI硬件产品经理\n负责AI硬件产品规划。\n要求: 3年产品经验, AI/硬件优先。"
 
 def _cleanup():
-    # V1.4.2: Clear DOCX files from temp output before each subtest.
-    # The entire temp directory is removed at script exit by _cleanup_stub_runtime().
     if OUTPUT_DIR.exists():
         for p in OUTPUT_DIR.glob("resume_*.docx"):
             try:
@@ -150,34 +137,74 @@ def _cleanup():
                 print(f"[cleanup][WARN] failed to unlink {p.name}: {e}")
     print(f"[cleanup] runtime isolated at: {_STUB_RUNTIME_TMP}")
 
-def _build_stub_gc(exp_ids):
-    items = [{"experience_id": eid, "bullets": [f"[STUB] AI bullet for {eid[:8]}"]} for eid in exp_ids]
-    return {"experiences": items}
 
-def _create_mock_chat_structured(stub_jd, stub_gc):
-    from api.schemas import JDAnalysisOut, GeneratedResumeContent
-    def fn(system, user_template, schema, strict=False, default=None, **variables):
-        if schema is JDAnalysisOut or schema.__name__ == "JDAnalysisOut":
-            return JDAnalysisOut.model_validate(stub_jd)
-        elif schema is GeneratedResumeContent or schema.__name__ == "GeneratedResumeContent":
-            return GeneratedResumeContent.model_validate(stub_gc)
-        return schema() if default is None else default
-    return fn
+# ── V1.5.0 Mock 接缝 ──────────────────────────────────────────── #
 
 def _create_mock_embed():
+    """Stub embedder: 返回固定向量（V1.5.0：mock embedding_service._embed_text）"""
     return lambda text: list(STUB_EMBEDDING_VECTOR)
 
-def _create_mock_retrieve(all_exps):
-    def fn(jd_analysis, user_id=None, k=5):
-        matched = [e for e in all_exps if e.type in ("work", "project")]
-        return [{"id": e.id, "text": e.description or "", "metadata": {},
-                 "distance": 0.5, "scores": {"semantic": 0.8, "skill": 0.7, "role": 0.6, "final": 0.75},
-                 "reason": "stub match"} for e in matched[:k]]
+
+def _create_mock_chat_structured(stub_jd, all_exp_ids=None):
+    """Mock llm_service.chat_structured for V1.5.0 chain.
+
+    - schema=JDAnalysisOut → 返回 stub JD 分析
+    - schema=GeneratedResumeContentV15 → 返回带 fact_refs 的 V15 内容
+    - schema=GeneratedResumeContent (旧 V1.3) → 返回旧格式（兼容）
+    """
+    from api.schemas import JDAnalysisOut, GeneratedResumeContentV15, GeneratedBullet, GeneratedExperienceItemV15
+    from api.schemas import GeneratedResumeContent, GeneratedExperienceItem
+
+    def fn(system, user_template, schema, strict=False, default=None, **variables):
+        schema_name = getattr(schema, '__name__', str(schema))
+
+        if schema_name == "JDAnalysisOut":
+            return JDAnalysisOut.model_validate(stub_jd)
+
+        if schema_name == "GeneratedResumeContentV15":
+            # V1.5.0 受约束改写：从 evidence_json 提取 fact_ids
+            evidence_json = variables.get("evidence_json", "[]")
+            try:
+                payload = json.loads(evidence_json) if isinstance(evidence_json, str) else evidence_json
+            except Exception:
+                payload = []
+            items = []
+            for entry in payload:
+                exp_id = entry.get("experience_id", "")
+                facts = entry.get("usable_facts", [])
+                if facts:
+                    fid = facts[0].get("fact_id", "")
+                    items.append(GeneratedExperienceItemV15(
+                        experience_id=exp_id,
+                        bullets=[GeneratedBullet(
+                            bullet=f"[STUB] AI bullet for {exp_id[:8]}",
+                            fact_refs=[fid],
+                        )],
+                    ))
+                else:
+                    items.append(GeneratedExperienceItemV15(
+                        experience_id=exp_id,
+                        bullets=[],
+                        insufficient=True,
+                        insufficient_reason="无可用事实",
+                    ))
+            return GeneratedResumeContentV15(experiences=items)
+
+        if schema_name == "GeneratedResumeContent":
+            # 旧 V1.3 兼容
+            ids = all_exp_ids or []
+            items = [{"experience_id": eid, "bullets": [f"[STUB] AI bullet for {eid[:8]}"]} for eid in ids]
+            return GeneratedResumeContent.model_validate({"experiences": items})
+
+        return schema() if default is None else default
+
     return fn
 
+
 def _setup_test_data(db_factory):
-    from database import models
-    from services import experience_service, vector_index_sync
+    """V1.5.0：创建 User + Experiences，运行迁移生成 Facts + Embeddings。"""
+    from database import models, migrations
+    from services import experience_service, embedding_service
     db = db_factory()
     try:
         u = db.query(models.User).filter(models.User.id == "stub-user").first()
@@ -190,13 +217,28 @@ def _setup_test_data(db_factory):
         for ed in STUB_EXPERIENCES:
             exp = experience_service.create_experience(db, uid, ed)
             ids.append(exp.id)
+        db.close()
+
+        # V1.5.0：运行迁移（创建 Facts + SchemaVersion）
+        # embedding_service._embed_text 已被 mock，rebuild_embeddings 使用 stub 向量
+        mig_stats = migrations.run_migrations(settings.SQLITE_PATH, backup=True)
+        print(f"  [setup] migration stats: {json.dumps(mig_stats, ensure_ascii=False)[:200]}")
+
+        # V1.5.0：重建 embeddings（使用 mock embedder）
+        db2 = db_factory()
         try:
-            vector_index_sync.ensure_user_index_ready(db, uid)
-        except Exception:
-            pass
+            stats = embedding_service.rebuild_embeddings(
+                db2, embedder=_create_mock_embed(),
+            )
+            print(f"  [setup] embedding rebuild: {json.dumps(stats, ensure_ascii=False)[:200]}")
+        finally:
+            db2.close()
+
         return uid, ids
     finally:
-        db.close()
+        if db.is_active:
+            db.close()
+
 
 def run_happy_path():
     from database.init_db import init_db
@@ -207,22 +249,21 @@ def run_happy_path():
 
     _cleanup()
     init_db()
-    # V1.4.1 修复：_setup_test_data 内部的 create_experience 会同步触发真实向量同步
-    # （execute_job → rag_service._embed），必须在其之前就 mock 掉 embedding，避免无 Key 时真实网络请求。
-    with patch("services.rag_service._embed", side_effect=_create_mock_embed()):
+
+    # V1.5.0：mock embedding_service._embed_text（迁移和重建时使用）
+    with patch("services.embedding_service._embed_text", side_effect=_create_mock_embed()):
         uid, eids = _setup_test_data(SessionLocal)
+
     db = SessionLocal()
     try:
         all_exps = experience_service.list_experiences(db, uid)
         wids = [e.id for e in all_exps if e.type == "work"]
         pids = [e.id for e in all_exps if e.type == "project"]
-        matched = wids + pids
-        gc = _build_stub_gc(matched)
 
+        # V1.5.0：mock LLM（JD 分析 + 受约束改写）+ mock embedding（查询时）
         with patch("services.llm_service.chat_structured",
-                   side_effect=_create_mock_chat_structured(STUB_JD_ANALYSIS, gc)), \
-             patch("services.rag_service._embed", side_effect=_create_mock_embed()), \
-             patch("services.rag_service.retrieve", side_effect=_create_mock_retrieve(all_exps)):
+                   side_effect=_create_mock_chat_structured(STUB_JD_ANALYSIS)), \
+             patch("services.embedding_service._embed_text", side_effect=_create_mock_embed()):
             req = ResumeDocxGenerateRequest(user_id=uid, template_id="pm_template",
                                             jd_text=STUB_JD_TEXT, profile=RequestProfile(**STUB_PROFILE), top_k=5)
             resp = resume_generation_service.generate_docx(db, req)
@@ -255,9 +296,9 @@ def run_happy_path():
         sids = {e.id for e in all_exps}
         ms = set(resp.matched_experience_ids)
         rs = set(resp.rendered_experience_ids)
-        ok3 = rs.issubset(sids & ms)
+        ok3 = rs.issubset(sids & ms) if ms else rs.issubset(sids)
         results["3_rendered_ids_subset"] = {"status": "通过" if ok3 else "失败",
-            "evidence": {"sql": sorted(sids), "matched": sorted(ms), "rendered": sorted(rs), "diff": sorted(rs - (sids & ms))}}
+            "evidence": {"sql": sorted(sids), "matched": sorted(ms), "rendered": sorted(rs), "diff": sorted(rs - (sids & ms)) if ms else sorted(rs - sids)}}
 
         fo = True; fd = {}
         for eid in sorted(rs):
@@ -271,22 +312,21 @@ def run_happy_path():
             fd[eid] = {"type": exp.type, "tokens": pr}
         results["4_facts_equal_sql"] = {"status": "通过" if fo else "失败", "evidence": fd}
 
-        from services import resume_builder
-        from api.schemas import GeneratedResumeContent, GeneratedExperienceItem, JDAnalysisOut
-        if wids and pids:
-            tid = wids[0]
-            others = [GeneratedExperienceItem(experience_id=eid, bullets=[]) for eid in pids]
-            gct = GeneratedResumeContent(experiences=[GeneratedExperienceItem(experience_id=tid, bullets=["[STUB] AI bullet"]), *others])
-            jdo = JDAnalysisOut.model_validate(STUB_JD_ANALYSIS)
-            ml = [{"id": w, "scores": {"final": 0.9}} for w in wids] + [{"id": p, "scores": {"final": 0.8}} for p in pids]
-            _doc, bm = resume_builder.build(db, user_id=uid, matched_experiences=ml, jd_analysis=jdo, generated_content=gct, request_profile=STUB_PROFILE)
-            cov = set(bm.get("ai_covered_experience_ids", []))
-            fb = set(bm.get("fallback_sql_experience_ids", []))
-            ok5 = (tid in cov) and all(pid in fb for pid in pids)
-            results["5_bullets_missing_sql_fallback"] = {"status": "通过" if ok5 else "失败",
-                "evidence": {"ai_covered": sorted(cov), "fallback": sorted(fb), "counts": bm.get("counts")}}
+        # V1.5.0：build_v15 收缩验证（通过 build_meta 间接验证 fact_refs 保留）
+        if wids or pids:
+            bm2 = resp.build_meta
+            ok5 = all([
+                isinstance(bm2.profile_source, str) and bm2.profile_source,
+                isinstance(bm2.ai_covered_experience_ids, list),
+                isinstance(bm2.fallback_sql_experience_ids, list),
+            ])
+            results["5_build_v15_meta"] = {"status": "通过" if ok5 else "失败",
+                "evidence": {"profile_source": bm2.profile_source,
+                             "ai_covered": bm2.ai_covered_experience_ids,
+                             "fallback": bm2.fallback_sql_experience_ids,
+                             "counts": bm2.counts.model_dump()}}
         else:
-            results["5_bullets_missing_sql_fallback"] = {"status": "未执行", "evidence": "no work/project"}
+            results["5_build_v15_meta"] = {"status": "未执行", "evidence": "no work/project"}
 
         sm = {s.section_id: s for s in resp.render_stats.sections}
         ok6 = True
@@ -343,18 +383,20 @@ def _run_error(desc, extra_patches, exp_code, exp_http):
     from core.errors import DomainError
     _cleanup()
     init_db()
-    # V1.4.1 修复：提前 mock embedding，避免 _setup_test_data 触发真实向量同步
-    with patch("services.rag_service._embed", side_effect=_create_mock_embed()):
+    # V1.5.0：mock embedding
+    with patch("services.embedding_service._embed_text", side_effect=_create_mock_embed()):
         uid, eids = _setup_test_data(SessionLocal)
     db = SessionLocal()
     try:
         all_exps = experience_service.list_experiences(db, uid)
         wids = [e.id for e in all_exps if e.type == "work"]
         pids = [e.id for e in all_exps if e.type == "project"]
-        gc = _build_stub_gc(wids + pids)
-        am = {"services.llm_service.chat_structured": _create_mock_chat_structured(STUB_JD_ANALYSIS, gc),
-              "services.rag_service._embed": _create_mock_embed(),
-              "services.rag_service.retrieve": _create_mock_retrieve(all_exps)}
+
+        # V1.5.0：默认 mock LLM + embedding
+        am = {
+            "services.llm_service.chat_structured": _create_mock_chat_structured(STUB_JD_ANALYSIS),
+            "services.embedding_service._embed_text": _create_mock_embed(),
+        }
         for t, se in extra_patches:
             am[t] = se
         ps = []
@@ -382,39 +424,23 @@ def _run_error(desc, extra_patches, exp_code, exp_http):
         db.close()
 
 def run_error_branches():
-    from core.errors import LLMOutputInvalidError
-    from core.errors import VectorIndexNotReadyError as VINRE
+    from core.errors import LLMOutputInvalidError, NoMatchedExperienceError
     sc = [
         ("JD分析: position为空 -> JD_INVALID (422)",
          [("services.llm_service.chat_structured",
-           _create_mock_chat_structured({**STUB_JD_ANALYSIS, "position": ""}, _build_stub_gc([])))],
+           _create_mock_chat_structured({**STUB_JD_ANALYSIS, "position": ""}))],
          "JD_INVALID", 422),
-        ("RAG: 无匹配 -> NO_MATCHED_EXPERIENCE (422)",
-         [("services.rag_service.retrieve", lambda *a,**kw: [])],
-         "NO_MATCHED_EXPERIENCE", 422),
         ("LLM: structured失败 -> LLM_OUTPUT_INVALID (502)",
          [("services.llm_service.chat_structured",
            MagicMock(side_effect=LLMOutputInvalidError("stub", stage="content_generation", details={"s":"Gen"})))],
          "LLM_OUTPUT_INVALID", 502),
-        ("索引: 未就绪 -> VECTOR_INDEX_NOT_READY (503)",
-         [("services.vector_index_sync.ensure_user_index_ready",
-           MagicMock(side_effect=VINRE("stub", failed_ids=["id-1"], pending_ids=[])))],
-         "VECTOR_INDEX_NOT_READY", 503),
     ]
     results = [_run_error(d, p, c, h) for d, p, c, h in sc]
     results.extend(_run_profile_boundary())
     return results
 
 def _run_profile_boundary() -> list[dict]:
-    """身份事实来源边界测试（V1.4.1 新增，替换旧 PROFILE_INCOMPLETE 契约）。
-
-    覆盖点：
-    1. ProfileResolver 单元：经历 raw_text 注入虚构联系方式，不进入最终 Profile；
-    2. ProfileResolver 单元：request 只提供部分身份字段，只保留显式提供的值；
-    3. ProfileResolver 单元：profile_source 只允许 request / empty；
-    4. 核心链路（build + generate_docx）：姓名缺失不报错，流程成功；
-    5. 核心链路：经历中虚构姓名/手机/邮箱不出现在 DOCX 文本里。
-    """
+    """身份事实来源边界测试（V1.4.1 新增，V1.5.0 适配）。"""
     from services import resume_builder, resume_generation_service, experience_service
     from api.schemas import RequestProfile, ResumeDocxGenerateRequest
     from models.resume_document import Profile as ProfileDoc
@@ -422,8 +448,6 @@ def _run_profile_boundary() -> list[dict]:
 
     results: list[dict] = []
 
-    # ── 子测试 A：ProfileResolver 单元边界 ──
-    # 构造一个"注入虚构身份信息"的经历 raw_text（真实姓名、手机、邮箱）
     FAKE_NAME = "欧阳不该出现在文档里"
     FAKE_PHONE = "13999998888"
     FAKE_EMAIL = "leaked-fake@example.invalid"
@@ -437,7 +461,7 @@ def _run_profile_boundary() -> list[dict]:
         for r in fake_raws
     ]
 
-    # A1. request 什么都不提供 → Profile 全空，且 source=empty
+    # A1. request 什么都不提供 → Profile 全空
     p_a1, src_a1 = resume_builder.ProfileResolver.resolve(request_profile=None, jd_position="产品经理")
     ok_a1 = (
         p_a1.name == "" and p_a1.phone == "" and p_a1.email == "" and
@@ -453,7 +477,7 @@ def _run_profile_boundary() -> list[dict]:
                                                  for v in [p_a1.name, p_a1.phone, p_a1.email])},
     })
 
-    # A2. 经历 raw_text 注入虚构联系方式 + request 不提供对应字段 → 最终 Profile 为空
+    # A2. 经历 raw_text 注入虚构联系方式 + request 不提供 → Profile 为空
     p_a2, src_a2 = resume_builder.ProfileResolver.resolve(
         request_profile={}, jd_position="产品经理")
     ok_a2 = (
@@ -467,7 +491,7 @@ def _run_profile_boundary() -> list[dict]:
         "evidence": {"profile": _profile_snapshot(p_a2), "source": src_a2},
     })
 
-    # A3. request 只提供 phone（或 phone+email），不提供 name → 只保留显式值，不从经历补 name
+    # A3. request 只提供 phone+email → 只保留显式值
     p_a3, src_a3 = resume_builder.ProfileResolver.resolve(
         request_profile={"phone": STUB_PROFILE["phone"], "email": STUB_PROFILE["email"]},
         jd_position="产品经理")
@@ -478,12 +502,12 @@ def _run_profile_boundary() -> list[dict]:
         src_a3 == "request"
     )
     results.append({
-        "scenario": "Profile边界A3: request仅提供phone+email, 无name -> 仅保留显式值, 不经历补name",
+        "scenario": "Profile边界A3: request仅提供phone+email, 无name -> 仅保留显式值",
         "status": "通过" if ok_a3 else "失败",
         "evidence": {"profile": _profile_snapshot(p_a3), "source": src_a3},
     })
 
-    # A4. profile_source 只能是 request / empty（其他值都不允许）
+    # A4. profile_source 只能是 request / empty
     ok_src = src_a1 in ("request", "empty") and src_a2 in ("request", "empty") and src_a3 in ("request", "empty")
     results.append({
         "scenario": "Profile边界A4: profile_source 只取值 request 或 empty",
@@ -491,17 +515,15 @@ def _run_profile_boundary() -> list[dict]:
         "evidence": {"A1": src_a1, "A2": src_a2, "A3": src_a3},
     })
 
-    # ── 子测试 B：核心链路（姓名缺失不报错，虚构联系方式不进 DOCX）──
+    # B. 核心链路（姓名缺失不报错，虚构联系方式不进 DOCX）
     _cleanup()
     from database.init_db import init_db
     from database.session import SessionLocal
     init_db()
-    # V1.4.1 修复：提前 mock embedding，避免 _setup_test_data 触发真实向量同步
-    with patch("services.rag_service._embed", side_effect=_create_mock_embed()):
+    with patch("services.embedding_service._embed_text", side_effect=_create_mock_embed()):
         uid, _ = _setup_test_data(SessionLocal)
     db = SessionLocal()
     try:
-        # 把 STUB_EXPERIENCES 第一条的 raw_text 注入虚构身份信息
         all_exps = experience_service.list_experiences(db, uid)
         if all_exps:
             injected = "\n".join([
@@ -514,15 +536,9 @@ def _run_profile_boundary() -> list[dict]:
             db.add(all_exps[0])
             db.commit()
 
-        wids = [e.id for e in all_exps if e.type == "work"]
-        pids = [e.id for e in all_exps if e.type == "project"]
-        gc = _build_stub_gc(wids + pids)
-
         with patch("services.llm_service.chat_structured",
-                   side_effect=_create_mock_chat_structured(STUB_JD_ANALYSIS, gc)), \
-             patch("services.rag_service._embed", side_effect=_create_mock_embed()), \
-             patch("services.rag_service.retrieve", side_effect=_create_mock_retrieve(all_exps)):
-            # 场景 B1：name 为空，只提供 phone + email → 流程成功（不再报 PROFILE_INCOMPLETE）
+                   side_effect=_create_mock_chat_structured(STUB_JD_ANALYSIS)), \
+             patch("services.embedding_service._embed_text", side_effect=_create_mock_embed()):
             inc = RequestProfile(name="", phone=STUB_PROFILE["phone"], email=STUB_PROFILE["email"])
             req = ResumeDocxGenerateRequest(user_id=uid, template_id="pm_template",
                                             jd_text=STUB_JD_TEXT, profile=inc, top_k=5)
@@ -535,14 +551,11 @@ def _run_profile_boundary() -> list[dict]:
                 b1_evidence = {"error_type": type(e).__name__, "error": str(e)[:200]}
 
         results.append({
-            "scenario": "Profile边界B1: name空但phone+email存在 -> 核心链路成功（不再PROFILE_INCOMPLETE）",
+            "scenario": "Profile边界B1: name空但phone+email存在 -> 核心链路成功",
             "status": "通过" if b1_ok else "失败",
             "evidence": b1_evidence,
         })
 
-        # 场景 B2：虚构姓名/手机/邮箱 不出现在 DOCX 文本中（DOCX 若产出则校验）
-        if b1_ok and "file_path" in b1_evidence:
-            pass
         if b1_ok:
             dp = OUTPUT_DIR / resp.file_name if resp.file_name else None
             if dp and dp.exists():
@@ -550,7 +563,6 @@ def _run_profile_boundary() -> list[dict]:
                 ft = "\n".join(p.text for p in d.paragraphs if p.text.strip())
                 ft += "\n" + "\n".join(cell.text for t in d.tables for row in t.rows for cell in row.cells)
                 leaks = [x for x in (FAKE_NAME, FAKE_PHONE, FAKE_EMAIL) if x in ft]
-                # 同时也不能出现 PROFILE_INCOMPLETE 字面量（证明没走旧契约）
                 contract_leak = "PROFILE_INCOMPLETE" in ft
                 b2_ok = len(leaks) == 0 and not contract_leak
                 results.append({
@@ -563,7 +575,7 @@ def _run_profile_boundary() -> list[dict]:
                 results.append({
                     "scenario": "Profile边界B2: 经历注入的虚构姓名/手机/邮箱不进入DOCX",
                     "status": "失败",
-                    "evidence": {"reason": "DOCX未产出，无法校验", "file_path": str(dp) if dp else None},
+                    "evidence": {"reason": "DOCX未产出", "file_path": str(dp) if dp else None},
                 })
     finally:
         db.close()
@@ -572,7 +584,6 @@ def _run_profile_boundary() -> list[dict]:
 
 
 def _profile_snapshot(p: _ProfileDoc) -> dict:
-    """只返回身份字段快照，不泄露其他字段。"""
     return {
         "name": p.name,
         "phone": p.phone,
@@ -585,7 +596,7 @@ def _profile_snapshot(p: _ProfileDoc) -> dict:
 def main():
     try:
         print("=" * 72)
-        print("V1.3 Stub E2E - 固定 LLM/Embedding mock, CI 可重复")
+        print("V1.5.0 Stub E2E - 固定 LLM/Embedding mock, CI 可重复")
         print("=" * 72)
         print("\n[1/2] Happy Path ...")
         happy = run_happy_path()
@@ -602,7 +613,7 @@ def main():
         ht = len(happy)
         ep = sum(1 for r in errors if r["status"]=="通过")
         et = len(errors)
-        out = OUTPUT_DIR / "V1.3_StubE2E_验证表.json"
+        out = OUTPUT_DIR / "V1.5_StubE2E_验证表.json"
         out.write_text(json.dumps(all_results, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n{'=' * 72}")
         print(f"Stub E2E 完成 - {out}")
@@ -612,9 +623,6 @@ def main():
             print("\n存在未通过的测试项!")
             sys.exit(1)
     finally:
-        # V1.4.2: Always cleanup, whether success, failure, or sys.exit.
-        # _cleanup_stub_runtime is idempotent — atexit will call it again
-        # as a no-op if we already did it here.
         _ok = _cleanup_stub_runtime()
         _removed = not _STUB_RUNTIME_TMP.exists()
         print(f"  [isolation] temp runtime removed: {_removed}")

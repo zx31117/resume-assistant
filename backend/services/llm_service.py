@@ -1,7 +1,7 @@
 """LLM 调用唯一入口（LangChain 专属层）。
 
 边界约束：
-- 全仓库仅本文件与 rag_service.py 两个文件 import langchain。
+- V1.5.0：rag_service 已删除，全仓库仅本文件 import langchain。
 - 业务模块通过本模块间接调用 LLM，自身不接触 LangChain。
 - 豆包（火山方舟）兼容 OpenAI API，直接用 ChatOpenAI 指向 Ark endpoint。
 

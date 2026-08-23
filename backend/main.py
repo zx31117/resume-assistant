@@ -14,14 +14,13 @@ from api.routes import experience, generate, jd, resume
 from core.errors import DomainError
 from core.version import APP_VERSION
 from database.init_db import init_db
-from vectorstore.chroma_store import backend as vector_backend
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时建表（含 V1.3 的 VectorIndexJob）
+    # 启动时建表（V1.5.0：Fact / SchemaVersion / FactEmbedding）
     init_db()
     yield
 
@@ -72,7 +71,6 @@ def root():
     return {
         "status": "ok",
         "service": "AI Career Resume Assistant V1",
-        "vector_backend": vector_backend(),
         "version": APP_VERSION,
         "core_entry": "POST /api/resume/generate-docx",
     }

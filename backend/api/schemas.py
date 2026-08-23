@@ -61,7 +61,6 @@ class ExperienceItem(BaseModel):
 class ExperienceOut(ExperienceItem):
     id: str
     user_id: Optional[str] = None
-    vector_id: Optional[str] = None
 
 
 class ExtractRequest(BaseModel):

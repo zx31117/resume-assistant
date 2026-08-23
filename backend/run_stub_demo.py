@@ -3,7 +3,7 @@
 T5 要求：「补虚构 Demo Profile/经历/JD + 单条可运行演示入口」。
 本脚本**不依赖任何外部 API Key 或网络**：
 - 不从 JDAnalyzer / RAG / LLM 取结果；
-- 不调 vector_index_sync（不会触发 Chroma upsert）；
+- V1.5.0：vector_index_sync 已删除，不触发向量同步；
 - 所有输入来自 `../input/demo_*.json / demo_jd.txt`（完全虚构的 Demo 数据）；
 - 最终在 V1.4 `DOCX_OUTPUT_DIR`（默认 runtime root）下输出 `demo_resume.docx`。
 """

@@ -190,3 +190,15 @@ class MigrationError(DomainError):
     stage = "migration"
     retryable = True
     http_status = 500
+
+
+class MigrationRequiredError(DomainError):
+    """V1.5.0：生成链路前置迁移检查未通过（facts/schema_versions 未就绪）。
+
+    生成阻断；用户须显式运行 services.migrations.run_migrations 完成 Fact 迁移后再生成。
+    """
+
+    error_code = "MIGRATION_REQUIRED"
+    stage = "migration_check"
+    retryable = False
+    http_status = 412

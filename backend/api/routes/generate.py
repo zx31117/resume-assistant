@@ -1,7 +1,7 @@
 """简历生成路由。
 
-V1.0/V1.1：/generate（RAG + 生成 Markdown）— deprecated，保留用于 V1.1 验收兼容。
-V1.3：/generate-docx — 唯一核心链路入口（严格模式 / 全流程 / 生成 .docx）。
+V1.0/V1.1：/generate — deprecated（V1.5.0：RAG 已退出，返回 410）。
+V1.3/V1.5.0：/generate-docx — 唯一核心链路入口（两层选材 + 受约束改写 + .docx）。
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from api import schemas
 from core.config import settings
 from core.errors import DomainError
 from database.session import get_db
-from services import experience_service, rag_service, resume_generator, resume_generation_service
+from services import resume_generation_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,51 +28,41 @@ _DEPRECATION_WARNING = (
 )
 
 
-@router.post("/generate", response_model=schemas.ResumeOut)
+@router.post("/generate")
 def generate(req: schemas.GenerateRequest, db: Session = Depends(get_db)):
-    """**DEPRECATED (since 1.3.0)** 旧 Markdown 简历生成。兼容 V1.1 验收。
+    """**DEPRECATED (since 1.5.0)** 旧 Markdown 简历生成已退出。
 
-    新链路请使用 POST /api/resume/generate-docx。
+    V1.5.0：rag_service 已删除，旧 RAG 检索链路不再可用。
+    请使用 POST /api/resume/generate-docx（V1.5.0 两层选材 + 受约束改写）。
     """
     warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
-    logger.warning("调用已弃用接口 /api/resume/generate")
-
-    user_id = req.user_id or _USER_ID
-    matched = rag_service.retrieve(req.jd_analysis, user_id=user_id, k=req.top_k)
-    experiences = []
-    for m in matched:
-        exp = experience_service.get_experience(db, m["id"])
-        if exp:
-            experiences.append({
-                "type": exp.type,
-                "title": exp.title,
-                "company": exp.company,
-                "time": exp.time,
-                "role": exp.role,
-                "description": exp.description,
-                "skills": exp.skills or [],
-                "achievements": exp.achievements or [],
-            })
-    markdown = resume_generator.generate_resume(req.jd_analysis, experiences)
-    return {
-        "markdown": markdown,
-        "matched_experiences": matched,
-        "deprecation_warning": _DEPRECATION_WARNING,
-    }
+    logger.warning("调用已弃用接口 /api/resume/generate（V1.5.0：RAG 已退出）")
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=410,
+        content={
+            "ok": False,
+            "error_code": "DEPRECATED",
+            "stage": "generate_route",
+            "message": _DEPRECATION_WARNING,
+            "retryable": False,
+            "details": {"removed_since": "1.5.0", "replacement": "POST /api/resume/generate-docx"},
+        },
+    )
 
 
 @router.post("/generate-docx", response_model=schemas.ResumeDocxGenerateResponse)
 def generate_docx(req: schemas.ResumeDocxGenerateRequest, db: Session = Depends(get_db)):
     """V1.3 核心链路：唯一主入口。
 
-    阶段：
-    1. 索引就绪检查（VectorIndexJob PENDING/FAILED 幂等处理）
-    2. JD 分析（strict，失败抛 JDValidationError）
-    3. RAG TopK 匹配
-    4. SQL 回读命中经历
-    5. ResumeContentGenerator（strict，失败抛 LLMOutputInvalidError）
-    6. ResumeBuilder.build（只从 SQL 取事实，按 experience_id 合并 AI bullets）
-    7. TemplateRenderer.render + LayoutOptimizer
+    V1.5.0 链路（PLAN §2 / §7 T6）：
+    1. 迁移检查（Fact/SchemaVersion 就绪）
+    2. JD 分析（strict）
+    3. 第一层选材（固定槽位 → CandidateExperienceSet）
+    4. 第二层事实选材（→ SelectedEvidenceSet）
+    5. 受约束改写（fact_refs → GeneratedResumeContentV15）
+    6. Builder 收缩装配（build_v15）
+    7. 渲染 + 排版
     8. 保存 DOCX
 
     错误统一以 DomainError 结构返回（见 schemas.DomainErrorOut）。

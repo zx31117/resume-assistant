@@ -185,13 +185,14 @@ def _(ctx: RunCtx):
             "api.schemas", "api.routes.generate","api.routes.template","api.routes.experience",
             "api.routes.jd","api.routes.resume",
             "core.config","core.errors",
-            "database.init_db","database.session","database.models",
+            "database.init_db","database.session","database.models","database.migrations",
             "models.resume_document","models.template_schema",
             "services.docx_writer","services.template_renderer",
             "services.resume_builder","services.layout_optimizer",
-            "services.resume_generation_service","services.vector_index_sync",
-            "services.llm_service","services.rag_service",
-            "run_stub_demo",  # T5 新增入口
+            "services.resume_generation_service",
+            "services.llm_service","services.embedding_service",
+            "services.fact_service","services.selection_service","services.constrained_rewrite",
+            "run_stub_demo",
         ]
         failed = []
         for m in mods:
@@ -222,7 +223,7 @@ def _(ctx: RunCtx):
     from sqlalchemy import inspect
     insp = inspect(engine)
     tables = insp.get_table_names()
-    required = {"users","experiences","vector_index_jobs"}
+    required = {"users","experiences","facts","schema_versions","fact_embeddings"}
     missing = required - set(tables)
     assert not missing, f"缺表: {missing}; found={tables}"
 

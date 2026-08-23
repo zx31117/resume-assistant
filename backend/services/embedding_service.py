@@ -60,7 +60,7 @@ def _embed_text(text: str) -> list[float]:
     """调用豆包多模态向量化 API，返回向量列表。
 
     无 ARK_API_KEY 时抛 RuntimeError（不静默 fallback，PLAN §6.3.5）。
-    实现与 services/rag_service._embed 对齐（同一豆包 endpoint）。
+    V1.5.0：沿用原 rag_service._embed 的豆包 endpoint（rag_service 已删除）。
     """
     if not settings.ARK_API_KEY:
         raise RuntimeError("ARK_API_KEY 未配置，无法计算 Embedding（无隐藏 fallback）")

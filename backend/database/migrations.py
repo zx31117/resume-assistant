@@ -139,9 +139,11 @@ def _upsert_fact(session: Session, experience_id: str, cand: dict) -> tuple[str,
 
 # ── 备份 ─────────────────────────────────────────────────────── #
 
-def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str]) -> dict:
-    """复制源数据库与旧索引为只读备份（PLAN §6.3.1）。
+def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str] = None) -> dict:
+    """复制源数据库为只读备份（PLAN §6.3.1）。
 
+    V1.5.0：vectorstore_dir 参数保留以兼容旧调用签名，但已无副作用
+    （向量持久化统一走 SQLite BLOB 派生表，备份源即 SQLite 本身）。
     不删除原文件；备份只读（Windows chmod 为 best-effort）。
     """
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
@@ -160,18 +162,7 @@ def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str]) -> dict:
         except Exception as e:
             backups["errors"].append(f"sqlite_backup: {e!r}")
 
-    if vectorstore_dir:
-        vs = Path(vectorstore_dir)
-        if vs.exists():
-            bak = vs.parent / f"{vs.name}.{ts}.bak"
-            if bak.exists():
-                bak = vs.parent / f"{vs.name}.{ts}.{uuid.uuid4().hex[:6]}.bak"
-            try:
-                shutil.copytree(vs, bak)
-                backups["vectorstore"] = str(bak)
-            except Exception as e:
-                backups["errors"].append(f"vectorstore_backup: {e!r}")
-
+    # V1.5.0：vectorstore 不再活动（chroma/numpy+JSON 已退出）；旧参数仅作签名兼容
     return backups
 
 
@@ -258,7 +249,8 @@ def run_migrations(
     返回 summary：{backup, applied, skipped, details, verify}
     """
     sqlite_path = db_path or settings.SQLITE_PATH
-    vs_dir = vectorstore_dir if vectorstore_dir is not None else settings.CHROMA_PATH
+    # V1.5.0：vectorstore_dir 参数保留以兼容旧调用，但不再用于备份
+    # （向量持久化统一走 SQLite BLOB；settings.CHROMA_PATH 已移除）
     summary: dict = {
         "db_path": sqlite_path,
         "backup": None,
@@ -273,7 +265,7 @@ def run_migrations(
     session: Optional[Session] = None
     try:
         if backup:
-            summary["backup"] = _backup_sources(sqlite_path, vs_dir)
+            summary["backup"] = _backup_sources(sqlite_path)
 
         engine = create_engine(
             f"sqlite:///{sqlite_path}",

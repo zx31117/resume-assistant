@@ -1,4 +1,4 @@
-"""全局配置：源码资产与运行数据按 D-020 物理解耦。
+"""全局配置：源码资产与运行数据按 D-020 物理解耦（V1.5.0：Chroma 退出）。
 
 - BASE_DIR：backend/ 根目录（不可变源码资产，如模板/config/prompts/.env.example）
 - RESUME_DATA_DIR：统一运行数据根目录（默认位于 Git checkout 外）
@@ -6,9 +6,12 @@
   - macOS:   ~/Library/Application Support/ResumeAssistant
   - Linux:   ~/.local/share/resume-assistant
   - 可通过环境变量 RESUME_DATA_DIR 显式覆盖（绝对路径或相对 cwd 均可）
-- 所有可变数据（SQLite/Chroma/output/logs/cache）默认从 RESUME_DATA_DIR 派生；
-  用户显式设置 SQLITE_PATH/CHROMA_PATH/DOCX_OUTPUT_DIR 时仍使用原值并解析为绝对路径，
+- 所有可变数据（SQLite/output/logs/cache）默认从 RESUME_DATA_DIR 派生；
+  用户显式设置 SQLITE_PATH/DOCX_OUTPUT_DIR 时仍使用原值并解析为绝对路径，
   以便迁移期保留旧路径作为回滚开关。
+- V1.5.0：Chroma 已退出活动配置；向量持久化统一走 SQLite BLOB 派生表（见
+  services/embedding_service.py 与 database.models.FactEmbedding）。CHROMA_PATH
+  配置项不再存在；numpy 仅作计算库，不承担 JSON 向量持久化或 fallback 后端。
 """
 import os
 import sys
@@ -48,7 +51,6 @@ else:
 
 # runtime 子目录（全部位于 RESUME_DATA_DIR 下）
 DATABASE_DIR = RESUME_DATA_DIR / "database"
-VECTORSTORE_DIR = RESUME_DATA_DIR / "vectorstore"
 DOCX_OUTPUT_DIR_DEFAULT = RESUME_DATA_DIR / "output"
 LOGS_DIR = RESUME_DATA_DIR / "logs"
 CACHE_DIR = RESUME_DATA_DIR / "cache"
@@ -60,10 +62,11 @@ def _setting_resolve(user_value: str | None, runtime_default: Path, *, as_dir: b
     - as_dir=False（默认）：runtime_default 表示**文件路径**，只保证父目录存在。
       例：SQLITE_PATH = <runtime>/database/app.db — 只 mkdir(<runtime>/database)。
     - as_dir=True：runtime_default 表示**目录**，会把自身及父目录都建好。
-      例：CHROMA_PATH / DOCX_OUTPUT_DIR / LOGS_DIR / CACHE_DIR。
+      例：DOCX_OUTPUT_DIR / LOGS_DIR / CACHE_DIR。
 
-    迁移期兼容：用户可继续设置旧变量 SQLITE_PATH / CHROMA_PATH / DOCX_OUTPUT_DIR
+    迁移期兼容：用户可继续设置旧变量 SQLITE_PATH / DOCX_OUTPUT_DIR
     作为"旧路径回滚开关"；未设置则走 runtime 统一目录。
+    V1.5.0：CHROMA_PATH 已退出活动配置（向量持久化统一走 SQLite BLOB）。
     """
     if user_value:
         return str(_resolve_abs(user_value))
@@ -86,8 +89,8 @@ class Settings:
     RESUME_DATA_DIR: Path = RESUME_DATA_DIR
 
     # 存储：未显式配置时默认走 runtime root 下子目录
+    # V1.5.0：CHROMA_PATH 已移除（向量持久化统一走 SQLite BLOB 派生表）
     SQLITE_PATH: str = _setting_resolve(os.getenv("SQLITE_PATH"), DATABASE_DIR / "app.db")
-    CHROMA_PATH: str = _setting_resolve(os.getenv("CHROMA_PATH"), VECTORSTORE_DIR / "chroma", as_dir=True)
 
     # 应用
     APP_HOST: str = os.getenv("APP_HOST", "127.0.0.1")

@@ -1,10 +1,12 @@
-"""V1.3 T5：唯一核心用例编排 ResumeGenerationService。
+"""V1.5.0 核心用例编排 ResumeGenerationService（旧 V1.3 RAG 链路已退出）。
 
-串联：
-  索引就绪检查 → JDAnalyzer → RAG → SQL 回读 → ResumeContentGenerator
-  → ResumeBuilder → TemplateRenderer → LayoutOptimizer → 保存 DOCX。
+V1.5.0 PLAN §2 / §5 / §7 T6：
+  迁移检查 → JD 分析 → 第一层 select_experiences → 第二层 select_evidence
+  → 受约束改写 rewrite_with_evidence → build_v15（Builder 收缩）
+  → TemplateRenderer → LayoutOptimizer → 保存 DOCX。
 
-不直接操作 Word XML（渲染器独立），不直接调 LLM/Embedding（通过 jd_analyzer/resume_content_generator/rag_service）。
+不直接操作 Word XML（渲染器独立），不直接调 LLM/Embedding
+（通过 jd_analyzer / constrained_rewrite / embedding_service 编排）。
 """
 from __future__ import annotations
 
@@ -13,6 +15,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -20,7 +23,6 @@ from sqlalchemy.orm import Session
 from api.schemas import (
     BuildCounts,
     BuildMeta,
-    GeneratedResumeContent,
     JDAnalysisOut,
     RenderStats,
     RequestProfile,
@@ -30,30 +32,40 @@ from api.schemas import (
 )
 from core.config import settings
 from core.errors import (
+    ContentGenerationError,
     DomainError,
     FileSaveError,
+    MigrationRequiredError,
     NoMatchedExperienceError,
     ProfileIncompleteError,
     ResumeBuildError,
 )
 from database import models
+from database.models import SchemaVersion
+from database.migrations import (
+    SCHEMA_VERSION_FACT_MIGRATION,
+    SCHEMA_VERSION_FACT_SCHEMA,
+)
 from models.resume_document import ResumeDocument
 from services import (
+    constrained_rewrite,
+    embedding_service,
     experience_service,
     jd_analyzer,
     layout_optimizer,
-    rag_service,
     resume_builder,
-    resume_content_generator,
+    selection_service,
     template_renderer,
-    vector_index_sync,
 )
 
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = settings.DOCX_OUTPUT_DIR
-# V1.4：BASE_DIR 已在 Settings 中显式暴露（Path 类型）；保留字符串形式的 BACKEND_ROOT 供 TemplateRenderer 形参消费
+# V1.4：BASE_DIR 已在 Settings 中显式暴露；保留字符串形式的 BACKEND_ROOT 供 TemplateRenderer 形参消费
 BACKEND_ROOT = str(settings.BASE_DIR)
+
+# V1.5.0：迁移版本常量（与 database.migrations 一致）
+_REQUIRED_MIGRATIONS = (SCHEMA_VERSION_FACT_SCHEMA, SCHEMA_VERSION_FACT_MIGRATION)
 
 
 @dataclass
@@ -104,10 +116,7 @@ def _profile_to_dict(p: RequestProfile) -> dict:
 
 
 def _target_position_fallback(req_profile: RequestProfile, jd: JDAnalysisOut) -> RequestProfile:
-    """PLAN §4.1：target_position 缺失时使用 JDAnalysis.position。
-
-    不修改原对象，返回一个浅拷贝 patch。
-    """
+    """PLAN §4.1：target_position 缺失时使用 JDAnalysis.position。"""
     if req_profile.target_position and req_profile.target_position.strip():
         return req_profile
     jd_pos = (jd.position or "").strip()
@@ -123,21 +132,40 @@ def _target_position_fallback(req_profile: RequestProfile, jd: JDAnalysisOut) ->
     )
 
 
+def _ensure_migrations_applied(db: Session) -> dict:
+    """V1.5.0：迁移前置检查（PLAN §6.3 / §8.2）。
+
+    生成链路要求 facts / schema_versions / fact_embeddings 表均已就绪。
+    任一未应用 → 抛 MigrationRequiredError（生成阻断，由用户显式运行迁移）。
+    """
+    applied = {row.version for row in db.query(SchemaVersion).all()}
+    missing = [v for v in _REQUIRED_MIGRATIONS if v not in applied]
+    if missing:
+        raise MigrationRequiredError(
+            f"V1.5.0 迁移未完成，生成阻断：missing={missing} applied={sorted(applied)}",
+            stage="migration_check",
+            details={"missing": missing, "applied": sorted(applied)},
+        )
+    return {"applied": sorted(applied)}
+
+
 def generate_docx(
     db: Session,
     req: ResumeDocxGenerateRequest,
 ) -> ResumeDocxGenerateResponse:
-    """核心链路（V1.3 唯一产品主路线）。
+    """V1.5.0 核心链路（PLAN §2 / §7 T6）。
 
+    阶段：迁移检查 → JD 分析 → 第一层选材 → 第二层事实选材 → 受约束改写
+          → Builder 收缩装配 → 渲染 → 排版 → 保存 DOCX。
     所有关键阶段抛 DomainError 子类，由 API 层统一映射。
     """
     user_id = req.user_id or settings.DEFAULT_USER_ID
     ctx = GenerationContext(user_id=user_id, template_id=req.template_id)
 
-    # ── 1. 索引就绪检查 ─────────────────────────────────────────────
-    t = ctx.start("index_check")
-    index_stats = vector_index_sync.ensure_user_index_ready(db, user_id)
-    ctx.done("index_check", t, note=json.dumps(index_stats, ensure_ascii=False))
+    # ── 1. 迁移检查（PLAN §6.3） ─────────────────────────────────
+    t = ctx.start("migration_check")
+    mig_stats = _ensure_migrations_applied(db)
+    ctx.done("migration_check", t, note=json.dumps(mig_stats, ensure_ascii=False))
 
     # ── 2. JD 分析（strict） ────────────────────────────────────────
     t = ctx.start("jd_analysis")
@@ -147,71 +175,83 @@ def generate_docx(
     # ── 3. Profile：target_position 兜底（JDAnalysis.position） ────
     profile_patched = _target_position_fallback(req.profile, jd)
 
-    # ── 4. RAG 检索 ─────────────────────────────────────────────────
-    t = ctx.start("rag_match")
-    matched = rag_service.retrieve(jd.model_dump(), user_id=user_id, k=req.top_k)
-    matched_ids = [m["id"] for m in matched if m.get("id")]
+    # ── 4. 拉取用户全部 Experience（V1.5.0：第一层选材基于全量） ──
+    t = ctx.start("sql_readback")
+    all_experiences: list[models.Experience] = experience_service.list_experiences(db, user_id)
+    if not all_experiences:
+        raise NoMatchedExperienceError(
+            f"用户无任何经历，无法生成简历（user_id={user_id}）",
+            stage="sql_readback",
+        )
+    ctx.done("sql_readback", t, note=f"total_experiences={len(all_experiences)}")
+
+    # ── 5. 第一层选材：固定槽位规则 → CandidateExperienceSet ──────
+    t = ctx.start("select_experiences")
+    baseline = date.today()
+    candidate_set = selection_service.select_experiences(
+        all_experiences, jd.model_dump(), baseline_date=baseline,
+    )
+    matched_ids = candidate_set.selected_ids()
     ctx.matched_experience_ids = matched_ids
-    ctx.done("rag_match", t, note=f"matched={len(matched_ids)}/{req.top_k}")
+    ctx.done("select_experiences", t, note=(
+        f"slots={len(candidate_set.slots)} excluded={len(candidate_set.excluded_ids)} "
+        f"warnings={len(candidate_set.warnings)}"
+    ))
+    if candidate_set.warnings:
+        ctx.warnings.extend(candidate_set.warnings[:5])  # 只前 5 条进 response warnings
 
     if not matched_ids:
         raise NoMatchedExperienceError(
-            f"RAG 未检索到任何匹配经历（user_id={user_id}, top_k={req.top_k}）",
-            stage="rag_match",
+            f"第一层未入选任何经历（user_id={user_id}, total={len(all_experiences)}）",
+            stage="select_experiences",
         )
 
-    # ── 5. SQL 回读命中 Experience ──────────────────────────────────
-    t = ctx.start("sql_readback")
-    hit_experiences: list[models.Experience] = []
-    for mid in matched_ids:
-        exp = experience_service.get_experience(db, mid)
-        if exp:
-            hit_experiences.append(exp)
-    if not hit_experiences:
-        raise NoMatchedExperienceError(
-            "RAG 返回的 matched_ids 在 SQL 中全部未命中（向量/数据库可能不一致，建议 rebuild）",
-            stage="sql_readback",
-        )
-    ctx.done("sql_readback", t, note=f"hit_sql={len(hit_experiences)}")
+    # ── 6. 第二层选材：事实与表达侧重 → SelectedEvidenceSet ────────
+    t = ctx.start("select_evidence")
+    evidence_set = selection_service.select_evidence(
+        db, candidate_set, jd.model_dump(),
+    )
+    ctx.done("select_evidence", t, note=(
+        f"entries={len(evidence_set.entries)} "
+        f"fact_refs={len(evidence_set.all_fact_refs())}"
+    ))
 
-    # ── 6. ResumeContentGenerator（strict） ────────────────────────
+    # ── 7. 受约束改写 → GeneratedResumeContentV15 ─────────────────
     t = ctx.start("content_generation")
-    generated: GeneratedResumeContent
-    cg_warnings: list[str]
-    generated, cg_warnings = resume_content_generator.generate_content(
-        jd, hit_experiences, strict=True,
+    generated_v15, cg_warnings = constrained_rewrite.rewrite_with_evidence(
+        db, candidate_set, evidence_set, jd.model_dump(),
     )
     ctx.warnings.extend(cg_warnings)
     ctx.done("content_generation", t, note=(
-        f"ai_bullets_items={len(generated.experiences)}"
+        f"v15_experiences={len(generated_v15.experiences)} warnings={len(cg_warnings)}"
     ))
 
-    # ── 7. ResumeBuilder.build（唯一内容选择入口） ─────────────────
+    # ── 8. Builder 收缩装配（build_v15，PLAN §5.3 / T5） ─────────
     t = ctx.start("resume_build")
     request_profile_dict = _profile_to_dict(profile_patched)
     try:
         resume_doc: ResumeDocument
         build_meta: dict[str, Any]
-        resume_doc, build_meta = resume_builder.build(
+        resume_doc, build_meta = resume_builder.build_v15(
             db,
             user_id=user_id,
-            matched_experiences=matched,
+            candidate_set=candidate_set,
             jd_analysis=jd,
-            all_experiences=None,  # 内部 list_experiences 拉全量（含 education 未匹配也要）
+            generated_content_v15=generated_v15,
             request_profile=request_profile_dict,
-            generated_content=generated,
+            all_experiences=all_experiences,
         )
     except ProfileIncompleteError:
         raise  # 保持原类型（已是 DomainError 子类）
     except DomainError:
         raise
     except Exception as e:
-        logger.exception("ResumeBuilder 未知构建失败")
+        logger.exception("ResumeBuilder V1.5 未知构建失败")
         raise ResumeBuildError(str(e), details={"error_type": type(e).__name__}) from e
     ctx.profile_source = build_meta.get("profile_source", "")
     ctx.warnings.extend([
         f"AI 优化条目: {len(build_meta.get('ai_covered_experience_ids', []))}",
-        f"SQL 回退条目: {len(build_meta.get('fallback_sql_experience_ids', []))}",
+        f"材料不足条目: {len(build_meta.get('insufficient_experience_ids', []))}",
     ])
     ctx.rendered_experience_ids = (
         [w.experience_id for w in resume_doc.work if w.experience_id]
@@ -219,7 +259,7 @@ def generate_docx(
     )
     ctx.done("resume_build", t, note=json.dumps(build_meta.get("counts", {}), ensure_ascii=False))
 
-    # ── 8. TemplateRenderer.render + LayoutOptimizer ───────────────
+    # ── 9. TemplateRenderer.render + LayoutOptimizer ───────────────
     t = ctx.start("render")
     renderer = template_renderer.TemplateRenderer(req.template_id, backend_root=str(BACKEND_ROOT))
     doc, render_warnings, render_stats_raw = renderer.render(resume_doc)
@@ -231,7 +271,6 @@ def generate_docx(
         ctx.warnings.append(f"排版规则: {len(applied_layout_rules)} 条")
     if capacity_warnings:
         ctx.warnings.extend(capacity_warnings)
-    # 组装 RenderStats（强类型）
     render_stats = RenderStats(
         sections=render_stats_raw.get("sections", []),
         unreplaced_placeholders=render_stats_raw.get("unreplaced_placeholders", []),
@@ -243,7 +282,7 @@ def generate_docx(
         f"render_preserved={render_stats.all_sections_preserved}"
     ))
 
-    # ── 9. 保存 DOCX ────────────────────────────────────────────────
+    # ── 10. 保存 DOCX ────────────────────────────────────────────────
     t = ctx.start("save_docx")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_") or "user"
@@ -256,14 +295,14 @@ def generate_docx(
     download_url = f"/api/template/download?path=output/{file_name}"
     ctx.done("save_docx", t, note=file_path_abs)
 
-    # ── 10. 组装响应 ────────────────────────────────────────────────
+    # ── 11. 组装响应 ────────────────────────────────────────────────
     counts = build_meta.get("counts", {}) or {}
     counts_obj = BuildCounts.model_validate(counts) if isinstance(counts, dict) else counts
     build_meta_obj = BuildMeta.model_validate(build_meta) if isinstance(build_meta, dict) else build_meta
-    # ai_unrecognized：ResumeContentGenerator 已经写进 warnings；ResumeBuilder 再从另一个维度再过滤一次，取并集
+    # V1.5.0：ai_unrecognized 不再来自 RAG mismatch，而是来自越界改写告警
     cg_unrecognized: list[str] = []
     for w in ctx.warnings:
-        if "丢弃未知 experience_id=" in w:
+        if "拒绝越界经历 experience_id=" in w:
             try:
                 eid = w.split("experience_id=", 1)[1].split("（", 1)[0].strip()
                 if eid and eid not in cg_unrecognized:

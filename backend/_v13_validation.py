@@ -16,6 +16,15 @@
   - 9 全量重建前后检索 ID 集合一致（vector_index_sync.rebuild_user_index_from_sql）
   - 10 Experience create/update/delete 重复执行后，SQL count == Chroma count
 """
+
+# V1.5.0 GUARD: 旧向量链路（rag_service / vector_index_sync / chroma_store）已删除。
+# 本脚本依赖已退出的模块，在 V1.5.0 上无法运行。
+# 请使用 _v13_stub_e2e.py（V1.5.0 适配版）或 _v15_t*.py 系列。
+import sys
+print("[GUARD] _v13_validation.py depends on deleted V1.3/V1.4 modules (rag_service/vector_index_sync/chroma_store).")
+print("[GUARD] V1.5.0: use _v13_stub_e2e.py or _v15_t*.py instead.")
+sys.exit(0)
+
 from __future__ import annotations
 
 import json

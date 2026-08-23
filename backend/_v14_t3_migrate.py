@@ -7,6 +7,15 @@
 - 回滚：设置 SQLITE_PATH=./data/app.db 即可切回旧库；
 - 输出：T3_MIGRATION.json（docs 版本，脱敏）与 runtime/logs 下完整版本。
 """
+
+# V1.5.0 GUARD: 旧向量链路（rag_service / vector_index_sync / chroma_store）已删除。
+# 本脚本依赖已退出的模块，在 V1.5.0 上无法运行。
+# 请使用 _v13_stub_e2e.py（V1.5.0 适配版）或 _v15_t*.py 系列。
+import sys
+print("[GUARD] _v14_t3_migrate.py depends on deleted V1.3/V1.4 modules (rag_service/vector_index_sync/chroma_store).")
+print("[GUARD] V1.5.0: use _v13_stub_e2e.py or _v15_t*.py instead.")
+sys.exit(0)
+
 from __future__ import annotations
 
 import argparse
