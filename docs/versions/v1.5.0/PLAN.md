@@ -317,3 +317,106 @@ T8 必须读取源码并独立复核：
 用户已确认内容决策、Fact 范围与修改语义、SQLite 向量方案、旧索引重建策略以及 V1.5/V2 模型边界，并于 2026-08-23 明确批准开始执行 V1.5.0。本 PLAN 自该日期起是 V1.5.0 唯一开发指令。
 
 执行从 T0 开始：先获取执行时最新的公开 `origin/main`，记录精确 base commit，证明 `v1.4.2` 是其祖先并完成 clean preflight；随后才创建 `version/v1.5.0` 和固定 current worktree、向开发 Agent 交接。当前 planning checkout 不能沿用为开发基线，本文档批准也不等于任何 V1.5.0 源码已经实现或验收。
+
+## 12. 文档 Agent 前置审核返工补充（2026-08-23）
+
+> 性质：本节是对首次实现候选的返工契约，只追加、不覆盖或改写上文最初批准的 PLAN。
+> 审核对象：`version/v1.5.0` 首次开发交接 HEAD `81357200fc6e58714d6b7ce3d6ad497a2775935c`；`0fe1513` 只是其 T6 前序提交，不是最终交接 HEAD。
+> 当前结论：首次候选在进入 WorkBuddy 独立验收前被文档前置审核打回；开发侧 `215 pass / 0 fail` 只证明已执行断言，不等于候选可验收。
+> 证据边界：以下文件与行为证据来自前置审核交接材料；Traework 负责修复和补齐开发自测，WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败场景并复核。
+
+本轮不得拆成零散补丁或新增分项文档。所有返工仍写入本 PLAN 与同版本 RESULT；PLAN 规定接下来必须做什么，RESULT 只记录实际发生的修复、测试和验收状态。
+
+### 12.1 集中返工顺序
+
+| Task | 依赖 | 集中返工目标 | 完成条件 |
+|---|---|---|---|
+| R1 Experience/Fact 生命周期 | 无 | 统一新旧 Experience 的 Fact、Embedding、失效、失败与重试语义 | CRUD 后派生数据立即可核对；失败不产生假成功或孤儿 |
+| R2 可操作升级与重建入口 | R1 | 为全新库、V1.4.2 升级库和 CRUD 后状态提供唯一受支持入口 | 正常用户不需要 import 私有 service 即可迁移、查状态、重试和重建 |
+| R3 迁移与资源安全 | R2 | 数据库与旧索引备份、fail closed、完整资源释放 | 任一备份/核对/cleanup 失败均非零失败且不继续破坏性步骤 |
+| R4 Fact 修改一致性 | R1 | Fact 更新与派生失效形成不可分割的一致性边界 | 不存在“新 Fact 已提交但旧 Embedding 仍 VALID” |
+| R5 教育/校园语义与确定性排序 | R1 | 区分正式教育和校园活动；固定补位、排序及缺失日期规则 | 输入乱序不改变结果，校园改写真正进入最终文档 |
+| R6 检索健康与故障可见性 | R3、R4 | 区分健康低相关与索引/模型故障 | 维度、fingerprint、revision/hash 故障阻断，不回退全部 Fact 掩盖 |
+| R7 bullet 来源映射与最终链路 | R5、R6 | 保留每条最终 bullet 的 fact_refs 到响应、ResumeDocument/sidecar 和 DOCX 核对 | 逐 bullet 可追溯；越界引用失败；最终文档而非中间集合通过 |
+| R8 旧实现退出与对外一致 | R2、R7 | 清理活动残留，分类兼容残留与历史档案 | 新状态、旧状态退出和回归三类证据齐全；不改写历史版本事实 |
+| R9 集成验证与冻结交接 | R1–R8 | 汇总矩阵、形成 clean 新候选并外部交接 | RESULT 更新、全量测试通过、精确 HEAD 通过外部消息交接 |
+
+依赖主线为 `R1 → (R2、R4、R5) → R3 → R6 → R7 → R8 → R9`。可以并行实现互不重叠的测试，但必须在 R9 一次性集成，不能修完单个症状就提前进入 WorkBuddy 验收。
+
+### 12.2 R1：Experience CRUD 全生命周期
+
+- **前置证据**：`backend/services/experience_service.py` 的 create/update/delete 只提交 Experience；新建不产生 Fact/Embedding，更新依赖“下次迁移”，但 `SchemaVersion` 已应用后该迁移会跳过；删除后的 FactEmbedding 清理、失败重试和重建语义没有闭环。
+- **必须实现**：把 Experience 与其 Fact 派生/对账纳入同一服务层生命周期。create 立即生成确定性 Fact；update 对新增、修改、删除的来源项做 reconciliation，更新 revision/hash 并失效旧引用；delete 清理或明确失效 Fact、FactEmbedding 与引用，不留孤儿。SchemaVersion 只门控一次性 schema/data 升级，不得承担日常 CRUD 同步。
+- **正向验收**：全新 Experience、V1.4.2 迁移 Experience 和迁移后新增 Experience 均能按 ID 回查 Fact；更新 description/achievements 的新增、改写、删除分别得到确定性 Fact 数量与 revision/hash；删除后 Fact/Embedding/选材引用均不可用；失败项可重试并可由全量重建收敛到同一结果。
+- **反向验收与完成标准**：分别注入 Fact 写入、Embedding 计算、状态提交和删除清理失败，接口不得返回无条件成功，不得留下 VALID 旧向量或孤儿；重复 create/update/delete/retry/rebuild 幂等。只有新旧 Experience 的增删改、失效、失败、重试、重建行为一致才完成 R1。
+
+### 12.3 R2：正常可操作入口
+
+- **前置证据**：生成链路的 `_ensure_migrations_applied` 只检查 SchemaVersion 并提示显式迁移；API、根 README 与正常启动路径没有迁移、状态检查或 Embedding 重建入口，且错误文案不能代替可执行入口。
+- **必须实现**：提供一个唯一受支持的本地维护入口（CLI 或本地管理 API，最终名称和参数在 RESULT 固化），统一完成迁移、状态诊断、失败重试和 Embedding 重建；根 README 在源码验收通过后的文档收口阶段只介绍这个入口，不要求用户 import 私有 service。
+- **正向验收**：全新空库按正常快速开始可初始化并形成可生成状态；V1.4.2 数据库副本经同一入口备份、迁移和重建后可生成；CRUD 后 PENDING/INVALID/FAILED 可被同一入口诊断并恢复。
+- **反向验收与完成标准**：缺 Key、升级未执行、备份失败、部分 FAILED 或维度错误时入口给出非零/领域错误与下一步，不得让生成继续或返回空结果。上述三类库均形成从准备数据到 JD → DOCX 的可重复闭环才完成 R2。
+
+### 12.4 R3：迁移 fail closed 与资源生命周期
+
+- **前置证据**：`backend/database/migrations.py` 忽略 `vectorstore_dir`；SQLite/旧索引备份异常只收集到 `errors` 后继续；`session.close()` / `engine.dispose()` 异常被 `pass` 吞掉，无法证明备份有效或资源已释放。
+- **必须实现**：任何 schema/data 变更前同时备份源 SQLite 与旧索引；对备份做存在性、可读性、数量/hash 或等价完整性核对，并保存不含履历正文的 manifest。任一备份或核对失败必须 fail closed。成功、业务异常、依赖/导入失败、提前退出与 cleanup 失败都必须释放 session、engine、client、文件句柄和临时资源；cleanup 失败经有限重试仍失败时整体非零。
+- **正向验收**：数据库与含嵌套文件的旧索引均产生可读取、可恢复、与源匹配的只读副本；迁移成功后 SchemaVersion、Fact 数量/hash、孤儿与 Embedding 状态核对通过；重复迁移/提前退出均不破坏原副本。
+- **反向验收与完成标准**：注入 copy2/copytree、备份校验、session.close、engine.dispose、文件占用和 cleanup 失败，断言后续 schema/data 步骤没有继续、退出非零、错误可见且相邻哨兵不变。仅打印 warning 或把错误放进 summary 不算完成。
+
+### 12.5 R4：Fact 修改与失效一致性
+
+- **前置证据**：`fact_service.modify_fact` 先 commit Fact 再执行钩子；钩子异常降级为 warning；`embedding_service.wire_fact_invalidation` 同样吞掉异常，且活动入口未证明必然完成注册，可能留下“Fact 已更新、旧 Embedding 仍 VALID”。
+- **必须实现**：用同事务失效、持久化 outbox/任务状态或等价可恢复机制，把 Fact revision/hash 更新与旧派生数据失效组成一个可证明的一致性边界；失效失败不得被 warning 消化。生产路径不得依赖可选的进程内钩子碰巧已注册。
+- **正向验收**：修改 Fact 后，同一可观察完成点上旧 Embedding 不再 VALID，旧 SelectedEvidenceSet 判定过期，重建后只有新 revision/hash 可查询；未改变正文时不误增 revision。
+- **反向验收与完成标准**：注入失效写入、任务落盘、commit 和重试失败，修改要么整体回滚，要么进入明确阻断且可重试状态；任何查询都不能继续使用旧向量。不存在 warning-only 不一致窗口才完成 R4。
+
+### 12.6 R5：正式教育、校园补位与稳定排序
+
+- **前置证据**：`selection_service` 把 `education` 与 `campus` 放入同一校园池，并按时间选最近项；`resume_builder.build_v15` 又装配所有未入选 education，校园槽位只写原 description，忽略受约束 bullets/fact_refs。工作同日期、项目相关性与时间同分没有最终 tie-break；缺日期工作仍进入槽位，但 warning 声称已排除。
+- **必须实现**：正式教育背景保持确定性结构并独立于校园活动；校园活动只在工作+项目入选合计 `<2` 时，从校园活动中按 JD 相关性补最匹配 1 项。为旧数据给出不混淆的兼容映射。校园入选后的受约束 bullets 与逐 bullet 来源必须进入最终 ResumeDocument/等价 sidecar，并在 DOCX 中可见；未触发时不得把校园活动作为正式教育旁路装配。
+- **排序规则**：工作/实习按可核验日期倒序，缺失/不可解析日期排除并给出一致告警；项目按相关性、时间依次排序；工作同日期、项目相关性与时间均同分时使用固定最终键（例如 `experience_id` 升序，具体等价键在 RESULT 固化）。校园按 JD 相关性、时间、固定最终键排序，而不是只取最近。
+- **正反向验收与完成标准**：覆盖 0/1/2 合计触发边界、正式教育与校园同时存在、多个校园相关性差异、校园不足材料、缺失日期、同日期/同分及输入多次乱序；每次 CandidateSet、ResumeDocument、响应和 DOCX 集合/顺序一致。正式教育永远按确定性结构保留，校园只有条件触发且最匹配项可见，才完成 R5。
+
+### 12.7 R6：检索健康与零命中故障可见性
+
+- **前置证据**：`ensure_ready` 只凭 fingerprint/status 判 VALID，不验证查询维度与 Fact revision/hash；`query_facts` 遇维度或 BLOB 不匹配会返回零命中；`select_evidence` 再把零命中回退为全部 Fact，掩盖索引或模型错误。
+- **必须实现**：查询前/查询时统一验证当前 fingerprint、query/vector 维度、dtype/BLOB 长度、Fact revision/hash 和状态；健康检查失败抛明确领域错误并阻断。健康索引上的真实低相关/零分必须与技术故障使用不同结果类型；只有 PLAN 已批准且 RESULT 明确记录的“索引健康但相关性低”策略才允许使用全部已知 Fact，不得共用故障回退分支。
+- **正向验收**：健康索引对高相关与真实低相关分别产生可解释结果；获准的低相关策略只在健康标记为真时触发，并保留来源。
+- **反向验收与完成标准**：分别构造 query 维度、存储维度、dtype/BLOB、fingerprint、revision/hash 不匹配及损坏行，全部必须阻断选材和 DOCX，且不得变成“全部 Fact”或空成功。故障与业务低相关可由响应/日志/测试明确区分才完成 R6。
+
+### 12.8 R7：逐 bullet 来源与最终产物闭环
+
+- **前置证据**：`GeneratedBullet` 有 bullet 级 fact_refs，但 `build_v15` 压缩为 Work/Project 经历级集合；raw build_meta 虽有嵌套映射，`BuildMeta` schema 未声明相关字段，`model_validate` 后响应丢失；校园分支不保存改写 bullet 或映射。现有测试主要验证 CandidateSet/EvidenceSet 或 WorkItem 经历级集合，未证明最终响应、ResumeDocument 和 DOCX。
+- **必须实现**：每条最终 bullet 保留自身 fact_refs 与稳定顺序，使用 ResumeDocument 的结构化 bullet 或强类型 sidecar；`BuildMeta`/响应 schema 必须显式声明并通过序列化往返。Builder、Renderer 与校园分支不得合并、错位或丢失映射。未知、未选、跨经历、版本过期或空 fact_refs 的非不足 bullet 必须使生成失败，不得只过滤后 warning 继续出 DOCX。
+- **正向验收**：从合法 LLM 结构化输出，经 Builder、`BuildMeta.model_validate`、API response 序列化、Renderer 到保存并重新读取 DOCX，逐条核对最终 bullet 文本、顺序、experience_id 与 fact_refs；work、project、campus 均覆盖。
+- **反向验收与完成标准**：注入越界/跨经历/旧 revision/hash/未知/空引用和 Builder/Renderer 丢条目，断言领域错误、无 DOCX 成功响应；仅 `CandidateExperienceSet`、`SelectedEvidenceSet` 或经历级 `fact_refs` 通过不能完成 R7。
+
+### 12.9 R8：旧实现退出与对外一致
+
+- **前置证据**：根 README、`backend/.env.example`、`backend/run_stub_demo.py` 及部分旧验证入口仍含 Chroma、`CHROMA_PATH`、RAG/fallback 或旧 Builder 语义；现有 legacy-exit 自测未覆盖所有对外入口。
+- **必须实现**：全仓库分类处理三类命中：活动残留必须替换；必要兼容残留必须有明确 guard、不能被正常入口调用；历史 PLAN/RESULT 只保留当时事实，不反向改写。Traework 修正代码、配置样例、脚本和活动测试；根 README 与全局文档由文档 Agent 在 WorkBuddy 通过后按实际结果统一，不提前把 V1.5 能力写入 CURRENT_STATE。
+- **正向验收**：SQLite BLOB、唯一维护入口和 V1.5 Stub/正常链路均生效；`.env.example`、运行帮助和活动脚本只描述实际配置与调用链。
+- **反向验收与完成标准**：静态扫描 Chroma、CHROMA_PATH、numpy fallback、旧 RAG/Builder 入口，并对每个命中给出“活动/兼容/历史”分类；正常导入和运行不能触达旧实现，V1.3–V1.4.2 历史档案仍保留当时事实，核心回归通过。
+
+### 12.10 R9：开发测试矩阵、冻结与外部交接
+
+| 测试组 | 开发侧必须新增或重跑的最小矩阵 |
+|---|---|
+| 生命周期 | 新库/升级库/迁移后 CRUD；Fact 新增、修改、删除；Embedding PENDING/VALID/INVALID/FAILED；失败、重试、重建、幂等、无孤儿 |
+| 迁移与入口 | DB+旧索引备份成功；copy/verify/close/dispose/cleanup 注入失败；提前退出；同一正常入口覆盖初始化、升级、状态、重试与重建 |
+| 选材与排序 | 正式教育+校园并存；合计 0/1/2；多校园 JD 匹配；工作/项目缺日期、同日期、同相关性/同时间；多组输入乱序结果相同 |
+| 检索健康 | 健康高/低相关；query/row 维度、dtype/BLOB、fingerprint、revision/hash、状态和损坏行；故障不得回退全部 Fact |
+| 来源与最终链路 | work/project/campus 合法逐 bullet 映射；所有越界/过期/空引用失败；ResumeDocument/sidecar、Pydantic response、DOCX 文本与顺序端到端一致 |
+| 替换与回归 | 活动残留为 0；兼容 guard 不可达；历史档案未改写；Profile/JD/无 summary、Renderer 不裁剪、测试/runtime 隔离和 JD → DOCX 正常/错误路径 |
+
+Traework 完成 R1–R8 后必须：
+
+1. 在同一 `version/v1.5.0` 分支更新 RESULT，逐项写实际变化、偏差、测试命令与结果；不得把本补充标为已验收，也不得更新 CURRENT_STATE。
+2. 形成 clean 候选 commit。RESULT 不回填该 commit 自身 SHA；由开发 Agent 在仓库外的交接消息中提供完整 40 位 HEAD、基线 commit、分支、clean `git status` 和测试汇总，避免自引用循环。
+3. 明确 `81357200fc6e58714d6b7ce3d6ad497a2775935c` 是被打回的首次候选，新外部交接 HEAD 才是 WorkBuddy 的唯一审核对象；任何相关修改都会使旧验收失效。
+4. 不 push `main`、不创建或移动 tag。WorkBuddy 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，并把绑定精确 commit 的结论交回文档 Agent汇总。
+
+### 12.11 本轮返工完成标准
+
+R1–R9、上文原 T8/T9/T10 仍是串行门禁：开发自测通过后才进入 WorkBuddy，WorkBuddy 阻断项为 0 后才进入人工核心流程验收，人工通过后文档 Agent 才能同步 CURRENT_STATE、根 README、决策与版本索引。`215 pass / 0 fail` 不得继续作为首次候选可验收的替代结论；任何一个生命周期、故障可见性、来源映射或最终 DOCX 闭环未完成，RESULT 状态都必须保持“前置审核打回，待开发返工”。

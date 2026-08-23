@@ -1,10 +1,13 @@
 # V1.5.0 RESULT：事实级内容决策、两层选材与 SQLite 持久化收束
 
-> 状态：开发完成，待高性能验收
+> 状态：前置审核打回，待开发返工
 > 分支：`version/v1.5.0`
 > 基线 commit：`8c4a0058a4b0a96f6235d3cb09382956c25f39a2`（执行时最新公开 `origin/main`，`v1.4.2` 是其祖先）
-> 候选 commit：`0fe1513`（T6 旧向量退出，最终候选 HEAD）
+> 首次实现候选 / 开发交接 HEAD：`81357200fc6e58714d6b7ce3d6ad497a2775935c`（已被前置审核打回）
+> 实现链说明：`0fe1513` 是 T6 旧向量退出的前序提交；`8135720` 才是包含 T7 开发验证、RESULT 更新与版本号更新的实际交接 HEAD
 > PLAN：`docs/versions/v1.5.0/PLAN.md`（已批准执行，2026-08-23）
+
+> 2026-08-23 前置审核说明：§1–§6 保留首次候选的开发侧实施与 `215 pass / 0 fail` 自测记录，用于追溯“实际发生过什么”；这些记录不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过。接下来必须执行 PLAN §12 的集中返工契约。
 
 ## 1. PLAN Task 对照
 
@@ -17,7 +20,10 @@
 | T4 两层选材与 SelectedEvidenceSet | 完成 | 新增 `services/selection_service.py`：第一层 `select_experiences` 固定槽位（工作/实习最近最多3、项目/论文三年窗口内相关性最多2、合计<2 补1校园）、`CandidateExperienceSet`/`ExperienceSlot` 数据结构；第二层 `select_evidence` 只在入选经历中用 `embedding_service.query_facts` 选 fact_refs、`SelectedEvidenceSet`/`EvidenceEntry`/`FactRef` 可序列化可核对、`is_expired`（jd_hash/rule_version/baseline_date/fact revision-hash 变化即过期）；确定性日期解析与相关性评分（不依赖旧向量后端）；`_v15_t4_selection.py` 验证 53/53 通过 |
 | T5 改写与 Builder 收缩 | 完成 | 新增 `prompts/constrained_rewrite.py`（受约束改写 prompt）；新增 `services/constrained_rewrite.py`（`rewrite_with_evidence`：LLM 只接收入选经历+表达侧重+可使用事实，每条 bullet 返回 fact_refs，越界经历/越界 fact_refs 拒绝并告警，材料不足返回 insufficient=true 不补造，不写回 Fact）；扩展 `api/schemas.py`（`GeneratedBullet`/`GeneratedExperienceItemV15`/`GeneratedResumeContentV15`）；`models/resume_document.py` WorkItem/ProjectItem 增 `fact_refs` 字段；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 candidate_set slot 顺序装配、不排序、不裁剪、不做第二套 JD 相关性判断、fact_refs 保留到 WorkItem/ProjectItem）；`_v15_t5_rewrite.py` 验证 40/40 通过 |
 | T6 旧向量实现退出 | 完成 | 删除 `chroma_store.py`/`vector_index_sync.py`/`rag_service.py`；`config.py` 移除 `CHROMA_PATH`；`models.py` 移除 `VectorIndexJob`/`vector_id`；`migrations.py` 移除 vectorstore 备份；`experience_service.py` 移除向量同步副作用；`resume_generation_service.py` 重写为 V1.5.0 链路（迁移检查→两层选材→受约束改写→build_v15）；`generate.py` 移除 rag_service 依赖、`/generate` 返回 410；`main.py` 移除 chroma_store import；`schemas.py` 移除 `vector_id`；`requirements.txt` 移除 `chromadb`；旧测试文件加 guard；新增 `_v15_t6_legacy_exit.py` 验证 24/24 通过；Stub E2E 适配 V1.5.0 链路 18/18 通过 |
-| T7 开发验证与候选 | 完成 | 测试矩阵：T2(35)+T3(45)+T4(53)+T5(40)+T6(24)+StubE2E(18)=215 pass / 0 fail；APP_VERSION 更新为 1.5.0；工作区 clean；候选 commit `0fe1513` |
+| T7 开发验证与候选 | 完成开发自测；候选被打回 | 测试矩阵声明 T2(35)+T3(45)+T4(53)+T5(40)+T6(24)+StubE2E(18)=215 pass / 0 fail；APP_VERSION 更新为 1.5.0；开发交接时工作区 clean；实际交接 HEAD 为 `81357200fc6e58714d6b7ce3d6ad497a2775935c`，但前置审核发现结构闭环与最终产物验收不足 |
+| T8 高性能源码/数据验收 | 未进入 | 首次候选在前置审核阶段打回；须完成 PLAN §12 R1–R9 并形成新的外部交接 HEAD 后，才由 WorkBuddy 独立验收 |
+| T9 人工核心流程验收 | 未执行 | 等待开发返工与 WorkBuddy 独立验收 |
+| T10 文档与发布 | 未执行 | CURRENT_STATE、全局文档、`main` 和 tag 均未因 V1.5.0 候选更新或发布 |
 
 ## 2. 源码现状与契约映射（T1）
 
@@ -126,6 +132,7 @@
 ## 5. 开发 Agent 验证
 
 > T7 完成后填入测试矩阵结果（按 PLAN §8：Fact/选择/改写、SQLite 与迁移生命周期、回归）。
+> 当前证据等级：以下均为首次候选 `81357200fc6e58714d6b7ce3d6ad497a2775935c` 的开发侧自测声明；因前置审核打回，不得解读为候选可验收或独立验收结论。
 
 ### 5.1 Fact、选择与改写（§8.1）
 
@@ -189,3 +196,40 @@
 > 开发过程中如有字段名调整或实现细节固化，在此记录并给出等价映射。
 
 - **fact_type 粗粒度映射（T2）**：迁移为确定性、不调 LLM（PLAN §6.1），因此 fact_type 按来源字段粗粒度赋值：`description` → `RESPONSIBILITY`，`achievements[i]` → `RESULT`。PLAN §5.2 明确"粗粒度 bullet 可作为一个较粗 Fact 参与流程，粒度粗不阻断架构验收"，且 fact_type 不是选材 PASS 条件。等价映射：原 description 块保留为较粗 Fact（§6.1.3 不拆细），原成就项保留为结果类 Fact。后续服务层修改不改 fact_type。
+
+## 7. 2026-08-23 文档 Agent 前置审核打回记录
+
+### 7.1 审核对象与结论
+
+| 项目 | 当前实际状态 |
+|---|---|
+| 分支 | `version/v1.5.0` |
+| 基线 | `8c4a0058a4b0a96f6235d3cb09382956c25f39a2` |
+| 首次开发交接 HEAD | `81357200fc6e58714d6b7ce3d6ad497a2775935c` |
+| 前序实现提交 | `0fe1513`；仅代表 T6，不是最终交接 HEAD |
+| 开发自测声明 | 215 pass / 0 fail；未等同为独立验收 |
+| 功能验收 | 失败；正常迁移/重建入口、CRUD 后事实闭环及最终 DOCX 证据不足 |
+| 结构变更验收 | 失败；迁移 fail-closed、失效一致性、检索故障可见、逐 bullet 来源与旧实现退出未闭环 |
+| WorkBuddy 独立验收 | 未进入；须先完成开发返工并形成新的 clean 候选 |
+| 当前状态 | **前置审核打回，待开发返工** |
+
+### 7.2 打回证据摘要
+
+1. Experience create/update/delete 只改变 Experience；新建 Fact/Embedding、更新后 reconciliation、删除派生数据清理及失败重试没有形成统一生命周期。
+2. 生成只检查 SchemaVersion，API、README 和正常运行入口没有迁移、状态、重试和 Embedding 重建闭环；全新库、V1.4.2 升级库与 CRUD 后库不能按现有说明完成生成。
+3. 迁移忽略旧索引备份参数，备份失败后仍可能继续，session/engine 释放异常被吞掉；不满足 PLAN 与 D-024 的 fail-closed 生命周期要求。
+4. Fact 修改先提交再运行 warning-only 失效钩子，存在新 Fact 已提交但旧 Embedding 仍 VALID 的一致性窗口。
+5. 正式教育与校园活动被混为一池；校园按最近而非 JD 最匹配；Builder 旁路装配 education 且校园改写 bullets/fact_refs 未进入最终文档。
+6. 工作/项目同分同日期缺少最终稳定键；缺日期工作实际入选却被告警描述为排除，输入乱序结果未被证明稳定。
+7. 检索健康检查没有覆盖查询维度等完整契约；维度/模型故障造成的零命中会被全部 Fact 回退掩盖。
+8. bullet 级 fact_refs 在 Builder 被压成经历级集合，未声明的 BuildMeta 字段在响应校验后丢失，校园分支也无映射；越界引用没有作为生成失败处理。
+9. 根 README、`.env.example`、Stub/旧验证入口仍有 Chroma、CHROMA_PATH、RAG 或旧 Builder 语义；首次 legacy-exit 自测未覆盖完整对外入口与分类证据。
+10. RESULT 原把 `0fe1513` 写成最终候选，和实际开发交接 HEAD `81357200fc6e58714d6b7ce3d6ad497a2775935c` 不一致，现已纠正。
+11. 现有自测主要证明中间 CandidateSet/EvidenceSet 或局部 Builder 行为，没有覆盖最终 ResumeDocument、Pydantic 响应序列化与 DOCX 的逐 bullet 来源闭环，因此 215/0 不能推出候选可验收。
+
+### 7.3 当前等待项与下一次交接
+
+- Traework 按 [PLAN §12](./PLAN.md#12-文档-agent-前置审核返工补充2026-08-23) 一轮完成 R1–R9，并在本 RESULT 追加实际修复、偏差与新测试结果；不得删除本次失败记录，也不得提前更新 CURRENT_STATE。
+- 新候选必须 clean。为避免提交自回填自身 SHA，RESULT 不写入该提交自身标识；Traework 通过仓库外的交接消息提供完整 40 位 HEAD、分支、基线、clean 状态与测试汇总。
+- WorkBuddy 只验收新的外部交接 HEAD，在 clean review worktree 独立检查源码、失败路径、最终 ResumeDocument/响应/DOCX 和旧实现退出；结论必须绑定该精确 commit。
+- 当前未进行人工验收、全局文档收口、`main` 快进或 `v1.5.0` tag；未经 WorkBuddy 与人工验收的 V1.5.0 能力不得写入 CURRENT_STATE。
