@@ -1,9 +1,9 @@
 # V1.5.0 RESULT：事实级内容决策、两层选材与 SQLite 持久化收束
 
-> 状态：开发中
+> 状态：开发完成，待高性能验收
 > 分支：`version/v1.5.0`
 > 基线 commit：`8c4a0058a4b0a96f6235d3cb09382956c25f39a2`（执行时最新公开 `origin/main`，`v1.4.2` 是其祖先）
-> 候选 commit：待 T7 填入
+> 候选 commit：`0fe1513`（T6 旧向量退出，最终候选 HEAD）
 > PLAN：`docs/versions/v1.5.0/PLAN.md`（已批准执行，2026-08-23）
 
 ## 1. PLAN Task 对照
@@ -16,8 +16,8 @@
 | T3 SQLite Embedding 与索引任务 | 完成 | 新增 `FactEmbedding`/`EmbeddingStatus` 模型（`fact_embeddings` 表：fact_id+embedding_fingerprint 唯一、BLOB float32 向量、dimension/dtype/revision/hash/status）；新增 `services/embedding_service.py`（fingerprint、BLOB 编解码、upsert、失效钩子 wire、rebuild 全量重建、ensure_ready 阻断、query_facts 内存精确 cosine、status_summary）；`_v15_t3_embedding.py` 验证 45/45 通过 |
 | T4 两层选材与 SelectedEvidenceSet | 完成 | 新增 `services/selection_service.py`：第一层 `select_experiences` 固定槽位（工作/实习最近最多3、项目/论文三年窗口内相关性最多2、合计<2 补1校园）、`CandidateExperienceSet`/`ExperienceSlot` 数据结构；第二层 `select_evidence` 只在入选经历中用 `embedding_service.query_facts` 选 fact_refs、`SelectedEvidenceSet`/`EvidenceEntry`/`FactRef` 可序列化可核对、`is_expired`（jd_hash/rule_version/baseline_date/fact revision-hash 变化即过期）；确定性日期解析与相关性评分（不依赖旧向量后端）；`_v15_t4_selection.py` 验证 53/53 通过 |
 | T5 改写与 Builder 收缩 | 完成 | 新增 `prompts/constrained_rewrite.py`（受约束改写 prompt）；新增 `services/constrained_rewrite.py`（`rewrite_with_evidence`：LLM 只接收入选经历+表达侧重+可使用事实，每条 bullet 返回 fact_refs，越界经历/越界 fact_refs 拒绝并告警，材料不足返回 insufficient=true 不补造，不写回 Fact）；扩展 `api/schemas.py`（`GeneratedBullet`/`GeneratedExperienceItemV15`/`GeneratedResumeContentV15`）；`models/resume_document.py` WorkItem/ProjectItem 增 `fact_refs` 字段；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 candidate_set slot 顺序装配、不排序、不裁剪、不做第二套 JD 相关性判断、fact_refs 保留到 WorkItem/ProjectItem）；`_v15_t5_rewrite.py` 验证 40/40 通过 |
-| T6 旧向量实现退出 | 待执行 | — |
-| T7 开发验证与候选 | 待执行 | — |
+| T6 旧向量实现退出 | 完成 | 删除 `chroma_store.py`/`vector_index_sync.py`/`rag_service.py`；`config.py` 移除 `CHROMA_PATH`；`models.py` 移除 `VectorIndexJob`/`vector_id`；`migrations.py` 移除 vectorstore 备份；`experience_service.py` 移除向量同步副作用；`resume_generation_service.py` 重写为 V1.5.0 链路（迁移检查→两层选材→受约束改写→build_v15）；`generate.py` 移除 rag_service 依赖、`/generate` 返回 410；`main.py` 移除 chroma_store import；`schemas.py` 移除 `vector_id`；`requirements.txt` 移除 `chromadb`；旧测试文件加 guard；新增 `_v15_t6_legacy_exit.py` 验证 24/24 通过；Stub E2E 适配 V1.5.0 链路 18/18 通过 |
+| T7 开发验证与候选 | 完成 | 测试矩阵：T2(35)+T3(45)+T4(53)+T5(40)+T6(24)+StubE2E(18)=215 pass / 0 fail；APP_VERSION 更新为 1.5.0；工作区 clean；候选 commit `0fe1513` |
 
 ## 2. 源码现状与契约映射（T1）
 
@@ -103,8 +103,11 @@
 | T4 测试 | 新增 `_v15_t4_selection.py`：工作0/1/2/3/4次→最近最多3缺位不补、在职=最新、项目三年窗口（边界前/后/正好/进行中/日期缺失）、候选超额最多2、校园补位（合计0/1/2分支、无素材告警不虚构）、序列化、第二层 fact_refs 只引用入选经历+版本匹配、Fact 修改/JD/rule_version/baseline_date 变化→过期、ensure_ready 阻断 PENDING、不写回 Fact —— 53/53 通过 |
 | T5 模块职责 | 新增 `prompts/constrained_rewrite.py`（SYSTEM/USER_TEMPLATE：只接收入选经历+可用事实，每条 bullet 返回 fact_refs，材料不足 insufficient）；新增 `services/constrained_rewrite.py`（rewrite_with_evidence：构造 evidence payload、调用 LLM（生产 llm_service.chat_structured / 测试注入 mock llm）、experience_id 边界校验拒绝越界经历、fact_refs 边界校验过滤越界引用、缺失经历补 insufficient、不写回 Fact）；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 CandidateExperienceSet slot 顺序装配 WorkItem/ProjectItem，fact_refs 保留到模型字段，不做 priority 排序/max_items 裁剪/JD 相关性选择，事实字段仍来自 SQL） |
 | T5 测试 | 新增 `_v15_t5_rewrite.py`：合法改写无告警、越界经历拒绝、越界 fact_ref 过滤、不写回 Fact（revision/text 不变）、材料不足 insufficient=true 不补造、缺失经历补 insufficient、Builder 按 slot 顺序装配不排序、不裁剪、fact_refs 来源映射保留、事实字段来自 SQL、Profile 只取 request、build_v15 不改事实源 —— 40/40 通过 |
-| 配置/依赖 | 无（T2 不引入新依赖；迁移用现有 SQLAlchemy/stdlib） |
-| 版本 | 无（T2 不改 APP_VERSION） |
+| 配置/依赖 | T6：`requirements.txt` 移除 `chromadb==1.5.9`（numpy 保留为计算库）；`config.py` 移除 `CHROMA_PATH` 设置（向量持久化统一走 SQLite BLOB 派生表）；`core/version.py` APP_VERSION 更新为 `1.5.0` |
+| 版本 | `APP_VERSION = "1.5.0"`（PLAN §8.3） |
+| T6 删除模块 | `vectorstore/chroma_store.py`（Chroma+numpy+JSON 双后端）；`services/vector_index_sync.py`（向量索引同步）；`services/rag_service.py`（RAG 检索+embedding）；`models.py` 中 `VectorIndexJob`/`IndexOperation`/`IndexJobStatus`/`Experience.vector_id`；`generate.py` 中 `/generate` 路由 rag_service 调用改为 410 |
+| T6 测试适配 | `_v13_stub_e2e.py` 重写为 V1.5.0 链路（mock `embedding_service._embed_text` + `llm_service.chat_structured`）；`_v14_t7_regression.py` 更新模块导入列表与表检查（`facts`/`schema_versions`/`fact_embeddings`）；`_v13_validation.py`/`_e2e_v13_full.py`/`_v14_t3_migrate.py` 加 V1.5.0 guard 退出 |
+| T6 核心链路重写 | `resume_generation_service.generate_docx`：迁移检查(`_ensure_migrations_applied`)→JD分析→第一层`select_experiences`→第二层`select_evidence`→受约束改写`rewrite_with_evidence`→`build_v15`收缩装配→渲染→DOCX；`MigrationRequiredError`(412) 替代旧 `VectorIndexNotReadyError` 阻断 |
 | T3 数据表/模型 | 新增 `fact_embeddings` 表（`FactEmbedding`：id/fact_id/embedding_fingerprint/dimension/vector_blob(LargeBinary)/vector_dtype/fact_revision/fact_content_hash/status(EmbeddingStatus)/error/updated_at + UniqueConstraint(fact_id,embedding_fingerprint)）；新增 `EmbeddingStatus` 枚举（PENDING/VALID/INVALID/FAILED）；`models.py` 导入增 `LargeBinary`/`UniqueConstraint` |
 
 ## 4. 替换型变更闭环
@@ -113,11 +116,73 @@
 
 | 变更 | 新状态 | 旧状态退出 | 回归证据 |
 |---|---|---|---|
-| 向量持久化 | 待填 | 待填 | 待填 |
+| 向量持久化 | SQLite `fact_embeddings` 表（BLOB float32, fact_id+embedding_fingerprint 唯一, EmbeddingStatus: PENDING/VALID/INVALID/FAILED） | `chroma_store.py` 删除（Chroma + numpy+JSON 双后端退出）；`CHROMA_PATH` 配置移除；`chromadb` 依赖移除 | T6 legacy exit 24/24；T3 embedding 45/45；Stub E2E 18/18 |
+| 向量检索 | `embedding_service.query_facts` 内存精确 cosine 排序（从 SQLite 读取候选 Fact 向量） | `rag_service.retrieve` TopK 多因素评分删除 | T4 selection 53/53 |
+| 内容选材 | 两层选材：`select_experiences`(固定槽位) + `select_evidence`(事实选材) | `rag_service.retrieve` TopK 内容决策删除 | T4 selection 53/53 |
+| 生成链路 | `generate_docx`：迁移检查→JD分析→两层选材→受约束改写→build_v15 | 旧链路：索引检查→JD分析→RAG TopK→SQL回读→ContentGenerator→Builder.build | Stub E2E 18/18 |
+| 索引同步 | `embedding_service.rebuild_embeddings`（无 API Key 停 PENDING, 生成阻断） | `vector_index_sync.ensure_user_index_ready` + `VectorIndexJob` 删除 | T3 embedding 45/45 |
+| 测试契约 | `_v15_t*.py` 系列（T2-T6 共 197 assertions） + `_v13_stub_e2e.py` V1.5.0 适配 | `_v13_validation.py`/`_e2e_v13_full.py`/`_v14_t3_migrate.py` 加 guard 退出；`_v14_t7_regression.py` 更新模块列表 | 全量 215/0 |
 
 ## 5. 开发 Agent 验证
 
 > T7 完成后填入测试矩阵结果（按 PLAN §8：Fact/选择/改写、SQLite 与迁移生命周期、回归）。
+
+### 5.1 Fact、选择与改写（§8.1）
+
+| 验证项 | 结果 | 证据 |
+|---|---|---|
+| 新旧 Experience 形成 Fact | 通过 | T2: 4 experiences → 5 facts, 幂等 upsert, 确定性 fact_id(uuid5) |
+| Fact 修改后 revision/hash 更新+旧向量失效 | 通过 | T2: revision 自增, content_hash 变化, 失效钩子触发; T3: INVALID 向量被 query 排除 |
+| LLM/生成链路不写回 Fact | 通过 | T5: rewrite_with_evidence 不改 Fact revision/text; build_v15 不改事实源 |
+| 工作0/1/2/3/4次→最近最多3缺位不补 | 通过 | T4: 所有分支 |
+| 项目三年窗口+最多2 | 通过 | T4: 边界前/后/正好/进行中/日期缺失/候选超额 |
+| 校园补位 | 通过 | T4: 合计0/1/2分支, 无素材告警不虚构 |
+| 第二层只接收入选经历+fact_refs 版本匹配 | 通过 | T4: fact_ref 属于入选经历, revision/hash 匹配 |
+| 越界经历/越界 fact_refs 拒绝 | 通过 | T5: 越界被拒绝并告警 |
+| 材料不足 insufficient=true 不补造 | 通过 | T5: bullets 为空, insufficient_reason 有值 |
+| 换 JD 不改 Fact/Experience | 通过 | T4: 换 JD 不改事实源 |
+
+### 5.2 SQLite 与迁移生命周期（§8.2）
+
+| 验证项 | 结果 | 证据 |
+|---|---|---|
+| 全新空库初始化 | 通过 | T2: 空库迁移无错误 |
+| V1.4.2 数据库副本迁移 | 通过 | T2: fixture 4 experiences → 5 facts |
+| 重复迁移（版本门控跳过） | 通过 | T2: 第二次 created=0, noop=5 |
+| Schema 部分创建后安全重试 | 通过 | T2: 删除 version + 1 fact, 重试 created=1, facts=5 |
+| 无 API Key 停 PENDING+生成阻断 | 通过 | T3: skipped_no_key=True, PENDING 行>0; ensure_ready 阻断 |
+| Fact revision/hash 变化→向量 INVALID | 通过 | T3: 修改后 INVALID 行≥1, query 排除 |
+| fingerprint 变化→旧向量不可用 | 通过 | T3: 只匹配当前 fingerprint |
+| 维度不匹配排除 | 通过 | T3: 查询向量维度不匹配→排除 |
+| 备份/核对/孤儿检查/资源释放 | 通过 | T2: SQLite 备份生成, orphan_facts=0, engine.dispose; T3: 孤儿 FAILED |
+| 旧索引备份不被活动代码读取 | 通过 | T6: chroma_store/vector_index_sync/rag_service 删除, 0 活动路径 |
+| 活动 Chroma/numpy+JSON 路径为 0 | 通过 | T6: 24/24 legacy exit 验证 |
+
+### 5.3 回归（§8.3）
+
+| 验证项 | 结果 | 证据 |
+|---|---|---|
+| Profile 只取 request | 通过 | Stub E2E: Profile边界 A1-A4, B1-B2 |
+| 求职意向只来自 JD | 通过 | Stub E2E: target_position 来自 JD |
+| 不生成个人总结 | 通过 | Stub E2E: summary 恒空 |
+| 当前豆包 LLM/Embedding 继续服务 | 通过 | Stub E2E: mock LLM/embedding 通过 V1.5.0 链路 |
+| 旧 Markdown 接口不成为新主链 | 通过 | T6: /generate 返回 410 Gone |
+| 核心 JD→DOCX 正常路径 | 通过 | Stub E2E: 10/10 happy path |
+| 主要错误分支通过 | 通过 | Stub E2E: JD_INVALID(422), LLM_OUTPUT_INVALID(502) |
+| Stub 测试独立临时 runtime | 通过 | Stub E2E: 隔离+cleanup 成功 |
+| APP_VERSION 统一为 1.5.0 | 通过 | core/version.py APP_VERSION="1.5.0" |
+
+### 5.4 测试矩阵汇总
+
+| 测试 | 断言数 | 通过 | 失败 |
+|---|---|---|---|
+| `_v15_t2_fact_migration.py` | 35 | 35 | 0 |
+| `_v15_t3_embedding.py` | 45 | 45 | 0 |
+| `_v15_t4_selection.py` | 53 | 53 | 0 |
+| `_v15_t5_rewrite.py` | 40 | 40 | 0 |
+| `_v15_t6_legacy_exit.py` | 24 | 24 | 0 |
+| `_v13_stub_e2e.py`（V1.5.0 适配） | 18 | 18 | 0 |
+| **合计** | **215** | **215** | **0** |
 
 ## 6. PLAN 偏差汇总
 
