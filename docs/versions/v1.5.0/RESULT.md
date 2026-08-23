@@ -14,7 +14,7 @@
 | T1 源码现状与契约映射 | 完成 | 见 §2；实际文件范围、旧路径和 PLAN 偏差已记录 |
 | T2 Fact Schema 与迁移框架 | 完成 | 新增 `Fact`/`FactType`/`SchemaVersion` 模型、`database/migrations.py`（备份+顺序迁移+幂等 Fact 生成+核对）、`services/fact_service.py`（显式修改+失效钩子）、`_v15_t2_fact_migration.py` 验证（35/35）；errors 增 `FactNotFoundError`/`FactModificationError`/`MigrationError` |
 | T3 SQLite Embedding 与索引任务 | 完成 | 新增 `FactEmbedding`/`EmbeddingStatus` 模型（`fact_embeddings` 表：fact_id+embedding_fingerprint 唯一、BLOB float32 向量、dimension/dtype/revision/hash/status）；新增 `services/embedding_service.py`（fingerprint、BLOB 编解码、upsert、失效钩子 wire、rebuild 全量重建、ensure_ready 阻断、query_facts 内存精确 cosine、status_summary）；`_v15_t3_embedding.py` 验证 45/45 通过 |
-| T4 两层选材与 SelectedEvidenceSet | 待执行 | — |
+| T4 两层选材与 SelectedEvidenceSet | 完成 | 新增 `services/selection_service.py`：第一层 `select_experiences` 固定槽位（工作/实习最近最多3、项目/论文三年窗口内相关性最多2、合计<2 补1校园）、`CandidateExperienceSet`/`ExperienceSlot` 数据结构；第二层 `select_evidence` 只在入选经历中用 `embedding_service.query_facts` 选 fact_refs、`SelectedEvidenceSet`/`EvidenceEntry`/`FactRef` 可序列化可核对、`is_expired`（jd_hash/rule_version/baseline_date/fact revision-hash 变化即过期）；确定性日期解析与相关性评分（不依赖旧向量后端）；`_v15_t4_selection.py` 验证 53/53 通过 |
 | T5 改写与 Builder 收缩 | 待执行 | — |
 | T6 旧向量实现退出 | 待执行 | — |
 | T7 开发验证与候选 | 待执行 | — |
@@ -79,7 +79,7 @@
 1. **无偏差**：T1 只做映射，未修改源码；PLAN 要求的模块均已定位。
 2. **契约缺口（待 T2-T5 补齐）**：
    - `GeneratedExperienceItem` 仅有 `bullets`，无 `fact_refs` —— T5 需扩展为每条 bullet 返回 `fact_refs`。
-   - 无 `CandidateExperienceSet` / `SelectedEvidenceSet` 数据结构 —— T4 新建。
+   - ~~无 `CandidateExperienceSet` / `SelectedEvidenceSet` 数据结构~~ —— T4 已新建（`selection_service.py`）。
    - 无 Fact 表与 schema version —— T2 新建。
    - ~~无 SQLite BLOB Embedding 派生表~~ —— T3 已新增 `fact_embeddings` 表与 `embedding_service`。
 3. **保留项（PLAN §3.3 明确不重构）**：
@@ -99,6 +99,8 @@
 | T3 模块职责 | 新增 `services/embedding_service.py`（compute_fingerprint 基于 EMBEDDING_MODEL+ARK_BASE_URL；_embed_text 调豆包 multimodal API 无 fallback；BLOB float32 编解码；upsert_embedding 幂等；invalidate_fact_embedding 标记 INVALID；wire_fact_invalidation 注册到 fact_service 钩子；rebuild_embeddings 全量重建；ensure_ready 阻断非 VALID；query_facts 内存精确 cosine；status_summary 诊断） |
 | 测试 | 新增 `_v15_t2_fact_migration.py`：空库迁移、fixture 迁移、幂等、部分失败重试、modify_fact 失效钩子、资源释放、隐私（产物不含履历正文）—— 35/35 通过 |
 | T3 测试 | 新增 `_v15_t3_embedding.py`：fingerprint 稳定、schema 初始化、BLOB round-trip、幂等 upsert、query_facts cosine 排序、维度不匹配排除、fingerprint 变化排除、Fact 修改失效钩子→INVALID、ensure_ready 阻断/放行、rebuild 无 Key 停 PENDING、rebuild 注入 embedder 重建 VALID、无隐藏 fallback、孤儿/空文本 FAILED、status_summary、资源释放 —— 45/45 通过 |
+| T4 模块职责 | 新增 `services/selection_service.py`（parse_experience_time 日期解析、score_relevance 确定性 Jaccard+子串评分不依赖旧向量后端、select_experiences 第一层固定槽位、select_evidence 第二层事实选材、CandidateExperienceSet/SelectedEvidenceSet dataclass 可序列化、is_expired 过期核对、verify_evidence_set） |
+| T4 测试 | 新增 `_v15_t4_selection.py`：工作0/1/2/3/4次→最近最多3缺位不补、在职=最新、项目三年窗口（边界前/后/正好/进行中/日期缺失）、候选超额最多2、校园补位（合计0/1/2分支、无素材告警不虚构）、序列化、第二层 fact_refs 只引用入选经历+版本匹配、Fact 修改/JD/rule_version/baseline_date 变化→过期、ensure_ready 阻断 PENDING、不写回 Fact —— 53/53 通过 |
 | 配置/依赖 | 无（T2 不引入新依赖；迁移用现有 SQLAlchemy/stdlib） |
 | 版本 | 无（T2 不改 APP_VERSION） |
 | T3 数据表/模型 | 新增 `fact_embeddings` 表（`FactEmbedding`：id/fact_id/embedding_fingerprint/dimension/vector_blob(LargeBinary)/vector_dtype/fact_revision/fact_content_hash/status(EmbeddingStatus)/error/updated_at + UniqueConstraint(fact_id,embedding_fingerprint)）；新增 `EmbeddingStatus` 枚举（PENDING/VALID/INVALID/FAILED）；`models.py` 导入增 `LargeBinary`/`UniqueConstraint` |
