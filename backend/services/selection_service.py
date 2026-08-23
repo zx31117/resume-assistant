@@ -321,14 +321,16 @@ def select_experiences(
     work_pool: list[Experience] = []
     project_pool: list[Experience] = []
     campus_pool: list[Experience] = []
-    no_date_ids: list[str] = []
 
     for exp in experiences:
         t = (exp.type or "").strip().lower()
         parsed = parse_experience_time(exp.time or "")
-        if not parsed["parseable"]:
-            no_date_ids.append(exp.id)
         if t in ("work", "internship", "实习", "工作"):
+            if not parsed["parseable"]:
+                # W2: 缺失/不可解析日期的工作/实习从 work 槽位排除，告警与行为一致
+                cset.excluded_ids.append(exp.id)
+                cset.warnings.append(f"work date missing/unparseable: {exp.id}")
+                continue
             work_pool.append(exp)
         elif t in ("project", "paper", "项目", "论文"):
             project_pool.append(exp)
@@ -409,9 +411,6 @@ def select_experiences(
         ))
     elif combined < _MIN_COMBINED_FOR_CAMPUS and not campus_pool:
         cset.warnings.append("campus fill triggered but no campus material; 保持缺失不生成虚构内容")
-
-    if no_date_ids:
-        cset.warnings.append(f"date missing (excluded from time slots): {no_date_ids}")
 
     logger.info(
         "select_experiences: baseline=%s slots=%d excluded=%d warnings=%d",

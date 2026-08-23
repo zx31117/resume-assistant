@@ -420,3 +420,33 @@ Traework 完成 R1–R8 后必须：
 ### 12.11 本轮返工完成标准
 
 R1–R9、上文原 T8/T9/T10 仍是串行门禁：开发自测通过后才进入 WorkBuddy，WorkBuddy 阻断项为 0 后才进入人工核心流程验收，人工通过后文档 Agent 才能同步 CURRENT_STATE、根 README、决策与版本索引。`215 pass / 0 fail` 不得继续作为首次候选可验收的替代结论；任何一个生命周期、故障可见性、来源映射或最终 DOCX 闭环未完成，RESULT 状态都必须保持“前置审核打回，待开发返工”。
+
+## 13. WorkBuddy 首轮独立验收返工澄清（2026-08-23）
+
+> 性质：本节只收束 WorkBuddy 对返工候选 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 的首轮独立验收阻断项，不改变 §12 的问题类别、边界或完成标准。
+> 验收结论：WorkBuddy 已完成 T8 首轮独立验收，但 R1、R2、R5 仍有 3 个阻断项；R3、R4、R6、R7、R8 已在该 commit 上通过。任何相关源码修改后，受影响的旧结论自动失效。
+
+### 13.1 本轮只做三项定向返工
+
+| Task | 对应原契约 | 必须修正 | 完成标准 |
+|---|---|---|---|
+| W1 CRUD 事务边界 | §12 R1 | create/update 的 Experience 写入与 Fact reconciliation 使用同一事务完成；reconciliation 失败不得先提交 Experience | create 失败后 Experience/Fact 均不存在；update 失败后 Experience、Fact、Embedding 均保持旧一致状态 |
+| W2 缺日期工作规则 | §12 R5 | 按已批准规则排除缺失或不可解析日期的工作/实习，并返回与行为一致的告警 | 缺日期项不进入 work 槽位；正常日期排序和最终稳定键无回归；输入乱序结果一致 |
+| W3 全新库维护入口 | §12 R2 | `manage.py migrate` 对不存在的 SQLite 文件明确按“全新空库”初始化；只有已存在的升级源才要求迁移前备份 | 不先启动 FastAPI 也能从不存在的库路径完成 migrate/status；重复执行幂等；不可读或损坏的既有源仍 fail closed |
+
+W1、W2、W3 可以并行实现，随后统一执行 W4 集成复验。不得借 W3 放宽升级库备份：不存在的目标是“新建空库”，已存在的 V1.4.2 数据库仍必须先通过 §12 R3 的备份与核对门禁。
+
+### 13.2 强制正反向复验
+
+1. **W1 正向**：create/update 正常路径分别核对 Experience、Fact、revision/hash 与 Embedding 状态；delete、retry、rebuild 原通过项重跑无回归。
+2. **W1 反向**：在 create/update 的 Fact 派生、reconciliation、Embedding 失效和 commit 前分别注入异常；create 后数据库保持无新增，update 后所有旧值与旧有效派生保持一致，不得出现孤儿 Experience 或“新 Experience + 旧 Fact/Embedding”。
+3. **W2 正反向**：覆盖空日期、不可解析日期、同日期、在职、0/1/2/3/4 次工作及至少 5 组输入乱序；缺日期/不可解析项必须出现在 excluded/warnings 且不在 slots，其他确定性顺序不变。
+4. **W3 正向**：临时目录中 SQLite 文件不存在时，唯一维护入口完成建库、SchemaVersion、Fact/Embedding 初始状态与 status 指引；第二次 migrate 幂等。
+5. **W3 反向**：既有路径为目录、不可读文件、损坏 SQLite、升级库备份失败和 cleanup 失败时非零退出，不得把异常既有源误判为新库或继续迁移。
+6. **W4 回归**：重跑开发矩阵及 WorkBuddy 首轮通过项中所有受 W1–W3 影响的测试；R3/R4/R6/R7/R8 若相关文件或行为被修改，必须重新独立验收，不能沿用 `ec872f0f...` 的通过结论。
+
+### 13.3 新候选与再次交接
+
+- Traework 在同一 `version/v1.5.0` 分支更新 RESULT，追加 W1–W4 的实际修改、失败注入和测试结果，保留 §9 的首轮 WorkBuddy 失败记录。
+- 形成 clean 新候选；RESULT 不回填该提交自身 SHA。完整 40 位 HEAD、基线、分支、clean 状态和测试汇总仍通过仓库外消息交接。
+- WorkBuddy 只对新 HEAD 复验并把第二轮结论追加到同一 RESULT。阻断项为 0 前，不进入人工验收，不更新 CURRENT_STATE、根 README 或版本索引，不 push `main`，不创建或移动 tag。

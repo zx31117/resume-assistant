@@ -328,12 +328,27 @@ def run_migrations(
     session: Optional[Session] = None
     _cleanup_errors: list[str] = []
     try:
+        src_p = Path(sqlite_path)
+        if src_p.exists() and src_p.is_dir():
+            # W3: 既有路径是目录而非 SQLite 文件，不得误判为新库或继续迁移
+            summary["error"] = f"migration source is a directory, not a SQLite file: {sqlite_path}"
+            raise MigrationError(summary["error"], stage="migration")
+
+        is_fresh = not src_p.exists()
         if backup:
-            summary["backup"] = _backup_sources(sqlite_path)
-            # R3: fail closed — backup errors mean we must not continue
-            if summary["backup"].get("errors"):
-                summary["error"] = "backup failed: " + "; ".join(summary["backup"]["errors"])
-                raise MigrationError(summary["error"], stage="migration")
+            if is_fresh:
+                # W3: 全新空库——文件尚不存在，无需备份；仅建库并应用迁移
+                summary["backup"] = {
+                    "timestamp": None, "sqlite": None, "vectorstore": None,
+                    "errors": [], "manifest": None,
+                    "note": "fresh empty database; backup skipped",
+                }
+            else:
+                summary["backup"] = _backup_sources(sqlite_path)
+                # R3: fail closed — backup errors mean we must not continue
+                if summary["backup"].get("errors"):
+                    summary["error"] = "backup failed: " + "; ".join(summary["backup"]["errors"])
+                    raise MigrationError(summary["error"], stage="migration")
 
         engine = create_engine(
             f"sqlite:///{sqlite_path}",

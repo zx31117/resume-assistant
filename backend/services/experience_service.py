@@ -96,10 +96,13 @@ def _reconcile_facts(db: Session, exp: models.Experience) -> dict:
 
 
 def create_experience(db: Session, user_id: str, data: dict) -> models.Experience:
-    """R1: 创建经历——立即生成确定性 Fact。
+    """R1: 创建经历——立即生成确定性 Fact（同事务，W1）。
 
     V1.5.0 R1：create 后立即调用 _reconcile_facts 生成 Fact，
     不等下次迁移。SchemaVersion 不承担日常 CRUD 同步。
+
+    W1：Experience 写入与 Fact reconciliation 在同一事务内完成；
+    reconciliation 任一步失败即 rollback，不留下"无 Fact 的孤儿 Experience"。
     """
     exp = models.Experience(
         user_id=user_id,
@@ -113,12 +116,17 @@ def create_experience(db: Session, user_id: str, data: dict) -> models.Experienc
         achievements=data.get("achievements", []) or [],
         raw_text=data.get("raw_text", ""),
     )
-    db.add(exp)
-    db.commit()
+    try:
+        db.add(exp)
+        db.flush()  # 分配 id（Python 端已生成，flush 确保 FK 顺序与可见性）
+        # R1: 立即生成确定性 Fact（与 Experience 同事务）
+        _reconcile_facts(db, exp)
+        db.commit()
+    except Exception:
+        # W1: reconciliation 失败不得先提交 Experience——回滚留下无孤儿
+        db.rollback()
+        raise
     db.refresh(exp)
-    # R1: 立即生成确定性 Fact
-    _reconcile_facts(db, exp)
-    db.commit()
     return exp
 
 
@@ -136,22 +144,30 @@ def get_experience(db: Session, exp_id: str) -> Optional[models.Experience]:
 
 
 def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.Experience]:
-    """R1: 更新经历——对 Fact 做 reconciliation。
+    """R1: 更新经历——对 Fact 做 reconciliation（同事务，W1）。
 
     V1.5.0 R1：update 后调用 _reconcile_facts 对新增、修改、删除的来源项做
     reconciliation，更新 revision/hash 并同事务失效旧向量。不等下次迁移。
+
+    W1：Experience 字段更新与 Fact reconciliation 在同一事务内完成；
+    reconciliation 任一步失败即 rollback，不留下"新 Experience + 旧 Fact/Embedding"窗口。
     """
     exp = get_experience(db, exp_id)
     if not exp:
         return None
-    for key in ["type", "title", "company", "time", "role", "description", "skills", "achievements", "raw_text"]:
-        if key in data:
-            setattr(exp, key, data[key])
-    db.commit()
+    try:
+        for key in ["type", "title", "company", "time", "role", "description", "skills", "achievements", "raw_text"]:
+            if key in data:
+                setattr(exp, key, data[key])
+        db.flush()
+        # R1: 对 Fact 做 reconciliation（同事务失效旧向量）
+        _reconcile_facts(db, exp)
+        db.commit()
+    except Exception:
+        # W1: reconciliation 失败不得先提交 Experience——回滚保持旧一致状态
+        db.rollback()
+        raise
     db.refresh(exp)
-    # R1: 对 Fact 做 reconciliation（同事务失效旧向量）
-    _reconcile_facts(db, exp)
-    db.commit()
     return exp
 
 

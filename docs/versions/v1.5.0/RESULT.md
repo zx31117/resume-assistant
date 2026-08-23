@@ -1,14 +1,15 @@
 # V1.5.0 RESULT：事实级内容决策、两层选材与 SQLite 持久化收束
 
-> 状态：开发返工完成（R1–R9 自测通过），待 WorkBuddy 独立验收
+> 状态：W1–W4 返工完成（开发自测 309/0），待 WorkBuddy 第二轮独立验收
 > 分支：`version/v1.5.0`
 > 基线 commit：`8c4a0058a4b0a96f6235d3cb09382956c25f39a2`（执行时最新公开 `origin/main`，`v1.4.2` 是其祖先）
 > 首次实现候选 / 开发交接 HEAD：`81357200fc6e58714d6b7ce3d6ad497a2775935c`（已被前置审核打回）
 > 实现链说明：`0fe1513` 是 T6 旧向量退出的前序提交；`8135720` 才是包含 T7 开发验证、RESULT 更新与版本号更新的实际交接 HEAD
-> 返工候选：PLAN §12 R1–R9 已在本分支完成开发自测（详见 §8）；新外部交接 HEAD 由开发 Agent 在仓库外消息提供，WorkBuddy 只验收该精确 commit；本 RESULT 不回填自身 SHA 以避免自引用循环
+> 第一轮返工候选：`ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；开发自测见 §8，WorkBuddy 首轮独立验收结论见 §9
+> 第二轮（W1–W4）返工候选：见 §11；HEAD 由开发 Agent 仓库外消息交接，本 RESULT 不回填自身 SHA
 > PLAN：`docs/versions/v1.5.0/PLAN.md`（已批准执行，2026-08-23）
 
-> 2026-08-23 前置审核说明：§1–§6 保留首次候选的开发侧实施与 `215 pass / 0 fail` 自测记录，用于追溯"实际发生过什么"；这些记录不代表功能验收、结构变更验收或 WorkBuddy 独立验收通过。§7 记录前置审核打回证据；§8 记录按 PLAN §12 完成的 R1–R9 集中返工与开发自测结果。
+> 2026-08-23 状态说明：§1–§6 保留首次候选及 `215 pass / 0 fail` 开发记录；§7 是前置审核打回，§8 是第一轮集中返工及 `287 / 0` 开发自测，§9 是 WorkBuddy 绑定 `ec872f0f...` 的首轮独立验收。§11 是按 PLAN §13 完成的 W1–W4 定向返工及 `309 / 0` 开发自测，当前待 WorkBuddy 第二轮独立验收。
 
 ## 1. PLAN Task 对照
 
@@ -22,7 +23,7 @@
 | T5 改写与 Builder 收缩 | 完成 | 新增 `prompts/constrained_rewrite.py`（受约束改写 prompt）；新增 `services/constrained_rewrite.py`（`rewrite_with_evidence`：LLM 只接收入选经历+表达侧重+可使用事实，每条 bullet 返回 fact_refs，越界经历/越界 fact_refs 拒绝并告警，材料不足返回 insufficient=true 不补造，不写回 Fact）；扩展 `api/schemas.py`（`GeneratedBullet`/`GeneratedExperienceItemV15`/`GeneratedResumeContentV15`）；`models/resume_document.py` WorkItem/ProjectItem 增 `fact_refs` 字段；`resume_builder.py` 新增 `build_v15`（Builder 收缩：按 candidate_set slot 顺序装配、不排序、不裁剪、不做第二套 JD 相关性判断、fact_refs 保留到 WorkItem/ProjectItem）；`_v15_t5_rewrite.py` 验证 40/40 通过 |
 | T6 旧向量实现退出 | 完成 | 删除 `chroma_store.py`/`vector_index_sync.py`/`rag_service.py`；`config.py` 移除 `CHROMA_PATH`；`models.py` 移除 `VectorIndexJob`/`vector_id`；`migrations.py` 移除 vectorstore 备份；`experience_service.py` 移除向量同步副作用；`resume_generation_service.py` 重写为 V1.5.0 链路（迁移检查→两层选材→受约束改写→build_v15）；`generate.py` 移除 rag_service 依赖、`/generate` 返回 410；`main.py` 移除 chroma_store import；`schemas.py` 移除 `vector_id`；`requirements.txt` 移除 `chromadb`；旧测试文件加 guard；新增 `_v15_t6_legacy_exit.py` 验证 24/24 通过；Stub E2E 适配 V1.5.0 链路 18/18 通过 |
 | T7 开发验证与候选 | 完成开发自测；候选被打回 | 测试矩阵声明 T2(35)+T3(45)+T4(53)+T5(40)+T6(24)+StubE2E(18)=215 pass / 0 fail；APP_VERSION 更新为 1.5.0；开发交接时工作区 clean；实际交接 HEAD 为 `81357200fc6e58714d6b7ce3d6ad497a2775935c`，但前置审核发现结构闭环与最终产物验收不足 |
-| T8 高性能源码/数据验收 | 未进入 | 首次候选在前置审核阶段打回；须完成 PLAN §12 R1–R9 并形成新的外部交接 HEAD 后，才由 WorkBuddy 独立验收 |
+| T8 高性能源码/数据验收 | 首轮完成；需修正 | WorkBuddy 在独立 detached review worktree 验收 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；R3/R4/R6/R7/R8 等通过，但 R1 create/update 事务边界、R2 全新库入口、R5 缺日期工作行为仍阻断，详见 §9 |
 | T9 人工核心流程验收 | 未执行 | 等待开发返工与 WorkBuddy 独立验收 |
 | T10 文档与发布 | 未执行 | CURRENT_STATE、全局文档、`main` 和 tag 均未因 V1.5.0 候选更新或发布 |
 
@@ -305,3 +306,113 @@
 - 新候选为 clean `version/v1.5.0` 分支提交；为避免自引用循环，本 RESULT 不回填该 commit 自身 SHA。开发 Agent 通过仓库外交接消息提供完整 40 位 HEAD、基线、分支、clean `git status` 与测试汇总。
 - `81357200fc6e58714d6b7ce3d6ad497a2775935c` 仍是被打回的首次候选；新外部交接 HEAD 是 WorkBuddy 的唯一审核对象，任何相关修改都会使旧验收失效。
 - 未 push `main`、未创建或移动 `v1.5.0` tag。WorkBuddy 在 clean review worktree 独立完成源码、失败路径、最终 ResumeDocument/响应/DOCX 与旧实现退出验收，结论绑定精确 commit 后交回文档 Agent 汇总。
+
+## 9. WorkBuddy 独立源码验收结论（T8，2026-08-23）
+
+> 性质：高性能源码验收 Agent 独立结论，按 HUMAN_AI_WORKFLOW §6/§7.3 绑定精确 commit；不替代人工与文档验收。
+> 被验收实现标识：`version/v1.5.0` 分支 commit `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`（开发仓库工作区当时 clean；`v1.4.2` 与基线 `8c4a005` 均为其祖先）。
+> 验收环境：独立 detached review worktree（`<review-root>/review-v150`）+ 隔离 venv；未修改任何验收目录源码。
+> 结论：**需修正（R1/R2/R5 失败路径与边界未完全闭环；其余项通过）**。被验收 commit 之后任何相关源码修改都会使本结论自动失效。
+
+### 9.1 复跑验证矩阵（独立执行，非仅采信开发声明）
+
+| 测试 | 复跑结果 | 说明 |
+|---|---|---|
+| `_v15_t2_fact_migration.py` | 35/0 | 迁移、幂等、备份、modify_fact |
+| `_v15_t3_embedding.py` | 54/0 | R6 检索健康阻断 45→54 |
+| `_v15_t4_selection.py` | 53/0 | 两层选材、校园分支、过期核对 |
+| `_v15_t5_rewrite.py` | 40/0 | 受约束改写、Builder 收缩 |
+| `_v15_t6_legacy_exit.py` | 24/0 | 旧实现文件/依赖/配置退出 |
+| `_v15_r_rework.py` | 48/0 | R1/R3/R7 集中返工断言 |
+| `_v13_stub_e2e.py` | 18/18 | JD→DOCX 端到端 + 错误分支 |
+| `_v14_t7_regression.py` | 12P/0F/3SUSPEND | 3 SUSPEND 为环境门禁（Key/首发包） |
+
+### 9.2 独立探针补充（测试矩阵未覆盖路径）
+
+在 review worktree 上自写探针验证，结果如下：
+
+1. **B（乱序稳定性）PASS**：5 组随机 shuffle 的输入得到完全相同的 slot 结果；同日期工作按 `experience_id` 升序（最终稳定键）生效。
+2. **G2/G3（manage.py 入口）PASS**：空库 migrate 成功且幂等（版本门控 skip）；无 `ARK_API_KEY` 时 rebuild 非零退出并明确 `skipped_no_key`，status 对缺失迁移/PENDING 非零并给出下一步。
+3. **A（R5 缺日期工作）FAIL**：缺日期的工作经历仍入选 work 槽位（`work_ids=['w-ok','w-nodate']`），但告警文案为 `date missing (excluded from time slots)`，行为与告警互相矛盾；这正是前置审核打回点 6 的症状，PLAN §12.6 R5 明确要求"缺失/不可解析日期排除并给出一致告警"，返工未闭环，且 `_v15_t4_selection.py` 无此分支测试。
+4. **C（R1 create 失败窗口）FAIL**：注入 `_reconcile_facts` 失败后，`create_experience` 抛错（无假成功），但 Experience 已先提交，留下 1 条无 Fact 的孤儿 Experience；不满足 R1 反向验收"不得留下孤儿"，且无自动收敛路径（SchemaVersion 门控使迁移跳过）。
+5. **C2（R1 update 失败窗口）FAIL**：注入 reconcile 失败后，Experience 新描述已提交但 Fact/Embedding 仍为旧值（revision 不变、旧向量仍 VALID），留下"新 Experience、旧派生数据"的不一致窗口；需重试 update 才能收敛。R4 同事务失效只覆盖了 `modify_fact`，未覆盖 `update_experience`。
+6. **G1（R2 全新库入口）观察**：`manage.py migrate` 在 SQLite 文件不存在时 fail-closed 报 `source not found` 退出 1。全新安装若先启动服务（lifespan `init_db` 建文件）路径可用；但"直接对不存在的库跑唯一维护入口"不可初始化，与 R2"全新空库按正常快速开始可初始化"的表述存在出入，建议文档明确或 migrate 对缺失文件按空库处理。
+
+### 9.3 通过项（已独立复核）
+
+- **R3/R4**：迁移备份 fail-closed、同名冲突后缀唯一、cleanup 失败非零、manifest 不含正文；`modify_fact` 同事务失效旧向量（`commit=False` 不单独提交），失效失败 rollback 并抛 `FactModificationError`，不依赖可选进程内钩子。
+- **R6**：`query_facts` 对维度/BLOB 长度/orphan/revision/content_hash 不匹配收集 `health_issues` 并抛 `RetrievalHealthError` 阻断；`ensure_ready` 先于第二层选材对 PENDING/INVALID/FAILED/缺失阻断；健康低相关才走"全部已知 Fact"获准策略。
+- **R7**：`BuildMeta` 显式声明 `bullet_fact_refs`/`fact_refs_per_experience`/`builder_mode` 并经 `model_validate` 往返保留；`build_v15` 逐 bullet 保留映射、非 insufficient 空引用抛 `ContentGenerationError`；campus 分支 bullets+fact_refs 进入最终 `EducationItem`；Stub E2E 证明最终 DOCX 正常生成且事实字段与 SQL 一致。
+- **R8/§9.9**：`chroma_store`/`vector_index_sync`/`rag_service` 已删除，`requirements.txt` 无 `chromadb`，`config.py` 无 `CHROMA_PATH`；全仓库残留均已分类（测试断言/guard 脚本提前 `sys.exit(0)`/注释/防御 `env.pop`），无活动路径；langchain 仅 `llm_service.py` 引入（适配层边界成立），豆包调用保留（`_embed_text` 沿用原 endpoint，无隐藏 fallback、无多模型/Provider 扩展）。
+- **§9.5/§9.6**：第一层固定槽位只有一套实现（work 最近 3/项目三年窗口最多 2/校园条件补 1，`education` 不再进校园池）；第二层只引用入选经历 fact_refs；`is_expired` 覆盖 jd_hash/rule_version/baseline_date/revision/hash。
+- **APP_VERSION=1.5.0**；`/api/resume/generate` 返回 410；测试与 runtime 隔离、隐私（产物不含履历正文/Key/用户名）。
+
+### 9.4 建议的返工要求（回到开发 Agent）
+
+1. **R5**：缺日期/不可解析日期的工作经历应从 work 槽位排除并给出一致告警（或改文案为"无日期按最旧排序"并明示兼容映射，二者必居其一，不能行为与告警矛盾）；补 `_v15_t4_selection.py` 断言。
+2. **R1**：`create_experience`/`update_experience` 的 Experience 提交与 Fact reconciliation 需形成同事务一致性边界（reconcile 失败不得留下孤儿 Experience 或"新 Experience 旧派生数据"窗口）；补失败注入断言。
+3. **R2**：明确全新安装快速开始的执行顺序（先启动服务或先建库文件），或令 `manage.py migrate` 对缺失 SQLite 文件按空库处理；文档 Agent 收口 README 时按实际行为表述。
+
+返工完成并形成新的 clean 候选后，重新进入 WorkBuddy 独立验收（绑定新 commit）。本结论绑定 `ec872f0f569bdb96c7dad3b5cb9653c45bc42756`；任何相关修改后原结论自动失效。
+
+## 10. 文档 Agent 验收汇总与当前状态（2026-08-23）
+
+### 10.1 汇总结论
+
+- WorkBuddy 已完成 T8 首轮独立源码验收，验收对象与环境可追溯，复跑矩阵及独立探针证据已记录；“源码验收已完成”不等于“源码验收已通过”。
+- 当前结论为 **需修正**：R1 create/update 事务边界、R2 不存在 SQLite 文件时的全新库入口、R5 缺失/不可解析日期工作排除规则共 3 个阻断项。
+- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 上的 R3、R4、R6、R7、R8 等通过项可以作为定向返工基线，但任何相关源码变化都会使对应结论失效并需重验。
+
+### 10.2 下一步
+
+- Traework 按 [PLAN §13](./PLAN.md#13-workbuddy-首轮独立验收返工澄清2026-08-23) 一轮完成 W1–W4，在本 RESULT 追加实际修改和测试，不删除 §9 的失败记录。
+- 新候选通过仓库外消息提供精确 40 位 HEAD、分支、基线、clean 状态与测试汇总；RESULT 不自回填该提交自身 SHA。
+- WorkBuddy 对新 HEAD 完成第二轮独立复验且阻断项为 0 后，才进入人工核心流程验收。当前不更新 CURRENT_STATE、根 README、DECISIONS 或版本索引，不进行 `main`/tag/发布操作。
+
+## 11. W1–W4 定向返工（PLAN §13）实际变化与开发自测
+
+> 性质：按 PLAN §13 对 WorkBuddy 首轮独立验收的 R1/R2/R5 三个阻断项定向返工。W1–W4 开发自测全部通过，但**不代表 WorkBuddy 第二轮独立验收通过**；串行门禁仍是「开发自测 → WorkBuddy → 人工 → 文档收口」。
+> 证据边界：以下均为开发侧自测声明；WorkBuddy 必须在新的 clean 候选上独立读取源码、推导失败路径并复核，不得仅复跑本节命令。
+
+### 11.1 W-item 实际变化对照
+
+| W | PLAN 要求（§13.1） | 实际实现 | 关键文件 |
+|---|---|---|---|
+| W1 CRUD 事务边界 | create/update 的 Experience 写入与 Fact reconciliation 使用同一事务完成；reconciliation 失败不得先提交 Experience | `create_experience` 将 `db.add(exp)`+`db.flush()`+`_reconcile_facts` 纳入同一 `try`，异常 `db.rollback()` 后重抛；`update_experience` 同样将字段 `setattr`+`flush`+`_reconcile_facts` 纳入同一 `try`，异常回滚后重抛。两处都不再在 reconciliation 前单独 `commit`，故不存在“无 Fact 的孤儿 Experience”或“新 Experience + 旧 Fact/Embedding”窗口 | `backend/services/experience_service.py` |
+| W2 缺日期工作规则 | 排除缺失/不可解析日期的工作/实习，并返回与行为一致的告警 | `select_experiences` 对 `work`/`internship`/`实习`/`工作` 类型，当 `parse_experience_time` 返回 `parseable=False` 时，追加 `excluded_ids` 与 `warnings`（`work date missing/unparseable: {id}`）并 `continue`，不再进入 work 槽；告警文案与排除行为一致 | `backend/services/selection_service.py` |
+| W3 全新库维护入口 | `manage.py migrate` 对不存在的 SQLite 文件明确按“全新空库”初始化；仅已存在升级源才要求迁移前备份 | `run_migrations` 先判目录源 fail-closed（抛 `MigrationError`）；`is_fresh = not src_p.exists()` 时跳过备份并记 `note="fresh empty database; backup skipped"`；已存在源仍先经过 §12 R3 备份与核对门禁（备份 errors 非空即 fail-closed），不因 W3 放宽升级库备份 | `backend/database/migrations.py` |
+
+### 11.2 新增测试（失败注入）
+
+| 测试文件 | 变化 | 覆盖 W | 新断言数 |
+|---|---|---|---|
+| `_v15_w_rework.py`（新增） | create/update 正反向事务边界（Fact 派生 / reconciliation `_upsert_fact` / Embedding 失效分别注入异常后回滚无孤儿、保持旧一致）；缺日期/不可解析日期工作排除 + 告警一致 + 同日期/在职排序无回归 + 5 组输入乱序确定性；全新库 migrate 入口（建库+SchemaVersion+幂等 skip）、目录源与损坏 SQLite fail-closed、`manage.py migrate` 对不存在路径按全新库初始化 | W1/W2/W3 | 37 |
+
+### 11.3 开发自测矩阵（W4 全量复跑）
+
+| 测试 | 断言数 | 通过 | 失败 |
+|---|---|---|---|
+| `_v15_t2_fact_migration.py` | 35 | 35 | 0 |
+| `_v15_t3_embedding.py` | 54 | 54 | 0 |
+| `_v15_t4_selection.py` | 53 | 53 | 0 |
+| `_v15_t5_rewrite.py` | 40 | 40 | 0 |
+| `_v15_t6_legacy_exit.py` | 24 | 24 | 0 |
+| `_v15_r_rework.py` | 48 | 48 | 0 |
+| `_v15_w_rework.py`（新增） | 37 | 37 | 0 |
+| `_v13_stub_e2e.py` | 18 | 18 | 0 |
+| `_v14_t7_regression.py` | 15（12 PASS / 0 FAIL / 3 SUSPEND） | 12 | 0 |
+| **合计** | **309 断言 + T7 矩阵** | **309 / 0** | **0** |
+
+> 合计口径：T2–T6 + R + W + Stub E2E = 35+54+53+40+24+48+37+18 = 309 pass / 0 fail。`_v14_t7_regression.py` 另计 12 PASS / 0 FAIL / 3 SUSPEND（三项 SUSPEND 依赖干净首发包或本机 ARK_API_KEY，属环境门禁，非失败）。
+
+### 11.4 W-返工偏差
+
+1. **W2 测试集中到 `_v15_w_rework.py`**：WorkBuddy §9.4 建议“补 `_v15_t4_selection.py` 断言”。实现按 PLAN §13.3“追加 W1–W4 的失败注入和测试结果”将 W1–W3 正反向断言集中到新增 `_v15_w_rework.py`，避免把失败注入（mock/patch）混入纯确定性规则测试 `_v15_t4_selection.py`；`_v15_t4_selection.py` 原有的工作/项目/校园确定性规则断言保持不变并继续在 W4 复跑通过，等价覆盖“正常日期排序与最终稳定键无回归”。
+2. **W1 反向注入点细化**：§13.2 要求“Fact 派生 / reconciliation / Embedding 失效和 commit 前分别注入异常”。对 `create` 的 Embedding 失效注入不适用（新建 Fact 不触发失效），故改为 `_upsert_fact` 注入覆盖 create 的 reconciliation 写入失败；对 `update` 单独注入 `invalidate_fact_embedding` 覆盖“修改后旧向量失效失败”路径。三类注入点（Fact 派生 / reconciliation / Embedding 失效）均已覆盖，且 commit 前回滚。
+
+### 11.5 当前状态与下一次交接
+
+- W1–W4 开发自测全部通过；本 RESULT 已追加实际修改、失败注入与测试结果，保留 §9 的首轮 WorkBuddy 失败记录；**未标为已验收**，未更新 CURRENT_STATE、根 README、DECISIONS 或版本索引（按 PLAN §13.3 由文档 Agent 在 WorkBuddy + 人工通过后统一）。
+- 新候选为 clean `version/v1.5.0` 分支提交；为避免自引用循环，本 RESULT 不回填该提交自身 SHA。完整 40 位 HEAD、基线、分支、clean 状态与测试汇总通过仓库外交接消息交接。
+- `ec872f0f569bdb96c7dad3b5cb9653c45bc42756` 仍是被 WorkBuddy 首轮打回的候选；新外部交接 HEAD 是 WorkBuddy 第二轮独立验收的唯一对象，任何相关修改都会使旧结论失效。
+- 未 push `main`、未创建或移动 `v1.5.0` tag。WorkBuddy 对新 HEAD 完成第二轮独立复验且阻断项为 0 后，才进入人工核心流程验收。
