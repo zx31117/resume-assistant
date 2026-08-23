@@ -1,0 +1,319 @@
+# V1.5.0 PLAN：事实级内容决策、两层选材与 SQLite 持久化收束
+
+> 文档角色：V1.5.0 唯一已批准开发指令
+> 当前状态：已批准执行；可以按本 PLAN 向开发 Agent 交接
+> 计划日期：2026-08-22
+> 批准日期：2026-08-23
+> 最近修订：2026-08-23；用户已批准按收束后的范围开始执行
+> 版本性质：V1 最后一轮核心架构收束；不以召回、措辞或排版质量提升作为 PASS 条件
+> 产品发布基线：annotated tag `v1.4.2` 指向 `8aa56e7a497dfa2008192a9ad7320e5019de814f`
+> 开发 Git 基线：执行起点是先获取并解析执行时最新的公开 `origin/main`，证明 `v1.4.2` 是其祖先，再创建 `version/v1.5.0` 与固定 current worktree
+> 当前 planning checkout：只用于冻结批准文档，不是开发基线；不得在此启动源码开发，其中未提交的 V2/V3 草稿也不得被开发 Agent 当作 V1.5.0 指令
+
+## 1. 版本定位
+
+V1.4.2 已完成 V1 核心 JD → DOCX 链路、源码与 runtime 隔离、发布基线和开发档案收口。V1.5.0 只解决三个会让 V2 绑定旧契约的问题：
+
+1. 现有链路没有严格区分“哪些经历进入简历”和“入选经历突出什么”，多个模块可能重复做内容决策；
+2. SQL 只有较粗粒度 Experience，尚无可稳定引用、修改和判定过期的 Fact 与选材结果；
+3. Chroma 与 numpy + JSON 两套向量持久化实现具有不同的增删改、重建和失败语义。
+
+因此，本版本最终定位为“事实级内容决策、两层选材与 SQLite 持久化收束”。V1.5.0 建立正确的事实身份、选择顺序、来源追踪、失效语义和单一向量持久化实现；检索召回质量、表达质量、交互式素材补充、模型管理和前端体验留到 V2。
+
+## 2. 目标链路
+
+~~~text
+完整职业履历 Experience / Fact（SQLite 事实源）
+↓
+① 经历层选择
+   工作/实习：取最近 3 次，不足不补
+   项目/论文：共享同一候选池，只从生成基准日前 3 年内
+              按 JD 相关性取最多 2 项，不足不补
+   若前两类入选合计 < 2：只补最匹配的 1 项校园经历
+↓
+CandidateExperienceSet（经历名单已经冻结）
+↓
+② 入选经历内的事实与表达侧重选择
+   只从第一层入选经历中选择 fact_refs 与 expression_focus
+↓
+SelectedEvidenceSet（可序列化、可追溯、可判定过期）
+↓
+③ LLM 受约束改写
+   输入语义：目标岗位 A + 入选经历 B/C/D
+             + 各自应突出 E/F/G + 可使用事实
+   只负责受约束改写，不得重选经历或写回事实库
+↓
+④ Builder 确定性装配
+   章节、顺序、来源映射、容量告警
+↓
+ResumeDocument → TemplateRenderer → DOCX
+~~~
+
+第一层决定简历中有哪些经历；第二层只决定这些入选经历中的哪些已知事实值得表达以及表达侧重。LLM 不接收完整职业库后自行选材，也不能绕过第一层名单增加、替换或删除经历。
+
+## 3. 强制边界
+
+### 3.1 必须保持的 V1 事实规则
+
+1. 公司、岗位、学校、项目、时间、指标和产物只能来自 SQL 中可回查的 Experience / Fact；
+2. 姓名、电话、邮箱和所在地只取本次请求显式输入，缺失留空；
+3. 求职意向只来自当前 JD 的岗位分析，职业事实库不保存求职意向；
+4. V1 不生成或渲染个人总结 / 自我评价；
+5. 模板和 Renderer 不选择、删除或改写业务内容；
+6. 关键失败保持可见，不得用空成功、旧索引或第二后端静默兜底。
+
+### 3.2 素材与验收边界
+
+- V1.5.0 的真实素材仍只来自已有简历，可能只有现有 Experience 字段和粗粒度 bullets；
+- 原简历没有的细节视为未知，不通过 LLM 追问、推断、补齐或编造；
+- V1.5.0 不建设交互式细节补充，也不要求用户先提供真实、丰富、细粒度素材；
+- 架构、迁移、失效和固定规则验收可以使用现有粗粒度材料的副本及完全虚构 fixture；
+- 这些证据只能证明结构、边界和迁移正确，不能宣传为召回质量、内容质量或真实招聘效果验收；
+- 交互式补充、用户确认新细节和基于丰富素材的质量评测统一留到 V2。
+
+### 3.3 本版本不做
+
+- 不调优相关性模型、权重、阈值、同分策略或措辞效果；固定槽位规则必须落地，但“选得是否理想”不是 V1.5 PASS 条件；
+- 不用真实履历评估 Precision、Recall、Top-K 命中、不同 JD 的表达差异或招聘质量；
+- 不实现 React 页面、个人履历库、编辑 UI、管理后台或浏览器 E2E；
+- 不实现 Draft/Revision、跨修订 `content_item_id`、锁定、局部重生成、Artifact 历史或完整 Fact 修改历史；
+- 不实现 DOCX 页面预览、PDF 转换、一页纸或视觉排版优化；
+- 不实现长期归档、回收站和删除交互；
+- 不新增豆包以外的模型，不建立统一 LLM / Embedding Provider，不增加多模型配置、API Provider 扩展、BYOK、能力探测、Token 用量或费用统计；这些统一属于 V2；
+- 不进行 LangChain 重构，不引入 LangChain Retriever、VectorStore、Agent、LangGraph 或其他工作流框架；现有豆包调用与当前 LangChain 使用只按本版本必要的数据契约适配，不因推迟事项单独改动或删除；
+- 不实现账号、权限隔离、服务器化、多用户或云端 Provider Gateway；
+- 不保留 Chroma 或 numpy + JSON 作为隐藏保险后端。
+
+## 4. 拟冻结的数据契约
+
+以下是开发和审核必须保持的最小语义。开发 Agent 可以调整字段名，但必须在 RESULT 给出等价映射，不能改变边界。
+
+### 4.1 Fact 与修改语义
+
+Fact 是经历内部可表达的已知素材，不把所有简历字段强行拆成 Fact。首批范围只覆盖：
+
+- 工作 / 实习经历中的职责、行动、方法、结果、指标和产物；
+- 项目 / 论文中的工作内容、方法、产物和结果；
+- 校园经历中的职责、行动和结果；校园 Fact 可以迁移和保存，但只有第一层补位规则触发时才能参与本次内容决策。
+
+姓名与联系方式、教育背景、技能等继续使用现有确定性结构，不在本版本通过 LLM 扩写为细节事实。每个 Fact 至少具备：
+
+| 字段/概念 | 作用 |
+|---|---|
+| `fact_id` | 稳定身份；内容修改后仍可识别为同一职业事实 |
+| `experience_id` | 回到所属完整经历 |
+| `fact_type` | 职责、行动、方法、结果、指标、产物等类型 |
+| `text` | 当前规范化事实文本 |
+| `source_text` / source locator | 回查原始输入，不允许只保留 AI 摘要 |
+| `revision` / content hash | 判断同一 ID 的内容是否已经变化 |
+| `source_hash` | 核对迁移来源是否变化 |
+| `created_at` / `updated_at` | 变更与迁移核对 |
+
+职业事实允许用户通过明确的服务层操作修改。修改必须更新正文、revision/hash 和时间戳，并使对应旧向量与引用旧 revision/hash 的 SelectedEvidenceSet 失效。LLM、选材或生成链路不得静默修改 Fact，也不得把生成文案写回事实库。V1.5.0 只实现服务层修改与失效语义，不实现编辑 UI 或完整历史版本库。
+
+### 4.2 CandidateExperienceSet
+
+第一层结果至少保存：
+
+| 字段/概念 | 作用 |
+|---|---|
+| `generation_baseline_date` | 本次“三年内”规则使用的明确日期快照 |
+| `rule_version` | 固定槽位规则版本 |
+| `experience_id` | 入选经历身份 |
+| `slot_type` / `slot_rank` | 工作/实习、项目/论文或校园槽位及顺序 |
+| `selection_basis` | 时间、相关性或校园补位依据 |
+| `excluded_ids` / warnings | 日期缺失、超出窗口、无素材等可解释结果 |
+
+CandidateExperienceSet 形成后，后续阶段不得改变其中的经历名单。
+
+### 4.3 SelectedEvidenceSet
+
+第二层结果至少包含：
+
+| 字段/概念 | 作用 |
+|---|---|
+| `selection_id` | 本次选材结果身份 |
+| `jd_hash` | 形成结果时使用的 JD 快照 |
+| `rule_version` | 经历层和事实层规则版本 |
+| `generation_baseline_date` | 与第一层一致的生成基准日 |
+| `experience_id` / `slot_type` / `slot_rank` | 只能引用第一层入选经历 |
+| `fact_refs` | `fact_id + revision/hash`；只引用所属入选经历中的事实 |
+| `selection_reason` | 事实与当前 JD 的关联依据 |
+| `expression_focus` | 应突出什么，不是新增事实 |
+| `scores` | 可解释分项；质量不作为 V1.5 PASS 条件 |
+| `source_text` | 供核验和受约束改写使用 |
+
+该对象必须可以序列化和重新核对。JD、Fact revision/hash、规则版本或生成基准日变化时，旧结果必须明确过期，不能继续冒充当前选材。
+
+### 4.4 生成结果与 ResumeDocument
+
+- LLM 只接收目标岗位、CandidateExperienceSet 中的入选经历、SelectedEvidenceSet 指定的表达侧重和可使用事实；
+- 每条 bullet 必须返回 `fact_refs`；未知、未选、跨经历或版本不匹配的引用必须拒绝并告警；
+- LLM 不得重选经历、加入未入选经历、生成新事实或写回 Fact；
+- 材料不足时返回明确不足状态，不用通用空话补齐；
+- Builder 只做确定性装配，不执行第二套 JD 相关性判断；
+- 来源映射以结构化字段进入 ResumeDocument 或等价 sidecar，不能在 Builder / Renderer 前退化为只有文字的裸字符串；
+- V1.5.0 不生成跨修订稳定的 `content_item_id`，该身份留到 V2 的 Draft/Revision 契约。
+
+## 5. 固定选择规则
+
+### 5.1 第一层：经历名单
+
+1. 每次生成冻结一个 `generation_baseline_date`，所有三年窗口判断和结果快照使用同一日期；
+2. 工作 / 实习按可核验时间倒序取最近 3 次，在职经历视为最新；不足 3 次不以其他类型填充，也不创建空白经历；
+3. 项目 / 论文属于同一个候选池。只保留位于 `[生成基准日 - 3 个日历年, 生成基准日]` 的项目 / 论文，再按与当前 JD 的相关性取最多 2 项；不足 2 项不以更早项目、论文或其他类型填充；
+4. 在进行中的项目视为截至生成基准日仍在窗口内；已结束项目使用可核验结束/发表日期。不能证明日期属于窗口的项目 / 论文不进入该槽位，并返回告警；
+5. 工作 / 实习与项目 / 论文最终入选合计少于 2 项时，只补最匹配的 1 项校园经历；没有校园素材时保持缺失并告警，不生成虚构内容；
+6. 具体日期字段映射、时间并列顺序和相关性同分规则由开发 Agent 根据现有 Schema 固化为确定性规则，在 RESULT 中记录并以 fixture 验证；这些实现细节不改变上述数量、时间窗口和补位边界。
+
+### 5.2 第二层：事实与表达侧重
+
+- 第二层只遍历第一层已经入选的经历；
+- 每个结果只能引用该经历现有、版本匹配且有来源的 Fact；
+- `selection_reason` 和 `expression_focus` 可以结合 JD，不能成为新事实；
+- 传给 LLM 的语义必须等价于“目标岗位 A + 入选经历 B/C/D + 应突出 E/F/G + 可使用事实”；
+- LLM 只负责受约束改写，不能改变经历名单或事实库；
+- 现有粗粒度 bullet 可以作为一个较粗 Fact 参与流程。粒度粗不阻断架构验收，但不得据此声称事实召回或内容质量已经验收。
+
+### 5.3 模块职责
+
+| 模块/阶段 | V1.5.0 职责 | 禁止事项 |
+|---|---|---|
+| 经历层 Selector | 执行固定槽位规则，产出 CandidateExperienceSet | 不生成文案，不修改 Fact |
+| 事实层 Selector | 只在入选经历中选择 fact_refs 和 expression_focus | 不改变经历名单，不写回事实 |
+| LLM 改写 | 使用已选事实生成带来源的 bullets | 不重选经历，不补造事实，不写回 SQL |
+| Builder | 章节、顺序、装配、来源映射和告警 | 不再做 JD 相关性选择 |
+| Renderer | 展示 ResumeDocument | 不删除、截断或改写业务内容 |
+
+## 6. SQLite 与迁移契约
+
+### 6.1 Fact 迁移
+
+采用确定性迁移，不在迁移中调用 LLM：
+
+1. 将现有 Experience 中属于首批范围的非空细节字段和 bullets 按原文迁移为 Fact；
+2. 每个 Fact 保留来源字段/位置、source text 和 source hash；
+3. 旧描述无法安全拆细时保留为较粗 Fact，不猜测或补写；
+4. 当前简历没有的细节保持缺失；
+5. 重复迁移必须得到相同身份和数量，不重复创建 Fact；
+6. 后续只有用户明确调用服务层修改能力时才更新 Fact，并触发派生数据失效。
+
+### 6.2 SQLite 向量存储
+
+新增等价于 `fact_embeddings` 的派生表：
+
+- 以 `fact_id + embedding_fingerprint` 唯一定位；
+- 保存 dimension、明确 dtype 的 BLOB vector bytes、Fact revision/hash、状态和更新时间；
+- 查询时读取本次候选 Fact 的向量并执行内存精确相似度计算；
+- numpy 只作为计算库保留，不承担 JSON 向量持久化或 fallback 后端角色；
+- fingerprint、维度或 Fact revision/hash 不匹配时向量立即失效，完成重建前不得使用。
+
+### 6.3 旧索引退出
+
+不迁移 Chroma 或 numpy + JSON 中的旧向量字节，统一从 SQLite Fact 使用当前豆包 Embedding 调用重建：
+
+1. 迁移前验证源数据库身份，并复制数据库与旧索引作为只读备份；
+2. 升级 Schema，确定性生成/迁移 Fact；
+3. 核对 Experience、Fact 数量、ID、来源 hash、失败项和孤儿记录；
+4. 将新 Embedding 状态标记为 pending；
+5. 有可用 Key 时执行重建；无 Key 时可以停在“事实迁移完成、索引待重建”，生成接口必须明确阻断；
+6. 重建完成后核对数量、维度、fingerprint、失败项和可重试状态；
+7. Chroma 与 numpy + JSON 退出活动配置、依赖、代码分支和测试契约；备份存在不等于活动 fallback；
+8. 迁移中途失败后可以安全重试或回滚，且不得在未经核对时删除原 Experience、旧数据库或旧索引。
+
+V1.5.0 必须建立正式 schema version 和顺序迁移记录。迁移脚本对成功、异常和提前退出路径都要释放 engine、client、文件句柄和临时资源；日志、测试产物和 RESULT 不记录真实履历正文、API Key 或本机用户名。用户数据只能在可恢复副本上演练，虚构 fixture 足以完成结构与失败路径验收。
+
+## 7. 实施任务
+
+| Task | 责任 | 内容 | 退出条件 |
+|---|---|---|---|
+| T0 基线与文档冻结 | 文档 Agent | 记录 2026-08-23 批准状态；获取执行时最新 `origin/main`，完成远端、祖先关系和 clean preflight，再创建固定 `version/v1.5.0` current worktree | branch、base commit、tag 祖先关系和 clean 状态明确 |
+| T1 源码现状与契约映射 | 开发 Agent | 对照 PLAN 识别 Experience、索引、豆包调用、Builder、测试和配置入口；建立 RESULT 骨架 | 实际文件范围、旧路径和 PLAN 偏差已记录 |
+| T2 Fact Schema 与迁移框架 | 开发 Agent | 只迁移首批 Fact 范围；建立可明确修改的 Fact、revision/来源、schema version、备份和幂等迁移 | 不扩写原简历；修改会使派生数据失效；副本与虚构 fixture 通过 |
+| T3 SQLite Embedding 与索引任务 | 开发 Agent | 建立 BLOB 向量派生表、内存精确检索、fingerprint、失效与全量重建 | 增删改、失败、重试和重建一致；无隐藏 fallback |
+| T4 两层选材与 SelectedEvidenceSet | 开发 Agent | 建立固定经历槽位、槽位内 Fact/侧重点选择、序列化结果和过期判断 | 固定数量/窗口/校园分支通过；第二层不能改名单 |
+| T5 改写与 Builder 收缩 | 开发 Agent | 生成只使用 fact_refs；Builder 只装配并保留来源映射 | 越界输出被拒绝；LLM 不重选或写回；来源不丢失 |
+| T6 旧向量实现退出 | 开发 Agent | 删除 Chroma、numpy + JSON 活动后端及其依赖、配置、分支和旧测试契约 | SQLite 新状态生效，旧状态退出，无并行向量真源 |
+| T7 开发验证与候选 | 开发 Agent | 完成测试矩阵、迁移副本演练、RESULT 和 clean candidate commit | RESULT 满足最低交付契约；不得 push main/tag |
+| T8 高性能源码/数据验收 | 高性能验收 Agent | 在 clean review worktree 独立审查迁移、事实边界、两层选材、失败路径、旧实现退出和核心回归 | 绑定精确 commit，阻断项为 0 |
+| T9 人工核心流程验收 | 用户 | 使用允许的数据副本从导入/已有库走到 JD → DOCX，确认事实边界和流程可用 | 用户明确通过或给出返工项；不扩大为内容质量验收 |
+| T10 文档与发布 | 文档 Agent | 汇总 RESULT，按实际结果更新 CURRENT_STATE、DECISIONS 和索引；用户确认后 fast-forward main 并创建 annotated tag `v1.5.0` | 远端 main/tag 核对一致；不 force push |
+
+开发 Agent 不得把 T2–T6 拆成新的长期分项文档。阶段结论统一写入同一个 RESULT，机读产物进入临时目录或 runtime，不进入版本档案。
+
+## 8. 开发验证矩阵
+
+### 8.1 Fact、选择与改写
+
+- 新旧 Experience 可以形成可回查 Fact；迁移不虚构、扩写或丢失来源；
+- 服务层显式修改 Fact 后 revision/hash 更新，旧向量和旧 SelectedEvidenceSet 失效；LLM 与生成链路不能写回；
+- 0、1、2、3、4 次工作/实习分别验证“最近最多 3 次、缺位不补”，并覆盖在职、同日和日期缺失；
+- 项目/论文作为同一池验证三年边界日前后、正好三年、在进行中、日期缺失及 0/1/2/3 个候选；最终最多 2 项，不用更早内容补位；
+- 前两类入选合计为 0、1、2 时分别验证校园条件分支；触发时最多 1 项，无校园素材时不生成虚构内容；
+- 第二层与 LLM 只接收第一层入选经历；每条 bullet 只引用已选且版本匹配的 fact_refs；
+- 未知、未选、跨经历、无来源、版本过期和材料不足路径保持可见；
+- 更换 JD 或生成基准日不修改 Experience / Fact；Builder 和 Renderer 不重新做相关性选择。
+
+### 8.2 SQLite 与迁移生命周期
+
+- 全新空库初始化、V1.4.2 数据库副本迁移和同一迁移重复运行；
+- Schema 部分创建、Fact 部分写入、Embedding 部分失败后的安全重试或回滚；
+- 无 API Key 时事实迁移完成、索引明确 pending、生成显式阻断；
+- Fact revision/hash、Embedding 维度或 fingerprint 改变后旧向量不可用；
+- 备份、数量/hash 核对、孤儿检查及成功/异常/提前退出资源释放；
+- 旧索引备份不被活动代码读取，活动 Chroma/numpy + JSON 路径为 0。
+
+### 8.3 回归
+
+- Profile 仍只取 request，缺失留空；求职意向仍只来自 JD；不生成个人总结；
+- 当前豆包 LLM / Embedding 调用继续服务核心链路，不新增或切换其他模型；
+- 旧 Markdown 和 internal 模板调试接口不成为新主链；
+- 核心 JD → DOCX 正常路径与主要错误分支通过；
+- Stub 测试继续使用独立临时 runtime，成功和失败路径均无残留；
+- 应用版本、根 README 和运行入口最终按实际发布统一为 1.5.0。
+
+### 8.4 证据解释
+
+- 粗粒度真实材料副本用于证明可迁移、可追溯和不越界，不用于证明选材质量；
+- 完全虚构 fixture 用于覆盖数量、时间窗口、校园分支、失效和失败路径，不用于声称真实召回效果；
+- V1.5.0 不以 Precision、Recall、Top-K、不同 JD 的表达差异或人工招聘质量评分作为 PASS 条件；
+- RESULT 必须分别给出功能验收与结构变更验收，并明确哪些质量验证未进入本版本。
+
+## 9. 高性能验收要求
+
+T8 必须读取源码并独立复核：
+
+1. Experience → Fact 迁移、备份、幂等、失败重试和回滚；
+2. SQL 事实源、Fact revision/hash、来源和显式修改边界；
+3. SQLite BLOB 向量、内存精确检索、fingerprint、失效与重建；
+4. Chroma 与 numpy + JSON 的活动代码、配置、依赖和测试契约是否真正退出；
+5. 最近 3 次工作/实习、三年内共享池最多 2 项项目/论文及条件触发的 1 项校园经历是否只有一套实现；
+6. 第二层和 LLM 是否只能使用第一层名单与已选 fact_refs，是否存在静默写回；
+7. Builder 职责变化、来源映射和现有 V1 事实边界是否一致；
+8. 迁移与测试工具在成功、异常和提前退出时的完整资源生命周期；
+9. 现有豆包调用是否被误删，以及 V1.5 是否混入任何多模型/API Provider 或 LangChain/LangGraph 扩展。
+
+验收 Agent 必须从本 PLAN 独立推导失败场景，不能只复跑开发 Agent 的命令。首次打回后，文档 Agent 应把症状上升为完整问题类别并一次性补齐返工矩阵。
+
+## 10. PLAN 完成标准
+
+只有以下条件全部满足，V1.5.0 才能标记已验收：
+
+- 首批 Fact、CandidateExperienceSet、SelectedEvidenceSet 和数据库迁移契约实际落地；
+- 两层选材实际落地，LLM 不能重选经历、使用越界事实或写回职业事实库；
+- 用户显式修改 Fact 会更新 revision/hash，并使旧向量与旧 SelectedEvidenceSet 失效；
+- SQL 是唯一事实源，SQLite BLOB 是唯一活动向量持久化实现，numpy 只用于计算；
+- Chroma 与 numpy + JSON 活动路径退出，旧向量从 Fact 重建而不是迁移；
+- 固定经历槽位、三年窗口、共享项目/论文池和校园补位规则的结构验证通过；
+- 验收证据没有把粗粒度材料或虚构 fixture 宣传为召回/内容质量通过；
+- 当前豆包主链与既有 V1.3.0–V1.4.2 事实边界、错误可见性、测试隔离和 DOCX 流程无回归；
+- 功能验收与结构变更验收分别通过，高性能验收绑定精确候选 commit；
+- RESULT 明确 API、数据模型、模块、配置/依赖的实际变化、验证证据和 PLAN 偏差；
+- CURRENT_STATE、DECISIONS、版本索引和根 README 只按实际实现与发布结果同步；
+- 用户单独确认正式发布。
+
+## 11. 批准状态与执行起点
+
+用户已确认内容决策、Fact 范围与修改语义、SQLite 向量方案、旧索引重建策略以及 V1.5/V2 模型边界，并于 2026-08-23 明确批准开始执行 V1.5.0。本 PLAN 自该日期起是 V1.5.0 唯一开发指令。
+
+执行从 T0 开始：先获取执行时最新的公开 `origin/main`，记录精确 base commit，证明 `v1.4.2` 是其祖先并完成 clean preflight；随后才创建 `version/v1.5.0` 和固定 current worktree、向开发 Agent 交接。当前 planning checkout 不能沿用为开发基线，本文档批准也不等于任何 V1.5.0 源码已经实现或验收。
