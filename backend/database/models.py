@@ -81,6 +81,7 @@ class Experience(Base):
 
     user = relationship("User", back_populates="experiences")
     index_jobs = relationship("VectorIndexJob", back_populates="experience", cascade="all, delete-orphan")
+    facts = relationship("Fact", back_populates="experience", cascade="all, delete-orphan")
 
 
 class VectorIndexJob(Base):
@@ -108,3 +109,67 @@ class VectorIndexJob(Base):
 
     experience = relationship("Experience", back_populates="index_jobs")
 
+
+
+
+# ── V1.5.0 Fact 与 Schema Version ─────────────────────────────── #
+
+class FactType(str, enum.Enum):
+    """Fact 类型（首批范围，PLAN §4.1）。
+
+    迁移阶段确定性粗粒度赋值，不调用 LLM 做细分类：
+    - description 字段 → RESPONSIBILITY（职责块，未安全拆细为较粗 Fact）
+    - achievements 列表项 → RESULT（成果/指标）
+    后续服务层修改不改 fact_type（类型不是 V1.5 选材 PASS 条件）。
+    """
+    RESPONSIBILITY = "responsibility"
+    ACTION = "action"
+    METHOD = "method"
+    RESULT = "result"
+    METRIC = "metric"
+    DELIVERABLE = "deliverable"
+    WORK_CONTENT = "work_content"
+
+
+class Fact(Base):
+    """V1.5.0：经历内部可表达的已知素材（PLAN §4.1）。
+
+    - fact_id 由 experience_id + source locator 确定性派生（uuid5），保证重复迁移同身份
+      且不重复创建（PLAN §6.1.5）
+    - text 是当前规范化事实文本；修改走 fact_service.modify_fact，更新 revision/content_hash
+    - source_text/source_field/source_index 保留原始输入回查，不允许只保留 AI 摘要
+    - content_hash 判断同一 ID 内容是否变化；source_hash 核对迁移来源是否变化
+    - 修改后 revision/content_hash 变化 → 旧向量(T3)与旧 SelectedEvidenceSet(T4) 失效
+    """
+    __tablename__ = "facts"
+
+    fact_id = Column(String, primary_key=True)
+    experience_id = Column(String, ForeignKey("experiences.id"), nullable=False, index=True)
+
+    fact_type = Column(SAEnum(FactType), nullable=False, default=FactType.RESPONSIBILITY)
+
+    text = Column(Text, default="")
+    source_text = Column(Text, default="")
+    source_field = Column(String, default="")        # "description" | "achievements"
+    source_index = Column(Integer, nullable=True)    # achievements[i]；description 为 None
+
+    content_hash = Column(String, default="")          # SHA256(normalize(text))
+    source_hash = Column(String, default="")           # SHA256(source_text)
+    revision = Column(Integer, default=1, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    experience = relationship("Experience", back_populates="facts")
+
+
+class SchemaVersion(Base):
+    """V1.5.0：正式 schema version 与顺序迁移记录（PLAN §6.3）。
+
+    迁移成功后写入对应 version；中途失败不写入，可安全重试。
+    """
+    __tablename__ = "schema_versions"
+
+    version = Column(String, primary_key=True)
+    applied_at = Column(DateTime, default=datetime.utcnow)
+    description = Column(Text, default="")

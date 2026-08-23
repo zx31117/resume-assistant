@@ -160,3 +160,33 @@ class FileSaveError(DomainError):
     stage = "save_docx"
     retryable = True
     http_status = 500
+
+
+
+# ── V1.5.0 Fact / 迁移层 ──────────────────────────────────────── #
+
+class FactNotFoundError(DomainError):
+    """Fact 不存在（修改/引用时未找到）。"""
+
+    error_code = "FACT_NOT_FOUND"
+    stage = "fact_service"
+    retryable = False
+    http_status = 404
+
+
+class FactModificationError(DomainError):
+    """Fact 修改被拒绝（空文本、越权来源等）。"""
+
+    error_code = "FACT_MODIFICATION_REJECTED"
+    stage = "fact_service"
+    retryable = False
+    http_status = 400
+
+
+class MigrationError(DomainError):
+    """数据库迁移失败（schema 或数据迁移中途异常，可重试）。"""
+
+    error_code = "MIGRATION_FAILED"
+    stage = "migration"
+    retryable = True
+    http_status = 500

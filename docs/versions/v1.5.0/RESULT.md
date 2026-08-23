@@ -12,7 +12,7 @@
 |---|---|---|
 | T0 基线与文档冻结 | 完成 | 从 `origin/main@8c4a005...` 建立 `version/v1.5.0`；`v1.4.2` 是其祖先；批准文档形成增量提交 `92ac0ae` + `bc30f18` |
 | T1 源码现状与契约映射 | 完成 | 见 §2；实际文件范围、旧路径和 PLAN 偏差已记录 |
-| T2 Fact Schema 与迁移框架 | 待执行 | — |
+| T2 Fact Schema 与迁移框架 | 完成 | 新增 `Fact`/`FactType`/`SchemaVersion` 模型、`database/migrations.py`（备份+顺序迁移+幂等 Fact 生成+核对）、`services/fact_service.py`（显式修改+失效钩子）、`_v15_t2_fact_migration.py` 验证（35/35）；errors 增 `FactNotFoundError`/`FactModificationError`/`MigrationError` |
 | T3 SQLite Embedding 与索引任务 | 待执行 | — |
 | T4 两层选材与 SelectedEvidenceSet | 待执行 | — |
 | T5 改写与 Builder 收缩 | 待执行 | — |
@@ -92,13 +92,13 @@
 
 | 类别 | 实际变化 |
 |---|---|
-| API | 待填 |
-| 数据表/模型 | 待填 |
-| 产品业务链路 | 待填 |
-| 模块职责 | 待填 |
-| 测试 | 待填 |
-| 配置/依赖 | 待填 |
-| 版本 | 待填 |
+| API | 无（T2 不动 API） |
+| 数据表/模型 | 新增 `facts` 表（`Fact`：fact_id/experience_id/fact_type/text/source_text/source_field/source_index/content_hash/source_hash/revision/timestamps）；新增 `schema_versions` 表（`SchemaVersion`：version/applied_at/description）；`Experience` 增 `facts` 反向关系（无新列） |
+| 产品业务链路 | 无（T2 只建事实源与迁移，不改主链路；T3-T5 接入） |
+| 模块职责 | 新增 `database/migrations.py`（备份+顺序迁移+幂等 Fact 生成+核对+资源释放）；新增 `services/fact_service.py`（只读 get/list + 显式 modify_fact + 失效钩子注册）；`core/errors.py` 增 3 个领域异常 |
+| 测试 | 新增 `_v15_t2_fact_migration.py`：空库迁移、fixture 迁移、幂等、部分失败重试、modify_fact 失效钩子、资源释放、隐私（产物不含履历正文）—— 35/35 通过 |
+| 配置/依赖 | 无（T2 不引入新依赖；迁移用现有 SQLAlchemy/stdlib） |
+| 版本 | 无（T2 不改 APP_VERSION） |
 
 ## 4. 替换型变更闭环
 
@@ -116,4 +116,4 @@
 
 > 开发过程中如有字段名调整或实现细节固化，在此记录并给出等价映射。
 
-- 暂无。
+- **fact_type 粗粒度映射（T2）**：迁移为确定性、不调 LLM（PLAN §6.1），因此 fact_type 按来源字段粗粒度赋值：`description` → `RESPONSIBILITY`，`achievements[i]` → `RESULT`。PLAN §5.2 明确"粗粒度 bullet 可作为一个较粗 Fact 参与流程，粒度粗不阻断架构验收"，且 fact_type 不是选材 PASS 条件。等价映射：原 description 块保留为较粗 Fact（§6.1.3 不拆细），原成就项保留为结果类 Fact。后续服务层修改不改 fact_type。
