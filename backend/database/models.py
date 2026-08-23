@@ -20,6 +20,8 @@ from sqlalchemy import (
     JSON,
     Integer,
     Enum as SAEnum,
+    LargeBinary,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
 import enum
@@ -173,3 +175,41 @@ class SchemaVersion(Base):
     version = Column(String, primary_key=True)
     applied_at = Column(DateTime, default=datetime.utcnow)
     description = Column(Text, default="")
+
+
+
+# ── V1.5.0 Fact Embedding（BLOB 向量派生表，PLAN §6.2） ────────── #
+
+class EmbeddingStatus(str, enum.Enum):
+    """Fact 向量状态。无 Key 时停在 PENDING；不匹配时 INVALID；失败可重试。"""
+    PENDING = "PENDING"    # 待计算（无 Key 或未重建）
+    VALID = "VALID"        # 可用：fingerprint/维度/Fact revision-hash 均匹配
+    INVALID = "INVALID"    # Fact 修改或 fingerprint/维度变化，需重建
+    FAILED = "FAILED"      # 计算失败（可重试）
+
+
+class FactEmbedding(Base):
+    """V1.5.0：Fact 向量派生表（PLAN §6.2）。
+
+    - 以 (fact_id, embedding_fingerprint) 唯一定位
+    - vector_blob 存明确 dtype 的向量字节；查询时读入内存做精确相似度
+    - fingerprint/维度/Fact revision-hash 不匹配 → INVALID，重建前不得使用
+    - numpy 只作计算库（cosine），不承担 JSON 持久化或 fallback 后端
+    """
+    __tablename__ = "fact_embeddings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fact_id = Column(String, ForeignKey("facts.fact_id"), nullable=False, index=True)
+    embedding_fingerprint = Column(String, nullable=False)
+    dimension = Column(Integer, nullable=False, default=0)
+    vector_blob = Column(LargeBinary, nullable=True)
+    vector_dtype = Column(String, default="float32")
+    fact_revision = Column(Integer, nullable=False, default=1)
+    fact_content_hash = Column(String, default="")
+    status = Column(SAEnum(EmbeddingStatus), nullable=False, default=EmbeddingStatus.PENDING, index=True)
+    error = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("fact_id", "embedding_fingerprint", name="uq_fact_embedding"),
+    )
