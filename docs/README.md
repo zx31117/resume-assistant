@@ -2,8 +2,8 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V1.5.0；源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`，最终发布 commit 在发布后以 annotated tag `v1.5.0` 的目标为准
-> 当前版本档案：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) / [RESULT](./versions/v1.5.0/RESULT.md)；开发、源码验收、人工确认与文档收口均已完成，用户已于 2026-08-23 授权发布，执行结果在发布后补录
+> 当前已验收版本：V1.5.0；源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`，annotated tag `v1.5.0` 指向发布候选 `8d3aac6369146052f819c414cc18f53b11a778fc`
+> 当前版本档案：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) / [RESULT](./versions/v1.5.0/RESULT.md)；开发、验收、人工确认、文档收口与版本发布均已完成
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -142,6 +142,6 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./versions/v1.4.0/PLAN.md) | [RESULT](./versions/v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
 | V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 已验收；第三轮 T9 9/9 通过，正常增量发布 |
-| V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已验收；最终源码验收阻断项为 0，人工确认与文档收口完成，用户已授权发布 |
+| V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

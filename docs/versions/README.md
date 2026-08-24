@@ -18,7 +18,7 @@
 | V1.4.0 | 源码—数据解耦与 GitHub 首发 | [PLAN](./v1.4.0/PLAN.md) | [RESULT](./v1.4.0/RESULT.md) | 已验收；Public 首发、`v1.4` tag 与匿名 clone 复核通过 |
 | V1.4.1 | 对外版本一致性与身份边界清理 | [PLAN](./v1.4.1/PLAN.md) | [RESULT](./v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
 | V1.4.2 | 发布基线与开发档案收口 | [PLAN](./v1.4.2/PLAN.md) | [RESULT](./v1.4.2/RESULT.md) | 已验收；第三轮 T9 9/9 通过，正常增量发布 |
-| V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./v1.5.0/PLAN.md) | [RESULT](./v1.5.0/RESULT.md) | 已验收；最终源码验收阻断项为 0，人工确认与文档收口完成，用户已授权发布 |
+| V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./v1.5.0/PLAN.md) | [RESULT](./v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
 
 ## 已批准计划
 
