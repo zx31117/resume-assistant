@@ -2,9 +2,9 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V1.5.0；源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`，annotated tag `v1.5.0` 指向发布候选 `8d3aac6369146052f819c414cc18f53b11a778fc`
-> 当前版本档案：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) / [RESULT](./versions/v1.5.0/RESULT.md)；开发、验收、人工确认、文档收口与版本发布均已完成
-> 当前活动版本：[V2.0.0 PLAN](./versions/v2.0.0/PLAN.md) / [RESULT](./versions/v2.0.0/RESULT.md)；已有开发实现与自测记录，当前仍在返工并等待重新冻结候选及独立源码验收；不得把未验收能力提前写入当前实现事实
+> 当前已验收版本：V2.0.0；源码验收对象为 `a9c66db14a4fa2a60f2ef9b85a61538da46079f1`，发布标识为 annotated tag `v2.0.0`
+> 当前版本档案：[V2.0.0 PLAN](./versions/v2.0.0/PLAN.md) / [RESULT](./versions/v2.0.0/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
+> 当前活动版本：无；后续 V2 交互重新设计或其他需求先从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择并另立版本 PLAN
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -42,7 +42,7 @@ JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受�
 → ResumeBuilder 确定性装配 → ResumeDocument → TemplateRenderer → DOCX
 ~~~
 
-V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；当前具体实现能力以 `CURRENT_STATE.md` 为准。
+V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加三页图形交互及 Windows 便携启动器。当前具体实现能力以 `CURRENT_STATE.md` 为准。
 
 ## 4. 事实所有权
 
@@ -148,6 +148,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
 | V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 已验收；第三轮 T9 9/9 通过，正常增量发布 |
 | V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
-| V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 开发返工中；待重新冻结候选与独立源码验收 |
+| V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 已发布；annotated tag `v2.0.0` |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

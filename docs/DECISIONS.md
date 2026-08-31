@@ -299,3 +299,56 @@
   - `manage.py migrate/status/rebuild/retry` 是唯一受支持的本地维护入口；既有库迁移前备份并核对，全新不存在的 SQLite 路径按空库初始化，备份、核对或 cleanup 失败时 fail closed。
 - 依据：事实身份、派生数据状态和恢复入口必须共享同一事务与持久化语义，才能让增删改、失败、重试、重建和生成阻断一致。
 - 影响：D-005 与 D-012 被取代；V1.4.0 的 runtime data root 和源码—数据物理隔离继续有效。
+
+## D-027 图形交互层只薄包装核心链路
+
+- 版本：V2.0.0
+- 状态：Accepted
+- 背景：V1.5.0 核心生成链路已经验收，但普通用户无法在不使用终端或 Swagger 的情况下完成全流程。
+- 决策：
+  - 前端采用 React + TypeScript + Vite，生产构建由 FastAPI 同源托管并提供 SPA fallback；
+  - 页面只负责请求提交和状态展示，不实现 Fact reconciliation、Embedding 推导、选材排序、来源校验、Builder 或 Renderer；
+  - 新增连接配置和系统维护薄 API，直接调用现有 service，不复制业务逻辑；
+  - 核心生成链路、两层选材、Fact 生命周期和向量持久化直接复用 V1.5.0 实现。
+- 依据：前端建立第二套业务规则或事实状态会导致双真源和一致性分裂。
+- 影响：V2.0.0 图形层与 V1.5.0 核心链路保持单向依赖，页面流程可以继续演进而不改变事实边界。
+
+## D-028 单一 resolver 统一配置来源
+
+- 版本：V2.0.0
+- 状态：Accepted
+- 背景：V1 只依赖 `.env`/环境变量，便携版无法安全保存长期 Key，UI、env 和模块级缓存也可能形成不同真源。
+- 决策：
+  - `core/config_resolver.py` 统一解析配置；API Key 优先级为 Credential Manager > env/.env，非密钥配置优先级为 runtime 版本化配置 > env/.env > 内置默认；
+  - Windows 便携版长期 API Key 进入 Credential Manager；非密钥配置进入 `RESUME_DATA_DIR/config/connection.json`；
+  - `.env` 继续作为开发、自动化和故障恢复入口，但不得绕过 resolver；
+  - LLM client 按当前配置快照惰性构建，配置激活对后续请求生效。
+- 依据：单一解析入口同时避免“UI 显示与实际使用不一致”和密钥明文降级。
+- 影响：凭据库不可用、写入或删除失败时显式失败，不退回明文 SQLite、JSON、日志或浏览器缓存。
+
+## D-029 本地管理接口采用同源写安全边界
+
+- 版本：V2.0.0
+- 状态：Accepted
+- 背景：便携版通过 loopback 暴露管理 API，本机其他网页仍可能尝试静默调用写接口。
+- 决策：
+  - 服务只绑定 loopback，生产不启用任意来源 CORS；
+  - 写操作校验 loopback Host、允许的 Origin 和启动会话 HttpOnly Cookie；
+  - 会话令牌在进程启动时生成，不通过 URL 传输；
+  - 迁移、重建、重试和生成共享非阻塞并发门禁，被占用时返回 409。
+- 依据：loopback 绑定本身不能防止浏览器跨站请求，同源会话校验是本地管理写操作的必要边界。
+- 影响：正常同源流程不受影响；恶意 Origin、错误 Host 或缺失会话的写请求被拒绝。
+
+## D-030 Windows 首版采用目录型便携发行
+
+- 版本：V2.0.0
+- 状态：Accepted
+- 背景：普通用户不安装 Python/Node.js 也能使用，是 V2.0.0 的核心交付目标。
+- 决策：
+  - 采用 PyInstaller `onedir`，不静默切换为 `onefile`；
+  - 图形启动器负责启动 loopback 服务、健康等待、打开浏览器、重新打开和退出；
+  - 单实例使用 Windows `Local\` 命名互斥量，端口冲突时选择安全可用端口；
+  - 退出释放 server、数据库 engine、互斥量、日志流、锁和临时资源，重复退出幂等；
+  - runtime data root 保持在便携目录之外，移动、升级或删除程序不删除用户数据。
+- 依据：`onedir` 启动快且不依赖每次临时解压；`Local\` 命名空间不要求管理员全局互斥量权限。
+- 影响：V2.0.0 提供 Windows x64 便携发行；macOS/Linux 便携和安装包不在本版范围。

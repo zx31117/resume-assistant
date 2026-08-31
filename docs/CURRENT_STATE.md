@@ -1,16 +1,18 @@
 # 当前实现状态
 
 > 文档角色：当前已验收实现事实的唯一真源
-> 已验收版本：V1.5.0
-> 源码验收对象：`448d21a2c51fc47ac61fca647104c18c787d9e77`
-> 发布标识：annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc`；发布后补录提交只前移 `main`，不移动该 tag
-> 状态日期：2026-08-24
+> 已验收版本：V2.0.0
+> 源码验收对象：`a9c66db14a4fa2a60f2ef9b85a61538da46079f1`
+> 发布标识：annotated tag `v2.0.0`；最终发布 commit 不自回填 SHA，以 tag 解析结果为准
+> 状态日期：2026-08-31
 
 ## 1. 当前结论
 
 V1 核心架构已经收口。系统可以从职业经历建立可回查的 Experience / Fact 事实库，根据目标 JD 先确定经历名单，再在入选经历中选择可用事实，完成受约束改写、确定性装配和 DOCX 输出。
 
-V1.5.0 已完成开发验证、验收 Agent 源码验收、人工确认、文档验收和版本发布。源码验收绑定上方精确 commit，发布身份绑定 annotated tag；后续如修改相关源码、测试、配置或公开元数据，受影响范围必须重新验收。版本过程、失败候选、返工、测试与发布证据保存在 [V1.5.0 RESULT](./versions/v1.5.0/RESULT.md)，本文不重复流水账。
+V2.0.0 在该核心链路之上完成本地全流程图形交互首版：React + TypeScript + Vite 三页前端（生成工作台、履历库、本地系统）、同源托管、连接配置与 Credential Manager、系统维护薄 API、并发门禁和 Windows 目录型便携启动器。核心生成链路、两层选材、Fact 生命周期和向量持久化继续直接复用 V1.5.0 实现，前端没有建立第二业务真源。
+
+V2.0.0 已完成开发验证、独立源码验收、用户人工验收和文档验收。用户于 2026-08-31 明确确认通过；源码验收绑定上方公开用候选，发布身份绑定 annotated tag。版本范围、返工、测试、偏差和隐私处理证据见 [V2.0.0 RESULT](./versions/v2.0.0/RESULT.md)。
 
 ## 2. 已实现核心流程
 
@@ -36,6 +38,17 @@ POST /api/resume/generate-docx
 
 关键失败会返回统一领域错误，不会退化为空成功、旧索引或“全部 Fact”故障兜底。生成结果保留逐 bullet 的事实来源映射。
 
+### 图形交互流程
+
+~~~text
+启动 Windows 便携应用 → 浏览器打开本地同源页面
+→ 本地系统：连接测试/激活、状态、迁移、重建、重试
+→ 履历库：PDF 上传、经历提取、Experience 查看/新增/编辑/删除
+→ 生成工作台：身份信息、目标 JD、模板、生成状态、warnings、下载 DOCX
+~~~
+
+三个页面只提交请求和展示状态；配置、维护、Experience 事务与 JD → DOCX 仍由后端既有服务完成。数据库或索引未就绪时页面可进入受限维护模式，生成保持阻断。
+
 ## 3. 已验收事实与选择边界
 
 | 数据或阶段 | 当前规则 |
@@ -59,6 +72,9 @@ POST /api/resume/generate-docx
 |---|---|
 | 关系数据库 | SQLite + SQLAlchemy |
 | Runtime data root | `RESUME_DATA_DIR`；Windows 默认 `%LOCALAPPDATA%\ResumeAssistant`，macOS 默认 `~/Library/Application Support/ResumeAssistant`，Linux 默认 `~/.local/share/resume-assistant` |
+| 配置管理 | 单一 resolver；API Key：Windows Credential Manager > env/.env；非密钥：runtime 版本化配置 > env/.env > 内置默认 |
+| 前端 | React + TypeScript + Vite；生产构建由 FastAPI 同源托管并提供 SPA fallback |
+| 便携发行 | Windows x64 PyInstaller `onedir`；图形启动器负责启动、重开、单实例、端口选择和退出释放 |
 | 事实表 | `users`、`experiences`、`facts` |
 | 迁移表 | `schema_versions` |
 | 向量派生表 | `fact_embeddings`；保存 fingerprint、dimension、dtype、float32 BLOB、Fact revision/hash、状态与错误 |
@@ -84,7 +100,15 @@ POST /api/resume/generate-docx
 
 | 类型 | 方法或命令 | 当前状态 |
 |---|---|---|
-| API | `GET /` | 健康检查 |
+| API | `GET /` | 生产构建存在时返回 SPA 首页；未构建时保留 JSON 健康响应 |
+| API | `GET /api/health` | 同源健康检查与版本元数据 |
+| API | `GET /api/config` | 返回连接配置脱敏快照，不返回完整 Key |
+| API | `POST /api/config/test` | 测试候选 LLM / Embedding 配置，不激活失败候选 |
+| API | `POST /api/config/activate` | 激活已验证配置并按类型写入凭据库或 runtime 配置 |
+| API | `GET /api/system/status` | 汇总迁移、Experience/Fact、Embedding、就绪状态和下一步 |
+| API | `POST /api/system/migrate` | 调用与 CLI 相同的迁移 service |
+| API | `POST /api/system/rebuild` | 全量重建 Embedding |
+| API | `POST /api/system/retry` | 重试失败 Embedding 项 |
 | API | `POST /api/resume/upload` | PDF → 文本 |
 | API | `POST /api/experience/extract` | 文本 → 结构化经历 |
 | API | `POST/GET /api/experience/` | 创建、列出经历；创建同步形成 Fact |
@@ -117,25 +141,30 @@ POST /api/resume/generate-docx
 | `resume_generation_service` | 编排迁移检查、两层选材、受约束改写、装配、渲染和保存 |
 | `template_renderer` / `docx_writer` | 完整渲染 ResumeDocument 并保存 DOCX，不选择业务内容 |
 | `layout_optimizer` | 轻量样式处理和页数诊断；不为一页纸删除内容 |
+| `core.config_resolver` | 统一解析凭据库、runtime 配置、env/.env 与内置默认，并提供脱敏来源快照 |
+| `core.credential_manager` | 通过 Windows Credential Manager 保存长期 API Key；失败显式可见，不降级为明文 |
+| `core.security` | 校验 loopback Host、Origin 和启动会话 Cookie，保护本地写操作 |
+| `core.concurrency` | 为迁移、重建、重试和生成提供共享非阻塞并发门禁 |
+| `services.connection_test` | 测试候选 LLM / Embedding 连接，不落库失败候选 |
+| `packaging.launcher` | 图形启动器：单实例、端口、健康等待、浏览器、重开与退出释放 |
 
 ## 7. 验收基线
 
-- 最终源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`；开发侧最终矩阵为 309 pass / 0 fail，验收 Agent 独立复跑 9 组矩阵并用独立探针复核首轮阻断项，最终阻断项为 0；
-- Experience / Fact / Embedding 的增删改、失效、失败、重试、重建、迁移备份和全新库入口已经覆盖正向与失败路径；
-- 工作、项目、论文、正式教育和校园补位规则已经覆盖边界、同分、缺日期与输入乱序；
-- 逐 bullet 来源映射通过 Builder、响应模型、ResumeDocument / sidecar 和最终 DOCX 链路核对，越界引用阻断；
-- Chroma、numpy + JSON 活动持久化路径和旧 Markdown 主链已经退出；Profile、JD、无个人总结、Renderer 不裁剪和 runtime 隔离无回归；
-- 用户于 2026-08-23 明确确认完成 V1.5.0 验收。详细证据见 [V1.5.0 RESULT](./versions/v1.5.0/RESULT.md)。
+- V1.5.0 的 Experience / Fact / Embedding、两层选材、受约束改写、Builder、逐 bullet 来源、Renderer、迁移和旧实现退出继续通过八组 **309/0** 回归；核心事实链路未被 V2 图形层改写。
+- V2.0.0 独立源码验收绑定 `a9c66db14a4fa2a60f2ef9b85a61538da46079f1`：生命周期矩阵 **50/0**、冒烟 **20/0**、Experience CRUD **15/0**、V1.5.0 回归 **309/0**；功能和结构变更验收均通过，阻断项 0。
+- 配置/密钥、loopback 写安全、管理 service 同源、索引门禁、Experience 原事务、生成核心链、便携启动器、版本元数据和旧入口退出均已完成阶段性全局架构复核。
+- 便携包 `ResumeAssistant.exe` 为 15,878,373 字节，SHA-256 `D3ADC37348BDDDA11DD5A0E03BC9C61938FE8E61D52B7E7491A7331F35CCEA44`；包内无 `.env`、数据库、真实用户输出或凭据。
+- 用户于 2026-08-31 明确确认 V2.0.0 人工验收通过；详细证据、返工过程和公开历史脱敏说明见 [V2.0.0 RESULT](./versions/v2.0.0/RESULT.md)。
 
 ## 8. 已知边界与后续方向
 
-以下不是 V1.5.0 缺陷：
+以下不是 V2.0.0 缺陷或降级：
 
-1. 不保证严格一页纸、像素级字号、间距和跨软件分页一致；排版体验属于 V2。
-2. 不生成个人总结或自我评价；仅在 V2/V3 有明确低履历场景时重新评估。
-3. 固定槽位、事实来源和失效边界已验收，但召回质量、相关性权重、措辞效果和招聘效果没有进入 V1.5.0 PASS 条件，属于 V2。
-4. 不包含交互式素材补充、Draft/Revision、跨修订 content_item_id、局部重生成、预览或完整管理 UI；属于 V2。
-5. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、异步 Worker、监控和生产部署；属于 V3。
-6. 不包含多模型、BYOK、Provider Gateway、Token/费用统计或 LangGraph 工作流扩展；后续按 V2/V3 计划重新评估。
+1. V2.0.0 达成“已有功能全流程图形化”的首版目标；当前页面与用户理想交互流程仍有差距，具体页面重新设计属于后续版本。
+2. 不包含实际 DOCX/PDF 预览、Draft/Revision、条目锁定、差异/回退、局部重新生成或用户手工覆盖选材结果。
+3. 不保证严格一页纸、像素级排版或跨软件分页一致，也不生成个人总结；相关性权重、措辞和招聘效果没有被宣称为已经优化。
+4. 不包含多 Provider、任意兼容 Endpoint、Token/费用统计、质量评测后台、后台任务、取消或断点恢复。
+5. Windows x64 是本版便携发行范围；Firefox、macOS/Linux 便携和完整移动端适配不属于本版 PASS 条件。
+6. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、云端同步、生产监控或公网部署；这些仍属于 V3。
 
 版本过程和开发经验由 [版本档案](./versions/README.md) 保存，不继续堆入本文。
