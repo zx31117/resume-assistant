@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+dist/
+dist-ssr/
+
+# vite / local env
+*.local
+.env
+.env.*
+
+# editor
+.vscode/
+.idea/
+*.log
+
+# ts build info
+*.tsbuildinfo
+
+# tsc emitted for vite.config.ts (composite project)
+vite.config.js
+vite.config.d.ts

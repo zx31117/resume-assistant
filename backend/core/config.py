@@ -19,7 +19,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # backend/ 根目录：不可变源码资产根（模板/config/prompts/docs 示例）
-BASE_DIR = Path(__file__).resolve().parent.parent
+# V2.0.0：PyInstaller 冻结时源码资产被打进 _MEIPASS 包内，BASE_DIR 指向解包根，
+# 保证 templates/config/prompts/frontend 等在打包后仍可定位（PLAN §3.4 T7）。
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 # .env 仍优先从 BASE_DIR（本地开发者）读取；干净 clone 用户需复制 .env.example 并自行放好
 load_dotenv(BASE_DIR / ".env")
 

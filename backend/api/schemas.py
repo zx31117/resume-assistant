@@ -61,6 +61,10 @@ class ExperienceItem(BaseModel):
 class ExperienceOut(ExperienceItem):
     id: str
     user_id: Optional[str] = None
+    # V2.0.0：Experience 级汇总状态（后端聚合 Fact/Embedding，前端只读展示，
+    # 不推导 Fact 明细）。summary_status ∈ empty|pending|ready|failed
+    fact_count: int = 0
+    summary_status: str = "pending"
 
 
 class ExtractRequest(BaseModel):
@@ -392,3 +396,50 @@ class GeneratedResumeContentV15(BaseModel):
     @classmethod
     def _coerce_experiences_v15(cls, v):
         return _coerce_to_list(v)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V2.0.0 新增：连接配置 / 系统维护契约（PLAN §4.1）
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ConnectionConfigRequest(BaseModel):
+    """连接配置候选（首次设置 / 更新）。ark_api_key 仅用于激活，读取接口永不返回。"""
+
+    ark_base_url: str
+    ark_api_key: str
+    llm_model: str
+    embedding_model: str
+
+
+class ConnectionTestItem(BaseModel):
+    ok: bool
+    detail: str = ""
+
+
+class ConnectionTestResponse(BaseModel):
+    llm: ConnectionTestItem
+    embedding: ConnectionTestItem
+    ok: bool
+
+
+class ConfigFieldMeta(BaseModel):
+    """非密钥字段的元数据（值 + 来源 + 是否已配置）。"""
+
+    value: str = ""
+    source: str = "default"
+    configured: bool = False
+
+
+class ConfigKeyMeta(BaseModel):
+    """API Key 元数据（仅脱敏末尾，永不返回完整 Key）。"""
+
+    masked: str = ""
+    source: str = "none"
+    configured: bool = False
+
+
+class ConfigSnapshotResponse(BaseModel):
+    ARK_BASE_URL: ConfigFieldMeta
+    LLM_MODEL: ConfigFieldMeta
+    EMBEDDING_MODEL: ConfigFieldMeta
+    ARK_API_KEY: ConfigKeyMeta

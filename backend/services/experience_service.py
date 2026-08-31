@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import models
@@ -127,16 +128,80 @@ def create_experience(db: Session, user_id: str, data: dict) -> models.Experienc
         db.rollback()
         raise
     db.refresh(exp)
+    _annotate_summary(db, [exp])
     return exp
 
 
 def list_experiences(db: Session, user_id: str) -> list:
-    return (
+    exps = (
         db.query(models.Experience)
         .filter(models.Experience.user_id == user_id)
         .order_by(models.Experience.created_at.desc())
         .all()
     )
+    _annotate_summary(db, exps)
+    return exps
+
+
+def _summarize_experiences(db: Session, exps: list) -> dict:
+    """批量聚合每 Experience 的 Fact 数与 Embedding 汇总状态（避免 N+1）。
+
+    summary_status：
+      empty   —— 无 Fact（异常态，正常 create/update 后不应出现）
+      failed  —— 任一 FactEmbedding 处于 FAILED
+      pending —— 存在 Fact 但向量未全部就绪（PENDING/INVALID/缺失）
+      ready   —— 存在 Fact 且全部 VALID
+    """
+    ids = [e.id for e in exps]
+    empty = {e.id: {"fact_count": 0, "summary_status": "empty"} for e in exps}
+    if not ids:
+        return empty
+
+    fact_counts = dict(
+        db.query(Fact.experience_id, func.count(Fact.fact_id))
+        .filter(Fact.experience_id.in_(ids))
+        .group_by(Fact.experience_id)
+        .all()
+    )
+
+    # 按 experience_id + status 聚合向量行数
+    emb_rows = (
+        db.query(Fact.experience_id, FactEmbedding.status, func.count(FactEmbedding.id))
+        .join(FactEmbedding, FactEmbedding.fact_id == Fact.fact_id)
+        .filter(Fact.experience_id.in_(ids))
+        .group_by(Fact.experience_id, FactEmbedding.status)
+        .all()
+    )
+
+    agg: dict[str, dict[str, int]] = {eid: {"PENDING": 0, "VALID": 0, "INVALID": 0, "FAILED": 0} for eid in ids}
+    for exp_id, status, cnt in emb_rows:
+        key = status.value if hasattr(status, "value") else str(status)
+        bucket = agg.setdefault(exp_id, {"PENDING": 0, "VALID": 0, "INVALID": 0, "FAILED": 0})
+        bucket[key] = bucket.get(key, 0) + (cnt or 0)
+
+    out = {}
+    for e in exps:
+        fc = int(fact_counts.get(e.id, 0) or 0)
+        a = agg.get(e.id, {"PENDING": 0, "VALID": 0, "INVALID": 0, "FAILED": 0})
+        if fc == 0:
+            status = "empty"
+        elif a["FAILED"] > 0:
+            status = "failed"
+        elif a["PENDING"] > 0 or a["INVALID"] > 0 or a["VALID"] == 0:
+            status = "pending"
+        else:
+            status = "ready"
+        out[e.id] = {"fact_count": fc, "summary_status": status}
+    return out
+
+
+def _annotate_summary(db: Session, exps: list) -> None:
+    """把汇总状态以动态属性写回 ORM 对象，供 ExperienceOut 序列化。"""
+    summary = _summarize_experiences(db, exps)
+    for exp in exps:
+        s = summary.get(exp.id, {"fact_count": 0, "summary_status": "empty"})
+        setattr(exp, "fact_count", s["fact_count"])
+        setattr(exp, "summary_status", s["summary_status"])
 
 
 def get_experience(db: Session, exp_id: str) -> Optional[models.Experience]:
@@ -168,6 +233,7 @@ def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.E
         db.rollback()
         raise
     db.refresh(exp)
+    _annotate_summary(db, [exp])
     return exp
 
 

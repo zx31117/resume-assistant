@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api import schemas
+from core import concurrency
 from core.config import settings
 from core.errors import DomainError
 from database.session import get_db
@@ -68,4 +69,6 @@ def generate_docx(req: schemas.ResumeDocxGenerateRequest, db: Session = Depends(
     错误统一以 DomainError 结构返回（见 schemas.DomainErrorOut）。
     """
     # NOTE: DomainError 被 main.py 的 exception_handler 统一映射为 JSON（ok=False + error_code + stage + ...）
-    return resume_generation_service.generate_docx(db, req)
+    # V2.0.0：生成与迁移/重建/重试共享全局并发门禁（拒绝并发，PLAN §3.3）
+    with concurrency.exclusive_operation("generate"):
+        return resume_generation_service.generate_docx(db, req)

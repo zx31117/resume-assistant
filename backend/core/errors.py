@@ -204,6 +204,33 @@ class MigrationRequiredError(DomainError):
     http_status = 412
 
 
+class ConcurrencyConflictError(DomainError):
+    """V2.0.0：迁移/重建/重试/生成共享并发门禁被占用（拒绝并发执行，PLAN §3.3）。"""
+
+    error_code = "OPERATION_IN_PROGRESS"
+    stage = "concurrency_gate"
+    retryable = True
+    http_status = 409
+
+
+class ConfigInvalidError(DomainError):
+    """V2.0.0：连接配置候选字段缺失/非法，或测试/激活失败。"""
+
+    error_code = "CONFIG_INVALID"
+    stage = "config"
+    retryable = False
+    http_status = 400
+
+
+class CredentialStorageError(DomainError):
+    """V2.0.0：凭据库写入/删除失败，无明文降级（PLAN §3.2）。"""
+
+    error_code = "CREDENTIAL_STORAGE_FAILED"
+    stage = "credential"
+    retryable = False
+    http_status = 500
+
+
 class RetrievalHealthError(DomainError):
     """R6: 检索健康检查失败（维度/fingerprint/revision/hash 不匹配）。
 

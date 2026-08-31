@@ -5,6 +5,11 @@
 - 业务模块通过本模块间接调用 LLM，自身不接触 LangChain。
 - 豆包（火山方舟）兼容 OpenAI API，直接用 ChatOpenAI 指向 Ark endpoint。
 
+V2.0.0（T3）：
+- 移除 import 期模块级单例 `_llm`（原先无 Key 时 import 即失败）。
+- 改为每次调用时按当前配置快照惰性构建 client，使"配置激活后对新请求生效"，
+  且错误候选不会覆盖可用配置（见 core.config_resolver）。
+
 V1.3 strict failure：
 - chat_structured(strict=True) 在所有重试均失败时抛出 LLMOutputInvalidError，
   而不是兜底空模型，杜绝"空成功"。
@@ -21,15 +26,35 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_llm = ChatOpenAI(
-    model=settings.LLM_MODEL,
-    api_key=settings.ARK_API_KEY,
-    base_url=settings.ARK_BASE_URL,
-    temperature=0.3,
-    # doubao-seed-evolving 是推理模型，复杂任务可能需要较长时间；
-    # 设 300s 超时避免无限挂起（V1 单用户场景可接受较长等待）。
-    timeout=300,
-)
+
+def build_llm(
+    api_key: str,
+    base_url: str,
+    model: str,
+    *,
+    temperature: float = 0.3,
+    timeout: float = 300,
+) -> ChatOpenAI:
+    """按显式配置构建 ChatOpenAI（供业务与连接测试复用）。"""
+    return ChatOpenAI(
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
+        temperature=temperature,
+        # doubao-seed-evolving 是推理模型，复杂任务可能需要较长时间；
+        # 设 300s 超时避免无限挂起（V1 单用户场景可接受较长等待）。
+        timeout=timeout,
+    )
+
+
+def _build_llm_from_settings(temperature: float = 0.3) -> ChatOpenAI:
+    """按当前 settings 快照构建 client（V2.0.0：惰性，配置生效于后续请求）。"""
+    return build_llm(
+        api_key=settings.ARK_API_KEY or "",
+        base_url=settings.ARK_BASE_URL,
+        model=settings.LLM_MODEL,
+        temperature=temperature,
+    )
 
 
 def chat(system: str, user_template: str, **variables) -> str:
@@ -39,7 +64,7 @@ def chat(system: str, user_template: str, **variables) -> str:
     变量通过 variables 传入，由 ChatPromptTemplate 单次渲染，避免重复格式化。
     """
     prompt = ChatPromptTemplate.from_messages([("system", system), ("user", user_template)])
-    chain = prompt | _llm
+    chain = prompt | _build_llm_from_settings()
     resp = chain.invoke(variables)
     return resp.content
 
@@ -73,7 +98,7 @@ def chat_structured(
 
     # 第一层：尝试 Structured Output
     try:
-        structured_llm = _llm.with_structured_output(schema)
+        structured_llm = _build_llm_from_settings().with_structured_output(schema)
         prompt = ChatPromptTemplate.from_messages([("system", system), ("user", user_template)])
         chain = prompt | structured_llm
         result = chain.invoke(variables)
@@ -88,7 +113,7 @@ def chat_structured(
     last_err: Exception | None = None
     for i, temp in enumerate(temps):
         try:
-            llm = _llm.bind(temperature=temp)
+            llm = _build_llm_from_settings(temperature=temp)
             prompt = ChatPromptTemplate.from_messages([("system", system), ("user", user_template)])
             chain = prompt | llm
             raw = chain.invoke(variables).content

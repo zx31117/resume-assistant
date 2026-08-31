@@ -4,6 +4,7 @@
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
 > 当前已验收版本：V1.5.0；源码验收对象为 `448d21a2c51fc47ac61fca647104c18c787d9e77`，annotated tag `v1.5.0` 指向发布候选 `8d3aac6369146052f819c414cc18f53b11a778fc`
 > 当前版本档案：[V1.5.0 PLAN](./versions/v1.5.0/PLAN.md) / [RESULT](./versions/v1.5.0/RESULT.md)；开发、验收、人工确认、文档收口与版本发布均已完成
+> 当前活动版本：[V2.0.0 PLAN](./versions/v2.0.0/PLAN.md) / [RESULT](./versions/v2.0.0/RESULT.md)；已有开发实现与自测记录，当前仍在返工并等待重新冻结候选及独立源码验收；不得把未验收能力提前写入当前实现事实
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -80,6 +81,7 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | [README.md](./README.md) | 稳定产品目标、版本边界和架构不变量 |
 | [CURRENT_STATE.md](./CURRENT_STATE.md) | 当前已经验收的实现事实和已知缺口 |
 | [DECISIONS.md](./DECISIONS.md) | 影响后续版本的重要产品与技术决策 |
+| [V2_REQUIREMENTS_POOL.md](./versions/V2_REQUIREMENTS_POOL.md) | V2 阶段尚未排入具体版本的候选需求；不是实施范围真源 |
 | `versions/<version>/PLAN.md` | 该版本准备改变什么 |
 | `versions/<version>/RESULT.md` | 该版本实际完成什么、偏差、证据和验收结论 |
 
@@ -91,6 +93,7 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 2. 正式版本目录长期只保留 `PLAN.md` 与 `RESULT.md`；尚未立项的版本目录只保留 `DRAFT.md`。
 3. 审计、迁移、验证、交付、评审和 manifest 等分项文件属于阶段产物：独有结论必须合并进同版本 `RESULT.md`，机读运行产物写入临时目录或 runtime data root，不在版本档案中形成第三个真源。
 4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由验收 Agent 复核。文档 Agent 不直接以改源码代替任务交接。
+5. 大版本需求池只保存尚未排期的候选想法，不使用完成状态，也不构成开发指令；具体版本只从中选择必要范围写入本版本 DRAFT / PLAN，版本范围冲突时以本版本 DRAFT / PLAN 为准。
 
 ## 7. RESULT 最低交付契约
 
@@ -102,6 +105,8 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 4. **两类验收结论**：分别记录“功能验收”和“结构变更验收”；后者没有适用变化时写“不适用”。
 
 替换、废弃、统一、迁移或事实来源变更必须同时证明：新状态生效、旧状态退出、其他链路无回归。动态测试不能单独证明死代码或旧实现已经消失。测试、迁移、发布、临时目录或资源清理工具即使不改变产品功能，也必须按完整生命周期验收；业务断言通过、打印 warning 或正常路径无残留，都不能替代失败路径和清理失败的可执行断言。首次打回后，文档 Agent 必须把已见症状上升为对应问题类别的完整返工契约，避免只修当前样例。RESULT 不粘贴源码或长日志；未经验证的内容不能写入 `CURRENT_STATE.md`，PLAN 要求的高风险或阶段性源码验收必须单独标明结论和对应 commit。详细操作规则见 [HUMAN_AI_WORKFLOW.md](./HUMAN_AI_WORKFLOW.md)。
+
+PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复的开发 Agent 不得兼任验收 Agent。更换工作树、会话、模型或职责名称都不能建立独立性；开发侧复核只能记为开发验证，T9 等独立验收任务仍须标记“待独立验收”。验收 Agent 若直接修改源码，该补丁转为新的开发候选，必须由未参与该补丁实现的另一验收 Agent 复验。没有独立验收者时版本保持“待验收”，用户的产品体验反馈也不能替代 PLAN 规定的源码验收，相关能力不得进入 `CURRENT_STATE.md` 或发布。
 
 ## 8. 文档同步规则
 
@@ -143,5 +148,6 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | V1.4.1 | 版本元数据与身份事实边界补丁 | [PLAN](./versions/v1.4.1/PLAN.md) | [RESULT](./versions/v1.4.1/RESULT.md) | 已验收；N4、源码与发布档案复核通过 |
 | V1.4.2 | 发布基线与开发档案收口 | [PLAN](./versions/v1.4.2/PLAN.md) | [RESULT](./versions/v1.4.2/RESULT.md) | 已验收；第三轮 T9 9/9 通过，正常增量发布 |
 | V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
+| V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 开发返工中；待重新冻结候选与独立源码验收 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

@@ -15,6 +15,7 @@ build/
 .tox/
 *.manifest
 *.spec
+!packaging/resume_assistant.spec
 
 # ===== Virtual Envs =====
 .venv/

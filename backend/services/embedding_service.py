@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 _VECTOR_DTYPE = "float32"
 _NP_DTYPE = np.float32
 
+# 单条 Embedding 网络超时（秒）：正常毫秒级返回；设短一点，避免 rebuild
+# 逐条串行时因某条网络不通而长时间占用全局并发锁（V2.0.0 修复）。
+_EMBED_TIMEOUT = 30
+
 
 # ── fingerprint ──────────────────────────────────────────────── #
 
@@ -56,18 +60,23 @@ def compute_fingerprint() -> str:
 
 # ── Embedding 计算（豆包 multimodal API，无 fallback） ────────── #
 
-def _embed_text(text: str) -> list[float]:
-    """调用豆包多模态向量化 API，返回向量列表。
+def embed_text_with_config(
+    text: str,
+    *,
+    api_key: str,
+    base_url: str,
+    model: str,
+) -> list[float]:
+    """用显式配置调用豆包多模态向量化 API（供连接测试与生产共用）。
 
-    无 ARK_API_KEY 时抛 RuntimeError（不静默 fallback，PLAN §6.3.5）。
-    V1.5.0：沿用原 rag_service._embed 的豆包 endpoint（rag_service 已删除）。
+    无 api_key 时抛 RuntimeError（不静默 fallback，PLAN §6.3.5）。
     """
-    if not settings.ARK_API_KEY:
+    if not api_key:
         raise RuntimeError("ARK_API_KEY 未配置，无法计算 Embedding（无隐藏 fallback）")
 
-    url = f"{settings.ARK_BASE_URL}/embeddings/multimodal"
+    url = f"{base_url}/embeddings/multimodal"
     payload = json.dumps({
-        "model": settings.EMBEDDING_MODEL,
+        "model": model,
         "encoding_format": "float",
         "input": [{"type": "text", "text": text}],
     }).encode("utf-8")
@@ -77,18 +86,30 @@ def _embed_text(text: str) -> list[float]:
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.ARK_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
         },
         method="POST",
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
+        with urllib.request.urlopen(req, timeout=_EMBED_TIMEOUT) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             return body["data"]["embedding"]
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8")[:500]
         raise RuntimeError(f"Embedding API HTTP {e.code}: {detail}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Embedding API 连接失败或超时：{e.reason}") from e
+
+
+def _embed_text(text: str) -> list[float]:
+    """按当前 settings 快照计算向量（V2.0.0：惰性读取生效配置）。"""
+    return embed_text_with_config(
+        text,
+        api_key=settings.ARK_API_KEY or "",
+        base_url=settings.ARK_BASE_URL,
+        model=settings.EMBEDDING_MODEL,
+    )
 
 
 def _resolve_embedder(embedder: Optional[Callable[[str], list[float]]]) -> Callable[[str], list[float]]:
