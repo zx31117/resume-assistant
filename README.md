@@ -2,7 +2,7 @@
 
 一个本地运行的 AI 简历生成应用：保存用户的完整职业经历，再根据目标岗位 JD 检索相关事实、生成针对性表达，并输出 DOCX 简历。
 
-当前版本为 **V2.0.0**。本版本在 V1.5.0 可追溯事实链路之上提供本地全流程图形交互：生成工作台、履历库、本地系统、连接配置和 Windows 便携启动器。
+当前版本为 **V2.0.1**。本版本在 V1.5.0 可追溯事实链路和 V2.0.0 全流程图形交互之上，增加生成、提取、履历维护、数据库迁移和索引维护的实时阶段、耗时、资源类型与脱敏诊断能力。
 
 ## 项目能做什么
 
@@ -35,12 +35,13 @@ PDF 简历 → 文本解析 → 经历提取 → SQLite Experience / Fact 事实
 - 连接测试、激活和脱敏状态显示，Windows 长期 Key 存入 Credential Manager；
 - 状态、迁移、Embedding 重建和失败重试的图形维护入口；
 - Windows x64 目录型便携启动器，支持单实例、端口选择、重开和退出释放。
+- 运行活动、分阶段耗时、近期同类耗时对比、脱敏后台日志和诊断摘要；刷新后可从“本地系统”复盘同一后台操作。
 
 ## 快速开始
 
 ### Windows 便携版（推荐）
 
-V2.0.0 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
+V2.0.1 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
 
 1. 双击 `ResumeAssistant.exe`；
 2. 浏览器自动打开本地界面；
@@ -158,6 +159,11 @@ python manage.py retry
 | `POST` | `/api/system/migrate` | 初始化或迁移数据库 |
 | `POST` | `/api/system/rebuild` | 全量重建 Embedding |
 | `POST` | `/api/system/retry` | 重试失败 Embedding 项 |
+| `GET` | `/api/system/operations` | 查询活动与最近操作 |
+| `GET` | `/api/system/operations/{operation_id}` | 查询单次操作及阶段时间线 |
+| `GET` | `/api/system/logs` | 增量读取脱敏结构化日志 |
+| `GET` | `/api/system/diagnostics/{operation_id}` | 获取单次操作的脱敏诊断摘要 |
+| `DELETE` | `/api/system/logs` | 清理历史诊断日志 |
 | `POST` | `/api/resume/upload` | 上传并解析 PDF |
 | `POST` | `/api/experience/extract` | 从文本提取结构化经历 |
 | `POST/GET` | `/api/experience/` | 创建或查询经历 |
@@ -208,7 +214,8 @@ resume-assistant/
 
 ## 当前边界
 
-- V2.0.0 已提供生成工作台、履历库和本地系统三页图形界面；当前交互流程仍会在后续版本继续重新设计；
+- V2.0.1 已提供生成工作台、履历库和本地系统三页图形界面及本地操作诊断；当前交互流程仍会在后续版本继续重新设计；
+- 诊断数据仅用于本地问题定位，按容量和保留期轮转，不是业务事实源、生产 APM 或云端遥测；
 - 面向单用户本地使用，尚未包含登录、多用户和服务器部署；
 - Windows x64 是当前便携发行范围；macOS/Linux 便携、Firefox 发布验收和完整移动端适配尚未覆盖；
 - 不包含 DOCX/PDF 预览、Draft/Revision、差异回退、局部重新生成或手工覆盖选材结果；

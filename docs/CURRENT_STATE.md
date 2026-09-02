@@ -1,10 +1,10 @@
 # 当前实现状态
 
 > 文档角色：当前已验收实现事实的唯一真源
-> 已验收版本：V2.0.0
-> 源码验收对象：`a9c66db14a4fa2a60f2ef9b85a61538da46079f1`
-> 发布标识：annotated tag `v2.0.0`；最终发布 commit 不自回填 SHA，以 tag 解析结果为准
-> 状态日期：2026-08-31
+> 已验收版本：V2.0.1
+> 源码验收对象：`9319782d5f1a8d5f543e6795f2f024143fa9dbc7`
+> 发布标识：annotated tag `v2.0.1`；最终发布 commit 不自回填 SHA，以 tag 解析结果为准
+> 状态日期：2026-09-02
 
 ## 1. 当前结论
 
@@ -12,7 +12,9 @@ V1 核心架构已经收口。系统可以从职业经历建立可回查的 Expe
 
 V2.0.0 在该核心链路之上完成本地全流程图形交互首版：React + TypeScript + Vite 三页前端（生成工作台、履历库、本地系统）、同源托管、连接配置与 Credential Manager、系统维护薄 API、并发门禁和 Windows 目录型便携启动器。核心生成链路、两层选材、Fact 生命周期和向量持久化继续直接复用 V1.5.0 实现，前端没有建立第二业务真源。
 
-V2.0.0 已完成开发验证、独立源码验收、用户人工验收和文档验收。用户于 2026-08-31 明确确认通过；源码验收绑定上方公开用候选，发布身份绑定 annotated tag。版本范围、返工、测试、偏差和隐私处理证据见 [V2.0.0 RESULT](./versions/v2.0.0/RESULT.md)。
+V2.0.1 为生成、提取、Experience CRUD、迁移、Embedding 重建和失败重试增加统一操作记录：页面可以查看当前阶段、资源类型、已用时间、最终各阶段耗时、近期同类统计和脱敏诊断摘要；运行活动与日志读取不获取业务共享门禁。诊断 JSONL 位于 runtime data root，只承载有界、脱敏的问题定位证据，不成为第二业务真源。
+
+V2.0.1 已完成开发验证、独立源码验收、用户人工验收和文档验收。用户于 2026-09-02 明确确认通过；源码验收绑定上方候选，发布身份绑定 annotated tag。版本范围、测试、证据边界和人工真实生成记录见 [V2.0.1 RESULT](./versions/v2.0.1/RESULT.md)。
 
 ## 2. 已实现核心流程
 
@@ -49,6 +51,8 @@ POST /api/resume/generate-docx
 
 三个页面只提交请求和展示状态；配置、维护、Experience 事务与 JD → DOCX 仍由后端既有服务完成。数据库或索引未就绪时页面可进入受限维护模式，生成保持阻断。
 
+长操作通过统一 `operation_id` 关联后台状态、阶段事件和脱敏日志。浏览器刷新后可在“本地系统”的运行活动中重新选择仍由当前后台进程保存的操作；已知 `operation_id` 的诊断摘要可以从 JSONL 重建。近期阶段统计按操作类型和阶段代码比较既往样本，并排除当前操作自身。
+
 ## 3. 已验收事实与选择边界
 
 | 数据或阶段 | 当前规则 |
@@ -75,6 +79,7 @@ POST /api/resume/generate-docx
 | 配置管理 | 单一 resolver；API Key：Windows Credential Manager > env/.env；非密钥：runtime 版本化配置 > env/.env > 内置默认 |
 | 前端 | React + TypeScript + Vite；生产构建由 FastAPI 同源托管并提供 SPA fallback |
 | 便携发行 | Windows x64 PyInstaller `onedir`；图形启动器负责启动、重开、单实例、端口选择和退出释放 |
+| 操作诊断 | `core.operations` 是统一操作状态与阶段计时机制；脱敏 JSONL 位于 `<runtime data root>/diagnostics`，最多保留 7 天且受 10 MiB 上限约束 |
 | 事实表 | `users`、`experiences`、`facts` |
 | 迁移表 | `schema_versions` |
 | 向量派生表 | `fact_embeddings`；保存 fingerprint、dimension、dtype、float32 BLOB、Fact revision/hash、状态与错误 |
@@ -109,6 +114,11 @@ POST /api/resume/generate-docx
 | API | `POST /api/system/migrate` | 调用与 CLI 相同的迁移 service |
 | API | `POST /api/system/rebuild` | 全量重建 Embedding |
 | API | `POST /api/system/retry` | 重试失败 Embedding 项 |
+| API | `GET /api/system/operations` | 查询活动与最近操作，可按固定状态和类型筛选 |
+| API | `GET /api/system/operations/{operation_id}` | 查询单次操作状态、阶段事件和近期同类统计 |
+| API | `GET /api/system/logs` | 按事件序号增量读取脱敏结构化日志 |
+| API | `GET /api/system/diagnostics/{operation_id}` | 获取或从 JSONL 重建脱敏诊断摘要 |
+| API | `DELETE /api/system/logs` | 清理历史诊断日志；不改变业务记录或活动操作 |
 | API | `POST /api/resume/upload` | PDF → 文本 |
 | API | `POST /api/experience/extract` | 文本 → 结构化经历 |
 | API | `POST/GET /api/experience/` | 创建、列出经历；创建同步形成 Fact |
@@ -145,6 +155,7 @@ POST /api/resume/generate-docx
 | `core.credential_manager` | 通过 Windows Credential Manager 保存长期 API Key；失败显式可见，不降级为明文 |
 | `core.security` | 校验 loopback Host、Origin 和启动会话 Cookie，保护本地写操作 |
 | `core.concurrency` | 为迁移、重建、重试和生成提供共享非阻塞并发门禁 |
+| `core.operations` | 统一记录生成、提取、Experience CRUD、迁移、重建与重试的操作状态、阶段、单调耗时、近期统计和脱敏 JSONL；诊断故障降级但不改写业务结果 |
 | `services.connection_test` | 测试候选 LLM / Embedding 连接，不落库失败候选 |
 | `packaging.launcher` | 图形启动器：单实例、端口、健康等待、浏览器、重开与退出释放 |
 
@@ -155,10 +166,12 @@ POST /api/resume/generate-docx
 - 配置/密钥、loopback 写安全、管理 service 同源、索引门禁、Experience 原事务、生成核心链、便携启动器、版本元数据和旧入口退出均已完成阶段性全局架构复核。
 - 便携包 `ResumeAssistant.exe` 为 15,878,373 字节，SHA-256 `D3ADC37348BDDDA11DD5A0E03BC9C61938FE8E61D52B7E7491A7331F35CCEA44`；包内无 `.env`、数据库、真实用户输出或凭据。
 - 用户于 2026-08-31 明确确认 V2.0.0 人工验收通过；详细证据、返工过程和公开历史脱敏说明见 [V2.0.0 RESULT](./versions/v2.0.0/RESULT.md)。
+- V2.0.1 独立源码验收绑定 `9319782d5f1a8d5f543e6795f2f024143fa9dbc7`：开发验证 `_v201_validation.py` **77/0**，独立定向探针 **20/0**，V1.5/V2.0 核心回归继续通过；功能和结构变更验收均通过，阻断项 0。
+- 用户于 2026-09-02 以真实生成完成人工验收：11 个阶段均出现开始与完成，可见阶段耗时合计约 178.3 秒，其中两段 LLM 约占 99.7%；用户明确确认当前界面足以支持问题定位。详细证据边界见 [V2.0.1 RESULT](./versions/v2.0.1/RESULT.md)。
 
 ## 8. 已知边界与后续方向
 
-以下不是 V2.0.0 缺陷或降级：
+以下不是当前版本缺陷或降级：
 
 1. V2.0.0 达成“已有功能全流程图形化”的首版目标；当前页面与用户理想交互流程仍有差距，具体页面重新设计属于后续版本。
 2. 不包含实际 DOCX/PDF 预览、Draft/Revision、条目锁定、差异/回退、局部重新生成或用户手工覆盖选材结果。
@@ -166,5 +179,7 @@ POST /api/resume/generate-docx
 4. 不包含多 Provider、任意兼容 Endpoint、Token/费用统计、质量评测后台、后台任务、取消或断点恢复。
 5. Windows x64 是本版便携发行范围；Firefox、macOS/Linux 便携和完整移动端适配不属于本版 PASS 条件。
 6. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、云端同步、生产监控或公网部署；这些仍属于 V3。
+7. V2.0.1 用于暴露耗时与故障位置，不优化外部 LLM/Embedding 响应时间；人工实测的主要等待来自两次 LLM 调用。
+8. 当前诊断界面将在 V2.1.0 整体界面重设计时重新评估展示方式，但整个 V2 阶段的问题定位能力不得无替代地删除。
 
 版本过程和开发经验由 [版本档案](./versions/README.md) 保存，不继续堆入本文。
