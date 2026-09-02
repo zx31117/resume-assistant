@@ -3,12 +3,17 @@ import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-import { Field, TextInput } from '../components/ui/Field'
+import { Field, Select, TextInput } from '../components/ui/Field'
+import OperationTimeline from '../components/OperationTimeline'
 import { configApi, systemApi } from '../api/endpoints'
 import { ApiError } from '../api/client'
+import { useOperation, statusLabel, statusTone, fmtMs, fmtTime } from '../hooks/useOperation'
 import type {
   ConfigSnapshot,
   ConnectionTestResponse,
+  DiagnosticsSummary,
+  LogEvent,
+  OperationProjection,
   SystemStatus,
 } from '../api/types'
 
@@ -19,6 +24,39 @@ const OP_LABEL: Record<string, string> = {
   rebuild: '重建索引',
   retry: '重试失败项',
   generate: '生成简历',
+}
+
+// V2.0.1：operation_type / resource_type / 日志级别 → 中文稳定映射（PLAN §7.1）
+const OP_TYPE_LABEL: Record<string, string> = {
+  generate: '生成简历',
+  extract: '提取经历',
+  experience_create: '新增经历',
+  experience_update: '更新经历',
+  experience_delete: '删除经历',
+  migrate: '迁移',
+  rebuild: '重建索引',
+  retry: '重试失败项',
+}
+
+const RESOURCE_LABEL: Record<string, string> = {
+  LOCAL_DB: '本地数据库',
+  LOCAL_FILE: '本地文件',
+  LOCAL_CPU: '本地计算',
+  LLM: 'LLM',
+  EMBEDDING: 'Embedding',
+}
+
+function levelTone(level: string): 'neutral' | 'ok' | 'warn' | 'danger' {
+  switch (level) {
+    case 'ERROR':
+      return 'danger'
+    case 'WARNING':
+      return 'warn'
+    case 'INFO':
+      return 'neutral'
+    default:
+      return 'neutral'
+  }
 }
 
 interface Notice {
@@ -51,6 +89,92 @@ export default function SystemPage() {
   const [confirmOp, setConfirmOp] = useState<MaintenanceOp | null>(null)
   const [opNotice, setOpNotice] = useState<Notice | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // ── V2.0.1 运行活动 / 后台日志 / 诊断摘要 ──
+  const [operations, setOperations] = useState<OperationProjection[]>([])
+  const [opStatusFilter, setOpStatusFilter] = useState('')
+  const [opTypeFilter, setOpTypeFilter] = useState('')
+  const [selectedOpId, setSelectedOpId] = useState<string | null>(null)
+  const [logs, setLogs] = useState<LogEvent[]>([])
+  const [afterSeq, setAfterSeq] = useState(0)
+  const [logNotice, setLogNotice] = useState<string | null>(null)
+  const [clearConfirm, setClearConfirm] = useState(false)
+  const [diag, setDiag] = useState<DiagnosticsSummary | null>(null)
+
+  // 选中操作的实时详情（轮询直到终态，PLAN §3.4）
+  const selectedOperation = useOperation(selectedOpId, selectedOpId !== null)
+
+  const loadOperations = useCallback(async () => {
+    try {
+      const params: { limit: number; status?: string; operation_type?: string } = { limit: 20 }
+      if (opStatusFilter) params.status = opStatusFilter
+      if (opTypeFilter) params.operation_type = opTypeFilter
+      const res = await systemApi.listOperations(params)
+      setOperations(res.operations)
+    } catch {
+      // 诊断读取失败不影响主状态区；保持上一份快照
+    }
+  }, [opStatusFilter, opTypeFilter])
+
+  const loadLogs = useCallback(async (incremental = true) => {
+    try {
+      const res = await systemApi.readLogs(incremental ? afterSeq : 0, 200)
+      setLogs((prev) => (incremental ? [...prev, ...res.events] : res.events).slice(-500))
+      let maxSeq = afterSeq
+      for (const ev of res.events) if (ev.seq > maxSeq) maxSeq = ev.seq
+      setAfterSeq(maxSeq)
+    } catch {
+      setLogNotice('后台日志读取失败（诊断设施可能已降级）。')
+    }
+  }, [afterSeq])
+
+  // 运行活动与日志短轮询（本地诊断，成本低）
+  useEffect(() => {
+    loadOperations()
+    const t = setInterval(loadOperations, 2000)
+    return () => clearInterval(t)
+  }, [loadOperations])
+
+  useEffect(() => {
+    loadLogs(true)
+    const t = setInterval(() => loadLogs(true), 2000)
+    return () => clearInterval(t)
+  }, [loadLogs])
+
+  async function viewOperation(id: string) {
+    setSelectedOpId(id)
+    setDiag(null)
+    try {
+      const d = await systemApi.diagnostics(id)
+      setDiag(d.diagnostics)
+    } catch {
+      setDiag(null)
+    }
+  }
+
+  async function copyDiagnostics() {
+    if (!selectedOpId) return
+    try {
+      const d = diag ?? (await systemApi.diagnostics(selectedOpId)).diagnostics
+      setDiag(d)
+      await navigator.clipboard.writeText(JSON.stringify(d, null, 2))
+      setLogNotice('已复制脱敏诊断摘要。')
+    } catch {
+      setLogNotice('复制失败（浏览器未授权剪贴板或摘要不可用）。')
+    }
+  }
+
+  async function doClearLogs() {
+    setClearConfirm(false)
+    try {
+      await systemApi.clearLogs()
+      setLogs([])
+      setAfterSeq(0)
+      setLogNotice('历史日志已清理。')
+    } catch (e) {
+      setLogNotice(`清理失败：${e instanceof ApiError ? e.message : String(e)}`)
+    }
+  }
 
   const loadAll = useCallback(async () => {
     try {
@@ -334,6 +458,143 @@ export default function SystemPage() {
           </div>
         ) : (
           <p className="muted">无法读取状态。</p>
+        )}
+      </Card>
+
+      {/* ── V2.0.1 运行活动 ── */}
+      <Card
+        title="运行活动"
+        subtitle="活动与最近操作：当前阶段、资源类型、总耗时、结果与诊断码，支持按类型/结果筛选并查看详情。"
+        actions={
+          <Button variant="secondary" size="sm" onClick={loadOperations}>
+            刷新
+          </Button>
+        }
+      >
+        <div className="toolbar">
+          <Select value={opStatusFilter} onChange={(e) => setOpStatusFilter(e.target.value)} style={{ width: 'auto' }}>
+            <option value="">全部状态</option>
+            <option value="RUNNING">执行中</option>
+            <option value="SUCCEEDED">成功</option>
+            <option value="FAILED">失败</option>
+            <option value="TIMED_OUT">超时</option>
+            <option value="INTERRUPTED">已中断</option>
+          </Select>
+          <Select value={opTypeFilter} onChange={(e) => setOpTypeFilter(e.target.value)} style={{ width: 'auto' }}>
+            <option value="">全部类型</option>
+            {Object.entries(OP_TYPE_LABEL).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {operations.length === 0 ? (
+          <p className="muted">暂无操作记录。</p>
+        ) : (
+          <ul className="ops-list">
+            {operations.map((op) => (
+              <li className="ops-item" key={op.operation_id}>
+                <span className="ops-item__time">{fmtTime(op.started_at)}</span>
+                <Badge tone={statusTone(op.status)}>{statusLabel(op.status)}</Badge>
+                <span className="ops-item__stage">{OP_TYPE_LABEL[op.operation_type] ?? op.operation_type}</span>
+                {op.stage_name && <span className="tag">{op.stage_name}</span>}
+                <span className="tag">{RESOURCE_LABEL[op.resource_type] ?? op.resource_type}</span>
+                <span className="muted">{fmtMs(op.elapsed_ms)}</span>
+                {op.diagnostic_code && <span className="op-id">{op.diagnostic_code}</span>}
+                <span className="ops-item__spacer" />
+                <Button size="sm" variant="ghost" onClick={() => viewOperation(op.operation_id)}>
+                  详情
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* ── V2.0.1 阶段时间线 + 诊断摘要 ── */}
+      {selectedOpId && (
+        <Card
+          title="阶段时间线与诊断摘要"
+          subtitle="选定操作的分阶段耗时、尝试次数与近期同类对比；诊断摘要是脱敏后的可复制证据。"
+          actions={
+            <div className="hstack" style={{ marginTop: 0 }}>
+              <Button variant="secondary" size="sm" onClick={copyDiagnostics}>
+                复制摘要
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedOpId(null); setDiag(null) }}>
+                关闭
+              </Button>
+            </div>
+          }
+        >
+          <div className="stack">
+            {selectedOperation ? (
+              <>
+                <div className="hstack" style={{ marginTop: 0 }}>
+                  <Badge tone={statusTone(selectedOperation.status)}>{statusLabel(selectedOperation.status)}</Badge>
+                  <span>{OP_TYPE_LABEL[selectedOperation.operation_type] ?? selectedOperation.operation_type}</span>
+                  <span className="op-id">#{selectedOperation.operation_id.slice(0, 8)}</span>
+                  <span className="muted">已用时 {fmtMs(selectedOperation.elapsed_ms)}</span>
+                </div>
+                <OperationTimeline operation={selectedOperation} />
+              </>
+            ) : (
+              <p className="muted">读取中…</p>
+            )}
+            {diag && <div className="diag">{JSON.stringify(diag, null, 2)}</div>}
+          </div>
+        </Card>
+      )}
+
+      {/* ── V2.0.1 后台日志 ── */}
+      <Card
+        title="后台日志"
+        subtitle="按事件序号增量读取的脱敏结构化日志；不含凭据、正文、PII 或本机绝对路径。"
+        actions={
+          <div className="hstack" style={{ marginTop: 0 }}>
+            <Button variant="secondary" size="sm" onClick={() => loadLogs(false)}>
+              刷新全部
+            </Button>
+            {clearConfirm ? (
+              <>
+                <Button variant="danger" size="sm" onClick={doClearLogs}>
+                  确认清理
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setClearConfirm(false)}>
+                  取消
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setClearConfirm(true)}>
+                清理日志
+              </Button>
+            )}
+          </div>
+        }
+      >
+        {logNotice && <div className="notice notice--warn">{logNotice}</div>}
+        {logs.length === 0 ? (
+          <p className="muted">暂无日志事件。</p>
+        ) : (
+          <ul className="log-list">
+            {logs.slice(-200).map((ev, i) => (
+              <li className="log-row" key={`${ev.seq}-${i}`}>
+                <span className="log-row__time">{fmtTime(ev.ts)}</span>
+                <span className="log-row__meta">
+                  <Badge tone={levelTone(ev.level)}>{ev.level}</Badge>
+                </span>
+                <span className="log-row__message">
+                  {ev.component && `[${ev.component}] `}
+                  {ev.event_code && `${ev.event_code} `}
+                  {ev.operation_id && `#${ev.operation_id.slice(0, 8)} `}
+                  {ev.stage_code && `${ev.stage_code} `}
+                  {ev.message}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
     </div>

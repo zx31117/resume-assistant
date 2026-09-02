@@ -59,6 +59,8 @@ DATABASE_DIR = RESUME_DATA_DIR / "database"
 DOCX_OUTPUT_DIR_DEFAULT = RESUME_DATA_DIR / "output"
 LOGS_DIR = RESUME_DATA_DIR / "logs"
 CACHE_DIR = RESUME_DATA_DIR / "cache"
+# V2.0.1：诊断结构化 JSONL 日志目录（OperationRecord / 阶段事件 / 脱敏日志）
+DIAGNOSTICS_DIR = RESUME_DATA_DIR / "diagnostics"
 
 
 def _setting_resolve(user_value: str | None, runtime_default: Path, *, as_dir: bool = False) -> str:
@@ -92,6 +94,8 @@ class Settings:
     BASE_DIR: Path = BASE_DIR
     # V1.4：统一运行数据根（对外暴露便于诊断与下载接口基于它重算前缀）
     RESUME_DATA_DIR: Path = RESUME_DATA_DIR
+    # V2.0.1：诊断 JSONL 日志目录（结构化、脱敏、轮转）
+    DIAGNOSTICS_DIR: Path = DIAGNOSTICS_DIR
 
     # 存储：未显式配置时默认走 runtime root 下子目录
     # V1.5.0：CHROMA_PATH 已移除（向量持久化统一走 SQLite BLOB 派生表）

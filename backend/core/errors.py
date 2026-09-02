@@ -247,3 +247,41 @@ class RetrievalHealthError(DomainError):
     def __init__(self, message: str, *, issues: Optional[list[str]] = None):
         super().__init__(message, details={"issues": issues or []})
         self.issues = issues or []
+
+
+# ── V2.0.1 诊断 API ───────────────────────────────────────────── #
+
+
+class DiagnosticsError(DomainError):
+    """二值诊断读取/清理接口的非业务错误基类（PLAN §7.2）。"""
+
+    stage = "diagnostics"
+    retryable = False
+
+
+class DiagnosticsInvalidParamError(DiagnosticsError):
+    """诊断接口参数非法（非法 UUID / 非法枚举筛选）。"""
+
+    error_code = "DIAGNOSTICS_INVALID_PARAM"
+    http_status = 400
+
+
+class OperationNotFoundError(DiagnosticsError):
+    """按 operation_id 未在内存或 JSONL 中找到对应操作（含已被轮转清理）。"""
+
+    error_code = "OPERATION_NOT_FOUND"
+    http_status = 404
+
+
+class DiagnosticsUnavailableError(DiagnosticsError):
+    """诊断摘要不可用（诊断设施降级或日志已轮转，无法从文件重建）。"""
+
+    error_code = "DIAGNOSTICS_UNAVAILABLE"
+    http_status = 404
+
+
+class LogsClearError(DiagnosticsError):
+    """历史日志清理失败（受保护写操作，非任意文件操作）。"""
+
+    error_code = "LOGS_CLEAR_FAILED"
+    http_status = 500

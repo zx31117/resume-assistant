@@ -328,6 +328,9 @@ class ResumeDocxGenerateResponse(BaseModel):
     file_name: str
     download_url: str
 
+    # V2.0.1：本次操作的统一编号（前端据此轮询 / 复盘，PLAN §3.5）
+    operation_id: str = ""
+
     # 诊断信息
     stages: List[StageStatus] = []
     matched_experience_ids: List[str] = []

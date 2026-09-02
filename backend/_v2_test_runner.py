@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import traceback
@@ -90,8 +91,18 @@ def _remove_tmp(state: _RuntimeState) -> bool:
     ok = True
     if state.tmp is None:
         return True
+
+    def _on_error(func, path, exc_info):
+        # Windows：只读文件（如迁移备份 .db.bak 被 os.chmod 0o444）无法直接 unlink，
+        # 先清除只读位后重试一次；仍失败则原样抛出，保持显式失败可见（fail-closed）。
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except Exception:
+            raise
+
     try:
-        shutil.rmtree(state.tmp, ignore_errors=False)
+        shutil.rmtree(state.tmp, onerror=_on_error)
     except FileNotFoundError:
         pass  # 已不存在 => 幂等
     except Exception:

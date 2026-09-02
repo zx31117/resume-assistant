@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import settings
 from core.errors import MigrationError
+from core.operations import Recording, ResourceType, optional_stage
 from database.models import Base, Experience, Fact, FactType, SchemaVersion
 
 logger = logging.getLogger(__name__)
@@ -302,12 +303,16 @@ def run_migrations(
     *,
     backup: bool = True,
     vectorstore_dir: Optional[str] = None,
+    recording: Optional[Recording] = None,
 ) -> dict:
     """运行顺序迁移（PLAN §6.3）。
 
     - backup=True 时先复制源数据库与旧索引为只读备份
     - 按 SchemaVersion 记录顺序应用未执行的迁移；中途失败不写入 version，可安全重试
     - 成功/异常路径均释放 engine 与文件句柄
+
+    V2.0.1（T3）：真实阶段（前置检查 / 备份 / 应用迁移 / 后置核验 / 资源释放）进入
+    统一 operation 记录（PLAN §5.3）；recording 为 None 时打点退化 no-op，行为不变。
 
     返回 summary：{backup, applied, skipped, details, verify}
     """
@@ -328,73 +333,100 @@ def run_migrations(
     session: Optional[Session] = None
     _cleanup_errors: list[str] = []
     try:
-        src_p = Path(sqlite_path)
-        if src_p.exists() and src_p.is_dir():
-            # W3: 既有路径是目录而非 SQLite 文件，不得误判为新库或继续迁移
-            summary["error"] = f"migration source is a directory, not a SQLite file: {sqlite_path}"
-            raise MigrationError(summary["error"], stage="migration")
+        # 1) 前置检查（PLAN §5.3）
+        with optional_stage(recording, "pre_check", "前置检查", ResourceType.LOCAL_DB):
+            src_p = Path(sqlite_path)
+            if src_p.exists() and src_p.is_dir():
+                # W3: 既有路径是目录而非 SQLite 文件，不得误判为新库或继续迁移
+                summary["error"] = f"migration source is a directory, not a SQLite file: {sqlite_path}"
+                raise MigrationError(summary["error"], stage="migration")
+            is_fresh = not src_p.exists()
 
-        is_fresh = not src_p.exists()
-        if backup:
-            if is_fresh:
-                # W3: 全新空库——文件尚不存在，无需备份；仅建库并应用迁移
-                summary["backup"] = {
-                    "timestamp": None, "sqlite": None, "vectorstore": None,
-                    "errors": [], "manifest": None,
-                    "note": "fresh empty database; backup skipped",
-                }
-            else:
-                summary["backup"] = _backup_sources(sqlite_path)
-                # R3: fail closed — backup errors mean we must not continue
-                if summary["backup"].get("errors"):
-                    summary["error"] = "backup failed: " + "; ".join(summary["backup"]["errors"])
-                    raise MigrationError(summary["error"], stage="migration")
-
-        engine = create_engine(
-            f"sqlite:///{sqlite_path}",
-            connect_args={"check_same_thread": False},
-        )
-        Base.metadata.create_all(bind=engine)  # 确保 schema_versions 表存在
-        SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-        session = SessionLocal()
-
-        for version, description, kind in _MIGRATIONS:
-            if _is_applied(session, version):
-                summary["skipped"].append(version)
-                logger.info("migration skipped (already applied): %s", version)
-                continue
-            try:
-                if kind == "engine":
-                    result = _migrate_fact_schema(engine)
+        # 2) SQLite/旧派生数据备份（PLAN §5.3）
+        with optional_stage(recording, "backup", "SQLite/旧派生数据备份", ResourceType.LOCAL_FILE):
+            if backup:
+                if is_fresh:
+                    # W3: 全新空库——文件尚不存在，无需备份；仅建库并应用迁移
+                    summary["backup"] = {
+                        "timestamp": None, "sqlite": None, "vectorstore": None,
+                        "errors": [], "manifest": None,
+                        "note": "fresh empty database; backup skipped",
+                    }
                 else:
-                    result = _migrate_facts_from_experiences(session)
-                _record_version(session, version, description)
-                summary["applied"].append(version)
-                summary["details"][version] = result
-                logger.info("migration applied: %s (%s)", version, description)
-            except Exception as e:
-                session.rollback()
-                summary["error"] = f"{version}: {e!r}"
-                logger.exception("migration FAILED at %s", version)
-                raise
+                    summary["backup"] = _backup_sources(sqlite_path)
+                    # R3: fail closed — backup errors mean we must not continue
+                    if summary["backup"].get("errors"):
+                        summary["error"] = "backup failed: " + "; ".join(summary["backup"]["errors"])
+                        raise MigrationError(summary["error"], stage="migration")
 
-        summary["verify"] = verify_migration(session)
+        # 3) 应用迁移（PLAN §5.3）
+        applied_count = 0
+        skipped_count = 0
+        with optional_stage(recording, "apply_migration", "应用迁移", ResourceType.LOCAL_DB) as s:
+            engine = create_engine(
+                f"sqlite:///{sqlite_path}",
+                connect_args={"check_same_thread": False},
+            )
+            Base.metadata.create_all(bind=engine)  # 确保 schema_versions 表存在
+            SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+            session = SessionLocal()
+
+            for version, description, kind in _MIGRATIONS:
+                if _is_applied(session, version):
+                    summary["skipped"].append(version)
+                    skipped_count += 1
+                    logger.info("migration skipped (already applied): %s", version)
+                    continue
+                try:
+                    if kind == "engine":
+                        result = _migrate_fact_schema(engine)
+                    else:
+                        result = _migrate_facts_from_experiences(session)
+                    _record_version(session, version, description)
+                    summary["applied"].append(version)
+                    applied_count += 1
+                    summary["details"][version] = result
+                    logger.info("migration applied: %s (%s)", version, description)
+                except Exception as e:
+                    session.rollback()
+                    summary["error"] = f"{version}: {e!r}"
+                    logger.exception("migration FAILED at %s", version)
+                    raise
+            if s is not None:
+                s.counts(applied=applied_count, skipped=skipped_count)
+
+        # 4) 后置核验（PLAN §5.3）
+        with optional_stage(recording, "verify", "后置核验", ResourceType.LOCAL_DB) as s:
+            summary["verify"] = verify_migration(session)
+            if s is not None:
+                ver = summary["verify"]
+                s.counts(experiences=ver.get("experiences", 0), facts=ver.get("facts", 0))
+
         return summary
     finally:
-        # R3: track cleanup errors instead of swallowing with pass
-        if session is not None:
-            try:
-                session.close()
-            except Exception as e:
-                _cleanup_errors.append(f"session.close: {e!r}")
-        if engine is not None:
-            try:
-                engine.dispose()
-            except Exception as e:
-                _cleanup_errors.append(f"engine.dispose: {e!r}")
-        # R3: cleanup failure after retries → non-zero
-        if _cleanup_errors:
-            logger.error("cleanup errors: %s", _cleanup_errors)
-            if not summary.get("error"):
-                summary["error"] = "cleanup failed: " + "; ".join(_cleanup_errors)
-                raise MigrationError(summary["error"], stage="cleanup")
+        # 5) 资源释放（PLAN §5.3）：无论正常/异常均执行并记录真实结果
+        release_scope = recording.stage("release", "资源释放", ResourceType.LOCAL_DB) if recording is not None else None
+        try:
+            # R3: track cleanup errors instead of swallowing with pass
+            if session is not None:
+                try:
+                    session.close()
+                except Exception as e:
+                    _cleanup_errors.append(f"session.close: {e!r}")
+            if engine is not None:
+                try:
+                    engine.dispose()
+                except Exception as e:
+                    _cleanup_errors.append(f"engine.dispose: {e!r}")
+        finally:
+            if release_scope is not None:
+                if _cleanup_errors:
+                    release_scope.__exit__(MigrationError, MigrationError("cleanup failure"), None)
+                else:
+                    release_scope.__exit__(None, None, None)
+            # R3: cleanup failure after retries → non-zero
+            if _cleanup_errors:
+                logger.error("cleanup errors: %s", _cleanup_errors)
+                if not summary.get("error"):
+                    summary["error"] = "cleanup failed: " + "; ".join(_cleanup_errors)
+                    raise MigrationError(summary["error"], stage="cleanup")

@@ -129,6 +129,7 @@ export interface ResumeDocxGenerateResponse {
   file_path: string
   file_name: string
   download_url: string
+  operation_id: string
   stages: StageStatus[]
   matched_experience_ids: string[]
   rendered_experience_ids: string[]
@@ -214,4 +215,117 @@ export interface SystemStatus {
 export interface OperationResult {
   ok: boolean
   summary?: unknown
+  operation_id?: string
+}
+
+// ———— V2.0.1 操作可观测性 / 诊断（backend/core/operations.py 投影） ————
+
+export type OperationStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'INTERRUPTED'
+export type StageEventType = 'STARTED' | 'COMPLETED' | 'FAILED' | 'ROLLED_BACK'
+export type ResourceType = 'LOCAL_DB' | 'LOCAL_FILE' | 'LOCAL_CPU' | 'LLM' | 'EMBEDDING'
+
+export interface OperationProjection {
+  operation_id: string
+  group_id: string | null
+  operation_type: string
+  status: OperationStatus
+  stage_code: string
+  stage_name: string
+  resource_type: ResourceType
+  started_at: string
+  last_event_at: string
+  ended_at: string | null
+  elapsed_ms: number
+  stage_elapsed_ms: number
+  attempt: number
+  max_attempts: number
+  diagnostic_code: string
+  safe_counts: Record<string, number>
+  safe_summary: Record<string, unknown>
+  stage_count: number
+  unattributed_ms: number
+}
+
+export interface StageProjection {
+  seq: number
+  event_type: StageEventType
+  stage_code: string
+  stage_name: string
+  resource_type: ResourceType
+  event_code: string
+  attempt: number
+  max_attempts: number
+  elapsed_ms: number
+  message: string
+  safe_counts: Record<string, number>
+  ts: string
+}
+
+export interface RecentStats {
+  sample_size: number
+  median_ms: number | null
+  max_ms: number | null
+}
+
+export interface OperationDetail extends OperationProjection {
+  stages: StageProjection[]
+  recent_stats: Record<string, RecentStats>
+}
+
+export interface OperationsListResponse {
+  ok: true
+  operations: OperationProjection[]
+  diagnostics_health: string
+}
+
+export interface OperationDetailResponse {
+  ok: true
+  operation: OperationDetail
+  diagnostics_health: string
+}
+
+export interface LogEvent {
+  seq: number
+  ts: string
+  level: string
+  component: string
+  operation_id: string
+  group_id: string | null
+  operation_type: string
+  status: string
+  stage_code: string
+  resource_type: string
+  event_code: string
+  message: string
+  attempt: number
+  max_attempts: number
+  elapsed_ms: number
+  diagnostic_code: string
+  safe_counts: Record<string, number>
+}
+
+export interface LogsResponse {
+  ok: true
+  events: LogEvent[]
+  diagnostics_health: string
+}
+
+export interface DiagnosticsSummary {
+  operation_id: string
+  operation_type?: string
+  status: string
+  diagnostic_code: string
+  started_at: string
+  ended_at: string | null
+  elapsed_ms?: number
+  stage_count?: number
+  safe_counts: Record<string, number>
+  safe_summary?: Record<string, unknown>
+  stages: Array<{ event_type: string; stage_code: string; elapsed_ms: number; event_code: string }>
+}
+
+export interface DiagnosticsResponse {
+  ok: true
+  diagnostics: DiagnosticsSummary
+  diagnostics_health: string
 }

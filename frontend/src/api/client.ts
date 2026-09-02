@@ -59,27 +59,46 @@ export const api = {
     return request<T>(path)
   },
 
-  post<T>(path: string, data?: unknown): Promise<T> {
+  post<T>(path: string, data?: unknown, headers?: HeadersInit): Promise<T> {
     return request<T>(path, {
       method: 'POST',
-      headers: jsonHeaders,
+      headers: { ...jsonHeaders, ...(headers ?? {}) },
       body: data === undefined ? undefined : JSON.stringify(data),
     })
   },
 
-  put<T>(path: string, data: unknown): Promise<T> {
+  put<T>(path: string, data: unknown, headers?: HeadersInit): Promise<T> {
     return request<T>(path, {
       method: 'PUT',
-      headers: jsonHeaders,
+      headers: { ...jsonHeaders, ...(headers ?? {}) },
       body: JSON.stringify(data),
     })
   },
 
-  del<T>(path: string): Promise<T> {
-    return request<T>(path, { method: 'DELETE' })
+  del<T>(path: string, headers?: HeadersInit): Promise<T> {
+    return request<T>(path, { method: 'DELETE', headers: headers ?? {} })
   },
 
   postForm<T>(path: string, form: FormData): Promise<T> {
     return request<T>(path, { method: 'POST', body: form })
   },
+}
+
+/** 生成合法 UUID（PLAN §3.3：前端发起请求前生成 X-Operation-ID）。 */
+export function newOperationId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+export function operationHeaders(operationId?: string, groupId?: string): HeadersInit {
+  const h: Record<string, string> = {}
+  if (operationId) h['X-Operation-ID'] = operationId
+  if (groupId) h['X-Operation-Group-ID'] = groupId
+  return h
 }

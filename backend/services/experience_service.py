@@ -16,6 +16,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.operations import Recording, ResourceType, optional_stage
 from database import models
 from database.models import Fact, FactEmbedding, EmbeddingStatus
 from database.migrations import _iter_fact_candidates, _upsert_fact, derive_fact_id
@@ -96,7 +97,7 @@ def _reconcile_facts(db: Session, exp: models.Experience) -> dict:
     }
 
 
-def create_experience(db: Session, user_id: str, data: dict) -> models.Experience:
+def create_experience(db: Session, user_id: str, data: dict, recording: Optional[Recording] = None) -> models.Experience:
     """R1: 创建经历——立即生成确定性 Fact（同事务，W1）。
 
     V1.5.0 R1：create 后立即调用 _reconcile_facts 生成 Fact，
@@ -104,6 +105,9 @@ def create_experience(db: Session, user_id: str, data: dict) -> models.Experienc
 
     W1：Experience 写入与 Fact reconciliation 在同一事务内完成；
     reconciliation 任一步失败即 rollback，不留下"无 Fact 的孤儿 Experience"。
+
+    V2.0.1（T3）：真实阶段与事务/回滚事件进入统一 operation 记录（PLAN §5.2）；
+    recording 为 None 时（CLI/测试直调）打点退化为 no-op，事务语义不变。
     """
     exp = models.Experience(
         user_id=user_id,
@@ -118,17 +122,27 @@ def create_experience(db: Session, user_id: str, data: dict) -> models.Experienc
         raw_text=data.get("raw_text", ""),
     )
     try:
-        db.add(exp)
-        db.flush()  # 分配 id（Python 端已生成，flush 确保 FK 顺序与可见性）
+        with optional_stage(recording, "experience_write", "Experience 写入", ResourceType.LOCAL_DB):
+            db.add(exp)
+            db.flush()  # 分配 id（Python 端已生成，flush 确保 FK 顺序与可见性）
         # R1: 立即生成确定性 Fact（与 Experience 同事务）
-        _reconcile_facts(db, exp)
-        db.commit()
+        with optional_stage(recording, "fact_reconcile", "Fact reconciliation", ResourceType.LOCAL_DB) as s:
+            stats = _reconcile_facts(db, exp)
+            if s is not None:
+                s.counts(created=stats["created"], updated=stats["updated"], noop=stats["noop"],
+                         deleted=stats["deleted"], invalidated=len(stats["invalidated"]))
+        with optional_stage(recording, "tx_commit", "事务提交", ResourceType.LOCAL_DB):
+            db.commit()
     except Exception:
         # W1: reconciliation 失败不得先提交 Experience——回滚留下无孤儿
-        db.rollback()
+        with optional_stage(recording, "tx_rollback", "事务完整回滚", ResourceType.LOCAL_DB):
+            db.rollback()
+        if recording is not None:
+            recording.rolled_back("experience_write", "Experience 写入已回滚")
         raise
-    db.refresh(exp)
-    _annotate_summary(db, [exp])
+    with optional_stage(recording, "summary_read", "最终安全摘要读取", ResourceType.LOCAL_DB):
+        db.refresh(exp)
+        _annotate_summary(db, [exp])
     return exp
 
 
@@ -208,7 +222,7 @@ def get_experience(db: Session, exp_id: str) -> Optional[models.Experience]:
     return db.query(models.Experience).filter(models.Experience.id == exp_id).first()
 
 
-def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.Experience]:
+def update_experience(db: Session, exp_id: str, data: dict, recording: Optional[Recording] = None) -> Optional[models.Experience]:
     """R1: 更新经历——对 Fact 做 reconciliation（同事务，W1）。
 
     V1.5.0 R1：update 后调用 _reconcile_facts 对新增、修改、删除的来源项做
@@ -216,40 +230,60 @@ def update_experience(db: Session, exp_id: str, data: dict) -> Optional[models.E
 
     W1：Experience 字段更新与 Fact reconciliation 在同一事务内完成；
     reconciliation 任一步失败即 rollback，不留下"新 Experience + 旧 Fact/Embedding"窗口。
+
+    V2.0.1（T3）：真实阶段与事务/回滚事件进入统一 operation 记录（PLAN §5.2）。
     """
-    exp = get_experience(db, exp_id)
-    if not exp:
-        return None
+    with optional_stage(recording, "validate", "请求与目标记录校验", ResourceType.LOCAL_DB):
+        exp = get_experience(db, exp_id)
+        if not exp:
+            return None
     try:
-        for key in ["type", "title", "company", "time", "role", "description", "skills", "achievements", "raw_text"]:
-            if key in data:
-                setattr(exp, key, data[key])
-        db.flush()
+        with optional_stage(recording, "experience_write", "Experience 变更", ResourceType.LOCAL_DB):
+            for key in ["type", "title", "company", "time", "role", "description", "skills", "achievements", "raw_text"]:
+                if key in data:
+                    setattr(exp, key, data[key])
+            db.flush()
         # R1: 对 Fact 做 reconciliation（同事务失效旧向量）
-        _reconcile_facts(db, exp)
-        db.commit()
+        with optional_stage(recording, "fact_reconcile", "Fact reconciliation", ResourceType.LOCAL_DB) as s:
+            stats = _reconcile_facts(db, exp)
+            if s is not None:
+                s.counts(created=stats["created"], updated=stats["updated"], noop=stats["noop"],
+                         deleted=stats["deleted"], invalidated=len(stats["invalidated"]))
+        with optional_stage(recording, "tx_commit", "事务提交", ResourceType.LOCAL_DB):
+            db.commit()
     except Exception:
         # W1: reconciliation 失败不得先提交 Experience——回滚保持旧一致状态
-        db.rollback()
+        with optional_stage(recording, "tx_rollback", "事务完整回滚", ResourceType.LOCAL_DB):
+            db.rollback()
+        if recording is not None:
+            recording.rolled_back("experience_write", "Experience 变更已回滚")
         raise
-    db.refresh(exp)
-    _annotate_summary(db, [exp])
+    with optional_stage(recording, "summary_read", "最终安全摘要读取", ResourceType.LOCAL_DB):
+        db.refresh(exp)
+        _annotate_summary(db, [exp])
     return exp
 
 
-def delete_experience(db: Session, exp_id: str) -> bool:
+def delete_experience(db: Session, exp_id: str, recording: Optional[Recording] = None) -> bool:
     """R1: 删除经历——清理 Fact 与 FactEmbedding。
 
     V1.5.0 R1：delete 前显式删除其 Fact 的 FactEmbedding，再删除 Experience
     （级联删除 Fact）。不留孤儿向量行。
+
+    V2.0.1（T3）：真实阶段进入统一 operation 记录（PLAN §5.2）。
     """
-    exp = get_experience(db, exp_id)
-    if not exp:
-        return False
+    with optional_stage(recording, "validate", "目标记录校验", ResourceType.LOCAL_DB):
+        exp = get_experience(db, exp_id)
+        if not exp:
+            return False
     # R1: 先删除其 Fact 的 Embedding，再删除 Experience（级联删除 Fact）
-    fact_ids = [f.fact_id for f in db.query(Fact).filter(Fact.experience_id == exp_id).all()]
-    if fact_ids:
-        db.query(FactEmbedding).filter(FactEmbedding.fact_id.in_(fact_ids)).delete(synchronize_session=False)
-    db.delete(exp)
-    db.commit()
+    with optional_stage(recording, "embedding_cleanup", "旧 Embedding 清理", ResourceType.LOCAL_DB) as s:
+        fact_ids = [f.fact_id for f in db.query(Fact).filter(Fact.experience_id == exp_id).all()]
+        if fact_ids:
+            db.query(FactEmbedding).filter(FactEmbedding.fact_id.in_(fact_ids)).delete(synchronize_session=False)
+        if s is not None:
+            s.counts(facts=len(fact_ids))
+    with optional_stage(recording, "tx_commit", "事务提交", ResourceType.LOCAL_DB):
+        db.delete(exp)
+        db.commit()
     return True

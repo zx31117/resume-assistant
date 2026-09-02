@@ -7,14 +7,15 @@ from __future__ import annotations
 
 import logging
 import warnings
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from api import schemas
 from core import concurrency
 from core.config import settings
-from core.errors import DomainError
+from core.operations import resolve_operation_id
 from database.session import get_db
 from services import resume_generation_service
 
@@ -53,7 +54,11 @@ def generate(req: schemas.GenerateRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/generate-docx", response_model=schemas.ResumeDocxGenerateResponse)
-def generate_docx(req: schemas.ResumeDocxGenerateRequest, db: Session = Depends(get_db)):
+def generate_docx(
+    req: schemas.ResumeDocxGenerateRequest,
+    db: Session = Depends(get_db),
+    x_operation_id: Optional[str] = Header(default=None, alias="X-Operation-ID"),
+):
     """V1.3 核心链路：唯一主入口。
 
     V1.5.0 链路（PLAN §2 / §7 T6）：
@@ -70,5 +75,8 @@ def generate_docx(req: schemas.ResumeDocxGenerateRequest, db: Session = Depends(
     """
     # NOTE: DomainError 被 main.py 的 exception_handler 统一映射为 JSON（ok=False + error_code + stage + ...）
     # V2.0.0：生成与迁移/重建/重试共享全局并发门禁（拒绝并发，PLAN §3.3）
-    with concurrency.exclusive_operation("generate"):
-        return resume_generation_service.generate_docx(db, req)
+    # V2.0.1：解析 X-Operation-ID（合法 UUID 直接用，否则后端生成），并注入门禁与服务，
+    #         使 409 冲突与最终响应都能回传同一 operation_id（PLAN §3.3 / §3.5）。
+    operation_id = resolve_operation_id(x_operation_id)
+    with concurrency.exclusive_operation("generate", operation_id=operation_id):
+        return resume_generation_service.generate_docx(db, req, operation_id=operation_id)

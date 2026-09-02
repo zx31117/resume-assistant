@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routes import experience, generate, jd, resume
 from core.config import settings
 from core.errors import DomainError
+from core.operations import tracker
 from core.security import is_write_request, set_session_cookie, validate_write_request
 from core.version import APP_VERSION
 from database.init_db import init_db
@@ -26,6 +27,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # 启动时建表（V1.5.0：Fact / SchemaVersion / FactEmbedding）
     init_db()
+    # V2.0.1：诊断 tracker 初始化 + 启动收口（遗留 RUNNING → INTERRUPTED，轮转）
+    tracker.initialize()
     yield
 
 

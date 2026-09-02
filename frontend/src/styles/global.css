@@ -799,6 +799,150 @@ button {
 }
 
 /* ============================================================
+   V2.0.1 操作可观测性：阶段时间线 / 运行活动 / 后台日志 / 诊断
+   ============================================================ */
+
+/* 操作编号（紧凑等宽，便于刷新后按 operation_id 复盘） */
+.op-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* 阶段时间线 */
+.tl {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.tl__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s2) var(--s4);
+  font-size: var(--text-sm);
+}
+
+.tl__row + .tl__row {
+  border-top: 1px solid var(--line);
+}
+
+.tl__status {
+  min-width: 72px;
+}
+
+.tl__name {
+  color: var(--ink);
+}
+
+.tl__resource {
+  justify-self: end;
+}
+
+.tl__elapsed {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  min-width: 64px;
+  text-align: right;
+}
+
+.tl__recent {
+  grid-column: 2 / -1;
+  padding-top: 2px;
+}
+
+/* 运行活动 / 操作列表 */
+.ops-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.ops-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.ops-item__time {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.ops-item__stage {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.ops-item__spacer {
+  margin-left: auto;
+}
+
+/* 后台日志 */
+.log-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  max-height: 360px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 64px 84px 1fr;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.log-row__time {
+  color: var(--ink-faint);
+}
+
+.log-row__meta {
+  color: var(--ink-soft);
+}
+
+.log-row__message {
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 诊断摘要 */
+.diag {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-muted);
+  padding: var(--s4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink-soft);
+}
+
+/* ============================================================
    响应式
    ============================================================ */
 

@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import settings
 from core.errors import VectorIndexNotReadyError
+from core.operations import Recording, ResourceType, optional_stage
 from database.models import EmbeddingStatus, Fact, FactEmbedding
 from services import fact_service
 
@@ -302,28 +303,31 @@ def rebuild_embeddings(
     session: Session,
     *,
     embedder: Optional[Callable[[str], list[float]]] = None,
+    recording: Optional[Recording] = None,
 ) -> dict:
     """全量重建 PENDING / INVALID / FAILED 向量（PLAN §6.3.5 / §7 T3）。
 
     - 有 API Key（或注入 embedder）时逐条计算并 upsert
     - 无 API Key 且无 embedder 时：仅标记 PENDING 并返回 skipped（不抛错，§6.3.5）
     - 单条失败标记 FAILED（可重试），不中断其余
+
+    V2.0.1（T3）：真实阶段（就绪检查 / 模型请求与分批写入 / 后置核验）进入统一
+    operation 记录（PLAN §5.3）；recording 为 None 时打点退化 no-op，行为不变。
     """
     fp = compute_fingerprint()
     resolve = _resolve_embedder(embedder)
 
-    # 先补齐 PENDING 占位
-    mark_pending_for_missing(session)
-
-    # 收集待重建：PENDING / INVALID / FAILED（当前 fingerprint）
-    pending_rows = (
-        session.query(FactEmbedding)
-        .filter(
-            FactEmbedding.embedding_fingerprint == fp,
-            FactEmbedding.status.in_([EmbeddingStatus.PENDING, EmbeddingStatus.INVALID, EmbeddingStatus.FAILED]),
+    # 就绪检查：先补齐 PENDING 占位，再收集待重建（当前 fingerprint）
+    with optional_stage(recording, "ready_check", "就绪检查与待重建收集", ResourceType.LOCAL_DB):
+        mark_pending_for_missing(session)
+        pending_rows = (
+            session.query(FactEmbedding)
+            .filter(
+                FactEmbedding.embedding_fingerprint == fp,
+                FactEmbedding.status.in_([EmbeddingStatus.PENDING, EmbeddingStatus.INVALID, EmbeddingStatus.FAILED]),
+            )
+            .all()
         )
-        .all()
-    )
 
     summary = {
         "fingerprint": fp,
@@ -340,44 +344,54 @@ def rebuild_embeddings(
         logger.info("rebuild skipped: ARK_API_KEY 未配置，%d 条向量停在 PENDING", len(pending_rows))
         return summary
 
-    for row in pending_rows:
-        fact = session.get(Fact, row.fact_id)
-        if fact is None:
-            row.status = EmbeddingStatus.FAILED
-            row.error = "orphan: fact not found"
-            row.updated_at = datetime.utcnow()
-            summary["failed"] += 1
-            summary["errors"].append({"fact_id": row.fact_id, "error": "orphan fact"})
-            continue
-        text = (fact.text or "").strip()
-        if not text:
-            row.status = EmbeddingStatus.FAILED
-            row.error = "empty fact text"
-            row.updated_at = datetime.utcnow()
-            summary["failed"] += 1
-            summary["errors"].append({"fact_id": row.fact_id, "error": "empty text"})
-            continue
-        try:
-            vector = resolve(text)
-            blob, dim = _encode_vector(vector)
-            row.dimension = dim
-            row.vector_blob = blob
-            row.vector_dtype = _VECTOR_DTYPE
-            row.fact_revision = fact.revision or 1
-            row.fact_content_hash = fact.content_hash or ""
-            row.status = EmbeddingStatus.VALID
-            row.error = ""
-            row.updated_at = datetime.utcnow()
-            summary["succeeded"] += 1
-        except Exception as e:  # noqa: BLE001 - 单条失败不中断
-            row.status = EmbeddingStatus.FAILED
-            row.error = repr(e)[:300]
-            row.updated_at = datetime.utcnow()
-            summary["failed"] += 1
-            summary["errors"].append({"fact_id": row.fact_id, "error": repr(e)[:300]})
-            logger.warning("rebuild fact_id=%s failed: %r", row.fact_id, e)
+    with optional_stage(recording, "embed_write", "模型请求与分批写入", ResourceType.EMBEDDING) as s:
+        for row in pending_rows:
+            fact = session.get(Fact, row.fact_id)
+            if fact is None:
+                row.status = EmbeddingStatus.FAILED
+                row.error = "orphan: fact not found"
+                row.updated_at = datetime.utcnow()
+                summary["failed"] += 1
+                summary["errors"].append({"fact_id": row.fact_id, "error": "orphan fact"})
+                continue
+            text = (fact.text or "").strip()
+            if not text:
+                row.status = EmbeddingStatus.FAILED
+                row.error = "empty fact text"
+                row.updated_at = datetime.utcnow()
+                summary["failed"] += 1
+                summary["errors"].append({"fact_id": row.fact_id, "error": "empty text"})
+                continue
+            try:
+                vector = resolve(text)
+                blob, dim = _encode_vector(vector)
+                row.dimension = dim
+                row.vector_blob = blob
+                row.vector_dtype = _VECTOR_DTYPE
+                row.fact_revision = fact.revision or 1
+                row.fact_content_hash = fact.content_hash or ""
+                row.status = EmbeddingStatus.VALID
+                row.error = ""
+                row.updated_at = datetime.utcnow()
+                summary["succeeded"] += 1
+            except Exception as e:  # noqa: BLE001 - 单条失败不中断
+                row.status = EmbeddingStatus.FAILED
+                row.error = repr(e)[:300]
+                row.updated_at = datetime.utcnow()
+                summary["failed"] += 1
+                summary["errors"].append({"fact_id": row.fact_id, "error": repr(e)[:300]})
+                logger.warning("rebuild fact_id=%s failed: %r", row.fact_id, e)
 
-    session.commit()
+        session.commit()
+        if s is not None:
+            s.counts(succeeded=summary["succeeded"], failed=summary["failed"], total=summary["pending_count"])
+
+    with optional_stage(recording, "verify", "数量/fingerprint/维度核验", ResourceType.LOCAL_DB) as s:
+        if s is not None:
+            post = status_summary(session)
+            s.counts(valid=post.get("VALID", 0), pending=post.get("PENDING", 0),
+                     failed=post.get("FAILED", 0), invalid=post.get("INVALID", 0))
+
     logger.info(
         "rebuild done: fp=%s pending=%d succeeded=%d failed=%d skipped_no_key=%s",
         fp, summary["pending_count"], summary["succeeded"], summary["failed"], summary["skipped_no_key"],

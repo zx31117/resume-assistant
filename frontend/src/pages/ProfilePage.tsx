@@ -4,9 +4,11 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
+import OperationTimeline from '../components/OperationTimeline'
 import { experienceApi, resumeApi } from '../api/endpoints'
-import { ApiError } from '../api/client'
-import type { ExperienceItem, ExperienceOut } from '../api/types'
+import { ApiError, newOperationId } from '../api/client'
+import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
+import type { ExperienceItem, ExperienceOut, OperationDetail } from '../api/types'
 
 const EXPERIENCE_TYPES: { value: string; label: string }[] = [
   { value: 'work', label: '工作' },
@@ -30,6 +32,22 @@ function summaryMeta(status?: string): { label: string; tone: 'neutral' | 'ok' |
     default:
       return { label: '索引待重建', tone: 'warn' }
   }
+}
+
+// V2.0.1：本页发起操作（提取 / 新增 / 更新 / 删除）的实时状态与阶段时间线
+function InlineOperation({ operation }: { operation: OperationDetail | null }) {
+  if (!operation) return <Badge tone="neutral">提交中…</Badge>
+  return (
+    <div className="stack" style={{ marginTop: 'var(--s4)' }}>
+      <div className="hstack" style={{ marginTop: 0 }}>
+        <Badge tone={statusTone(operation.status)}>{statusLabel(operation.status)}</Badge>
+        {operation.stage_name && <Badge tone="accent">{operation.stage_name}</Badge>}
+        <span className="muted">已用时 {fmtMs(operation.elapsed_ms)}</span>
+        <span className="op-id">#{operation.operation_id.slice(0, 8)}</span>
+      </div>
+      <OperationTimeline operation={operation} />
+    </div>
+  )
 }
 
 function emptyForm(): ExperienceItem {
@@ -174,6 +192,11 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState<ExperienceOut | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
+  // V2.0.1：单条 CRUD 与提取操作的实时阶段
+  const [crudOpId, setCrudOpId] = useState<string | null>(null)
+  const [crudActive, setCrudActive] = useState(false)
+  const crudOperation = useOperation(crudOpId, crudActive)
+
   // PDF 导入流程
   const [importOpen, setImportOpen] = useState(false)
   const [importStep, setImportStep] = useState<'upload' | 'review'>('upload')
@@ -232,13 +255,16 @@ export default function ProfilePage() {
   }
 
   async function saveForm(data: ExperienceItem) {
+    const id = newOperationId()
+    setCrudOpId(id)
+    setCrudActive(true)
     setSaving(true)
     try {
       if (editingId) {
-        await experienceApi.update(editingId, data)
+        await experienceApi.update(editingId, data, id)
         setNotice({ ok: true, text: '已保存。后端已同步事实并对旧向量做失效处理。' })
       } else {
-        await experienceApi.create(data)
+        await experienceApi.create(data, id)
         setNotice({ ok: true, text: '已创建。后端已生成事实，索引将在重建后可用。' })
       }
       setEditing(null)
@@ -247,14 +273,18 @@ export default function ProfilePage() {
       setNotice({ ok: false, text: e instanceof ApiError ? e.message : String(e) })
     } finally {
       setSaving(false)
+      setCrudActive(false)
     }
   }
 
   async function doDelete() {
     if (!deleting) return
+    const id = newOperationId()
+    setCrudOpId(id)
+    setCrudActive(true)
     setDeleteBusy(true)
     try {
-      await experienceApi.remove(deleting.id)
+      await experienceApi.remove(deleting.id, id)
       setDeleting(null)
       setNotice({ ok: true, text: '已删除，相关事实与向量一并清理。' })
       await load()
@@ -262,6 +292,7 @@ export default function ProfilePage() {
       setNotice({ ok: false, text: e instanceof ApiError ? e.message : String(e) })
     } finally {
       setDeleteBusy(false)
+      setCrudActive(false)
     }
   }
 
@@ -288,10 +319,13 @@ export default function ProfilePage() {
 
   async function runExtract() {
     if (!importText.trim()) return
+    const id = newOperationId()
+    setCrudOpId(id)
+    setCrudActive(true)
     setImportExtracting(true)
     setImportError(null)
     try {
-      const res = await experienceApi.extract({ resume_text: importText })
+      const res = await experienceApi.extract({ resume_text: importText }, id)
       if (!res.experiences || res.experiences.length === 0) {
         setImportError('未能从简历中提取到经历，请确认「本地系统」已配置并测试连接后重试。')
         setImportStep('upload')
@@ -305,6 +339,7 @@ export default function ProfilePage() {
       setImportStep('upload')
     } finally {
       setImportExtracting(false)
+      setCrudActive(false)
     }
   }
 
@@ -315,10 +350,11 @@ export default function ProfilePage() {
   async function saveAllImported() {
     setImportSaving(true)
     setNotice(null)
+    const groupId = newOperationId()
     const results: { idx: number; ok: boolean; msg: string }[] = []
     for (let i = 0; i < importItems.length; i++) {
       try {
-        await experienceApi.create(importItems[i])
+        await experienceApi.create(importItems[i], newOperationId(), groupId)
         results.push({ idx: i, ok: true, msg: '已保存' })
       } catch (e) {
         results.push({ idx: i, ok: false, msg: e instanceof ApiError ? e.message : String(e) })
@@ -343,6 +379,13 @@ export default function ProfilePage() {
         description="查看并维护你的 Experience（项目 / 工作 / 教育），支持 PDF 导入、逐项检查与增删改。事实层继续由后端 Fact 服务维护。"
         actions={<Button onClick={openCreate}>新建经历</Button>}
       />
+
+      {/* ── V2.0.1 本页当前操作 ── */}
+      {crudActive && (
+        <Card title="当前操作" subtitle="本页发起操作（提取 / 新增 / 更新 / 删除）的实时阶段与耗时。">
+          <InlineOperation operation={crudOperation} />
+        </Card>
+      )}
 
       <Card
         title="Experience 列表"
@@ -503,10 +546,13 @@ export default function ProfilePage() {
                 {importError && <div className="notice notice--danger">{importError}</div>}
 
                 {importStep === 'upload' && (
-                  <div className="hstack">
-                    <Button onClick={runExtract} disabled={!importText.trim() || importExtracting}>
-                      {importExtracting ? '提取中…' : '提取经历'}
-                    </Button>
+                  <div className="stack">
+                    <div className="hstack" style={{ marginTop: 0 }}>
+                      <Button onClick={runExtract} disabled={!importText.trim() || importExtracting}>
+                        {importExtracting ? '提取中…' : '提取经历'}
+                      </Button>
+                    </div>
+                    {importExtracting && <InlineOperation operation={crudOperation} />}
                   </div>
                 )}
 

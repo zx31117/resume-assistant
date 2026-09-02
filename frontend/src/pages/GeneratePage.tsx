@@ -3,9 +3,11 @@ import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import OperationTimeline from '../components/OperationTimeline'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import { jdApi, resumeApi, systemApi, templateApi } from '../api/endpoints'
-import { ApiError } from '../api/client'
+import { ApiError, newOperationId } from '../api/client'
+import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
 import type {
   JDAnalysis,
   ResumeDocxGenerateResponse,
@@ -77,8 +79,12 @@ export default function GeneratePage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
   const [generating, setGenerating] = useState(false)
+  const [opId, setOpId] = useState<string | null>(null)
   const [result, setResult] = useState<ResumeDocxGenerateResponse | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
+
+  // V2.0.1：短轮询当前生成操作的实时阶段（仅生成期间有效）
+  const operation = useOperation(opId, generating)
 
   const loadMeta = useCallback(async () => {
     try {
@@ -123,21 +129,26 @@ export default function GeneratePage() {
 
   async function runGenerate() {
     if (!canGenerate) return
+    const id = newOperationId()
+    setOpId(id)
     setGenerating(true)
     setGenerateError(null)
     setResult(null)
     try {
-      const res = await resumeApi.generateDocx({
-        jd_text: jd,
-        template_id: templateId || undefined,
-        profile: {
-          name: profile.name.trim(),
-          phone: profile.phone.trim(),
-          email: profile.email.trim(),
-          location: profile.location.trim() || null,
-          target_position: profile.target_position.trim(),
+      const res = await resumeApi.generateDocx(
+        {
+          jd_text: jd,
+          template_id: templateId || undefined,
+          profile: {
+            name: profile.name.trim(),
+            phone: profile.phone.trim(),
+            email: profile.email.trim(),
+            location: profile.location.trim() || null,
+            target_position: profile.target_position.trim(),
+          },
         },
-      })
+        id,
+      )
       setResult(res)
     } catch (e) {
       setGenerateError(e instanceof ApiError ? e.message : String(e))
@@ -218,6 +229,24 @@ export default function GeneratePage() {
         )}
 
         {generateError && <div className="notice notice--danger">{generateError}</div>}
+
+        {(generating || (generateError != null && operation != null)) && (
+          <div className="stack" style={{ marginTop: 'var(--s4)' }}>
+            <div className="hstack" style={{ marginTop: 0 }}>
+              {operation ? (
+                <>
+                  <Badge tone={statusTone(operation.status)}>{statusLabel(operation.status)}</Badge>
+                  {operation.stage_name && <Badge tone="accent">{operation.stage_name}</Badge>}
+                  <span className="muted">已用时 {fmtMs(operation.elapsed_ms)}</span>
+                  <span className="op-id">#{operation.operation_id.slice(0, 8)}</span>
+                </>
+              ) : (
+                <Badge tone="neutral">提交中…</Badge>
+              )}
+            </div>
+            {operation && <OperationTimeline operation={operation} />}
+          </div>
+        )}
 
         {result && (
           <div className="stack" style={{ marginTop: 'var(--s4)' }}>
