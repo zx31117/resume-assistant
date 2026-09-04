@@ -4,7 +4,7 @@
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
 > 当前已验收版本：V2.0.1；源码验收对象为 `9319782d5f1a8d5f543e6795f2f024143fa9dbc7`，发布标识为 annotated tag `v2.0.1`
 > 当前已发布版本档案：[V2.0.1 PLAN](./versions/v2.0.1/PLAN.md) / [RESULT](./versions/v2.0.1/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
-> 当前活动版本：无；下一版本必须另立或批准对应版本文档后再实施
+> 当前活动版本：V2.0.2；[PLAN](./versions/v2.0.2/PLAN.md) 已获用户批准，[RESULT](./versions/v2.0.2/RESULT.md) 当前为待开发
 > 后续方向：V2.1.0 预计重新设计整体界面，具体范围仍需另立版本文档；其他 V2 需求继续从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
@@ -151,5 +151,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 已发布；annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./versions/v2.0.1/PLAN.md) | [RESULT](./versions/v2.0.1/RESULT.md) | 已发布；annotated tag `v2.0.1` |
+| V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | PLAN 已批准；待开发 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。
