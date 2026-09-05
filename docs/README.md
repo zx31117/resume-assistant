@@ -96,6 +96,8 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由验收 Agent 复核。文档 Agent 不直接以改源码代替任务交接。
 5. 大版本需求池只保存尚未排期的候选想法，不使用完成状态，也不构成开发指令；具体版本只从中选择必要范围写入本版本 DRAFT / PLAN，版本范围冲突时以本版本 DRAFT / PLAN 为准。
 
+协作路径采用固定隔离：开发 Agent 长期复用 `<current-worktree>`，验收 Agent 长期复用 detached、clean 的 `<review-worktree>`；每轮只更新分支或候选 commit，不按版本和返工轮次增加默认路径。两个 Agent 不得并发共享同一工作目录。验收 Agent 全程只读并返回报告，由文档 Agent 将验收结论写入 RESULT；详细规则见 [HUMAN_AI_WORKFLOW.md](./HUMAN_AI_WORKFLOW.md)。
+
 ## 7. RESULT 最低交付契约
 
 每个版本的开发 Agent 必须在 `RESULT.md` 中提供：
