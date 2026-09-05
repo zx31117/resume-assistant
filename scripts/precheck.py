@@ -269,6 +269,15 @@ def _default_runtime_root() -> Path:
     return Path.home() / ".local" / "share" / "resume-assistant"
 
 
+# F3：core.config 在任意进程首次导入时都会 mkdir 的标准骨架目录（config.py 模块级
+# RESUME_DATA_DIR.mkdir；diagnostics 由 tracker 生命周期建立）。这是产品自身导入契约的
+# 副作用：任何一个不预先注入 RESUME_DATA_DIR 的 Python 进程 import core.config 都会得到
+# 这些空目录。因此哨兵放行「空标准骨架目录新增」，以支持全新机器（CI runner 上默认
+# runtime 尚不存在）时预检不因导入副作用假失败；其余一切变化（文件增删改、目录删除、
+# 非标准或非空目录新增）仍 fail-closed。
+_F3_SKELETON_DIRS = frozenset(("database", "output", "logs", "cache", "diagnostics"))
+
+
 def _snapshot_runtime(root: Path) -> dict:
     """F3：只读快照默认 runtime（{dirs: set, files: {relpath: sha256}}），绝不创建或修改。"""
     dirs: set[str] = set()
@@ -291,14 +300,31 @@ def _snapshot_runtime(root: Path) -> dict:
 
 
 def _runtime_sentinel_diff(before: dict, after: dict) -> list[str]:
-    """F3：比较前后快照，返回人读差异行；无变化返回空列表。"""
+    """F3：返回「真实隔离违反」的人读差异行；无违规返回空列表。
+
+    放行规则（仅一条）：新增的顶层空标准骨架目录（database/output/logs/cache/
+    diagnostics，after 快照中整棵子树为空）属于 core.config 导入副作用，不阻断。
+    除此之外的一切变化都阻断：
+    - 任何文件新增 / 删除 / 内容变化（真实库被写入必然在此暴露，如 database/app.db）；
+    - 任何目录删除（含空目录）；
+    - 非标准目录新增（如 vectorstore）或非空目录新增。
+    """
     lines: list[str] = []
     bd, ad = before["dirs"], after["dirs"]
     bf, af = before["files"], after["files"]
+
+    def _dir_subtree_empty(rel: str) -> bool:
+        prefix = rel + "/"
+        return not any(d.startswith(prefix) for d in ad) and not any(
+            f.startswith(prefix) for f in af
+        )
+
     for d in sorted(bd - ad):
         lines.append(f"目录被删除: {d}")
     for d in sorted(ad - bd):
-        lines.append(f"目录被新增: {d}")
+        if "/" not in d and d in _F3_SKELETON_DIRS and _dir_subtree_empty(d):
+            continue  # 空标准骨架目录新增：core.config 导入副作用，放行
+        lines.append(f"目录被新增(非空或非标准): {d}")
     for f in sorted(bf.keys() - af.keys()):
         lines.append(f"文件被删除: {f}")
     for f in sorted(af.keys() - bf.keys()):
@@ -324,7 +350,9 @@ def main() -> int:
             failures.append(str(e))
             print(f"[阻断] 失败：{e}", flush=True)
 
-    # F3：真实 runtime 不变外层哨兵。六个阻断脚本必须不读取/不建表/不写入/不删除默认 runtime。
+    # F3：真实 runtime 不变外层哨兵。六个阻断脚本必须不读取/不建表/不写入/不删除默认
+    # runtime 的内容；core.config 导入产生的「空标准骨架目录」是产品副作用，放行（见
+    # _runtime_sentinel_diff 放行规则）。全新机器上默认 runtime 不存在也不影响判定。
     default_root = _default_runtime_root()
     before_snapshot = _snapshot_runtime(default_root)
     print(f"[哨兵] 记录默认 runtime 快照：{default_root}", flush=True)
@@ -343,7 +371,7 @@ def main() -> int:
         )
         print("[阻断] 失败：默认 runtime 被修改（违反 R5 隔离）", flush=True)
     else:
-        print("[哨兵] 默认 runtime 前后快照一致（未被读取/改写）", flush=True)
+        print("[哨兵] 默认 runtime 内容快照一致（未读取/改写；空标准骨架目录新增放行）", flush=True)
 
     nonblocking_notes = _run_nonblocking()
 
