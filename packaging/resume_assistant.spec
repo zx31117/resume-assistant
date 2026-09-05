@@ -29,7 +29,10 @@ hiddenimports = []
 datas.append((str(frontend_dist), "frontend/dist"))
 
 # ── 只读源码资产（模板 / 映射 config；prompts 以 Python 模块随代码打包） ── #
-datas.append((str(backend_dir / "templates"), "templates"))
+# 只打包运行时已固化的模板文件；不整目录拷贝，避免把 git 忽略的 __pycache__
+# （.pyc 内嵌开发机绝对路径）与构建脚本 _build_templates.py 带进便携包。
+datas.append((str(backend_dir / "templates" / "pm_template.docx"), "templates"))
+datas.append((str(backend_dir / "templates" / "pm_template.json"), "templates"))
 datas.append((str(backend_dir / "config"), "config"))
 
 # ── AI 栈动态子模块/数据文件（含 cacert 证书、tiktoken bpe 编码） ── #
