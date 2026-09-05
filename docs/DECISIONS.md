@@ -370,7 +370,8 @@
 ## D-032 开发与源码验收使用固定隔离工作树
 
 - 版本：协作流程修订（2026-09-05）
-- 状态：Accepted
+- 状态：Superseded
+- 后续决策：D-033 将固定 linked worktree 改为三个固定、独立 `.git` 的 workspace，并补齐权限、PLAN 冻结和候选流转。
 - 背景：按版本或返工轮次不断创建验收目录会造成路径膨胀和入口混乱；让开发 Agent 与验收 Agent 同时共享一个目录，又会使文件、Git index、构建产物和测试现场互相污染，验收无法稳定绑定同一 clean commit。
 - 决策：
   - 长期只维护一个固定开发路径 `<current-worktree>` 和一个固定源码验收路径 `<review-worktree>`；路径名称不随版本或轮次变化；
@@ -380,3 +381,21 @@
   - 只有默认路径缺失、损坏、被其他活动任务占用或用户明确要求保留并行现场时，才创建临时工作树，且不把临时路径升级为新的默认入口。
 - 依据：路径保持稳定便于人和 Agent 记忆，commit 保持可变才能指向每轮真实候选；将“固定路径”与“固定内容”分开，同时保留角色隔离，能够减少目录管理成本而不牺牲验收可追溯性。
 - 影响：后续版本和返工不再默认创建新的 review 目录；历史工作树可以保留为旧证据，但不再作为活动入口。验收报告由文档 Agent 归并到版本 RESULT，避免验收工作树因文档写入而变脏。
+
+## D-033 开发、验收与发布使用固定独立仓库和冻结身份
+
+- 版本：协作流程修订（2026-09-05）
+- 状态：Accepted
+- 背景：D-032 解决了按轮次增加目录和开发/验收共用 checkout 的问题，但 linked worktree 仍共享 object database、refs、remote、hooks 和 worktree 注册表；同一 Windows 账户下的文件只读属性也不能区分 Agent。仅凭路径和 `git status` clean，无法阻止跨角色 Git 误操作，也不能排除 ignored 构建物、`.env` 或真实 runtime 对验收结果的影响。
+- 决策：
+  - 长期维护 `<canonical-repo>`、`<current-workspace>`、`<review-workspace>` 三个固定独立 Git 仓库，各自拥有独立 `.git`；不因版本或返工轮次增加默认路径，也不再用 linked worktree 共享 Git 控制面；
+  - canonical 是文档集成、候选接收和唯一发布入口；本地 `main` 是待发布集成线，`publish/main` 是 GitHub 当前公开主线，annotated tag 的目标 commit 是正式版本唯一发布身份；只有 canonical 配置具有 GitHub push 能力的发布 remote；
+  - 用户批准 PLAN 时冻结版本、路径、批准 commit 和 blob。开发 Agent 与验收 Agent 对 PLAN 只读；返工补充只能由文档 Agent 追加并形成新的批准身份，不覆盖原始批准内容；
+  - 开发 Agent 只在 current 的活动版本分支修改 PLAN 范围内的源码、测试、依赖和构建配置，并只在候选冻结前更新 RESULT 的实施、自测和偏差；不得修改全局文档、canonical 本地 `main`、正式 tag 或 GitHub remote；
+  - 开发候选以 clean commit `H` 冻结，经本地 Git 进入 canonical 的未发布候选引用，再由 review detached 到 `H`。验收只绑定 `H`，分支后续 commit 不继承结论；review 更新前后必须核对同一 HEAD；
+  - 验收 Agent 不修改 PLAN、RESULT、源码、测试、依赖、配置、构建或 Git 历史，只返回绑定 commit 的报告；会产生写入的测试从冻结 commit 建立一次性临时副本，并隔离 runtime、数据库、输出、日志、缓存和依赖目录，cleanup 或 review clean 后置条件失败即验收失败；
+  - 源码和人工验收通过后，文档 Agent 将 `H` 纳入 canonical 本地 `main` 并完成最终文档；最终发布候选 `R` 相对 `H` 只能有授权文档变化，否则相关源码验收失效。用户明确批准后，文档 Agent 才执行远端 preflight、fast-forward main 和 annotated tag；
+  - 真实绝对路径只保存在本机项目配置和任务交接中，公开文档使用语义别名。正常 Agent 任务仅以自己的固定仓库作为可写 workspace root；该方案用于防误操作，不冒充同一 Windows 账户下的硬安全隔离，后者必须使用独立系统账户、凭据和 ACL；
+  - 迁移旧工作树前先检查 clean、引用可达性和独有证据；无 branch/tag 的 detached commit 在确认结论已归并前使用临时迁移引用和可验证 bundle 保护。迁移后只保留三个固定仓库，依赖、构建物和测试缓存重新生成，真实 runtime 与凭据不随源码仓库迁移。
+- 依据：固定父目录解决入口记忆，独立 `.git` 缩小跨角色 Git 误操作半径，commit/blob 冻结解决版本身份，临时测试副本解决“只读验收”与动态测试写入的冲突；四者缺一都不能形成稳定、可复核的版本流转。
+- 影响：D-032 被取代；D-023 的正常增量发布、禁止常规 force push 和历史 tag 不移动继续有效，但其中本地路径角色改由本决策定义。全局工作流采用“PLAN 批准 → current 开发并冻结 H → canonical 接收 → review 只读验收 H → 人工验收 → canonical 文档收口为 R → 用户批准后发布”的单向流转。
