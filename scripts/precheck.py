@@ -23,6 +23,7 @@ NON_BLOCKING；此处仅保留框架与明确未配置标记，绝不把「未�
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import subprocess
@@ -111,6 +112,9 @@ def _strip_env() -> dict[str, str]:
     env = dict(os.environ)
     for k in _STRIP_ENV:
         env.pop(k, None)
+    # F4：子进程强制 UTF-8 输出，避免其默认落 GBK（cp936）管道在打印中文/emoji 时
+    # 触发二次 UnicodeEncodeError；父进程侧仍以 encoding="utf-8", errors="replace" 读取。
+    env["PYTHONIOENCODING"] = "utf-8"
     return env
 
 
@@ -243,7 +247,96 @@ def _run_nonblocking() -> list[str]:
     return notes
 
 
+def _force_utf8_stdio() -> None:
+    """F4：预检自身输出中文/emoji 时，避免在 GBK 控制台触发二次 UnicodeEncodeError。"""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+def _default_runtime_root() -> Path:
+    """F3：与 core.config._default_runtime_root() 等价的默认 runtime 根（只计算，不创建）。"""
+    if sys.platform.startswith("win"):
+        base = os.environ.get("LOCALAPPDATA")
+        if base:
+            return Path(base) / "ResumeAssistant"
+        return Path.home() / "AppData" / "Local" / "ResumeAssistant"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "ResumeAssistant"
+    return Path.home() / ".local" / "share" / "resume-assistant"
+
+
+# F3：core.config 在任意进程首次导入时都会 mkdir 的标准骨架目录（config.py 模块级
+# RESUME_DATA_DIR.mkdir；diagnostics 由 tracker 生命周期建立）。这是产品自身导入契约的
+# 副作用：任何一个不预先注入 RESUME_DATA_DIR 的 Python 进程 import core.config 都会得到
+# 这些空目录。因此哨兵放行「空标准骨架目录新增」，以支持全新机器（CI runner 上默认
+# runtime 尚不存在）时预检不因导入副作用假失败；其余一切变化（文件增删改、目录删除、
+# 非标准或非空目录新增）仍 fail-closed。
+_F3_SKELETON_DIRS = frozenset(("database", "output", "logs", "cache", "diagnostics"))
+
+
+def _snapshot_runtime(root: Path) -> dict:
+    """F3：只读快照默认 runtime（{dirs: set, files: {relpath: sha256}}），绝不创建或修改。"""
+    dirs: set[str] = set()
+    files: dict[str, str] = {}
+    if not root.is_dir():
+        return {"dirs": dirs, "files": files}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(dirnames)
+        rel = Path(dirpath).relative_to(root).as_posix()
+        if rel != ".":
+            dirs.add(rel)
+        for fn in sorted(filenames):
+            fp = Path(dirpath) / fn
+            relf = fp.relative_to(root).as_posix()
+            try:
+                files[relf] = hashlib.sha256(fp.read_bytes()).hexdigest()
+            except OSError:
+                files[relf] = "<unreadable>"
+    return {"dirs": dirs, "files": files}
+
+
+def _runtime_sentinel_diff(before: dict, after: dict) -> list[str]:
+    """F3：返回「真实隔离违反」的人读差异行；无违规返回空列表。
+
+    放行规则（仅一条）：新增的顶层空标准骨架目录（database/output/logs/cache/
+    diagnostics，after 快照中整棵子树为空）属于 core.config 导入副作用，不阻断。
+    除此之外的一切变化都阻断：
+    - 任何文件新增 / 删除 / 内容变化（真实库被写入必然在此暴露，如 database/app.db）；
+    - 任何目录删除（含空目录）；
+    - 非标准目录新增（如 vectorstore）或非空目录新增。
+    """
+    lines: list[str] = []
+    bd, ad = before["dirs"], after["dirs"]
+    bf, af = before["files"], after["files"]
+
+    def _dir_subtree_empty(rel: str) -> bool:
+        prefix = rel + "/"
+        return not any(d.startswith(prefix) for d in ad) and not any(
+            f.startswith(prefix) for f in af
+        )
+
+    for d in sorted(bd - ad):
+        lines.append(f"目录被删除: {d}")
+    for d in sorted(ad - bd):
+        if "/" not in d and d in _F3_SKELETON_DIRS and _dir_subtree_empty(d):
+            continue  # 空标准骨架目录新增：core.config 导入副作用，放行
+        lines.append(f"目录被新增(非空或非标准): {d}")
+    for f in sorted(bf.keys() - af.keys()):
+        lines.append(f"文件被删除: {f}")
+    for f in sorted(af.keys() - bf.keys()):
+        lines.append(f"文件被新增: {f}")
+    for f in sorted(bf.keys() & af.keys()):
+        if bf[f] != af[f]:
+            lines.append(f"文件内容变化: {f} ({bf[f][:8]} -> {af[f][:8]})")
+    return lines
+
+
 def main() -> int:
+    _force_utf8_stdio()
     print("=" * 68, flush=True)
     print("V2.0.2 统一预检（本地与 GitHub 共用入口）", flush=True)
     print("=" * 68, flush=True)
@@ -257,10 +350,28 @@ def main() -> int:
             failures.append(str(e))
             print(f"[阻断] 失败：{e}", flush=True)
 
+    # F3：真实 runtime 不变外层哨兵。六个阻断脚本必须不读取/不建表/不写入/不删除默认
+    # runtime 的内容；core.config 导入产生的「空标准骨架目录」是产品副作用，放行（见
+    # _runtime_sentinel_diff 放行规则）。全新机器上默认 runtime 不存在也不影响判定。
+    default_root = _default_runtime_root()
+    before_snapshot = _snapshot_runtime(default_root)
+    print(f"[哨兵] 记录默认 runtime 快照：{default_root}", flush=True)
+
     _attempt("编译", _run_compile_check)
     for filename, pattern, label in BLOCKING_SCRIPTS:
         _attempt(label, lambda f=filename, p=pattern, l=label: _run_blocking_script(f, p, l))
     _attempt("前端构建", _run_frontend_build)
+
+    after_snapshot = _snapshot_runtime(default_root)
+    sentinel_diff = _runtime_sentinel_diff(before_snapshot, after_snapshot)
+    if sentinel_diff:
+        failures.append(
+            "真实 runtime 哨兵（F3）：默认 runtime 在阻断检查后被修改，违反 R5 隔离——\n"
+            + "\n".join("    - " + ln for ln in sentinel_diff)
+        )
+        print("[阻断] 失败：默认 runtime 被修改（违反 R5 隔离）", flush=True)
+    else:
+        print("[哨兵] 默认 runtime 内容快照一致（未读取/改写；空标准骨架目录新增放行）", flush=True)
 
     nonblocking_notes = _run_nonblocking()
 
