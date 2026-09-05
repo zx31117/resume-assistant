@@ -29,6 +29,7 @@ from typing import Callable
 # —— 强制 V1.4 默认路径（屏蔽本地 .env / 旧 env）—— #
 for _k in [
     'SQLITE_PATH','CHROMA_PATH','DOCX_OUTPUT_DIR','RESUME_DATA_DIR',
+    'LOGS_DIR','CACHE_DIR',
     'ARK_API_KEY','ARK_BASE_URL','LLM_MODEL','EMBEDDING_MODEL',
     'APP_HOST','APP_PORT',
 ]:
@@ -129,6 +130,10 @@ def _(ctx: RunCtx):
     from core.config import settings
     rd = settings.RESUME_DATA_DIR
     assert isinstance(rd, Path), "RESUME_DATA_DIR 类型应是 Path"
+    # F1：脚本级隔离必须严格指向本次 clean_runtime，而非默认 %LOCALAPPDATA% 真实库
+    assert rd.resolve() == ctx.clean_runtime.resolve(), (
+        f"RESUME_DATA_DIR 未指向 clean_runtime: {rd.resolve()} != {ctx.clean_runtime}"
+    )
     repo = _BACKEND.parent.resolve()
     # 要求不在源码树下
     try:
@@ -165,7 +170,8 @@ def _(ctx: RunCtx):
         assert not missing, f"缺失自动创建的子目录: {missing}"
         assert not data["vectorstore"], "导入 config 不应创建 vectorstore 目录"
     finally:
-        shutil.rmtree(fresh, ignore_errors=True)
+        # F2：不使用 ignore_errors 吞错；嵌套临时目录清理失败会让 RUNTIME-2 判 FAIL（fail-closed）。
+        shutil.rmtree(fresh)
 
 @case("RUNTIME", "3", "SQLITE_PATH/DOCX_OUTPUT_DIR 都落在 runtime root 下（V1.5.0 CHROMA_PATH 已退出）")
 def _(ctx: RunCtx):
@@ -242,8 +248,13 @@ def _(ctx: RunCtx):
 
 @case("CORE", "3", "数据库初始化：init_db() 能建 3 张表（空 runtime）")
 def _(ctx: RunCtx):
+    from core.config import settings
     from database.init_db import init_db
     from database.session import SessionLocal, engine
+    # F1：engine 必须指向 clean_runtime，而非默认 %LOCALAPPDATA% 真实库
+    assert Path(settings.SQLITE_PATH).resolve() == (ctx.clean_runtime / "database" / "app.db").resolve(), (
+        f"SQLITE_PATH 未指向 clean_runtime: {settings.SQLITE_PATH} != {ctx.clean_runtime / 'database' / 'app.db'}"
+    )
     init_db()
     from sqlalchemy import inspect
     insp = inspect(engine)
@@ -295,10 +306,19 @@ def _(ctx: RunCtx):
 @case("V13", "3", "ResumeBuilder.build：AI 未覆盖的条目会用 SQL description+achievements 回退")
 def _(ctx: RunCtx):
     from sqlalchemy.orm import Session
-    from database.session import SessionLocal
+    from core.config import settings
+    from database.session import SessionLocal, engine
     from database import models
     from services import resume_builder
     from api.schemas import JDAnalysisOut, GeneratedResumeContent
+    # F1/§12：写入前证明 engine 严格指向 clean_runtime，而非默认 %LOCALAPPDATA% 真实库
+    db_path = (ctx.clean_runtime / "database" / "app.db").resolve()
+    assert Path(settings.SQLITE_PATH).resolve() == db_path, (
+        f"V13-3 写入前 SQLITE_PATH 越界: {settings.SQLITE_PATH} != {db_path}"
+    )
+    assert Path(str(engine.url.database)).resolve() == db_path, (
+        f"V13-3 写入前 engine.url 越界: {engine.url.database} != {db_path}"
+    )
     # 本 case 验证「SQL fallback」——AI 完全没覆盖 → 用 SQL description+achievements 生成 bullets。
     # 为避免 TemplateRenderer 必填 projects 报错，同时构造 1 条 project 夹具。
     db: Session = SessionLocal()
@@ -480,14 +500,52 @@ def _(ctx: RunCtx):
 # 驱动
 # ============================================================
 
+def _force_utf8_stdio() -> None:
+    """F4：默认中文 Windows 控制台/管道下，避免打印 ✅/❌/中文 触发二次 UnicodeEncodeError。"""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+def _cleanup_runtime(clean_runtime: Path) -> str | None:
+    """F2：释放本进程全部 SQLAlchemy 引擎并删除 clean_runtime。
+
+    成功返回 None，失败返回可读错误串（调用方据此非零退出）。不使用 ignore_errors
+    吞错。MIG-2 会 reload database.session 产生第二个引擎，因此用 gc 枚举全部 Engine
+    逐一 dispose，确保 Windows 上 SQLite 文件句柄完全释放后再 rmtree。
+    """
+    import gc
+    from sqlalchemy.engine import Engine
+
+    errs: list[str] = []
+    for obj in gc.get_objects():
+        if isinstance(obj, Engine):
+            try:
+                obj.dispose()
+            except Exception as e:
+                errs.append(f"engine.dispose: {e}")
+
+    if clean_runtime.exists():
+        try:
+            shutil.rmtree(clean_runtime)
+        except Exception as e:
+            errs.append(f"rmtree({clean_runtime}): {e}")
+
+    return "; ".join(errs) if errs else None
+
+
 def prepare_clean_runtime(tmpbase: str) -> Path:
     clean = Path(tmpbase) / f"t7-runtime-{int(time.time())}"
-    if clean.exists(): shutil.rmtree(clean, ignore_errors=True)
+    if clean.exists(): shutil.rmtree(clean)
     clean.mkdir(parents=True, exist_ok=True)
     return clean
 
 
 def main():
+    _force_utf8_stdio()
     ap = argparse.ArgumentParser()
     ap.add_argument("--tmpdir", default=None, help="临时 clean runtime 根目录（默认使用系统 tempfile.gettempdir）")
     ap.add_argument("--report", default=None, help="输出 JSON 报告路径")
@@ -502,40 +560,57 @@ def main():
         clean_output=clean_runtime/"output",
     )
 
-    print(f"\nT7 回归环境：")
-    print(f"  backend   = {_BACKEND}")
-    print(f"  clean RDD = {ctx.clean_runtime}")
-    print()
+    # F1：在任何 core.* / database.* 导入前冻结隔离路径。首个 core.config 导入发生在
+    # RUNTIME-1，因此这里写入 RESUME_DATA_DIR 可让 CORE-3 / V13-3 的 engine 与全部
+    # SQLite/output/logs/cache 都落在 clean_runtime，而非真实 %LOCALAPPDATA% 默认库。
+    os.environ["RESUME_DATA_DIR"] = str(clean_runtime)
 
-    t0 = time.perf_counter()
-    for c in _ALL_CASES:
-        run_case(ctx, c)
-    total_ms = round((time.perf_counter() - t0) * 1000, 1)
+    exit_code = 0
+    try:
+        print(f"\nT7 回归环境：")
+        print(f"  backend   = {_BACKEND}")
+        print(f"  clean RDD = {ctx.clean_runtime}")
+        print()
 
-    # 汇总
-    pass_n = sum(1 for r in ctx.results if r.status == "PASS")
-    fail_n = sum(1 for r in ctx.results if r.status == "FAIL")
-    susp_n = sum(1 for r in ctx.results if r.status == "SUSPEND")
-    print()
-    print("=" * 72)
-    print(f"T7 汇总：total={len(ctx.results)}  PASS={pass_n}  FAIL={fail_n}  SUSPEND={susp_n}  duration_ms={total_ms}")
-    print("=" * 72)
+        t0 = time.perf_counter()
+        for c in _ALL_CASES:
+            run_case(ctx, c)
+        total_ms = round((time.perf_counter() - t0) * 1000, 1)
 
-    report = {
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "backend_root": str(_BACKEND),
-        "clean_runtime": str(ctx.clean_runtime),
-        "total": len(ctx.results), "pass": pass_n, "fail": fail_n, "suspend": susp_n,
-        "duration_ms": total_ms,
-        "cases": [r.__dict__ for r in ctx.results],
-    }
-    if args.report:
-        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"JSON 报告写入: {args.report}")
-    else:
-        print("（如需 JSON 报告，下次加 --report=...）")
+        # 汇总
+        pass_n = sum(1 for r in ctx.results if r.status == "PASS")
+        fail_n = sum(1 for r in ctx.results if r.status == "FAIL")
+        susp_n = sum(1 for r in ctx.results if r.status == "SUSPEND")
+        print()
+        print("=" * 72)
+        print(f"T7 汇总：total={len(ctx.results)}  PASS={pass_n}  FAIL={fail_n}  SUSPEND={susp_n}  duration_ms={total_ms}")
+        print("=" * 72)
 
-    return 1 if fail_n else 0
+        report = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "backend_root": str(_BACKEND),
+            "clean_runtime": str(ctx.clean_runtime),
+            "total": len(ctx.results), "pass": pass_n, "fail": fail_n, "suspend": susp_n,
+            "duration_ms": total_ms,
+            "cases": [r.__dict__ for r in ctx.results],
+        }
+        if args.report:
+            Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"JSON 报告写入: {args.report}")
+        else:
+            print("（如需 JSON 报告，下次加 --report=...）")
+
+        exit_code = 1 if fail_n else 0
+    finally:
+        # F2：无论成功、断言失败还是 KeyboardInterrupt/SystemExit 提前退出，都释放 engine
+        # 并删除临时 runtime；清理失败强制非零退出（绝不 ignore_errors 吞错）。
+        cleanup_err = _cleanup_runtime(clean_runtime)
+        if cleanup_err is not None:
+            print(f"资源清理失败: {cleanup_err}", file=sys.stderr)
+            if exit_code == 0:
+                exit_code = 1
+
+    return exit_code
 
 
 if __name__ == "__main__":
