@@ -226,3 +226,46 @@ V2.0.2 只有同时满足以下条件才可标记完成：
 - 用户完成最小人工回归并明确确认；
 - 文档 Agent 完成 RESULT、CURRENT_STATE、两个版本索引和必要公开文档收口；
 - 用户再次确认发布后，才可快进公开 `main` 并创建 annotated tag `v2.0.2`。
+
+## 12. 2026-09-05 文档 Agent 发布前复核返工补充
+
+> 性质：首次候选 `a40c14d` 的集中返工契约；补充已批准 PLAN R4/R5 的可执行边界，不覆盖或弱化原 PLAN
+> 当前状态：前置审核打回，待开发返工；原 T8 独立验收结论失效
+
+### 12.1 已确认根因
+
+首次候选只把 `_v14_t7_regression.py` 的 RUNTIME-2 单项放进隔离子进程。脚本自身仍在开头移除 `RESUME_DATA_DIR`，`main()` 创建 `clean_runtime` 后也没有在首次导入 `core.config` / `database.session` 前启用它；`scripts/precheck.py` 又会从子进程环境移除外部 `RESUME_DATA_DIR`。因此 CORE-3 与 V13-3 实际连接 Windows 默认 `%LOCALAPPDATA%/ResumeAssistant/database/app.db`，会在真实 runtime 建表并插入、删除固定测试夹具。
+
+真实数据库可写时会产生 `12 PASS / 0 FAIL / 3 SUSPEND` 假通过；在禁止写真实 runtime 的环境中，V13-3 稳定触发 `sqlite3.OperationalError: attempt to write a readonly database`，实际为 `11 PASS / 1 FAIL / 3 SUSPEND`。此外，RUNTIME-2 的嵌套临时目录仍用 `ignore_errors=True` 吞 cleanup 失败，整个脚本也没有覆盖成功、失败、提前退出与 cleanup 失败的释放闭环。
+
+统一预检还有一项 Windows 本地错误诊断缺陷：子进程默认 GBK 输出被固定按 UTF-8 解码后产生替换字符，父进程向 GBK 控制台打印时可能再触发 `UnicodeEncodeError`。非零退出没有假绿，但错误原因无法稳定、可读地呈现。
+
+### 12.2 集中返工任务
+
+| Rework | 必须完成 | 依赖 | 完成标准 |
+|---|---|---|---|
+| F1 | 让 `_v14_t7_regression.py` 全进程使用独立临时 runtime | 无 | 在任何 `core.*` / `database.*` 导入前冻结隔离路径；所有 SQLite、output、logs、cache 均位于该路径；输出的 `clean RDD` 与实际 settings/engine 一致 |
+| F2 | 闭合该脚本及 RUNTIME-2 嵌套临时目录的资源与清理生命周期 | F1 | 成功、断言失败、导入异常、KeyboardInterrupt、SystemExit 和重复 cleanup 均释放 session/engine/文件句柄；cleanup 失败非零退出，不使用 `ignore_errors=True` 吞错 |
+| F3 | 给统一预检增加真实 runtime 不变的外层证明 | F1-F2 | 以隔离的“默认 runtime 陷阱”或等价哨兵证明：即使默认数据库已存在、只读或含哨兵，六个阻断脚本也不读取、不建表、不写入、不删除它；测试后字节/hash 与目录集合不变 |
+| F4 | 修正默认中文 Windows 控制台的失败输出编码 | 无 | 子进程与父进程编码契约明确；中文失败输出、无效字节和缺依赖场景均可读、非零退出且不出现二次 `UnicodeEncodeError` |
+| F5 | 更新 RESULT、形成新候选并重新独立验收 | F1-F4 | 精确记录修改文件、负向证据和新 commit；验收 Agent 绑定新候选复核完整差异、原九项与本节全部要求 |
+
+依赖顺序：`F1 → F2 → F3`，F4 可并行；随后统一执行 F5。不得借返工修改产品业务、页面、依赖版本、打包 spec 或便携资产；如确需越界，先更新 PLAN，并使既有便携包与人工验收结论重新进入待验状态。
+
+### 12.3 开发侧正反向验证
+
+1. 在进程外准备一个与源码树分离的“默认 runtime 陷阱”，其中数据库文件只读并带字节级哨兵；不把它当测试数据库使用。运行 `_v14_t7_regression.py` 后必须仍为精确 `total=15 PASS=12 FAIL=0 SUSPEND=3`，陷阱目录与哨兵 hash 完全不变。
+2. 在 V13-3 写入前记录或拦截 SQLAlchemy engine URL，证明路径严格位于本次 `clean_runtime/database/app.db`；不得仅依据控制台打印的 `clean RDD` 推断。
+3. 分别注入配置导入失败、数据库写失败、普通断言失败、KeyboardInterrupt、SystemExit、session close/engine dispose 失败、临时目录删除失败和重复 cleanup；主业务失败与 cleanup 失败均可判定，真实 runtime 不变，清理失败不能只打印 warning。
+4. RUNTIME-2 的嵌套子进程正常、异常、超时和清理失败均有断言；残留检测失败时整体非零退出。
+5. 从默认中文 Windows `cmd` 或 PowerShell 运行一个会输出中文并失败的受控子脚本，再运行缺少一项前置依赖的负向场景；统一预检必须返回非零、保留原错误摘要且不出现乱码导致的二次异常。
+6. 修复后执行完整 `python scripts/precheck.py`：六脚本退出码与固定计数全部匹配，前端 build 通过；advisory 基线继续真实报告，不要求本轮清零。
+7. 重新执行四个机械适配脚本、生命周期矩阵、V1.5/V2.0/V2.0.1 回归与隐私扫描。若产品源码、依赖、spec 和前端资产相对 `a40c14d` 均未变，可用静态 diff 与包内 hash 证明便携包/人工界面结论仍适用；否则重建便携包并重新人工确认。
+
+### 12.4 新候选交接与重新验收门禁
+
+- 开发 RESULT 必须把 `a40c14d` 标为首次返工基线，记录新冻结候选 commit，不得覆盖本次打回证据；
+- 交接必须附 F1-F4 的正向、反向和真实 runtime 哨兵结果，以及完整预检固定计数；
+- 验收 Agent 不得只在可写的真实用户 runtime 上复跑。验收环境必须让默认路径成为不可写陷阱或使用等价连接拦截，独立证明所有数据库访问只发生在临时 runtime；
+- 原 T8 结论不能复用。新候选的功能验收与结构变更验收必须分别给出结论，阻断项为 0 后才能恢复文档收口；
+- 用户已经完成的界面人工验收暂时保留。仅当返工严格限制在测试/预检且静态证明产品与包不变时无需重做；任何产品、依赖、spec 或便携包变化都使人工结论失效。
