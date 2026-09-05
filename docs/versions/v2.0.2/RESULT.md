@@ -1,12 +1,15 @@
 # V2.0.2 RESULT：工程基线与旧迁移契约退出
 
-> 当前状态：**前置审核打回，待开发返工**
-> 当前阶段：首次候选完成开发、独立源码验收和用户人工确认；文档 Agent 发布前复核发现阻断项，原候选与原独立验收结论失效
+> 当前状态：**需修正**
+> 当前阶段：集中返工源码候选 `eb4bd30` 的 T8 功能与结构验收均通过；F3 补充口径已获用户批准并形成固定 PLAN 身份，review/candidate 指针已对齐，等待纳入 canonical 本地 `main` 并完成文档收口
 > 计划日期：2026-09-05
 > 批准日期：2026-09-05
+> F3 补充批准 commit：`2779bb64b496f431ac94364f947607e68fd7ee5f`
+> 批准 PLAN blob：`1072443feeaf5db5138407af1f5d643f85f566f2`
 > 发布基线：annotated tag `v2.0.1` → `f4e69aae0577ea723e9ef5427b20287add76d06c`
 > 计划分支：`version/v2.0.2`
 > 首次候选 commit：`a40c14df7d48b322aa761b494cdd08678f18830e`（含 `7a7cdfd` T1–T6 与模板按文件打包修复；祖先含 `v2.0.1`/`f4e69aa`）；当前不得作为发布候选
+> 集中返工源码候选：`eb4bd30a2d4c7aac62865924c7b8eab363d282ee`（T8 验收绑定对象；祖先含 `v2.0.1`/`f4e69aa`）
 
 ## 1. 当前实际发生的事
 
@@ -190,3 +193,63 @@ V2.0.2 首次候选 `a40c14d` 的旧迁移契约退出、便携模板打包和�
 - ruff 370 项、pip-audit 7 个已知漏洞、ESLint 6 项和 npm audit 4 个漏洞仍按批准 PLAN 作为非阻断基线，不因本次打回伪装为已解决。
 
 **当前结论：前置审核打回，待开发集中返工；不得发布。**
+
+## 8. 集中返工与新源码候选（开发侧记录摘要，2026-09-05）
+
+开发侧在首次候选 `a40c14d` 之后完成 PLAN §12 的 F1–F4 集中返工，并形成源码候选 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`。本节只登记开发交接事实；源码正确性以 §9 的独立验收报告为准。
+
+| 返工项 | 开发侧交接结果 |
+|---|---|
+| F1 全进程隔离 | `_v14_t7_regression.py` 在任何 `core.*` / `database.*` 导入前冻结独立 `RESUME_DATA_DIR`，并断言 settings 与 engine 的 SQLite 路径位于 `clean_runtime` |
+| F2 清理生命周期 | 移除 `ignore_errors` 吞错；释放 SQLAlchemy Engine 后删除临时 runtime；cleanup 失败非零退出，`finally` 覆盖提前退出 |
+| F3 默认 runtime 哨兵 | 预检比较默认 runtime 的目录集合与文件 SHA-256；开发侧另提出只放行新增的顶层空标准骨架目录，以兼容全新机器的配置导入副作用 |
+| F4 编码鲁棒性 | 父子进程固定 UTF-8，解码与输出采用替换策略，避免失败路径二次 `UnicodeEncodeError` |
+
+开发侧报告六个阻断脚本固定计数为 `77/0`、`48/0`、`20/0`、`15/0`、生命周期矩阵 `50/0`、T7 `12/0/3`，完整预检与前端正式构建通过；产品源码、依赖、spec 和前端资产相对首次候选未变。上述证据已经由 §9 的验收 Agent 定向复核。
+
+## 9. T8 独立源码验收（绑定 `eb4bd30`，2026-09-05）
+
+### 9.1 身份、独立性与工作树说明
+
+- 执行角色：验收 Agent；全程只读，未参与本候选实现、自测或源码修复，独立性成立。
+- 验收绑定对象：`eb4bd30a2d4c7aac62865924c7b8eab363d282ee`；该提交祖先包含 `v2.0.1` / `f4e69aa`，候选工作树 clean。
+- 验收时固定 review 工作树 HEAD 为 `22eda46ef180c5028da9fd3a546344a0e81b227a`，比 `eb4bd30` 领先 3 个纯文档提交。验收 Agent 核对 `eb4bd30..22eda46` 仅包含 `DECISIONS`、`HUMAN_AI_WORKFLOW`、根 `README`、本版本 `PLAN` / `RESULT` 等文档变化，源码、测试、配置和构建内容与 `eb4bd30` 一致，因此报告的源码结论仍精确绑定 `eb4bd30`。
+
+### 9.2 返工专项结论
+
+| 项目 | 独立验收结论 | 关键证据 |
+|---|---|---|
+| F1 全进程隔离 | 通过 | RUNTIME-1、CORE-3、V13-3 均断言 `settings.SQLITE_PATH` 与 `engine.url.database` 严格等于 `clean_runtime/database/app.db`；独立复跑通过 |
+| F2 清理生命周期 | 通过 | 全部 SQLAlchemy Engine dispose 后删除临时 runtime；清理失败非零退出；`KeyboardInterrupt` / `SystemExit` 进入 `finally`；本轮无新增 `t7-runtime-*` 残留 |
+| F3 默认 runtime 哨兵 | 通过 | 以全新空 `LOCALAPPDATA` 陷阱复跑完整预检；仅新增 4 个空标准骨架目录，文件 0、无 `vectorstore`；文件增删改、目录删除、非标准或非空目录新增仍 fail-closed |
+| F4 编码鲁棒性 | 通过（代码审查与运行） | 父子进程 UTF-8 与 `errors="replace"` 路径成立，无二次 `UnicodeEncodeError`；验收 Agent 未独立重造“默认中文 Windows 控制台中文失败输出”负向，采用代码设计检查与开发侧证据 |
+
+### 9.3 旧契约退出、回归与运行证据
+
+- `run_migrations()` / `_backup_sources()` 已无 `vectorstore_dir`，备份摘要 fresh 与非 fresh 分支均无 `vectorstore` 字段，备份错误通过 `MigrationError` fail-closed；全仓 `vectorstore_dir` 计数为 0。
+- `config.py` 无 vectorstore 符号或创建，`run_stub_demo.py` 无 `CHROMA_PATH`；其余 `CHROMA_PATH` 只存在于注释、遗留迁移工具、遗留退出测试及 T7 防御性环境剥离/反向断言，符合 PLAN R2 保留边界。
+- 四个 V1.5 单点脚本相对 `v1.5.0` 只有机械删参，业务断言未弱化。
+- 完整预检在空默认 runtime 陷阱下通过：编译通过；六脚本“退出码 0 + 固定计数匹配”为 `77/0`、`48/0`、`20/0`、`15/0`、矩阵 `50/0`、T7 `12/0/3`；哨兵一致。
+- 错误固定计数 `PASS=999` 正确触发非零失败；T7 独立结果为 `total=15 PASS=12 FAIL=0 SUSPEND=3`、退出码 0，`clean_runtime` 已删除。
+- 前端首次因 review 树缺少 `node_modules` 失败，执行 `npm ci` 后 build 成功；产物版本为 2.0.2，资产 `index-BQ8NVfq6.js` 与既有 D12/D15 记录一致。
+- workflow 使用 `contents: read`、60 分钟超时，触发 `pull_request`、`push main`、`workflow_dispatch`，安装 `requirements.txt` 与 dev 依赖并执行 `npm ci` 后调用同一 `precheck.py`，无 Secret / artifact。
+- ruff 370、pip-audit 7、npm audit 4 继续作为非阻断基线如实报告；ESLint 缺依赖时显示未取得摘要与命令不可用，不伪装为零问题。
+
+### 9.4 独立源码验收结论
+
+- **功能验收：通过。** 六脚本固定计数全部命中，无业务行为回退；前端 build 为 2.0.2，资产哈希未变。
+- **结构变更验收：通过。** 旧迁移契约完整退出；F1/F3 在全新机陷阱中证明数据强隔离，哨兵 fail-closed；返工范围限于测试、预检与文档。
+- **源码验收阻断项：0。**
+- **覆盖说明：**唯一未由验收 Agent 独立重造的负向是“默认中文 Windows 控制台中文失败输出”；F4 结论来自独立代码审查、运行观察与开发侧负向证据。
+
+## 10. 文档 Agent 门禁结论（2026-09-05）
+
+T8 报告已经按原结论登记，源码验收绑定 `eb4bd30` 有效；文档 Agent 不另行推断源码正确性。
+
+1. 用户于 2026-09-05 明确批准 F3“只放行新增顶层空标准骨架目录，其余变化继续 fail-closed”的补充口径。文档 Agent 已将其写入 PLAN §12.5，并形成批准 commit `2779bb64b496f431ac94364f947607e68fd7ee5f`、PLAN blob `1072443feeaf5db5138407af1f5d643f85f566f2`。
+2. 固定 review 工作树已 detached 到 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`；canonical 本地 `refs/candidates/v2.0.2` 已使用旧值保护的 CAS 从 `22eda46` 对齐到同一提交。两者身份一致，review clean。
+3. `22eda46` 仍作为历史纯文档包装提交保留，但不再作为源码验收对象或活动候选引用。
+
+源码验收与候选身份门禁已经满足。下一步只在 canonical 本地完成 `eb4bd30` 集成和文档收口；在形成最终发布候选并取得用户单独发布确认前，不推送远端、不创建 `v2.0.2` tag。
+
+**当前结论：源码 T8 功能验收与结构变更验收均通过，源码阻断项 0；PLAN 身份与固定指针已对齐，等待 canonical 本地集成和最终文档收口。**
