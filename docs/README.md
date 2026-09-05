@@ -5,7 +5,7 @@
 > 当前已验收版本：V2.0.2；源码验收对象为 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`
 > 当前已发布版本：V2.0.2；发布标识为 annotated tag `v2.0.2`，指向 `78bb909c18ca28e45b54406536aa326887caa1ca`
 > 当前版本档案：[V2.0.2 PLAN](./versions/v2.0.2/PLAN.md) / [RESULT](./versions/v2.0.2/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
-> 后续方向：V2.1.0 预计重新设计整体界面，具体范围仍需另立版本文档；其他 V2 需求继续从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择
+> 后续方向：[V2.1.0 DRAFT](./versions/v2.1.0/DRAFT.md) 正在讨论整体界面重构、持续 HTML 设计与版本冻结快照工作流；草稿未批准，不构成开发指令；其他 V2 需求继续从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
