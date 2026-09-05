@@ -2,9 +2,9 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V2.0.1；源码验收对象为 `9319782d5f1a8d5f543e6795f2f024143fa9dbc7`，发布标识为 annotated tag `v2.0.1`
-> 当前已发布版本档案：[V2.0.1 PLAN](./versions/v2.0.1/PLAN.md) / [RESULT](./versions/v2.0.1/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
-> 当前活动版本：V2.0.2；首次候选 `a40c14d` 在文档 Agent 发布前复核中因测试访问真实 runtime 被打回，[PLAN](./versions/v2.0.2/PLAN.md) / [RESULT](./versions/v2.0.2/RESULT.md) 等待开发集中返工
+> 当前已验收版本：V2.0.2；源码验收对象为 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`，公开发布尚待用户单独批准
+> 当前已发布版本：V2.0.1；发布标识为 annotated tag `v2.0.1`
+> 当前版本档案：[V2.0.2 PLAN](./versions/v2.0.2/PLAN.md) / [RESULT](./versions/v2.0.2/RESULT.md)；开发、独立源码验收、人工确认与文档收口均已完成
 > 后续方向：V2.1.0 预计重新设计整体界面，具体范围仍需另立版本文档；其他 V2 需求继续从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
@@ -43,7 +43,7 @@ JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受�
 → ResumeBuilder 确定性装配 → ResumeDocument → TemplateRenderer → DOCX
 ~~~
 
-V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加三页图形交互及 Windows 便携启动器；V2.0.1 为生成、提取、Experience CRUD、迁移和索引维护增加统一的本地阶段、耗时与脱敏诊断能力。当前具体实现能力以 `CURRENT_STATE.md` 为准。
+V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加三页图形交互及 Windows 便携启动器；V2.0.1 为生成、提取、Experience CRUD、迁移和索引维护增加统一的本地阶段、耗时与脱敏诊断能力；V2.0.2 建立统一 Windows 预检与 CI 基线，退出旧 vectorstore 迁移契约，并将测试数据严格隔离到临时 runtime。当前具体实现能力以 `CURRENT_STATE.md` 为准。
 
 ## 4. 事实所有权
 
@@ -155,6 +155,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V1.5.0 | 事实级内容决策、两层选材与 SQLite 持久化收束 | [PLAN](./versions/v1.5.0/PLAN.md) | [RESULT](./versions/v1.5.0/RESULT.md) | 已发布；annotated tag `v1.5.0` 指向 `8d3aac6369146052f819c414cc18f53b11a778fc` |
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 已发布；annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./versions/v2.0.1/PLAN.md) | [RESULT](./versions/v2.0.1/RESULT.md) | 已发布；annotated tag `v2.0.1` |
-| V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | 前置审核打回；待开发返工 |
+| V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | 已验收；待用户批准公开发布 |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。
