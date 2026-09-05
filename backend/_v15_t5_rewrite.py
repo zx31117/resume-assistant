@@ -40,7 +40,6 @@ from services import resume_builder as rb
 
 _TMP = Path(tempfile.mkdtemp(prefix="v15_t5_"))
 _SQLITE = _TMP / "app.db"
-_VS_DIR = _TMP / "vectorstore"
 _DIM = 8
 
 
@@ -87,7 +86,7 @@ def _add_exp(session, **kw):
 
 
 def _run_migrations():
-    return migrations.run_migrations(str(_SQLITE), backup=True, vectorstore_dir=str(_VS_DIR))
+    return migrations.run_migrations(str(_SQLITE), backup=True)
 
 
 def _jd(**kw):

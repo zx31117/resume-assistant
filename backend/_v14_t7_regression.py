@@ -138,12 +138,34 @@ def _(ctx: RunCtx):
         within = False
     assert not within, f"默认 RESUME_DATA_DIR={rd} 不应位于源码树 {repo} 下"
 
-@case("RUNTIME", "2", "空 runtime 第一次 import settings 自动建 5 个子目录")
+@case("RUNTIME", "2", "空 runtime 首次 import settings 只建 database/output/logs/cache，不建 vectorstore")
 def _(ctx: RunCtx):
-    from core.config import settings
-    expected = ["database","vectorstore","output","logs","cache"]
-    missing = [n for n in expected if not (settings.RESUME_DATA_DIR / n).is_dir()]
-    assert not missing, f"缺失自动创建的子目录: {missing}"
+    import subprocess
+    # R1/D3/D4：在全新解释器内、RESUME_DATA_DIR 指向隔离临时目录的前提下首次 import core.config，
+    # 只校验隔离临时 runtime 的目录集合，不读取/删除真实 %LOCALAPPDATA% runtime，也不受开发机历史 vectorstore 目录影响。
+    fresh = Path(tempfile.mkdtemp(prefix="v14t7_rt2_"))
+    try:
+        code = (
+            "import os, sys, json\n"
+            f"os.environ['RESUME_DATA_DIR'] = {str(fresh)!r}\n"
+            f"sys.path.insert(0, {str(_BACKEND)!r})\n"
+            "import core.config as c\n"
+            "rd = c.RESUME_DATA_DIR\n"
+            "subs = [n for n in ('database','output','logs','cache') if (rd / n).is_dir()]\n"
+            "print(json.dumps({'rd': str(rd), 'subs': subs, 'vectorstore': (rd / 'vectorstore').exists()}))\n"
+        )
+        res = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, timeout=60,
+        )
+        assert res.returncode == 0, f"子进程导入失败: {(res.stderr or '').strip()[:300]}"
+        data = json.loads((res.stdout or "").strip().splitlines()[-1])
+        assert os.path.normcase(data["rd"]) == os.path.normcase(str(fresh)), \
+            f"RESUME_DATA_DIR 未指向隔离临时目录: {data['rd']} != {fresh}"
+        missing = [n for n in ("database", "output", "logs", "cache") if n not in data["subs"]]
+        assert not missing, f"缺失自动创建的子目录: {missing}"
+        assert not data["vectorstore"], "导入 config 不应创建 vectorstore 目录"
+    finally:
+        shutil.rmtree(fresh, ignore_errors=True)
 
 @case("RUNTIME", "3", "SQLITE_PATH/DOCX_OUTPUT_DIR 都落在 runtime root 下（V1.5.0 CHROMA_PATH 已退出）")
 def _(ctx: RunCtx):

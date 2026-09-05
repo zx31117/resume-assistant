@@ -185,7 +185,7 @@ def _api_tests(state) -> None:
     with c:
         print("\n[A0] 版本元数据（T7a/D20）")
         r = c.get("/api/health")
-        check(r.status_code == 200 and r.json().get("version") == "2.0.1", "/api/health version=2.0.1", extra=str(r.json().get("version")))
+        check(r.status_code == 200 and r.json().get("version") == "2.0.2", "/api/health version=2.0.2", extra=str(r.json().get("version")))
 
         print("\n[A1] Experience create 打点（T3，正向 + Cookie）")
         create_oid = _uid()

@@ -1,0 +1,58 @@
+name: windows-ci
+
+# 触发边界（PLAN §3.2）：pull request、公开 main 更新、手动触发。
+# 活动版本候选合并前必须本地执行同一入口 scripts/precheck.py，不必推送分支触发 CI。
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 最小权限（PLAN §3.2）：仅读仓库内容，不读任何 Secret。
+permissions:
+  contents: read
+
+# 同一 ref 上重复触发时取消旧运行，避免积压。
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  precheck:
+    name: Windows 统一预检
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 配置 Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: 配置 Node LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装后端依赖
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: 安装非阻断扫描工具
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: 安装前端依赖
+        run: npm ci
+        working-directory: frontend
+
+      # 本地与 GitHub 调用同一检查逻辑（scripts/precheck.py）。
+      # 此步骤不上传任何 artifact：无数据库、日志、DOCX、dist 或原始扫描报告。
+      - name: 运行统一预检
+        run: python scripts/precheck.py

@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 # V1.4：强制不走本地 .env 里的旧路径 env，确保演示结果落在统一 runtime root 下
-for _k in ['SQLITE_PATH','CHROMA_PATH','DOCX_OUTPUT_DIR','RESUME_DATA_DIR']:
+for _k in ['SQLITE_PATH','DOCX_OUTPUT_DIR','RESUME_DATA_DIR']:
     os.environ.pop(_k, None)
 try:
     import dotenv  # type: ignore

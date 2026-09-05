@@ -38,7 +38,6 @@ from core import errors
 
 _TMP = Path(tempfile.mkdtemp(prefix="v15_t4_"))
 _SQLITE = _TMP / "app.db"
-_VS_DIR = _TMP / "vectorstore"
 _DIM = 8
 
 
@@ -96,7 +95,7 @@ def _setup_empty_db():
 
 
 def _run_migrations():
-    return migrations.run_migrations(str(_SQLITE), backup=True, vectorstore_dir=str(_VS_DIR))
+    return migrations.run_migrations(str(_SQLITE), backup=True)
 
 
 def _jd(**kw):

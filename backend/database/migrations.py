@@ -141,7 +141,7 @@ def _upsert_fact(session: Session, experience_id: str, cand: dict) -> tuple[str,
 
 # ── 备份 ─────────────────────────────────────────────────────── #
 
-def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str] = None) -> dict:
+def _backup_sources(sqlite_path: str) -> dict:
     """R3: 复制源数据库为只读备份并验证完整性。
 
     R3 fail closed: 备份失败或完整性核对失败均记入 errors。
@@ -150,7 +150,7 @@ def _backup_sources(sqlite_path: str, vectorstore_dir: Optional[str] = None) -> 
     """
     import json as _json
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    backups: dict = {"timestamp": ts, "sqlite": None, "vectorstore": None, "errors": [], "manifest": None}
+    backups: dict = {"timestamp": ts, "sqlite": None, "errors": [], "manifest": None}
 
     sqlite_p = Path(sqlite_path)
     if not sqlite_p.exists():
@@ -302,7 +302,6 @@ def run_migrations(
     db_path: Optional[str] = None,
     *,
     backup: bool = True,
-    vectorstore_dir: Optional[str] = None,
     recording: Optional[Recording] = None,
 ) -> dict:
     """运行顺序迁移（PLAN §6.3）。
@@ -317,8 +316,6 @@ def run_migrations(
     返回 summary：{backup, applied, skipped, details, verify}
     """
     sqlite_path = db_path or settings.SQLITE_PATH
-    # V1.5.0：vectorstore_dir 参数保留以兼容旧调用，但不再用于备份
-    # （向量持久化统一走 SQLite BLOB；settings.CHROMA_PATH 已移除）
     summary: dict = {
         "db_path": sqlite_path,
         "backup": None,
@@ -348,7 +345,7 @@ def run_migrations(
                 if is_fresh:
                     # W3: 全新空库——文件尚不存在，无需备份；仅建库并应用迁移
                     summary["backup"] = {
-                        "timestamp": None, "sqlite": None, "vectorstore": None,
+                        "timestamp": None, "sqlite": None,
                         "errors": [], "manifest": None,
                         "note": "fresh empty database; backup skipped",
                     }

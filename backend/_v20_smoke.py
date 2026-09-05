@@ -54,7 +54,7 @@ def _run_tests(state) -> int:
         check(r.status_code == 200, "/api/health 200")
         body = r.json()
         check(body.get("status") == "ok", "health status=ok")
-        check(body.get("version") == "2.0.1", "版本元数据 = 2.0.1", extra=str(body.get('version')))
+        check(body.get("version") == "2.0.2", "版本元数据 = 2.0.2", extra=str(body.get('version')))
 
         print("\n[2] 配置快照（脱敏）")
         r = c.get("/api/config")

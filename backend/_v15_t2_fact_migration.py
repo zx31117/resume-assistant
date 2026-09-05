@@ -36,7 +36,6 @@ from core import errors
 # ── 临时 runtime ──────────────────────────────────────────────── #
 _TMP = Path(tempfile.mkdtemp(prefix="v15_t2_"))
 _SQLITE = _TMP / "app.db"
-_VS_DIR = _TMP / "vectorstore"
 
 
 def _cleanup():
@@ -114,7 +113,7 @@ def main() -> int:
 
     # ── 2. 首次迁移 ──
     print("[2] run_migrations (first)...")
-    r1 = migrations.run_migrations(str(_SQLITE), backup=True, vectorstore_dir=str(_VS_DIR))
+    r1 = migrations.run_migrations(str(_SQLITE), backup=True)
     check(r1["error"] is None, "首次迁移无错误")
     check("v1.5.0-fact-schema" in r1["applied"], "schema 版本已应用")
     check("v1.5.0-fact-migration" in r1["applied"], "fact 迁移版本已应用")
@@ -142,7 +141,7 @@ def main() -> int:
 
     # ── 3. 重复迁移（版本已记录 → skip；verify 不变） ──
     print("[3] run_migrations (second, version-gated skip)...")
-    r2 = migrations.run_migrations(str(_SQLITE), backup=False, vectorstore_dir=None)
+    r2 = migrations.run_migrations(str(_SQLITE), backup=False)
     check(r2["error"] is None, "重复迁移无错误")
     check(len(r2["applied"]) == 0, "重复迁移无新应用（版本已记录）")
     check(r2["verify"]["facts"] == 5, "重复迁移 facts 仍=5")
@@ -181,7 +180,7 @@ def main() -> int:
     finally:
         s.close()
         eng.dispose()
-    r5 = migrations.run_migrations(str(_SQLITE), backup=False, vectorstore_dir=None)
+    r5 = migrations.run_migrations(str(_SQLITE), backup=False)
     check(r5["error"] is None, "重试迁移无错误")
     check("v1.5.0-fact-migration" in r5["applied"], "重试重新应用 fact 迁移")
     mig5 = r5["details"].get("v1.5.0-fact-migration", {})

@@ -40,7 +40,6 @@ from core import errors
 # ── 临时 runtime ──────────────────────────────────────────────── #
 _TMP = Path(tempfile.mkdtemp(prefix="v15_t3_"))
 _SQLITE = _TMP / "app.db"
-_VS_DIR = _TMP / "vectorstore"
 
 
 def _cleanup():
@@ -111,7 +110,7 @@ def _insert_fixtures():
         eng.dispose()
 
     # 运行迁移生成 Fact
-    r = migrations.run_migrations(str(_SQLITE), backup=True, vectorstore_dir=str(_VS_DIR))
+    r = migrations.run_migrations(str(_SQLITE), backup=True)
     assert r["error"] is None, f"迁移失败: {r['error']}"
 
 
