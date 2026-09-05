@@ -6,7 +6,8 @@
 > 批准日期：2026-09-05
 > 发布基线：annotated tag `v2.0.1` → `f4e69aae0577ea723e9ef5427b20287add76d06c`
 > 计划分支：`version/v2.0.2`
-> 冻结候选 commit：`7a7cdfd2777f9497d3633545d21722eb3c6e795c`（工作树 clean，父提交 `16ceac2`）
+> 冻结候选 commit：`7a7cdfd2777f9497d3633545d21722eb3c6e795c`（T1–T6，父提交 `16ceac2`）
+> 便携包隐私修复 commit：`a40c14df7d48b322aa761b494cdd08678f18830e`（模板按文件打包，排除 `__pycache__` 私有路径泄漏）
 
 ## 1. 当前实际发生的事
 
@@ -17,7 +18,7 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 - **T3** RUNTIME-2 改为隔离子进程验证，修正干净环境假通过；删除 `run_stub_demo.py` 对 `CHROMA_PATH` 的防御性清理；
 - **T4** 建立 ruff / ESLint / pip-audit / npm audit 四项固定非阻断基线；
 - **T5** 后端与前端版本元数据统一更新为 2.0.2；
-- **T6** 全部阻断检查通过；D15 便携包构建仍待从冻结候选执行。
+- **T6** 全部阻断检查通过；D15 便携包已从冻结候选重建并隐私复扫干净。
 
 ## 2. PLAN Task 当前状态
 
@@ -28,9 +29,9 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 | T3 RUNTIME-2 与 CHROMA_PATH 残留修正 | 完成 | RUNTIME-2 改为隔离子进程；Demo 不再 pop CHROMA_PATH |
 | T4 非阻断静态/依赖基线 | 完成 | 四项非阻断基线已记录（见 §4 D13） |
 | T5 版本、公开说明与构建输入 | 完成 | backend/前端版本 2.0.2；health 断言同步 |
-| T6 完整验证与便携包 | 完成（D15 便携包构建除外） | 全部阻断检查通过；D15 待从冻结候选构建 |
-| T7 RESULT 与冻结候选交接 | 完成 | 冻结候选 `7a7cdfd`；本 RESULT |
-| T8 独立源码验收 | 未开始 | 待验收 Agent 绑定 `7a7cdfd` |
+| T6 完整验证与便携包 | 完成 | 全部阻断检查通过；D15 便携包已从冻结候选重建并隐私复扫干净 |
+| T7 RESULT 与冻结候选交接 | 完成 | 冻结候选 `7a7cdfd` + 便携修复 `a40c14d`；本 RESULT |
+| T8 独立源码验收 | 未开始 | 待验收 Agent 绑定最终代码冻结 `a40c14d`（含 `7a7cdfd`） |
 | T9 人工确认、文档收口与发布 | 未开始 | 待 T8 |
 
 ## 3. 当前实际全局变化
@@ -45,7 +46,7 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 | 自动化 | 新增 Windows GitHub workflow 与统一本地预检入口 |
 | 静态/依赖检查 | ruff / pip-audit / eslint / npm-audit 首份非阻断基线；不自动修复、不上传原始扫描 artifact |
 | 前端 | 业务页面不变，仅版本元数据 2.0.2 与 `lint` 脚本；`eslint.config.js` 新增 |
-| 便携包 | 尚未从此候选重建（D15） |
+| 便携包 | 已从候选重建（onedir）；模板改为按文件打包，排除 `__pycache__` 私有路径泄漏 |
 | 文档 | 本 RESULT；CURRENT_STATE / DECISIONS / 根 README / 版本索引留待文档 Agent 收口 |
 
 ## 4. 验证状态（D1–D15）
@@ -63,10 +64,10 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 | D9 | CHROMA_PATH 注入 | 静态核实 + 回归 | 无活动读取方；仅剩防御剥离 / 测试断言 / 历史归档 |
 | D10 | 生命周期矩阵完整执行 | `_v2_lifecycle_matrix.py` | 50 项，失败 0 |
 | D11 | V1.5/V2.0/V2.0.1 回归 | `_v15_r_rework.py`/`_v15_w_rework.py`/`_v15_t6_legacy_exit.py`/`_v20_smoke.py`/`_v2_t5_crud_check.py`/`_v201_validation.py` | 48/37/24/20/15/77 通过，均 0 fail |
-| D12 | 前端 build | `npm run build` | dist/index.html 存在；package.json 版本 2.0.2 |
+| D12 | 前端 build | `npm run build` | dist/index.html 存在；`index-BQ8NVfq6.js` 已从当前源码重建（11:06）；前端 `src` 自 `16ceac2` 无变更故 JS 哈希与早前产物一致；package.json 版本 2.0.2 |
 | D13 | 非阻断扫描 | ruff / pip-audit / eslint / npm audit | 见下方基线 |
 | D14 | workflow 反向检查 | 审阅 `windows-ci.yml` | contents:read；60min 超时；无 artifact；不读 Secret |
-| D15 | 便携包构建/启动/内容扫描 | **未执行** | 原因见下方 |
+| D15 | 便携包构建/启动/内容扫描 | `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec` | 构建成功；`ResumeAssistant.exe` size=15972628 B、SHA-256=`9F39874A…B8FA7`；`__pycache__` 目录=0、私有路径 `31117` 命中=0 |
 
 **D13 非阻断基线（首版，不阻断发布，RESULT 记录）**
 
@@ -79,7 +80,7 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 
 以上均以「发现问题」显式报告，绝不伪装成零问题；工具缺失/超时/未匹配摘要行会显式标记（见 `scripts/precheck.py` `_run_nonblocking`）。
 
-**D15 未执行原因**：便携包为 PyInstaller onedir 重型构建（`packaging/build.ps1` → `dist/ResumeAssistant/`），PLAN §4 要求「从冻结候选重新构建」。本回合交付冻结候选 `7a7cdfd` 与 RESULT，D15 的构建、启动退出验证与内容/隐私扫描将在 T8 独立源码验收前从该 commit 干净检出执行，随后将大小、SHA-256 与扫描结论补入本表。
+**D15 构建与隐私复扫**：从冻结候选 `7a7cdfd` 干净重建便携包（`python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`），并应用便携修复 `a40c14d`（模板改为按文件打包 `pm_template.docx`/`pm_template.json`，排除 `backend/templates/__pycache__` 及其内嵌开发机绝对路径）。产物 `dist/ResumeAssistant/ResumeAssistant.exe`：size=15,972,628 B，SHA-256=`9F39874AEA9FCC59F0AEBC37C8354B33E5B1589BCCA609948B464CB2B4BB8FA7`；全目录递归扫描 `__pycache__` 目录数=0、私有路径（子串 `31117`）命中=0，无开发机绝对路径泄漏。
 
 ### 4.1 精确固定计数（PLAN §6 R4）
 
@@ -113,10 +114,9 @@ V2.0.2 依据已批准 PLAN 完成 T1–T6 实施，并在 `version/v2.0.2` 上�
 
 ## 5. 当前结论
 
-V2.0.2 T1–T6（D1–D14 适用项）已完成并在 `7a7cdfd` 冻结候选，工作树 clean。所有阻断检查通过，固定计数与退出码双重判定有效，非阻断基线真实可追溯。剩余交付为：
+V2.0.2 T1–T7（D1–D15 适用项）已完成，最终代码冻结为 `a40c14d`（含 `7a7cdfd` T1–T6 与便携修复），工作树 clean。所有阻断检查通过，固定计数与退出码双重判定有效，非阻断基线真实可追溯，D15 便携包已重建并隐私复扫干净。剩余交付为：
 
-1. **D15 便携包**从冻结候选 `7a7cdfd` 干净检出构建，补录大小、SHA-256 与内容/隐私扫描；
-2. **T8** 独立源码验收 Agent 绑定 `7a7cdfd`，分别给出功能与结构变更验收；
-3. **T9** 用户最小人工回归、文档收口与发布决定（由用户与文档 Agent 完成）。
+1. **T8** 独立源码验收 Agent 绑定最终代码冻结 `a40c14d`（含 `7a7cdfd`），分别给出功能与结构变更验收；
+2. **T9** 用户最小人工回归、文档收口与发布决定（由用户与文档 Agent 完成）。
 
 开发 Agent 未操作公开 `main`、未推送、未创建 tag。CURRENT_STATE、DECISIONS、根 README 与版本索引的收口建议留待 T8 通过后由文档 Agent 执行。
