@@ -50,7 +50,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T0 设计基线与 PLAN 身份冻结 | 已完成 | `DS-002` 导入、逐文件 hash、批准 commit/blob 均已冻结 |
 | T1 Windows CI 编码闭环 | 开发完成，待独立验收 | 编码修复与同类子进程审计已提交（见 §6，commit `7ddfa92`）；本地统一预检 exit 0 六脚本固定计数 + F3 哨兵通过；GitHub Windows CI 真实成功仍待 T11 独立验收时在 CI 侧核对 |
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
-| T3 用户界面与开发者后台分离 | 未开始 | 等待 T2 |
+| T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
 | T4 上传、D-038 确认边界与经历管理 | 未开始 | 等待 T2/T3 |
 | T5 一键生成与真实进度 | 未开始 | 等待 T2/T3 |
 | T6 内容预览、事实依据与 DOCX 下载 | 未开始 | 等待 T4/T5 |
@@ -149,3 +149,20 @@ T0 已完成。Development Agent 启动前必须：
 - 前端生产 build：`tsc -b && vite build` 通过，产物 dist/index.html + assets（CSS 14.38kB / JS 约 204kB）。
 - 类型与 lint 契约：strict tsc 通过；useServices/useAppState 缺 provider 抛错的 fail-closed 分支为显式代码路径。
 - 未做运行期联调（需后端 + runtime）；联调与 Design Fidelity 属 T3-T9。
+
+## 8. T3 全局壳层重构（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `0a16c78`（version/v2.1.0，工作区 clean）。
+
+### 8.1 内容
+
+- **AppShell 顶栏 → DS-002 侧栏**：桌面 208px `app-sidebar`（brand + `app-nav`：生成简历/我的经历/个人与隐私，带图标、NavLink 高亮），主区 `app-main` 承载 Outlet；<900px（`--bp-side`）折叠为顶部横排导航，<520px 页头转纵向。
+- **开发者后台隐藏**：`/system` 仅通过侧栏脚注 `.dev-link`「开发者后台 ›」进入，不出现在普通一级导航；SystemPage 全部管理/诊断能力与 loopback 同源写安全边界不回退（PLAN §6.1）。
+- **路由**：`/` generate、`/profile` experience、`/privacy` privacy、`/system` 隐藏 dev；未知路由回 `/`。
+- **PrivacyPage 基础版**：仅陈述已验收的产品隐私事实（本机存储、模型调用、删除边界），不虚构能力；DS-002 精修在 T7。
+- **global.css**：`.shell` 改 grid 侧栏布局；新增 app-sidebar/app-nav/nav-item/dev-link 主题 A 样式；移除旧 topbar/brand/nav 布局规则；响应式断点替换为 899/519px。
+
+### 8.2 验证与偏差
+
+- 前端生产 build 通过（strict tsc + vite，54 modules，CSS 14.94kB / JS 206.49kB）。
+- 偏差：① 页面正文仍为 V2.0.x 内容与视觉（T4-T7 逐个按 DS-002 重构，GeneratePage 已用 useServices）；② PrivacyPage 为真实事实基础版，非最终信息架构；③「我的经历」侧栏计数（memory-count）待经历域状态落地后接入。
