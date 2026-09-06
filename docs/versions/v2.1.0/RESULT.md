@@ -1,9 +1,10 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：PLAN 已由 Product Owner 批准；正在冻结批准身份，**开发尚未启动**
+> 当前状态：待验收（T0 已完成；开发待启动）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准身份：尚未产生
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`
+> PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
 > 发布结论：不适用
 
 ## 1. 本文件用途
@@ -34,19 +35,19 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | Canonical Design Baseline | `docs/design/baselines/V2.1.0/DS-002/` | 已导入；15 个文件 |
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
-| PLAN 批准 commit/blob | Product Owner 批准后记录 | 尚未产生 |
+| PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
 | 开发候选 commit | 开发结束后冻结 | 尚未产生 |
 | 独立验收对象 | 与开发候选完全一致 | 尚未产生 |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
-一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，Documentation Agent 正在
-记录批准 commit/blob；记录完成前 T0 仍为进行中。
+一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
+设计基线由局部 `.gitattributes` 按 binary 保存，确保跨工作区检出时不发生换行归一化。
 
 ## 4. Task 状态
 
 | Task | 状态 | 当前证据或下一门禁 |
 |---|---|---|
-| T0 设计基线与 PLAN 身份冻结 | 进行中 | `DS-002` 导入及 hash 验证已完成；用户已批准，等待记录 PLAN commit/blob |
+| T0 设计基线与 PLAN 身份冻结 | 已完成 | `DS-002` 导入、逐文件 hash、批准 commit/blob 均已冻结 |
 | T1 Windows CI 编码闭环 | 未开始 | 必须绑定后续源码提交和 GitHub run |
 | T2 tokens、adapter、路由与状态骨架 | 未开始 | 等待 T0 |
 | T3 用户界面与开发者后台分离 | 未开始 | 等待 T2 |
@@ -60,12 +61,14 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T11 独立验收 | 未开始 | 等待 T10 |
 | T12 Product Owner 人工验收与发布 | 未开始 | 等待 T11 |
 
-## 5. 当前阻断与下一步
+## 5. 开发交接
 
-当前唯一剩余立项门禁是 T0 的 PLAN 身份记录：
+T0 已完成。Development Agent 启动前必须：
 
-1. 复核 PLAN、RESULT、导入基线、索引、相对链接及仓库 diff；
-2. Documentation Agent 形成并记录批准 commit/blob；
-3. 把精确基线交给 Development Agent，开发启动前再次核对。
+1. 在固定 `<current-workspace>` 同步包含本 RESULT 记录的 canonical 最新基线；
+2. 核对批准 commit `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` 与 PLAN blob
+   `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`；
+3. 重新验证 `DS-002` 的 14 项 manifest 和两个固定 hash；
+4. 按 PLAN 从 T1 开始执行，候选冻结前持续更新本 RESULT 的实施、自测与偏差。
 
-在上述门禁通过前，本 RESULT 不得出现“开发完成”“功能可用”“验收通过”或“已发布”等结论。
+开发、自测或页面存在都不自动等于独立验收通过或发布；状态迁移继续遵守 PLAN 门禁。
