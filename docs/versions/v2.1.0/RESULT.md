@@ -51,7 +51,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T1 Windows CI 编码闭环 | 开发完成，待独立验收 | 编码修复与同类子进程审计已提交（见 §6，commit `7ddfa92`）；本地统一预检 exit 0 六脚本固定计数 + F3 哨兵通过；GitHub Windows CI 真实成功仍待 T11 独立验收时在 CI 侧核对 |
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
-| T4 上传、D-038 确认边界与经历管理 | 开发中（T4a 完成） | D-038 provenance 契约与自动整理分流已提交（见 §9，commit `03d9871`）；DS-002 上传/我的经历视觉重构待 T4b |
+| T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
 | T5 一键生成与真实进度 | 未开始 | 等待 T2/T3 |
 | T6 内容预览、事实依据与 DOCX 下载 | 未开始 | 等待 T4/T5 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 未开始 | 等待 T3 |
@@ -185,3 +185,21 @@ T0 已完成。Development Agent 启动前必须：
 - 后端 schema 行为单测 8/8（默认 inferred、direct 无证据降级、非法值兜底、响应携带 provenance、ExperienceItem 写库结构未变）；编译与路由导入通过。
 - 前端生产 build 通过（strict tsc + vite，54 modules）。
 - 偏差：① 未新增 experiences 来源列——条目级原文片段仅 extract 会话内回查，长期溯源依赖既有 Fact.source（用户确认接受，后续版本增强）；② ProfilePage 尚未切换 useServices 与 DS-002 视觉（T4b 页面重构时一并做）；③ 未做真实 LLM 端到端联调（需 Key），交由 T11/人工联调。
+
+## 10. T4b「我的经历」DS-002 布局重构（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `fc2870e`（version/v2.1.0，工作区 clean）。
+> 本 Task 由独立执行体按完整约束清单实施，开发 Agent 复核提交与关键逻辑后记录。
+
+### 10.1 内容
+
+- 页头改「我的经历 · 长期事实库 / 新事实经确认后写入」；actions 提供「上传 PDF」（primary，打开导入 Modal 并聚焦 file input）与「新增经历」（ghost）。
+- typeFilter 下拉替换为 全部/工作/项目/教育 四个 tab（value 直接匹配后端真实 type 值域 education/work/project；含 items 真实计数；选中态 --tint + --primary）。不渲染原型中后端不存在的 internship/activity/skill/deferred 假筛选。
+- 信息架构：工具条（tab + 搜索 + 刷新）+ 单列列表区域内滚动；每条保留 typeLabel/time/company 摘要、summary_status 徽章、fact_count、编辑/删除。
+- 空态区分「无任何经历（含新增/上传 CTA）」与「无匹配（清除筛选）」。
+- 删除确认、notice、crudActive 操作轮询展示、导入 review（D-038 需确认列表 + .exp-source 原文引用 + 批量保存/失败重试/全部直入空态）全部原样保留。
+
+### 10.2 验证
+
+- 前端生产 build 通过（strict tsc + vite，exit 0）；git status 干净；提交 `fc2870e` 内容经复核与报告一致。
+- 偏差：页面为「工具条 + 单列列表」而非原型 360px 主从双栏（避免窄列表降低可用性，双栏/视觉细调归 T8 Design Fidelity）；ProfilePage 仍直连 endpoints（service 迁移归其后续重做）。
