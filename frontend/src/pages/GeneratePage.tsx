@@ -5,7 +5,7 @@ import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import OperationTimeline from '../components/OperationTimeline'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
-import { jdApi, resumeApi, systemApi, templateApi } from '../api/endpoints'
+import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
 import type {
@@ -61,6 +61,7 @@ function AnalysisView({ a }: { a: JDAnalysis }) {
 }
 
 export default function GeneratePage() {
+  const services = useServices()
   const [templates, setTemplates] = useState<TemplateInfo[]>([])
   const [templateId, setTemplateId] = useState('')
   const [status, setStatus] = useState<SystemStatus | null>(null)
@@ -88,7 +89,7 @@ export default function GeneratePage() {
 
   const loadMeta = useCallback(async () => {
     try {
-      const [tpl, st] = await Promise.all([templateApi.list(), systemApi.status()])
+      const [tpl, st] = await Promise.all([services.template.list(), services.system.status()])
       setTemplates(tpl.templates)
       const def = tpl.templates.find((t) => t.is_default) ?? tpl.templates[0]
       setTemplateId((cur) => cur || def?.template_id || '')
@@ -118,7 +119,7 @@ export default function GeneratePage() {
     setAnalysisError(null)
     setAnalysis(null)
     try {
-      const res = await jdApi.analyze({ jd_text: jd })
+      const res = await services.jd.analyze({ jd_text: jd })
       setAnalysis(res)
     } catch (e) {
       setAnalysisError(e instanceof ApiError ? e.message : String(e))
@@ -135,7 +136,7 @@ export default function GeneratePage() {
     setGenerateError(null)
     setResult(null)
     try {
-      const res = await resumeApi.generateDocx(
+      const res = await services.resume.generateDocx(
         {
           jd_text: jd,
           template_id: templateId || undefined,
