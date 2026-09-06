@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -15,6 +16,86 @@ const EXPERIENCE_TYPES: { value: string; label: string }[] = [
   { value: 'project', label: '项目' },
   { value: 'education', label: '教育' },
 ]
+
+// V2.1.0 DS-002：筛选 tab 只映射后端真实 type 值域（''=全部，tab value 直接匹配 type 字符串）。
+const FILTER_TABS: { value: string; label: string }[] = [
+  { value: '', label: '全部' },
+  ...EXPERIENCE_TYPES,
+]
+
+// V2.1.0 DS-002：列表区布局样式（tab + 搜索的工具条、区域内滚动的单列主列表）。
+// 页面最外层继续走 .page/.page-head/.card 体系；新增的容器以行内样式自绘，不改动 global.css。
+const masterStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  minHeight: 0,
+}
+
+const toolbarStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 'var(--s4)',
+  flexWrap: 'wrap',
+  marginBottom: 'var(--s4)',
+}
+
+const tabsStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--s2)',
+  flexWrap: 'wrap',
+}
+
+const toolbarEndStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--s3)',
+  flexWrap: 'wrap',
+}
+
+const tabBaseStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  height: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: 'var(--ink-soft)',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
+  fontFamily: 'inherit',
+  lineHeight: 1,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  transition:
+    'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+}
+
+// DS-002 被选态：--tint 底 + --primary 文字
+const tabActiveStyle: CSSProperties = {
+  background: 'var(--tint)',
+  color: 'var(--primary)',
+  fontWeight: 600,
+}
+
+const tabCountStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  opacity: 0.8,
+  fontVariantNumeric: 'tabular-nums',
+}
+
+// 列表区内区域滚动（页面顶栏固定，长列表不撑破工作台）
+const listScrollStyle: CSSProperties = {
+  maxHeight: 'max(360px, calc(100vh - 348px))',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  paddingRight: 'var(--s1)',
+}
 
 function typeLabel(type: string): string {
   return EXPERIENCE_TYPES.find((t) => t.value === type)?.label ?? (type || '未分类')
@@ -247,6 +328,13 @@ export default function ProfilePage() {
     })
   }, [items, search, typeFilter])
 
+  // DS-002 tab 计数：按真实 type 值域统计（与搜索词无关，仅反映当前库规模）
+  const typeCounts = useMemo(() => {
+    const c = new Map<string, number>()
+    for (const it of items) c.set(it.type, (c.get(it.type) ?? 0) + 1)
+    return c
+  }, [items])
+
   function openCreate() {
     setEditingId(null)
     setEditing(emptyForm())
@@ -413,12 +501,33 @@ export default function ProfilePage() {
     await load()
   }
 
+  // DS-002：页头「上传 PDF」——重置并打开导入 Modal，等 Modal 挂载后聚焦/拉起 file input
+  function openImportUpload() {
+    resetImport()
+    setImportOpen(true)
+    window.setTimeout(() => {
+      fileRef.current?.click()
+    }, 80)
+  }
+
+  function clearFilters() {
+    setSearch('')
+    setTypeFilter('')
+  }
+
   return (
     <div className="page">
       <PageHeader
-        title="履历库"
-        description="查看并维护你的 Experience（项目 / 工作 / 教育），支持 PDF 导入、逐项检查与增删改。事实层继续由后端 Fact 服务维护。"
-        actions={<Button onClick={openCreate}>新建经历</Button>}
+        title="我的经历"
+        description="长期事实库 · 新事实经确认后写入。本页为「我的经历」主列表；每条的 summary_status 徽章为真实索引状态，事实明细由后端 Fact 服务维护。"
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', flexWrap: 'wrap' }}>
+            <Button onClick={openImportUpload}>上传 PDF</Button>
+            <Button variant="ghost" onClick={openCreate}>
+              新增经历
+            </Button>
+          </div>
+        }
       />
 
       {/* ── V2.0.1 本页当前操作 ── */}
@@ -428,93 +537,122 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      <Card
-        title="Experience 列表"
-        subtitle="保存后仅展示 Experience 级汇总状态；事实明细不在此页展开。"
-        actions={
-          <Button variant="secondary" onClick={() => { resetImport(); setImportOpen(true) }}>
-            导入 PDF
-          </Button>
-        }
-      >
-        <div className="toolbar">
-          <input
-            className="input input--grow"
-            type="search"
-            placeholder="按标题 / 公司 / 角色 / 描述查找"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: 'auto' }}>
-            <option value="">全部类型</option>
-            {EXPERIENCE_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-          <Button variant="ghost" onClick={load}>
-            刷新
-          </Button>
-        </div>
-
-        {notice && (
-          <div className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}>{notice.text}</div>
-        )}
-
-        {loading ? (
-          <p className="muted">读取中…</p>
-        ) : sorted.length === 0 ? (
-          <div className="empty">
-            <p className="empty__title">{items.length === 0 ? '还没有 Experience' : '没有匹配的经历'}</p>
-            <p className="empty__desc">
-              {items.length === 0
-                ? '点击「新建经历」手动录入，或「导入 PDF」从简历中提取。'
-                : '调整查找关键词或类型筛选项。'}
-            </p>
+      {/* ── V2.1.0 DS-002：我的经历主从视图（信息架构：tab 筛选 + 搜索 + 单列主列表） ── */}
+      <Card>
+        <div className="exp-master" style={masterStyle}>
+          <div className="exp-toolbar" style={toolbarStyle}>
+            <div className="exp-tabs" role="tablist" aria-label="按经历类型筛选" style={tabsStyle}>
+              {FILTER_TABS.map((t) => {
+                const active = typeFilter === t.value
+                const count = t.value === '' ? items.length : (typeCounts.get(t.value) ?? 0)
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className="exp-tab"
+                    style={{ ...tabBaseStyle, ...(active ? tabActiveStyle : {}) }}
+                    onClick={() => setTypeFilter(t.value)}
+                  >
+                    {t.label}
+                    <span style={tabCountStyle}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="exp-toolbar__end" style={toolbarEndStyle}>
+              <input
+                className="input"
+                type="search"
+                placeholder="按标题 / 公司 / 角色 / 描述查找"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 'min(300px, 42vw)', minWidth: 200 }}
+              />
+              <Button variant="ghost" onClick={load}>
+                刷新
+              </Button>
+            </div>
           </div>
-        ) : (
-          <ul className="exp-list">
-            {sorted.map((exp) => {
-              const meta = summaryMeta(exp.summary_status)
-              return (
-                <li className="exp-item" key={exp.id}>
-                  <div className="exp-item__head">
-                    <div>
-                      <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
-                      <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
-                      <div className="exp-item__meta">
-                        {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+
+          {notice && (
+            <div
+              className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}
+              style={{ margin: '0 0 var(--s4)' }}
+            >
+              {notice.text}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="muted" style={{ padding: 'var(--s6) 0', textAlign: 'center' }}>
+              读取中…
+            </p>
+          ) : sorted.length === 0 ? (
+            items.length === 0 ? (
+              <div className="empty">
+                <p className="empty__title">还没有任何经历</p>
+                <p className="empty__desc">上传现有简历或新增一段经历，从这里开始构建你的长期事实库。</p>
+                <div style={{ display: 'flex', gap: 'var(--s3)', marginTop: 'var(--s3)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Button onClick={openImportUpload}>上传 PDF</Button>
+                  <Button variant="secondary" onClick={openCreate}>
+                    新增经历
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="empty">
+                <p className="empty__title">没有匹配的经历</p>
+                <p className="empty__desc">调整类型 tab 或查找关键词后再试。</p>
+                <Button variant="ghost" onClick={clearFilters} style={{ marginTop: 'var(--s3)' }}>
+                  清除筛选
+                </Button>
+              </div>
+            )
+          ) : (
+            <ul className="exp-list" style={listScrollStyle}>
+              {sorted.map((exp) => {
+                const meta = summaryMeta(exp.summary_status)
+                return (
+                  <li className="exp-item" key={exp.id}>
+                    <div className="exp-item__head">
+                      <div>
+                        <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
+                        <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
+                        <div className="exp-item__meta">
+                          {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <div className="exp-item__actions">
+                        <Badge tone={meta.tone}>{meta.label}</Badge>
+                        {typeof exp.fact_count === 'number' && (
+                          <span className="tag">{exp.fact_count} 事实</span>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
+                          编辑
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
+                          删除
+                        </Button>
                       </div>
                     </div>
-                    <div className="exp-item__actions">
-                      <Badge tone={meta.tone}>{meta.label}</Badge>
-                      {typeof exp.fact_count === 'number' && (
-                        <span className="tag">{exp.fact_count} 事实</span>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
-                        编辑
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
-                        删除
-                      </Button>
-                    </div>
-                  </div>
-                  {exp.description && <p className="exp-item__desc">{exp.description}</p>}
-                  {exp.skills && exp.skills.length > 0 && (
-                    <div className="exp-item__tags">
-                      {exp.skills.map((s) => (
-                        <span className="tag" key={s}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                    {exp.description && <p className="exp-item__desc">{exp.description}</p>}
+                    {exp.skills && exp.skills.length > 0 && (
+                      <div className="exp-item__tags">
+                        {exp.skills.map((s) => (
+                          <span className="tag" key={s}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </Card>
 
       {editing && (
