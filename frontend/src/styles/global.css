@@ -51,102 +51,120 @@ button {
 
 .shell {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
 }
 
-.topbar {
+/* —— V2.1.0 侧栏壳层（DS-002：桌面 208px 稳定侧栏 + 任务工作区） —— */
+
+.app-sidebar {
   position: sticky;
   top: 0;
-  z-index: 20;
-  height: var(--topbar-h);
-  background: color-mix(in srgb, var(--paper) 86%, transparent);
-  backdrop-filter: saturate(1.2) blur(12px);
-  border-bottom: 1px solid var(--line);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5) var(--s3) var(--s4);
+  background: var(--canvas);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
 }
 
-.topbar__inner {
-  max-width: var(--shell-max);
-  height: 100%;
-  margin: 0 auto;
-  padding: 0 var(--s5);
+.app-brand {
   display: flex;
   align-items: center;
-  gap: var(--s6);
+  gap: var(--s3);
+  padding: var(--s1) var(--s3) var(--s2);
 }
 
-.brand {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  white-space: nowrap;
-}
-
-.brand__mark {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
+.app-brand .logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--r-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-lg);
   font-weight: 500;
-  letter-spacing: 0.01em;
 }
 
-.brand__dot {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--accent);
+.app-brand__text .name {
+  font-weight: 500;
+  line-height: 1.25;
 }
 
-.brand__sub {
-  margin-left: var(--s3);
-  padding-left: var(--s3);
-  border-left: 1px solid var(--line-strong);
-  font-size: var(--text-sm);
-  letter-spacing: 0.08em;
+.app-brand__text .sub {
+  font-size: 11px;
   color: var(--ink-faint);
 }
 
-.nav {
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.nav-item {
   display: flex;
   align-items: center;
-  gap: var(--s2);
-  margin-left: auto;
-}
-
-.nav__link {
-  position: relative;
+  gap: var(--s3);
   padding: var(--s2) var(--s3);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
   border-radius: var(--r-sm);
-  transition: color 0.16s ease, background-color 0.16s ease;
+  color: var(--ink-soft);
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.nav__link:hover {
+.nav-item svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.nav-item:hover {
+  background: var(--surface-2);
   color: var(--ink);
-  background-color: var(--surface-muted);
 }
 
-.nav__link.is-active {
-  color: var(--accent);
-  font-weight: 600;
+.nav-item.is-active {
+  background: var(--tint);
+  color: var(--ink);
+  font-weight: 500;
 }
 
-.nav__link.is-active::after {
-  content: "";
-  position: absolute;
-  left: var(--s3);
-  right: var(--s3);
-  bottom: 1px;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px;
+.app-sidebar__foot {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s2) var(--s3) 0;
+  border-top: 1px solid var(--line);
 }
 
-.shell__main {
-  flex: 1;
-  width: 100%;
-  max-width: var(--shell-max);
-  margin: 0 auto;
-  padding: var(--s7) var(--s5) var(--s8);
+.dev-link {
+  display: block;
+  border: 0;
+  background: none;
+  padding: var(--s2) 0 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.dev-link:hover {
+  color: var(--ink-soft);
+}
+
+.app-main {
+  min-width: 0;
+  padding: var(--s6) var(--s6) var(--s8);
+  background: var(--canvas);
 }
 
 /* ============================================================
@@ -946,20 +964,58 @@ button {
    响应式
    ============================================================ */
 
-@media (max-width: 640px) {
-  .topbar__inner {
-    padding: 0 var(--s4);
-    gap: var(--s4);
+/* V2.1.0：<900px 侧栏折叠为顶部横排导航（DS-002 断点 --bp-side） */
+@media (max-width: 899px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .brand__sub {
+  .app-sidebar {
+    position: sticky;
+    top: 0;
+    height: auto;
+    z-index: var(--z-sticky);
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+    background: var(--surface);
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    overflow: visible;
+  }
+
+  .app-brand {
     display: none;
   }
 
-  .shell__main {
-    padding: var(--s6) var(--s4) var(--s7);
+  .app-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--s1);
+    flex: 1;
   }
 
+  .nav-item {
+    padding: var(--s1) var(--s3);
+    font-size: 13px;
+  }
+
+  .app-sidebar__foot {
+    border-top: none;
+    padding: 0 var(--s2);
+  }
+
+  .dev-link {
+    padding: var(--s1) var(--s2);
+  }
+
+  .app-main {
+    padding: var(--s4) var(--s3) var(--s7);
+  }
+}
+
+@media (max-width: 519px) {
   .page-head {
     flex-direction: column;
     align-items: flex-start;
