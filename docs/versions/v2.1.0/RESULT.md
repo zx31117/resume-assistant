@@ -51,7 +51,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T1 Windows CI 编码闭环 | 开发完成，待独立验收 | 编码修复与同类子进程审计已提交（见 §6，commit `7ddfa92`）；本地统一预检 exit 0 六脚本固定计数 + F3 哨兵通过；GitHub Windows CI 真实成功仍待 T11 独立验收时在 CI 侧核对 |
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
-| T4 上传、D-038 确认边界与经历管理 | 未开始 | 等待 T2/T3 |
+| T4 上传、D-038 确认边界与经历管理 | 开发中（T4a 完成） | D-038 provenance 契约与自动整理分流已提交（见 §9，commit `03d9871`）；DS-002 上传/我的经历视觉重构待 T4b |
 | T5 一键生成与真实进度 | 未开始 | 等待 T2/T3 |
 | T6 内容预览、事实依据与 DOCX 下载 | 未开始 | 等待 T4/T5 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 未开始 | 等待 T3 |
@@ -166,3 +166,22 @@ T0 已完成。Development Agent 启动前必须：
 
 - 前端生产 build 通过（strict tsc + vite，54 modules，CSS 14.94kB / JS 206.49kB）。
 - 偏差：① 页面正文仍为 V2.0.x 内容与视觉（T4-T7 逐个按 DS-002 重构，GeneratePage 已用 useServices）；② PrivacyPage 为真实事实基础版，非最终信息架构；③「我的经历」侧栏计数（memory-count）待经历域状态落地后接入。
+
+## 9. T4a D-038 来源证据契约与自动整理（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `03d9871`（version/v2.1.0，工作区 clean）。
+> 执行口径已由用户确认（2026-09-06）：薄契约、零 DB 迁移；需改库/迁移的来源持久化增强留后续版本。
+
+### 9.1 内容
+
+- **schemas.py**：新增 `ExperienceProvenance`（classification direct|inferred + source_snippets）与 `ExtractExperienceItem(ExperienceItem)`；`ExtractResponse.experiences` 与 `ExperienceExtractionResult.experiences` 改用它。`create/update` 请求体仍为 `ExperienceItem`——experiences 表不加列、迁移不动。fail-closed：缺失/非法 → inferred；direct 无任何 source_snippet → 自动降级 inferred。
+- **prompts/experience_extract.py**：指导 LLM 输出 provenance，source_snippets 必须逐字摘自原文；拿不准一律 inferred。
+- **api/types.ts**：ExperienceProvenance / ExtractExperienceItem / ExtractResponse 同步。
+- **ProfilePage 导入流程分流**（D-038）：extract 返回后 direct 条目自动逐条 create（X-Operation-Group-ID 聚合），进入「我的经历」；自动保存失败项与 inferred 条目进入「需确认」review 列表，展示来源原文引用，用户核对/编辑后保存；「暂不使用」不写库。无半成功假象，失败可重试。
+- **global.css**：`.exp-source` 引用样式。
+
+### 9.2 验证与偏差
+
+- 后端 schema 行为单测 8/8（默认 inferred、direct 无证据降级、非法值兜底、响应携带 provenance、ExperienceItem 写库结构未变）；编译与路由导入通过。
+- 前端生产 build 通过（strict tsc + vite，54 modules）。
+- 偏差：① 未新增 experiences 来源列——条目级原文片段仅 extract 会话内回查，长期溯源依赖既有 Fact.source（用户确认接受，后续版本增强）；② ProfilePage 尚未切换 useServices 与 DS-002 视觉（T4b 页面重构时一并做）；③ 未做真实 LLM 端到端联调（需 Key），交由 T11/人工联调。
