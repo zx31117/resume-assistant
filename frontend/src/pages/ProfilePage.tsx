@@ -8,7 +8,7 @@ import OperationTimeline from '../components/OperationTimeline'
 import { experienceApi, resumeApi } from '../api/endpoints'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
-import type { ExperienceItem, ExperienceOut, OperationDetail } from '../api/types'
+import type { ExperienceItem, ExperienceOut, OperationDetail, ExtractExperienceItem } from '../api/types'
 
 const EXPERIENCE_TYPES: { value: string; label: string }[] = [
   { value: 'work', label: '工作' },
@@ -202,10 +202,13 @@ export default function ProfilePage() {
   const [importStep, setImportStep] = useState<'upload' | 'review'>('upload')
   const [importText, setImportText] = useState('')
   const [importExtracting, setImportExtracting] = useState(false)
-  const [importItems, setImportItems] = useState<ExperienceItem[]>([])
+  // V2.1.0 D-038：review 列表只保留「需确认」条目（inferred 或自动直入失败项）
+  const [importItems, setImportItems] = useState<ExtractExperienceItem[]>([])
   const [importResults, setImportResults] = useState<{ idx: number; ok: boolean; msg: string }[]>([])
   const [importSaving, setImportSaving] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  // 分流提示（如「N 项已自动整理入库」），review 期显示
+  const [importSummary, setImportSummary] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -302,6 +305,7 @@ export default function ProfilePage() {
     setImportItems([])
     setImportResults([])
     setImportError(null)
+    setImportSummary(null)
     setNotice(null)
   }
 
@@ -317,6 +321,31 @@ export default function ProfilePage() {
     }
   }
 
+  // V2.1.0 D-038：direct 条目自动落库（group 聚合），失败项回到「需确认」可重试
+  async function autoSaveDirect(direct: ExtractExperienceItem[]) {
+    const groupId = newOperationId()
+    const failed: ExtractExperienceItem[] = []
+    let okCount = 0
+    for (const item of direct) {
+      try {
+        const { provenance: _p, ...data } = item
+        await experienceApi.create(data, newOperationId(), groupId)
+        okCount++
+      } catch {
+        failed.push(item)
+      }
+    }
+    if (failed.length > 0) {
+      setImportItems((cur) => [...cur, ...failed])
+      setImportSummary(
+        `已自动整理 ${okCount} 项进入「我的经历」；${failed.length} 项自动保存失败，请在下方核对后重新保存。`,
+      )
+    } else {
+      setImportSummary(`已自动整理 ${okCount} 项进入「我的经历」。`)
+    }
+    await load()
+  }
+
   async function runExtract() {
     if (!importText.trim()) return
     const id = newOperationId()
@@ -324,6 +353,7 @@ export default function ProfilePage() {
     setCrudActive(true)
     setImportExtracting(true)
     setImportError(null)
+    setImportSummary(null)
     try {
       const res = await experienceApi.extract({ resume_text: importText }, id)
       if (!res.experiences || res.experiences.length === 0) {
@@ -331,7 +361,17 @@ export default function ProfilePage() {
         setImportStep('upload')
         return
       }
-      setImportItems(res.experiences)
+      // D-038 分流：direct → 自动入库；其余（inferred/无证据）→ 需确认
+      const needsConfirm = res.experiences.filter(
+        (e) => e.provenance?.classification !== 'direct',
+      )
+      const direct = res.experiences.filter((e) => e.provenance?.classification === 'direct')
+      setImportItems(needsConfirm)
+      if (direct.length > 0) {
+        await autoSaveDirect(direct)
+      } else {
+        setImportSummary('本次提取均为 AI 推断/补全内容，请在下方逐项核对后保存。')
+      }
       setImportResults([])
       setImportStep('review')
     } catch (e) {
@@ -354,7 +394,8 @@ export default function ProfilePage() {
     const results: { idx: number; ok: boolean; msg: string }[] = []
     for (let i = 0; i < importItems.length; i++) {
       try {
-        await experienceApi.create(importItems[i], newOperationId(), groupId)
+        const { provenance: _p, ...data } = importItems[i]
+        await experienceApi.create(data, newOperationId(), groupId)
         results.push({ idx: i, ok: true, msg: '已保存' })
       } catch (e) {
         results.push({ idx: i, ok: false, msg: e instanceof ApiError ? e.message : String(e) })
@@ -558,19 +599,31 @@ export default function ProfilePage() {
 
                 {importStep === 'review' && (
                   <div className="stack">
-                    <h3 className="section-label">逐项检查 / 修改后保存（共 {importItems.length} 项）</h3>
+                    {importSummary && <div className="notice notice--ok">{importSummary}</div>}
+                    <h3 className="section-label">
+                      需确认条目（共 {importItems.length} 项）：内容含 AI 推断/补全，请核对原文后保存
+                    </h3>
                     {importItems.map((item, idx) => {
                       const r = importResults.find((x) => x.idx === idx)
+                      const snippets = item.provenance?.source_snippets ?? []
                       return (
                         <div className="exp-item" key={idx}>
                           <div className="exp-item__head">
                             <span className="exp-item__title">
                               {idx + 1}. {item.title || '（未命名）'}
                             </span>
+                            <Badge tone="warn">需确认</Badge>
                             {r && (
                               <Badge tone={r.ok ? 'ok' : 'danger'}>{r.ok ? '已保存' : '失败'}</Badge>
                             )}
                           </div>
+                          {snippets.length > 0 && (
+                            <blockquote className="exp-source">
+                              {snippets.map((s, si) => (
+                                <div key={si}>“{s}”</div>
+                              ))}
+                            </blockquote>
+                          )}
                           <div className="form-grid" style={{ marginTop: 'var(--s3)' }}>
                             <Field label="类型">
                               <Select value={item.type} onChange={(e) => updateImported(idx, { type: e.target.value })}>
@@ -615,11 +668,19 @@ export default function ProfilePage() {
                         </div>
                       )
                     })}
-                    {importItems.length === 0 && (
+                    {importItems.length === 0 && !importSummary && (
                       <div className="empty">
                         <p className="empty__desc">没有提取到经历，请返回检查简历文本或连接配置。</p>
                         <Button variant="secondary" onClick={() => { setImportStep('upload'); setImportError(null) }}>
                           返回重新提取
+                        </Button>
+                      </div>
+                    )}
+                    {importItems.length === 0 && importSummary && (
+                      <div className="empty">
+                        <p className="empty__desc">本次提取全部自动整理入库，无需逐条确认。</p>
+                        <Button variant="secondary" onClick={() => { setImportOpen(false); resetImport() }}>
+                          完成
                         </Button>
                       </div>
                     )}

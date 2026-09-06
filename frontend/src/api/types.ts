@@ -40,8 +40,19 @@ export interface ExtractRequest {
   resume_text: string
 }
 
+/** V2.1.0 D-038：提取条目的来源证据与分类（仅存在于 extract 响应）。 */
+export interface ExperienceProvenance {
+  /** direct=原文直接支撑可自动入库；inferred=推断/补全需用户确认后写入 */
+  classification: 'direct' | 'inferred'
+  source_snippets: string[]
+}
+
+export interface ExtractExperienceItem extends ExperienceItem {
+  provenance: ExperienceProvenance
+}
+
 export interface ExtractResponse {
-  experiences: ExperienceItem[]
+  experiences: ExtractExperienceItem[]
 }
 
 // ———— JD 分析 ————

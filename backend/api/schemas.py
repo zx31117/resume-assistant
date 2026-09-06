@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _coerce_to_list(v: Any) -> list:
@@ -58,6 +58,46 @@ class ExperienceItem(BaseModel):
         return v
 
 
+class ExperienceProvenance(BaseModel):
+    """V2.1.0 D-038：提取条目的来源证据与分类（薄契约，不落库）。
+
+    - classification：direct = 结构字段在原文有直接支撑、无语义扩张，可自动进入
+      「我的经历」；inferred = 存在推断/补全/低置信，必须经用户确认后才写入。
+      缺失/非法一律归 inferred（fail-closed：宁可待确认，不静默直入）。
+    - source_snippets：支撑本条的关键原文原句（会话内「可回查」证据）。
+    长期溯源落库后依赖既有 Fact.source 机制；本结构只存在于 extract 响应与提取器。
+    """
+
+    classification: str = "inferred"
+    source_snippets: List[str] = []
+
+    @field_validator("classification", mode="before")
+    @classmethod
+    def _coerce_classification(cls, v: Any) -> str:
+        if v in ("direct", "inferred"):
+            return v
+        return "inferred"
+
+    @field_validator("source_snippets", mode="before")
+    @classmethod
+    def _coerce_snippets(cls, v: Any) -> list:
+        return _coerce_to_list(v)
+
+    @model_validator(mode="after")
+    def _direct_needs_evidence(self) -> "ExperienceProvenance":
+        # direct 必须带至少一条原文片段证据；没有证据的 direct 降级为 inferred，
+        # 防止 LLM 无依据标 direct 而绕过用户确认。
+        if self.classification == "direct" and not self.source_snippets:
+            self.classification = "inferred"
+        return self
+
+
+class ExtractExperienceItem(ExperienceItem):
+    """extract 响应条目 = ExperienceItem + D-038 来源证据（仅响应，不作为写库请求体）。"""
+
+    provenance: ExperienceProvenance = Field(default_factory=ExperienceProvenance)
+
+
 class ExperienceOut(ExperienceItem):
     id: str
     user_id: Optional[str] = None
@@ -72,7 +112,7 @@ class ExtractRequest(BaseModel):
 
 
 class ExtractResponse(BaseModel):
-    experiences: List[ExperienceItem]
+    experiences: List[ExtractExperienceItem]
 
 
 class JDRequest(BaseModel):
@@ -115,7 +155,7 @@ class JDAnalysisOut(BaseModel):
 class ExperienceExtractionResult(BaseModel):
     """单段简历章节的提取结果包装（用于 chat_structured）。"""
 
-    experiences: List[ExperienceItem] = []
+    experiences: List[ExtractExperienceItem] = []
 
     @field_validator("experiences", mode="before")
     @classmethod
