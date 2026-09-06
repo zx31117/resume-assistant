@@ -5,7 +5,7 @@
 > 当前已验收版本：V2.0.2；源码验收对象为 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`
 > 当前已发布版本：V2.0.2；发布标识为 annotated tag `v2.0.2`，指向 `78bb909c18ca28e45b54406536aa326887caa1ca`
 > 当前版本档案：[V2.0.2 PLAN](./versions/v2.0.2/PLAN.md) / [RESULT](./versions/v2.0.2/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
-> 后续方向：[V2.1.0 DRAFT](./versions/v2.1.0/DRAFT.md) 正在讨论整体界面重构、持续 HTML 设计与版本冻结快照工作流；草稿未批准，不构成开发指令；其他 V2 需求继续从 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md) 选择
+> 后续方向：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) 已由 Product Owner 批准，[RESULT](./versions/v2.1.0/RESULT.md) 正在记录冻结身份；本地 Design Snapshot `D-002` 已原样导入 canonical `DS-002` 并通过 hash 验证；“生成历史”等后续 V2 能力保留在 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md)
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -16,6 +16,18 @@
 
 产品基于用户已有职业经历，根据目标岗位 JD 生成针对性简历。
 
+产品不以“让用户自行编辑出一份简历”为最终形态，而采用 Outcome / Agent 导向：用户负责
+提供真实职业事实、当前目标和对结果的不满意之处，系统负责在事实边界内完成选材、表达、
+结构、排版和优化等专业判断，并直接交付可用结果。产品默认替用户处理模板、字号、字体、
+排版和措辞等低价值决策；高级自定义可以存在，但不得占据首屏，也不得让用户轻易越过事实
+或专业质量边界。
+
+`Career Memory` 是上述长期职业资产的产品概念；在当前实现中，它映射到 SQL
+`Experience / Fact`，不是一套新的数据表或第二事实源。简历只是 Career Memory 面向某个
+目标岗位的一次有损输出。长期交互遵循“先给价值、再渐进补充”：系统只为完成用户当前
+任务索取必要信息，经用户确认后再把新事实沉淀进 Career Memory，不要求用户先完成一份
+庞大的职业档案。
+
 核心原则：
 
 - 真正的长期资产是用户职业经历知识库，简历只是一次输出；
@@ -24,6 +36,10 @@
 - 求职意向随目标 JD 变化，不属于职业经历资产，不能写入职业经历库；
 - 模板只提供结构和样式，不提供用户事实；
 - 更换模板或输出格式不能推翻经历库和匹配逻辑。
+- 信息质量决定结果上限，系统规则、事实校验和专业默认值保障结果下限；
+- 隐私目标是减少不必要暴露、隔离直接身份、限制用途并准确说明数据流，不承诺事实上无法
+  证明的“绝对安全”或“任何数据永不离开设备”；调用外部模型时仍只发送完成当前任务所需
+  的最小内容，未来服务端持久化边界由版本 PLAN 和隐私验收另行冻结。
 
 ## 2. 版本边界
 
@@ -31,7 +47,7 @@
 |---|---|---|
 | V1 | 核心流程完整运行、内容正确、关键失败可见 | 精细体验、生产部署 |
 | V2 | 匹配、生成、交互、性能、模板和排版体验完善 | 多用户服务器化 |
-| V3 | 登录、多用户、持久化 Profile、服务器与生产体验 | 重做已经稳定的核心事实链路 |
+| V3 | 真实用户验证、账号与服务器化 Career Memory、生产体验和可持续商业闭环 | 重做已经稳定的核心事实链路，或承诺绝对本地/绝对安全 |
 
 V1 不要求严格一页纸、像素级排版、高性能体验、多用户或公网部署，也不生成个人总结/自我评价。个人总结只在后续版本针对履历单薄等场景评估；一页纸和视觉精修属于 V2；用户系统、PostgreSQL、对象存储、异步任务、限流和监控属于 V3。
 
@@ -83,10 +99,12 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | [CURRENT_STATE.md](./CURRENT_STATE.md) | 当前已经验收的实现事实和已知缺口 |
 | [DECISIONS.md](./DECISIONS.md) | 影响后续版本的重要产品与技术决策 |
 | [V2_REQUIREMENTS_POOL.md](./versions/V2_REQUIREMENTS_POOL.md) | V2 阶段尚未排入具体版本的候选需求；不是实施范围真源 |
+| `design/baselines/<version>/DS-xxx/` | 正式 PLAN 导入并绑定的不可变设计基线；设计获批不等于能力已实现 |
 | `versions/<version>/PLAN.md` | 该版本准备改变什么 |
 | `versions/<version>/RESULT.md` | 该版本实际完成什么、偏差、证据和验收结论 |
 
 规则：PLAN 规定要做什么，RESULT 记录实际做了什么，CURRENT_STATE 只记录已经验收的事实。
+Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定哪些内容进入开发。
 
 版本目录同时遵守以下结构约束：
 
@@ -96,7 +114,13 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由验收 Agent 复核。文档 Agent 不直接以改源码代替任务交接。
 5. 大版本需求池只保存尚未排期的候选想法，不使用完成状态，也不构成开发指令；具体版本只从中选择必要范围写入本版本 DRAFT / PLAN，版本范围冲突时以本版本 DRAFT / PLAN 为准。
 
-协作路径采用固定独立仓库：`<canonical-repo>`、`<current-workspace>`、`<review-workspace>` 各自拥有独立 `.git`，不使用共享 Git 控制面的 linked worktree。开发 Agent 长期复用 current 的活动版本分支；验收 Agent 长期复用 detached、clean 的 review，并只对冻结候选 commit 返回只读报告；文档 Agent 在 canonical 中冻结 PLAN、接收候选、归并验收结论并在用户批准后发布。真实绝对路径只保存在本机项目配置和任务交接中，不进入公开文档；详细权限与版本流转见 [HUMAN_AI_WORKFLOW.md](./HUMAN_AI_WORKFLOW.md)。
+协作路径采用三个固定独立 Git 仓库和一个非 Git 设计工作区：`<canonical-repo>`、
+`<current-workspace>`、`<review-workspace>` 各自拥有独立 `.git`，不使用共享 Git 控制面的
+linked worktree；`<design-workspace>` 只保存 Design Agent 工作稿与本地快照。Design Agent
+持续演进 HTML，人批准不可变快照；文档 Agent 在正式 PLAN 中将选中快照映射为 canonical
+`DS-xxx` 并冻结；开发 Agent 只实现 PLAN 绑定基线；验收 Agent 对冻结候选执行设计符合度、
+集成和适用源码验收。真实绝对路径只保存在本机项目配置和任务交接中，不进入公开文档；详细
+权限与版本流转见 [HUMAN_AI_WORKFLOW.md](./HUMAN_AI_WORKFLOW.md)。
 
 ## 7. RESULT 最低交付契约
 
@@ -124,6 +148,7 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | 已验收能力、API、数据模型、模块、运行基线和缺口 | `CURRENT_STATE.md` |
 | 稳定产品目标、版本边界或架构不变量 | `README.md` |
 | 影响后续版本的重要选择或既有决策状态变化 | `DECISIONS.md` |
+| 用户批准设计、版本导入基线及视觉/交互范围 | 本地 Design Snapshot → `design/baselines/<version>/DS-xxx/`，并由版本 PLAN 绑定 |
 | 版本状态和入口 | `README.md` 与 `versions/README.md` |
 
 每次文档更新完成前必须检查：
@@ -139,6 +164,8 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 9. 开发验证、源码验收、最终实现和发布标识指向同一条可追溯的 commit 链；验收后的相关修改已经重验。
 10. 拟公开文档已扫描本机绝对路径、用户名、真实凭据和不安全的 Token URL；公开项目名、公开仓库 URL 和 release/tag 属于正常用户入口，不应误删；需要保留的内部执行路径使用语义别名，commit、branch 和验收数据不得以脱敏为由删除。
 11. RESULT 记录被验收源码 commit 和冻结核对结果；最终发布 commit 不回写自身 SHA，发布后由 annotated tag 的目标 commit 作为唯一发布标识，避免“写入 SHA 导致 commit 再变化”的循环。
+12. 界面版本的源 Snapshot、canonical `DS-xxx`、manifest hash、PLAN 实施矩阵和最终产品能力
+    状态可以互相追溯；未导入快照、Mock 和 Design-only 内容没有进入 CURRENT_STATE。
 
 ## 9. 版本索引
 

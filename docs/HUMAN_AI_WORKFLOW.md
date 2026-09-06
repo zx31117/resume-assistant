@@ -4,7 +4,7 @@
 > 不属于产品、架构或版本开发文档  
 > 不进入开发 Agent 的默认上下文  
 > 首次记录：2026-08-15
-> 最近更新：2026-09-05
+> 最近更新：2026-09-06
 
 本文记录项目当前约定的人机协作方式，便于后续回忆。具体版本的开发范围和验收要求仍以该版本 `PLAN.md` 为准。
 
@@ -13,11 +13,13 @@
 本项目是人机共同开发：
 
 - 人：提出需求、验收实际产品，并在必要时选择技术方案；
+- Design Agent：只读全局文档与必要源码，在独立设计工作区持续生成、修改 HTML 原型和设计
+  说明；不修改生产源码、canonical 文档或产品状态；
 - 文档 Agent：只接触项目文档，负责架构连续性、版本规划、文档验收、项目记忆，以及用户确认后的公开仓库最终发布；
 - 开发 Agent：读取开发文档和源码，负责实现、测试，并在候选冻结前提交版本 RESULT 的实施、自测与偏差；
 - 验收 Agent：在 PLAN 标记高风险任务或阶段收口审查时介入，检查相关源码、测试、失败路径和结构一致性。
 
-协作参与者和执行过程只按职责记录“开发 Agent”“验收 Agent”“文档 Agent”，不使用具体客户端、模型、执行器或自动化工具名称指代协作者。产品依赖、配置和架构事实仍按实际技术名称记录；历史档案中的协作者名称只允许做不改变原意的中性化修正。
+协作参与者和执行过程只按职责记录“Design Agent”“开发 Agent”“验收 Agent”“文档 Agent”，不使用具体客户端、模型、执行器或自动化工具名称指代协作者。产品依赖、配置和架构事实仍按实际技术名称记录；历史档案中的协作者名称只允许做不改变原意的中性化修正。
 
 “独立源码验收”要求执行者独立：参与同一候选实现、自测、源码修复或开发结论编写的开发 Agent，不得兼任该候选的验收 Agent。更换工作目录、会话、模型或职责名称不构成独立性。开发 Agent 可以做补充自查，但只能记录为开发验证；没有符合条件的验收 Agent 时，独立验收任务保持未完成，版本保持“待验收”。
 
@@ -34,6 +36,7 @@
 docs/README         开发目标、版本边界和架构不变量
 CURRENT_STATE       当前已经验收的实现事实
 DECISIONS           影响后续版本的重要决策
+Design Snapshot     用户已批准、不可变的可执行视觉与交互基线
 PLAN                当前版本准备做什么
 RESULT              当前版本实际做了什么及验收结论
 ~~~
@@ -42,13 +45,14 @@ RESULT              当前版本实际做了什么及验收结论
 
 ## 3. 工作路径与版本身份
 
-本机长期区分三个固定、独立的 Git 仓库；公开文档只记录语义别名，不记录真实用户名、盘符和绝对路径：
+本机长期区分三个固定、独立的 Git 仓库和一个非 Git 设计工作区；公开文档只记录语义别名，不记录真实用户名、盘符和绝对路径：
 
 | 路径别名 | 版本含义 | 使用规则 |
 |---|---|---|
 | `<canonical-repo>` | 文档 Agent 的本地集成线、候选接收点和唯一发布入口 | 本地 `main` 可以在发布准备期领先远端；只有此仓库配置具有 GitHub push 能力的发布 remote |
 | `<current-workspace>` | 固定开发仓库，检出活动版本分支 | 开发 Agent 实现、测试并冻结候选；只从本地 canonical 同步基线，不操作公开 `main`/tag |
 | `<review-workspace>` | 固定验收仓库，detached 指向本轮冻结候选 | 验收 Agent 只读源码并返回报告；会产生写入的测试在一次性临时副本和隔离 runtime 中执行 |
+| `<design-workspace>` | Design Agent 的持续 HTML 工作区与本地批准快照来源 | 非 Git、非产品源码仓库；可读必要项目资料，只能写设计产物，不保存真实用户数据或凭据 |
 
 三个仓库各自拥有独立 `.git`，不得用 linked worktree 共享 object database、refs、remote、hooks 或 worktree 注册表。它们长期固定复用，不因版本号或返工轮次增加 `review-2`、`review-3` 等默认路径；每轮变化的是 current 的活动分支和 review 指向的候选 commit。固定仓库损坏时从 canonical 重新创建；临时测试副本只存在于受控临时目录，结束后必须清理，不升级为默认入口。
 
@@ -62,15 +66,17 @@ RESULT              当前版本实际做了什么及验收结论
 
 ### 3.1 文件与 Git 权限
 
-| 对象或操作 | 人 | 文档 Agent | 开发 Agent | 验收 Agent |
-|---|---|---|---|---|
-| 当前 PLAN | 审核、批准或撤回 | 唯一写入者 | 只读；有疑问时停止并报告 | 只读 |
-| 当前 RESULT | 确认人工结果 | 负责验收、收口和发布状态 | 只在候选冻结前写实施、自测和偏差 | 只读，只返回报告 |
-| 全局文档、CURRENT_STATE、根 README | 决策与确认 | 按已验证事实写入 | 只读 | 只读 |
-| 源码、测试、依赖和构建配置 | 提需求并人工验收 | 不修改 | 在 PLAN 范围内修改 | 不修改 |
-| current 活动分支 | 无日常操作要求 | 接收文档同步时管理 | 实现并提交候选 | 不操作 |
-| review 仓库 | 无日常操作要求 | 准备冻结候选 | 不操作 | detached 只读验收 |
-| 本地 `main`、正式 tag、GitHub remote | 批准发布或事故处置 | 唯一操作者 | 禁止 | 禁止 |
+| 对象或操作 | 人 | Design Agent | 文档 Agent | 开发 Agent | 验收 Agent |
+|---|---|---|---|---|---|
+| 设计工作稿 | 预览、反馈、打回 | 唯一写入者 | 只读核对 | 不跟随 | 只读 |
+| Design Snapshot | 唯一批准者 | 按批准生成且不得原地修改 | 校验、映射并导入 canonical | 只读冻结基线 | 只读并验收符合度 |
+| 当前 PLAN | 审核、批准或撤回 | 只读 | 唯一写入者 | 只读；有疑问时停止并报告 | 只读 |
+| 当前 RESULT | 确认人工结果 | 不修改 | 负责验收、收口和发布状态 | 只在候选冻结前写实施、自测和偏差 | 只读，只返回报告 |
+| 全局文档、CURRENT_STATE、根 README | 决策与确认 | 只读 | 按已验证事实写入 | 只读 | 只读 |
+| 源码、测试、依赖和构建配置 | 提需求并人工验收 | 只读 | 不修改 | 在 PLAN 范围内修改 | 不修改 |
+| current 活动分支 | 无日常操作要求 | 不操作 | 接收文档同步时管理 | 实现并提交候选 | 不操作 |
+| review 仓库 | 无日常操作要求 | 不操作 | 准备冻结候选 | 不操作 | detached 只读验收 |
+| 本地 `main`、正式 tag、GitHub remote | 批准发布或事故处置 | 禁止 | 唯一操作者 | 禁止 | 禁止 |
 
 同一 Windows 账户无法用 NTFS ACL 区分三个 Agent，文件只读属性也可以被同账户解除并可能阻断 Git 更新。因此上述权限由独立仓库、单目录 workspace、remote 收缩和提交/验收门禁共同执行；Git hook 只能防误操作，不能替代最终 diff 与身份核对。
 
@@ -82,13 +88,41 @@ RESULT              当前版本实际做了什么及验收结论
 
 源码验收和人工验收通过后，文档 Agent 将已验收候选纳入 canonical 本地 `main`，再完成 RESULT、CURRENT_STATE、索引和必要的根 README。若最终发布候选 `R` 晚于被验收源码 `H`，`H..R` 必须只有授权文档变化；出现源码、测试、依赖、配置、构建或可执行元数据变化时必须重新验收。用户明确批准发布后，文档 Agent 才将 `R` 推送为远端 `main` 并创建 annotated tag。
 
+### 3.3 Design Snapshot 身份、导入与冻结
+
+Design Agent 可以持续修改 `<design-workspace>/current/`，但 Development Agent 不读取或跟随
+该目录。只有人在实际预览后明确要求生成快照，Design Agent 才把当时工作稿冻结为不可变的
+本地 Design Snapshot；设计 Agent 不能批准自己的输出。
+
+为避免与 `DECISIONS.md` 的 `D-xxx` 决策编号混淆，设计侧既有本地快照可以保留原始
+`D-xxx` 身份，进入 canonical 后统一映射为 `DS-xxx`：
+
+~~~text
+<design-workspace>/snapshots/D-002
+→ docs/design/baselines/V2.1.0/DS-002
+~~~
+
+映射不修改原快照；PLAN 必须同时记录源 Snapshot ID、canonical Baseline ID、入口文件、
+manifest SHA-256、批准人、设计现实基线和导入后的文件清单。Documentation Agent 只在编写
+正式 PLAN 时导入当时选中的最新批准快照，并验证每个文件 hash；DRAFT 阶段不提前复制。
+
+PLAN 批准后，Development Agent 在该小版本内只认导入的 `DS-xxx` 和 PLAN 实施矩阵，不跟随
+Design Agent 后续工作稿或新快照。普通视觉、非阻塞交互和文案变化进入下个版本；只有影响
+安全、数据正确性或核心流程无法完成的 P0/P1 问题，才允许经“新工作稿 → 人批准新快照 →
+Documentation Agent 追加 PLAN 并重新冻结”的流程解冻。快照不得原地修改。
+
+Design Snapshot 表示设计获批，不表示能力已实现。设计稿、正式产品 Preview、已接真实能力但
+待验收的 Integrated、以及已验收的 Active 必须分开记录；只有 Active 能进入
+`CURRENT_STATE.md` 的正式能力声明。
+
 ## 4. 人的阅读路径
 
 ### 提需求或审核方案
 
 1. 当前版本 `PLAN.md`；
 2. 需要了解现状时读取 `CURRENT_STATE.md`；
-3. 需要选择技术路线时按需读取 `DECISIONS.md`。
+3. 需要选择技术路线时按需读取 `DECISIONS.md`；
+4. 涉及界面版本时，核对 PLAN 绑定的 `DS-xxx`，不以 Design Agent 当前工作稿替代冻结基线。
 
 ### 验收版本
 
@@ -109,10 +143,13 @@ docs/README
 → CURRENT_STATE
 → 上一版本 RESULT
 → 用户新需求和补充
+→ 涉及界面版本时核对最新用户批准 Design Snapshot 及 manifest
 → 必要时读取 DECISIONS 或更早版本 RESULT
 ~~~
 
-默认不读取全部历史文档。
+默认不读取全部历史文档。界面版本的 PLAN 必须把选中的本地 Design Snapshot 映射为 canonical
+`DS-xxx`、完成 hash 校验，并用实施矩阵明确哪些页面/状态接 Real API、哪些是 Preview、哪些
+隐藏或不实施；不得把整份设计快照自动解释成开发范围。
 
 ### 验收版本文档
 
@@ -131,12 +168,19 @@ docs/README
 docs/README
 → CURRENT_STATE
 → 当前版本 PLAN
+→ PLAN 绑定的 canonical Design Baseline（如适用）
 → 源码和相关测试
 ~~~
 
 只有 PLAN 明确要求理解某项历史决策时，才读取对应的 `DECISIONS.md` 或历史 RESULT。
 
 用户批准后的 PLAN 对开发 Agent 只读。开始实现前必须核对批准 commit/blob；若 PLAN 缺失、不可执行或需要扩展范围，停止并交由文档 Agent 修订，不能自行修改 PLAN、以 RESULT 反向改变任务范围或用源码事实覆盖批准契约。
+
+涉及冻结设计时，Development Agent 只按 PLAN 绑定的 `DS-xxx` 实现；Design Agent 的
+`current/`、后续 Snapshot 或新的用户反馈默认属于下一小版本。Development Agent 可以自行决定
+组件拆分、状态管理、CSS 技术和 API Client，但不能自行改变冻结的可见布局、文案、交互和页面
+状态；技术上无法一致还原时，在 RESULT 登记差异、原因和影响，交由人决定接受、返工或形成
+新快照。
 
 开发完成后，开发 Agent：
 
@@ -164,6 +208,12 @@ PLAN 中被标记的 Task
 ~~~
 
 不在仓库创建独立验收报告，不直接修改 PLAN/RESULT，也不读取无关历史。数据迁移、事实正确性、持久化和安全等高风险变化应在 PLAN 中显式标记。文档 Agent 根据验收报告把结论、绑定 commit 和证据摘要写入同一份 RESULT，版本目录仍只有 PLAN 与 RESULT。
+
+若 PLAN 绑定 `DS-xxx`，验收还必须区分三类 Gate：Design Fidelity 检查实现与冻结 HTML 的
+布局、文案、状态、交互和响应式结果；Integration 检查 Mock、Real API、Feature Flag、失败
+路径和副作用是否与实施矩阵一致；Release Gate 检查 Preview / Integrated / Active 声明、源码
+验收、人工验收和文档状态。Design Agent 的自测只能作为设计证据，不能代替独立源码与集成
+验收；自动视觉差异负责发现问题，最终视觉判断仍由人完成。
 
 V1、V2、V3 阶段收口或重要公开发布前，PLAN 必须安排一次全局架构一致性审查。此时验收 Agent 对照 `docs/README.md`、`CURRENT_STATE.md` 和相关决策，检查实际模块职责、主调用链、并行旧路径、事实真源、配置与版本元数据；不默认重读全部历史 PLAN / RESULT。
 
@@ -252,24 +302,31 @@ PLAN 出现“改为、只允许、不再、统一、替换、废弃、删除、
 ## 9. 项目工作流
 
 ~~~text
-1. 人提出需求或补充背景
-2. 文档 Agent 根据已验收状态编写 PLAN
-3. 人审核 PLAN；文档 Agent 记录批准 commit/blob
-4. 开发 Agent 在 current 核对基线与 PLAN 身份，按 PLAN 实现和测试
-5. 开发 Agent 在 RESULT 记录实施、自测和偏差，提交 clean 候选 H 后冻结
-6. 文档 Agent 从本地 current 接收 H，以本地候选引用保护，并把 review detached 到 H
-7. 如 PLAN 有高风险或阶段审查标记，安排未参与实现、自测或修复的验收 Agent 只读验收；动态测试在一次性临时副本和隔离 runtime 中执行
-8. 验收 Agent 返回绑定 H 的报告；文档 Agent 将结论写入 RESULT
-9. 人实际使用并验收产品
-10. 未通过：文档 Agent 在 RESULT 标记“需修正”，必要时追加 PLAN 返工契约并形成新的批准 commit/blob，开发 Agent 产生新候选
-11. 通过：文档 Agent 将已验收候选纳入 canonical 本地 main，并把 RESULT 标记“已验收”
-12. 文档 Agent 更新 CURRENT_STATE、索引及必要的根 README，确认相对 H 只有授权文档变化，形成最终发布候选 R
-13. 人确认是否发布
-14. 文档 Agent 核对远端 `publish/main`、可快进关系和 tag 不存在，更新公开 main 并创建指向 R 的 annotated tag；异常时停止并报告
-15. 人提出下一阶段需求，文档 Agent 编写下一版本 PLAN
+1. 人提出产品方向、设计反馈或版本需求
+2. Design Agent 持续修改 HTML 工作稿；人预览、打回并作最终设计判断
+3. 人明确要求生成 Design Snapshot；Design Agent 冻结不可变本地快照
+4. 到达版本边界时，文档 Agent 根据已验收状态和用户需求编写 PLAN；涉及界面版本时把选中的本地快照映射并导入 canonical `DS-xxx`
+5. 人审核 PLAN；文档 Agent 记录批准 commit/blob、Design Baseline 和 manifest hash
+6. 开发 Agent 在 current 核对基线、PLAN 身份和 `DS-xxx`，按实施矩阵实现和测试
+7. Design Agent 可继续演进下一版工作稿，但不改变当前开发目标
+8. 开发 Agent 在 RESULT 记录实施、自测和偏差，提交 clean 候选 H 后冻结
+9. 文档 Agent 从本地 current 接收 H，以本地候选引用保护，并把 review detached 到 H
+10. 如 PLAN 有高风险、设计符合度或阶段审查标记，安排未参与实现、自测或修复的验收 Agent 验收；动态测试在一次性临时副本和隔离 runtime 中执行
+11. 验收 Agent 返回绑定 H 的 Design Fidelity、Integration 和适用源码报告；文档 Agent 将结论写入 RESULT
+12. 人实际使用并验收产品
+13. 未通过：文档 Agent 在 RESULT 标记“需修正”，必要时追加 PLAN 返工契约；只有 P0/P1 设计问题才按新 Snapshot 解冻，开发 Agent 产生新候选
+14. 通过：文档 Agent 将已验收候选纳入 canonical 本地 main，并把 RESULT 标记“已验收”
+15. 文档 Agent 更新 CURRENT_STATE、索引及必要的根 README，确认相对 H 只有授权文档变化，形成最终发布候选 R
+16. 人确认是否发布
+17. 文档 Agent 核对远端 `publish/main`、可快进关系和 tag 不存在，更新公开 main 并创建指向 R 的 annotated tag；异常时停止并报告
+18. 下一版本再次选择当时最新的用户已批准 Design Snapshot，不沿用 Design Agent 当前工作稿
 ~~~
 
-返工继续使用同一份 PLAN/RESULT，不增加交接、评审或状态文档；开发与验收继续复用各自固定独立仓库，不为轮次增加工作树、clone 或默认路径。文档 Agent 可以在 canonical 并行讨论下一版本 DRAFT；当前候选冻结前，开发 Agent 必须同步已批准的文档变化，未批准 DRAFT 不构成当前版本任务。
+没有界面设计工作的版本可以跳过第 2、3 步及 Design Baseline 字段。返工继续使用同一份
+PLAN/RESULT，不增加交接、评审或状态文档；开发与验收继续复用各自固定独立仓库，不为轮次
+增加工作树、clone 或默认路径。文档 Agent 可以在 canonical 并行讨论下一版本 DRAFT；当前候选
+冻结前，开发 Agent 必须同步已批准的文档变化，未批准 DRAFT 和未导入的新设计快照都不构成
+当前版本任务。
 
 ## 10. RESULT 的最低信息
 
@@ -283,6 +340,8 @@ RESULT 保持简洁，至少包括：
 6. 验证表，每项标记“通过”“失败”“未执行”或“待独立验收”，并附简短证据或原因；替换型变更必须包含正向、反向和回归证据；
 7. 高风险或阶段性源码验收结论及对应 commit，如 PLAN 要求；
 8. 人工验收反馈；
+9. 如 PLAN 绑定设计基线：源 Snapshot ID、canonical `DS-xxx`、manifest hash、实现偏差、
+   Design Fidelity / Integration Gate 及 Preview / Integrated / Active 最终状态；
 9. 文档验收结论；
 10. 建议写入全局文档的已验证事实。
 11. 发布后如发生远端修正或安全处置，在后续 main 上追加“发布后补录”，不移动已经正确发布的旧 tag。
