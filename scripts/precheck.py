@@ -114,6 +114,7 @@ def _strip_env() -> dict[str, str]:
         env.pop(k, None)
     # F4：子进程强制 UTF-8 输出，避免其默认落 GBK（cp936）管道在打印中文/emoji 时
     # 触发二次 UnicodeEncodeError；父进程侧仍以 encoding="utf-8", errors="replace" 读取。
+    env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 

@@ -48,7 +48,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | Task | 状态 | 当前证据或下一门禁 |
 |---|---|---|
 | T0 设计基线与 PLAN 身份冻结 | 已完成 | `DS-002` 导入、逐文件 hash、批准 commit/blob 均已冻结 |
-| T1 Windows CI 编码闭环 | 未开始 | 必须绑定后续源码提交和 GitHub run |
+| T1 Windows CI 编码闭环 | 开发完成，待独立验收 | 编码修复与线下一项已提交候选 G（见 §6）；本地统一预检 exit 0 六脚本固定计数 + F3 哨兵通过；GitHub Windows CI 真实成功仍待 T11 独立验收时在 CI 侧核对 |
 | T2 tokens、adapter、路由与状态骨架 | 未开始 | 等待 T0 |
 | T3 用户界面与开发者后台分离 | 未开始 | 等待 T2 |
 | T4 上传、D-038 确认边界与经历管理 | 未开始 | 等待 T2/T3 |
@@ -72,3 +72,48 @@ T0 已完成。Development Agent 启动前必须：
 4. 按 PLAN 从 T1 开始执行，候选冻结前持续更新本 RESULT 的实施、自测与偏差。
 
 开发、自测或页面存在都不自动等于独立验收通过或发布；状态迁移继续遵守 PLAN 门禁。
+
+## 6. T1 Windows CI 编码闭环（开发实施与自测，候选 G）
+
+> 本节为开发侧实施与自测记录，非独立源码验收。独立验收由 T11 的验收 Agent 绑定最终
+> clean 候选执行；本节结论不冒充 T11。
+
+### 6.1 修改文件
+
+| 文件 | 变更 |
+|---|---|
+| `backend/_v2_lifecycle_matrix.py` | ① 全部嵌套 `subprocess.run` 增加 `encoding="utf-8", errors="replace"` 与 `proc.stdout or ""` / `proc.stderr or ""` 归一化（§8.1.1/2）；② `_run_one`、幂等与句柄占用子进程环境注入 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`（§8.1.3）；③ 新增受控中文负向输出 `_UNICODE_NEGATIVE_OUTPUT`，`SystemExit(字符串)` 用例打印中文+`❌` 后 `sys.exit('boom')`，并断言父进程能读到该 UTF-8 诊断（§8.1.4） |
+| `backend/_v14_t7_regression.py` | RUNTIME-2 子进程环境注入 `PYTHONUTF8=1`/`PYTHONIOENCODING=utf-8`，`encoding="utf-8", errors="replace"`（§8.1.3/4） |
+| `scripts/precheck.py` | `_strip_env()` 在既有 `PYTHONIOENCODING=utf-8` 基础上补 `PYTHONUTF8=1`，与世界 `cd` 子进程契约一致（§8.1.3） |
+| `backend/_v14_release_check.py` | `_run_git` 由裸 `text=True` 改为 `encoding="utf-8", errors="replace"` 并 `(out.stdout or "").strip()`；阻塞脚本同类子进程审计（§8.1.5）发现的一处遗留 |
+
+### 6.2 编码正反向证据
+
+- **反向（修复必要性）**：不设 `PYTHONUTF8` 时 Windows 默认 `preferred encoding=cp936`，对 UTF-8
+  中文注释的 `requirements.txt` 运行 pip-audit 报
+  `UnicodeDecodeError: 'gbk' codec can't decode byte 0x8e ...`（§8.1.6 触发场景）。
+- **正向**：`PYTHONUTF8=1`（+`PYTHONIOENCODING=utf-8`）下 pip-audit 正常读取 requirements 并产生
+  真实摘要 `Found 5 known vulnerabilities in 3 packages`（langchain 0.3.30 / langchain-core 0.3.86 /
+  langchain-openai 0.3.35；`--no-deps --disable-pip` 模式，网络到 OSV 可达）。漏洞数量如实报告，不自动阻断。
+- **矩阵负向断言**：生命周期矩阵 `SystemExit(字符串)` 用例在子进程打印中文+`❌` 后，父进程能读回
+  该 UTF-8 诊断行并断言其存在（§8.1.4 通过）。
+
+### 6.3 验证数据
+
+- 生命周期矩阵独立运行：`矩阵合计 50 项，失败 0`（exit 0）。
+- `_v14_t7_regression.py` 独立运行：`total=15 PASS=12 FAIL=0 SUSPEND=3`（exit 0；3 SUSPEND 为
+  ARK Key 门禁）。
+- 完整 `python scripts/precheck.py`（系统 Python 3.10.11，后台运行）：exit 0 —— 编译通过；六阻断脚本
+  严格命中固定计数 `77/0、48/0、20/0、15/0、50/0、12/0/3`；前端正式构建通过；F3 真实 runtime 哨兵
+  「内容快照一致（空标准骨架目录新增放行）」。
+- 非阻断如实报告（不伪装清零）：ruff 370、ESLint 6、npm audit 4、pip-audit 本次超时（>900s）如实标注；
+  均为 V2.0.2 既有非阻断基线。
+
+### 6.4 偏差与 CI 状态
+
+- §8.1.8 的「GitHub windows-ci 在 V2.1.0 候选 commit 上成功」：本工作树 push 被禁用且无 `gh` CLI，
+  无法在本机直接发起 GitHub runner。已按 workflow 只读约束完成静态审阅（PR / main push / dispatch 触发，
+  共用同一 `scripts/precheck.py`）；真实 GitHub run 证据留给 T11 独立验收与文档收口阶段在 canonical 侧核对。
+  本地完整预检绿灯是本阶段可提供的确定性证据，不等于 CI 已成功。
+- 无 API、数据表/模型、模块职责、业务规则、依赖版本或打包 spec 变化；仅测试/预检/发布检查三类脚本的
+  子进程编码与静态审计改动。

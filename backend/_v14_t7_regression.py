@@ -159,8 +159,17 @@ def _(ctx: RunCtx):
             "subs = [n for n in ('database','output','logs','cache') if (rd / n).is_dir()]\n"
             "print(json.dumps({'rd': str(rd), 'subs': subs, 'vectorstore': (rd / 'vectorstore').exists()}))\n"
         )
+        child_env = dict(os.environ)
+        child_env["PYTHONUTF8"] = "1"
+        child_env["PYTHONIOENCODING"] = "utf-8"
         res = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, timeout=60,
+            [sys.executable, "-c", code],
+            env=child_env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
         )
         assert res.returncode == 0, f"子进程导入失败: {(res.stderr or '').strip()[:300]}"
         data = json.loads((res.stdout or "").strip().splitlines()[-1])
