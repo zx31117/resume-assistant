@@ -71,6 +71,7 @@ input/*.docx
 
 # ===== 验收产物（验收时生成，含本机路径，不入仓库；目录重命名后仍对所有版本生效）=====
 docs/versions/*/validation-artifacts/
+/validation-artifacts/
 
 # ===== Agent 产物（会话/缓存，不入仓库）=====
 .workbuddy/
