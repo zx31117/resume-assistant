@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三轮返工完成（H3 `6664e37`），待复验与第三次 T12（见 §25）
+> 当前状态：第三轮交接前审核未通过（`6664e37` 存在已知三端模板字面不一致；见 §26）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第三轮返工契约：`02a4a604710a466299d0d1558475fd4b85d3f3fb` / blob `3db39b79b66880cf910c3736d977391ded65b5df`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待 H3 独立复验与 Product Owner 第三次 T12（PLAN §14.5）
+> 发布结论：不发布；先修正 R9 一致性偏差并重新冻结 clean H3，再进入独立复验与第三次 T12
 
 ## 1. 本文件用途
 
@@ -53,15 +53,15 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T3 用户界面与开发者后台分离 | 独立验收通过 | 普通用户导航与隐藏开发者后台边界成立，SystemPage 能力和安全边界保留；见 §19/§23 |
 | T4 上传、D-038 确认边界与经历管理 | 独立验收通过 | D-038 direct/inferred 分流、真实 CRUD/筛选/搜索/来源/失败路径及统一 `/upload` 入口通过；见 §19/§23 |
 | T5 一键生成与真实进度 | 第二轮独立验收通过 | processing 左右结构、单阶段明细与历史回看、真实阶段映射均通过；见 §23 |
-| T6 内容预览、事实依据与下载 | 需第三轮返工 | H2 预览只渲染通用文本结构，与 `pm_template v1.2` 的内容/视觉规格不一致；须建立模板忠实预览并新增真实 PDF 下载，见 PLAN §14/RESULT §24 |
+| T6 内容预览、事实依据与下载 | 第三轮实现已提交，交接前需小修 | 模板化预览与真实 Word/PDF 已实现，但 `doc_preview` 仍输出“目标岗位：”，DOCX/PDF 模板使用“求职意向：”；违反三端字面一致性，见 §25.2/§26 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 独立验收通过 | 欢迎双冷启动、隐私边界和 Coming Soon/Absent 状态通过；无假接通，见 §19/§23 |
 | T8 Design Fidelity 与可访问性 | 第三轮返工完成，待复验 | R10/R11/R12a+b 已落地：模板忠实预览、预览满宽无二级纸张、全局固定卡片与三视口零滚动（见 §25） |
 | T9 回归、统一预检与便携包 | H3 重建完成，待复验 | precheck exit 0；onedir 含 reportlab+CID 字体；包内前端与 dist 逐文件 SHA-256 一致（见 §25） |
-| T10 RESULT 与冻结候选 | H3 已冻结，待复验 | H3 = `6664e37`；R14 记录见 §25；H3 须重新独立验收 |
+| T10 RESULT 与冻结候选 | H3 冻结未被文档交接接受 | `6664e37` 作为临时源码点保留，但存在开发侧已披露的 PLAN §14 一致性偏差；修正、重验、重建包并更新 RESULT 后重新冻结 H3 |
 | T11 独立验收 | H2 历史结论：有条件通过 | H2 报告绑定 `3d821f2` 已失效；H3 须由未参与返工者重新独立验收 |
 | T12 Product Owner 人工验收与发布 | 第二次未通过（H2）；待 H3 第三次 T12 | 打回记录 §24；H3 复验通过后 Product Owner 第三次 T12 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
-| T12-R9 至 R14 | R9–R13 开发完成，待 H3 复验 | 模板一致性+真实 PDF（`c1e47ba`）、预览几何+导出收口（`4c55ffb`）、固定卡片（`b8fc019`+round3 证据）、回归/预检/包（`6664e37`）、R14 收口见 §25 |
+| T12-R9 至 R14 | 交接前审核未通过 | R10-R13 已有实现与开发证据；R9 三端字面仍不一致，R14 不能据此宣称完整冻结；先完成 §26 小修与重验 |
 
 ## 5. 开发交接
 
@@ -697,3 +697,53 @@ tag 或发布声明。
 
 - **H3 = `6664e37`**（version/v2.1.0，工作区 clean，祖先含 R9–R13 全部提交）。
 - 复验（未参与返工者绑定 H3 执行，PLAN §14.5）：打开同一 fixture 对照预览/Word/PDF 内容与视觉；PDF 下载正反向；R12 三视口几何与滚动；既有回归计数；包内前端 SHA-256 与 reportlab 依赖完整；随后 Product Owner 第三次 T12。未通过前不更新公开事实、不推送 main、不创建发布 tag。
+
+## 26. H3 交接前审核未通过：三端字面一致性未闭环（2026-09-08）
+
+### 26.1 审核对象与已收到内容
+
+Development Agent 报告第三轮完成时，固定 `<current-workspace>` 为：
+
+- 分支 `version/v2.1.0`；
+- 源码点 `6664e37`，开发 RESULT 交接提交 `a9a3d56c0a27f3d900d6b7e5aac275c60289ccc5`；
+- 工作树 clean；当前 PLAN blob 为
+  `3db39b79b66880cf910c3736d977391ded65b5df`；
+- `6664e37..a9a3d56` 只修改本 RESULT；R9-R13 的代码、测试、三视口证据、precheck 和 onedir
+  重建记录见 §25。
+
+上述事实证明开发侧已形成完整实现批次，但不自动满足文档交接门禁。
+
+### 26.2 阻断原因
+
+开发侧在 §25.2 主动披露：`doc_preview` 的 profile 字面前缀仍为“目标岗位：”，而 DOCX/PDF
+`pm_template v1.2` 使用“求职意向：”。当前源码核对也确认：
+
+- `backend/services/resume_generation_service.py` 生成 `目标岗位：{target_position}`；
+- `frontend/src/components/ResultPaperPreview.tsx` 按“目标岗位：”解析 profile；
+- `backend/templates/_build_templates.py`、`backend/templates/pm_template.json` 和
+  `backend/services/pdf_renderer.py` 使用“求职意向：”。
+
+这不是允许的浏览器/Word/PDF 字体栅格差异，而是同一字段的可见文字和模板契约不一致，直接违反
+PLAN §14.2 A“预览、Word 和 PDF 的字段位置与文字必须一致”以及 T12-R9“三端结构、内容和模板
+视觉规则一致”的完成标准。因此：
+
+- `backend/_v21_r9_preview_pdf.py` 的 34/0 只能证明当前测试覆盖的字段值存在，尚未证明可见前缀
+  字面完全一致；
+- `6664e37` 不登记为正式 H3 candidate，不更新固定 `<review-workspace>`，不得提前进入独立验收；
+- R9 与 R14 当前均未完成，§25 的“第三轮返工完成/H3 已冻结”声明由本节更正。
+
+### 26.3 必须完成的小修与重新交接
+
+Development Agent 应在固定 `<current-workspace>` 完成以下同范围修正：
+
+1. 以 `pm_template v1.2` 的“求职意向：”为唯一可见字面真源，消除后端 preview 投影、前端解析、
+   DOCX 和 PDF 之间的重复硬编码或漂移；其他 profile/section 标签也应做同类检查；
+2. 扩展 R9 fixture，按最终可见文本精确断言 profile 字段标签、顺序和值，而不只断言目标岗位值
+   能在三端找到；测试必须能在恢复“目标岗位：”时真实失败；
+3. 重跑 R9 fixture、受影响回归和完整 precheck。由于后端源码与包内容发生变化，必须重建 onedir，
+   重新核对 reportlab/CID、Word/PDF 下载和包内前端 hash；
+4. 更新 §25 的实现、计数、包身份与偏差，明确该已知不一致已退出；提交全部变化并在 clean 工作树
+   上给出新的完整源码点和开发 RESULT 交接 HEAD。新的源码点才可命名为 H3。
+
+该修正不需要改变 PLAN 或扩大范围。文档 Agent 收到新 H3 后再执行完整交接核对并更新 review。
+当前不更新 `CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub。
