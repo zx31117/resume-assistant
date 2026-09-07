@@ -32,6 +32,21 @@ const masterStyle: CSSProperties = {
   minHeight: 0,
 }
 
+/** V2.1.0 D-038：把「提取响应条目（含 provenance）」显式白名单为写库请求体，避免把证据字段透传后端。 */
+function toCreatePayload(item: ExtractExperienceItem): ExperienceItem {
+  return {
+    type: item.type,
+    title: item.title,
+    company: item.company,
+    time: item.time,
+    role: item.role,
+    description: item.description,
+    skills: item.skills ?? [],
+    achievements: item.achievements ?? [],
+    raw_text: item.raw_text ?? '',
+  }
+}
+
 const toolbarStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -435,7 +450,7 @@ export default function ProfilePage() {
     let okCount = 0
     for (const item of direct) {
       try {
-        const { provenance: _p, ...data } = item
+        const data = toCreatePayload(item)
         await experienceApi.create(data, newOperationId(), groupId)
         okCount++
       } catch {
@@ -501,7 +516,7 @@ export default function ProfilePage() {
     const results: { idx: number; ok: boolean; msg: string }[] = []
     for (let i = 0; i < importItems.length; i++) {
       try {
-        const { provenance: _p, ...data } = importItems[i]
+        const data = toCreatePayload(importItems[i])
         await experienceApi.create(data, newOperationId(), groupId)
         results.push({ idx: i, ok: true, msg: '已保存' })
       } catch (e) {
