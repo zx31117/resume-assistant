@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：需修正（H2 第二次 Product Owner 人工验收打回；见 §24）
+> 当前状态：第三轮返工完成（H3 `6664e37`），待复验与第三次 T12（见 §25）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第三轮返工契约：`02a4a604710a466299d0d1558475fd4b85d3f3fb` / blob `3db39b79b66880cf910c3736d977391ded65b5df`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待 T12-R9 至 R14、H3 独立复验与 Product Owner 再次人工验收
+> 发布结论：不发布；等待 H3 独立复验与 Product Owner 第三次 T12（PLAN §14.5）
 
 ## 1. 本文件用途
 
@@ -55,13 +55,13 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T5 一键生成与真实进度 | 第二轮独立验收通过 | processing 左右结构、单阶段明细与历史回看、真实阶段映射均通过；见 §23 |
 | T6 内容预览、事实依据与下载 | 需第三轮返工 | H2 预览只渲染通用文本结构，与 `pm_template v1.2` 的内容/视觉规格不一致；须建立模板忠实预览并新增真实 PDF 下载，见 PLAN §14/RESULT §24 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 独立验收通过 | 欢迎双冷启动、隐私边界和 Coming Soon/Absent 状态通过；无假接通，见 §19/§23 |
-| T8 Design Fidelity 与可访问性 | 需第三轮返工 | H2 的预览嵌套纸张尺寸/边框、导出卡冗余和全局卡片随内容变化未通过人工终判；须完成固定卡片与页面零滚动门禁 |
-| T9 回归、统一预检与便携包 | H2 历史通过；H3 须重建 | PDF 真实输出、模板一致性和全局几何返工会改变源码/依赖或包；H3 必须重跑回归、precheck 并重建 onedir |
-| T10 RESULT 与冻结候选 | H2 已失效，等待 H3 | H2 身份保留为历史；完成 T12-R9 至 R13 后按 R14 冻结 clean H3 |
-| T11 独立验收 | H2 历史结论：有条件通过 | H2 报告绑定 `3d821f2`，但其 Design Fidelity/发布可用性被第二次 T12 推翻；H3 须重新独立验收 |
-| T12 Product Owner 人工验收与发布 | 第二次未通过 | H2 实际结果页因模板不一致、预览几何、导出区和卡片尺寸纪律再次打回；见 §24 |
+| T8 Design Fidelity 与可访问性 | 第三轮返工完成，待复验 | R10/R11/R12a+b 已落地：模板忠实预览、预览满宽无二级纸张、全局固定卡片与三视口零滚动（见 §25） |
+| T9 回归、统一预检与便携包 | H3 重建完成，待复验 | precheck exit 0；onedir 含 reportlab+CID 字体；包内前端与 dist 逐文件 SHA-256 一致（见 §25） |
+| T10 RESULT 与冻结候选 | H3 已冻结，待复验 | H3 = `6664e37`；R14 记录见 §25；H3 须重新独立验收 |
+| T11 独立验收 | H2 历史结论：有条件通过 | H2 报告绑定 `3d821f2` 已失效；H3 须由未参与返工者重新独立验收 |
+| T12 Product Owner 人工验收与发布 | 第二次未通过（H2）；待 H3 第三次 T12 | 打回记录 §24；H3 复验通过后 Product Owner 第三次 T12 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
-| T12-R9 至 R14 | 未开始 | 当前第三轮集中返工：模板忠实预览、无边框满宽、双格式真实下载、固定卡片/卡内滚动、重建验证与 H3 交接 |
+| T12-R9 至 R14 | R9–R13 开发完成，待 H3 复验 | 模板一致性+真实 PDF（`c1e47ba`）、预览几何+导出收口（`4c55ffb`）、固定卡片（`b8fc019`+round3 证据）、回归/预检/包（`6664e37`）、R14 收口见 §25 |
 
 ## 5. 开发交接
 
@@ -660,3 +660,40 @@ H2 的功能/结构回归证据仍可作为历史参考，但 H2 不再是发布
 保留 H2，不提前切换到未完成代码。Development Agent 应在固定 `<current-workspace>` 同步本契约，
 一次完成 T12-R9 至 R14 并交付 H3。H3 到达前不更新 `CURRENT_STATE.md`、根 README、公开 main、
 tag 或发布声明。
+
+## 25. 第三轮返工实施（T12-R9 至 R13，开发侧；候选 H3）
+
+> 开发侧实施与自测记录，非复验结论。契约：PLAN §14（02a4a60/3db39b79）+ RESULT §24。
+> 旧 H2（e73f154/c5612ee/a917de2 链）的 Design Fidelity/发布结论在 H3 上失效；
+> 复验须绑定 **H3 = `6664e37`**（version/v2.1.0，工作区 clean）。
+
+### 25.1 R9 模板一致性契约与真实 PDF（`c1e47ba`）
+
+- 新增 `backend/services/pdf_renderer.py`（reportlab 4.2.2，CID STSong-Light，无外部 TTF 依赖）：页边距 T0.92/R1.09/B1.39/L1.13cm；字号 姓名20/节标题12/条目10.6/正文bullet10pt；●bullet 全部常规不加粗（粗体用 text-render-mode 模拟）；节标题底分隔线；经历行=时间/名称/说明右对齐式（对齐 Word 三列制表等价布局）；右上角 2.375×2.9cm 空照片占位框；章节顺序与空节隐藏规则同 docx。
+- generate 成功路径以同一 resume_doc 产出 `.pdf` 到 OUTPUT_DIR（lazy import，失败不中断 docx 并记 warning）；`ResumeDocxGenerateResponse` 增可选 `pdf_file_name/pdf_download_url`（默认 None 兼容）；下载路由按扩展名给真实 `application/pdf`，缺失/非法路径 404/400。
+- `backend/requirements.txt` 登记 `reportlab==4.2.2`。
+- fixture 一致性：`backend/_v21_r9_preview_pdf.py`（零 Key）固定虚构 ResumeDocument 驱动 docx/pdf/preview JSON 三端，断言姓名/联系/目标岗位、章节顺序、条目标题/时间/bullet 逐条一致、空奖项节一致、PDF %PDF-头/页数/分隔线/照片框 rect/左缘，下载正反向（200+pdf MIME+字节一致；缺失/非法 4xx）——**PASS=34/FAIL=0，exit 0**（开发 Agent 独立复跑一致）。
+
+### 25.2 R10/R11 结果预览几何与导出收口（`4c55ffb`）
+
+- `ResultPaperPreview` 重写为 pm_template v1.2 忠实视觉：顶部姓名+联系行+右上照片占位空框（非「个人信息」普通节）；章节顺序与模板一致（教育背景/实习经历/项目经历/技能专长/荣誉奖项映射）、节标题底分隔线；条目=名称/机构说明 左+日期右对齐；技能常规文本；●bullet 常规；字号/密度贴近模板。
+- 几何：废除 720×1018 二级纸与 fitPaper 缩放；内容满宽直铺预览卡内容区（外层卡为唯一边框/圆角/阴影源）；超长仅卡内滚动；依据选择为 padding 内浅底 overlay，不挤压文本/换行/不改版式；取消恢复。
+- 导出卡：结果可用区左下角固定独立卡（外框不随状态变化），卡内仅「下载 Word」「下载 PDF」两按钮；删除标题/文件名/复制全文/说明/短码；PDF 接真实 `pdf_download_url`（无值/失败→disabled+卡内固定高错误区，不改变外框）。`api/types.ts` 增加可选 pdf 字段。
+- 遗留（如实）：doc_preview 的 profile bullets 字面前缀与 docx 模板字面前缀存在字面差异（如"目标岗位："/"求职意向："），属后端 doc_preview 投影文案，前端已按 v1.2 结构呈现；如需字面一致由后续小修处理。
+
+### 25.3 R12 全局固定卡片与页面零滚动（`b8fc019` + round3 证据）
+
+- 布局改造：html/body/#root/.shell/.app-main 固定 100vh+overflow:hidden；.app-main flex 列、.page flex:1 min-height:0；卡片外框由 grid/固定份额决定，不随内容跳动；profile 列表/upload/generate/processing/result 等超长内容仅在对应卡内滚动；隐私等长文档放页面内滚动宿主；保留窄屏断点（单列但 shell 不滚优先）。
+- 浏览器证据（validation-artifacts/t8/round3/：geometry.md/issues.md/geometry.jsonl/截图）：**3 视口（1440×900/1280×720/1920×1080）× 10 状态 = 30 项，document sw==vw 且 sh==vh 全部通过，0 违规**；profile 列表卡在 长/短/空 三状态外框 0px 级一致；generate blocked/ready 外框一致；upload 空/错误态一致；错误态（伪造 PDF 触发真实 500）右栏错误卡固定 360px 卡内呈现；内部滚动宿主（exp-list/privacy-cards）scrollHeight>clientHeight 仅在卡内。
+- 遗留：processing 中段帧在 1280/1920 因 LLM 收尾过快未截到（1440×900 有进行中真实帧），不阻断。
+
+### 25.4 R13 回归、预检与便携包重建（`6664e37`）
+
+- PyInstaller spec：reportlab 加入 collect_all（190 文件，含 pdfbase/_cidfontdata.py/fonts，STSong-Light CID 齐备；warnings 仅 conditional/optional 缺失，canvas 主链不用）。
+- 完整统一预检 **exit 0**：编译+六阻断脚本固定计数+F3 哨兵+前端正式构建全通过。非阻断报告项（如实）：ruff 391、ESLint 19 problems（react-hooks v7 规则噪音为主）、pip-audit 7 known/4、npm audit 4（3 moderate+1 high）。
+- onedir 重建成功；包内 `_internal/frontend/dist` 与最终 `frontend/dist` 3 文件**逐文件 SHA-256 MATCH**；结构校验 4/4（exe/index/docx/config）；R9 fixture 复跑 PASS=34/0。
+
+### 25.5 H3 与复验边界
+
+- **H3 = `6664e37`**（version/v2.1.0，工作区 clean，祖先含 R9–R13 全部提交）。
+- 复验（未参与返工者绑定 H3 执行，PLAN §14.5）：打开同一 fixture 对照预览/Word/PDF 内容与视觉；PDF 下载正反向；R12 三视口几何与滚动；既有回归计数；包内前端 SHA-256 与 reportlab 依赖完整；随后 Product Owner 第三次 T12。未通过前不更新公开事实、不推送 main、不创建发布 tag。
