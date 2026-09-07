@@ -500,7 +500,8 @@ Product Owner 进一步提供五个设计状态，明确人工验收的本意是
 除上述真实能力映射外，页面状态、左右比例、组件顺序、文案层级、固定区域和首屏信息均以原型
 为准，开发 Agent 不再自行改版。
 
-承载本次五状态澄清的固定 commit 为
-`200bc7a379bdf526c4dc6f2035bbc8d4af462881`，对应最新 PLAN blob 为
-`56355b044e91e1632a55f5c6962d507bd667e6dd`。该身份取代 §20.3 中较早的返工 PLAN identity，
+五状态结构最初冻结于 `200bc7a379bdf526c4dc6f2035bbc8d4af462881`；Product Owner 随后澄清
+阶段历史必须保留并可回看，修正后的当前返工 PLAN commit 为
+`8d9034e6921f5f3d9f601a39bbc108fc009b280c`，PLAN blob 为
+`93523888d36164ecb5352f49af182d7155b53230`。该身份取代 §20.3 和本节较早的返工 PLAN identity，
 作为开发 T12-R1 至 R8 的当前唯一补充契约；最初批准 PLAN commit/blob 继续作为版本初始基线保留。
