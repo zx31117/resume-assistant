@@ -36,7 +36,9 @@ datas.append((str(backend_dir / "templates" / "pm_template.json"), "templates"))
 datas.append((str(backend_dir / "config"), "config"))
 
 # ── AI 栈动态子模块/数据文件（含 cacert 证书、tiktoken bpe 编码） ── #
-for pkg in ("langchain", "langchain_core", "langchain_openai", "openai", "tiktoken", "certifi"):
+# reportlab：R9 PDF 渲染器依赖；其字体/CMap 数据（STSong-Light CID）以 package data
+# 分发，静态分析无法覆盖，需 collect_all 确保 _internal 内具备完整字体数据库。
+for pkg in ("langchain", "langchain_core", "langchain_openai", "openai", "tiktoken", "certifi", "reportlab"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
