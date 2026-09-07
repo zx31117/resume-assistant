@@ -1652,3 +1652,26 @@ a.path-card {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   V2.1.0 开发者后台（SystemPage · DS-002 dev 视图布局）
+   参照 docs/design/baselines/V2.1.0/DS-002/prototype/index.html
+   的 .dev-grid：两列卡片网格，宽数据卡片跨整行。
+   ============================================================ */
+
+.sys-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
+  align-items: start;
+}
+
+.sys-grid__span {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 959px) {
+  .sys-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
