@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第二轮返工完成（源码冻结点 H2-SRC `a917de2`；开发 RESULT 交接 H2-DEV `22a69a4`），待复验（见 §22）
+> 当前状态：第二轮独立验收有条件通过（H2-HANDOFF `3d821f2`；见 §23），待 Product Owner 重新执行 T12
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（返工契约：`8d9034e6921f5f3d9f601a39bbc108fc009b280c` / blob `93523888d36164ecb5352f49af182d7155b53230`）
@@ -37,7 +37,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
 | 开发候选 commit | 开发结束后冻结 | 旧 H `e73f154…`/源码冻结点 `c5612ee…` 已失效；第二轮源码冻结点 **H2-SRC = `a917de2`**，开发 RESULT 交接 **H2-DEV = `22a69a4`**（后者相对前者仅改本文件） |
-| 独立验收对象 | 与开发候选完全一致 | 旧 H T11 结论失效；固定 review 绑定文档 Agent 指定的 H2-HANDOFF，并核对其相对 H2-SRC 只含 RESULT 文档，源码仍唯一绑定 `a917de2` |
+| 独立验收对象 | 与开发候选完全一致 | 第二轮报告绑定 H2-HANDOFF `3d821f2049e1c91fdd4d550bc4fb63686d10359b`；源码唯一绑定 H2-SRC `a917de24ac09d6773362f58f414ebfda66112e95`；二者之间仅修改本 RESULT |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
 一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
@@ -48,19 +48,19 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | Task | 状态 | 当前证据或下一门禁 |
 |---|---|---|
 | T0 设计基线与 PLAN 身份冻结 | 已完成 | `DS-002` 导入、逐文件 hash、批准 commit/blob 均已冻结 |
-| T1 Windows CI 编码闭环 | 开发完成，待独立验收 | 编码修复与同类子进程审计已提交（见 §6，commit `7ddfa92`）；本地统一预检 exit 0 六脚本固定计数 + F3 哨兵通过；GitHub Windows CI 真实成功仍待 T11 独立验收时在 CI 侧核对 |
-| T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
-| T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
-| T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
-| T5 一键生成与真实进度 | 第二轮返工完成，待复验 | processing 左右结构+单阶段明细回看（R4 `e4e2068`）；真实阶段映射保留，见 §22 |
-| T6 内容预览、事实依据与 DOCX 下载 | 第二轮返工完成，待复验 | result 主从+技术摘要退出（R5 `b1a32d1`）；preview/evidence/DOCX 保留，见 §22 |
-| T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
-| T8 Design Fidelity 与可访问性 | 第二轮返工完成，待复验 | R1–R6 五状态结构还原 + 1440×900 滚动门禁截图（见 §22）；复验绑定 H2-HANDOFF，并保持源码绑定 H2-SRC |
-| T9 回归、统一预检与便携包 | 第二轮重建完成，待复验 | precheck exit 0；onedir 重建且包内 frontend 与最终 dist 逐文件 SHA-256 一致（见 §22） |
-| T10 RESULT 与冻结候选 | 开发交接完成，待复验 | H2-SRC `a917de2` + H2-DEV `22a69a4`；文档 Agent 校正身份后冻结 H2-HANDOFF，复验由未参与返工者执行 |
-| T11 独立验收 | 历史结论：有条件通过（旧 H） | 绑定旧 H `e73f154…` 的结论在 H2 上失效；H2 待未参与返工者重新复验 |
-| T12 Product Owner 人工验收与发布 | 未通过（旧 H）；待 H2 复验 | 打回记录 §20；H2 复验通过后 Product Owner 重新执行 T12 |
-| T12-R1 至 R8 | R1–R8 开发交接完成，待复验 | R1–R6 `4fb3453`/`e4e2068`/`b1a32d1`/`63e8708`/`a917de2`；R7 precheck+onedir 哈希一致；R8 开发记录见 §22 |
+| T1 Windows CI 编码闭环 | 本地与源码独立验收通过；远端 CI 待确认 | 编码修复、同类子进程审计、隔离固定计数与 F3 哨兵通过；GitHub Windows CI 真实 run 仍为 Release Gate |
+| T2 tokens、adapter、路由与状态骨架 | 独立验收通过 | 主题 A tokens、typed service 端口与注入、全局状态及路由骨架成立；见 §19/§23 |
+| T3 用户界面与开发者后台分离 | 独立验收通过 | 普通用户导航与隐藏开发者后台边界成立，SystemPage 能力和安全边界保留；见 §19/§23 |
+| T4 上传、D-038 确认边界与经历管理 | 独立验收通过 | D-038 direct/inferred 分流、真实 CRUD/筛选/搜索/来源/失败路径及统一 `/upload` 入口通过；见 §19/§23 |
+| T5 一键生成与真实进度 | 第二轮独立验收通过 | processing 左右结构、单阶段明细与历史回看、真实阶段映射均通过；见 §23 |
+| T6 内容预览、事实依据与 DOCX 下载 | 第二轮独立验收通过 | result 主从、真实 preview/evidence/DOCX、技术摘要退出与受控滚动均通过；见 §23 |
+| T7 隐私、Coming Soon 与缺席能力边界 | 独立验收通过 | 欢迎双冷启动、隐私边界和 Coming Soon/Absent 状态通过；无假接通，见 §19/§23 |
+| T8 Design Fidelity 与可访问性 | 第二轮独立验收通过（像素终判待 T12） | 五状态结构、键盘/焦点、滚动/固定边界源码与 CSS 成立；1440×900 数据和截图已核对，最终像素观感与 axe 保留到 T12/发布门禁 |
+| T9 回归、统一预检与便携包 | 第二轮本地门禁通过；远端 CI 待确认 | 隔离复跑固定计数、`_v21_t6`、前端 build 全绿；文档 Agent 直接核对实际 onedir 与 `frontend/dist` 三文件 SHA-256 完全一致；GitHub Windows CI 仍为 Release Gate |
+| T10 RESULT 与冻结候选 | 已完成 | H2-SRC `a917de2`、H2-DEV `22a69a4`、H2-HANDOFF `3d821f2` 身份清晰，固定 review 已按 H2-HANDOFF detached |
+| T11 独立验收 | 第二轮有条件通过 | 独立报告绑定 H2-HANDOFF `3d821f2`，P0/P1=0；发布前仍需 Product Owner T12、GitHub Windows CI 和受控真实 LLM 稳定性复测 |
+| T12 Product Owner 人工验收与发布 | 旧 H 未通过；H2 待重新人工验收 | 第二轮独立验收已完成；下一门禁为 Product Owner 在 H2 实际页面重新执行 T12 |
+| T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
 
 ## 5. 开发交接
 
@@ -547,3 +547,68 @@ Product Owner 进一步提供五个设计状态，明确人工验收的本意是
 - UploadPage `/upload` 无文件直达时的空态未做专项截图（正常路径经欢迎左卡进入）；复验可覆盖。
 - result 右下显示「已生成 <operation_id 短码>」作为状态标识保留（非技术统计）。
 - 复验范围（未参与返工者绑定 H2-HANDOFF，并将源码结论绑定 H2-SRC 执行）：T12-R1–R7、五状态结构与冻结预览一致、真实阶段映射、诊断保留、滚动/固定边界、包内资产一致性；随后 Product Owner 重新执行 T12。
+
+## 23. 第二轮独立验收结论（2026-09-07）
+
+### 23.1 角色、绑定与独立性
+
+第二轮由未参与 H2 实现、R1-R8 返工、自测或开发结论编写的独立验收 Agent 执行。验收全程
+只读，没有修改源码、测试、配置、构建、PLAN、RESULT 或远端；动态验证使用隔离临时副本和
+隔离 `RESUME_DATA_DIR`，最终清理完成、残留为 0。
+
+验收身份如下：
+
+- 固定 review 路径：`<review-workspace>`；
+- H2-HANDOFF：`3d821f2049e1c91fdd4d550bc4fb63686d10359b`；
+- H2-SRC：`a917de24ac09d6773362f58f414ebfda66112e95`；
+- H2-SRC 是 H2-HANDOFF 的祖先，二者之间只有 H2-DEV `22a69a4` 和文档 Agent 身份校正
+  `3d821f2` 两个 RESULT-only 提交；没有源码、测试、依赖、配置或构建文件变化；
+- review 在验收开始与结束时均为 detached H2-HANDOFF，tracked、untracked、ignored clean；
+- 当前返工 PLAN blob 实测为
+  `93523888d36164ecb5352f49af182d7155b53230`，承载提交为 `8d9034e...`；初始批准 PLAN
+  commit/blob 与 DS-002 manifest/prototype hash 均保持不变。
+
+验收报告原文第 5 节曾把当前返工 PLAN blob 误写为尾部 `...b53030`；文档 Agent 根据仓库
+`git hash-object` 实测校正为上述 `...b53230`，不改变验收对象或结论。
+
+### 23.2 功能、结构与 Design Fidelity
+
+| Gate | 结论 | 独立验收摘要 |
+|---|---|---|
+| T12-R1/R2 欢迎与上传解析 | 通过 | 左上传卡支持整卡单击和 PDF 拖放，右卡 disabled/`aria-disabled` 且无假操作；`/upload` 左四阶段、右单阶段真实输出，旧阶段可回看，D-038 分流与失败重试保留 |
+| T12-R3 身份/JD | 通过 | 身份摘要可编辑、JD 分析和真实 chips 保留；右侧检查/说明/生成动作符合状态；模板选择 UI 完整退出 |
+| T12-R4 生成处理 | 通过 | 左右结构、四阶段真实状态、右侧单阶段输出、自动切换和历史回看成立；重复身份/JD 摘要和全量 operation 堆叠退出 |
+| T12-R5 结果页 | 通过 | 左真实纸张预览，右 sticky 依据/修改/导出；依据接真实 fact，修改 disabled，DOCX Active；重复页头、输入摘要、文件名、raw 警告和统计全部退出 |
+| 真实链路与状态边界 | 通过 | 上传、extract、D-038、JD、生成、evidence、DOCX 均接 Real API；无计时器模拟、虚假百分比、私有思维链或正常路径 Mock 回退；Coming Soon/Absent 没有伪装 Active |
+| 结构变更 | 通过 | 新增 `/upload`，Profile 导入统一进入该路径；用户界面/开发者后台分离、typed service、零 DB 迁移与事实真源边界保持；本轮后端零改动 |
+| Design Fidelity/可访问性 | 通过，最终像素判断保留给 T12 | `process-shell`、`fitPaper`、受控 `.preview-scroll`、sticky 右栏、radiogroup/键盘/焦点/reduced-motion 均成立；开发侧 1440×900 DOM 数据与截图得到源码/CSS 印证；axe 未运行 |
+
+### 23.3 独立回归与包身份
+
+隔离 H2 副本中的独立复跑结果：
+
+- Python 编译范围 exit 0；版本为 `2.1.0`；
+- 六个阻断脚本固定计数命中 `77/0、48/0、20/0、15/0、50/0、12/0/3`；
+- `backend/_v21_t6_doc_preview.py` 为 `15/0`；
+- `npm ci` 与正式前端 build exit 0，共 58 modules；
+- 独立构建得到的 `index.html`、`index-CqKehJQh.js`、`index-DhZa9fFP.css` hash 与开发 R7
+  记录一致。文档 Agent 又直接核对 `<current-workspace>` 的实际 onedir 包与 `frontend/dist`，
+  三个文件的名称、大小和 SHA-256 均完全一致，旧包阻断已经消除；
+- npm audit 4 被独立复现；ruff 383、ESLint 17、pip-audit 7/4 为开发侧如实报告的非阻断基线；
+- 验收临时目录首次因 shell cwd 位于副本内删除失败，切换到中性目录后重试成功，最终无残留。
+
+### 23.4 结论与剩余门禁
+
+第二轮独立验收结论为：**有条件通过（Conditional Pass）**。P0=0，P1=0。H2 的 R1-R8、
+五状态结构、真实阶段映射、功能/结构回归与发布包前端资产一致性均通过。
+
+以下事项不推翻本轮源码、功能或结构结论，但在正式发布前仍必须完成：
+
+1. Product Owner 在 H2 实际页面重新执行 T12，对最终视觉、信息纪律与可用性作人工终判；
+2. 在 canonical/GitHub 侧取得绑定最终发布候选的 Windows CI 成功记录；
+3. 在受控 LLM 可用窗口完成真实生成稳定性复测；历史 `content_generation` 长挂风险仍为 SUSPEND；
+4. axe 自动扫描仍未执行；结合 T12 人工无障碍判断决定是否作为发布前补充门禁。
+
+因此当前版本仍为“待人工验收”，不更新 `CURRENT_STATE.md`、根 README、公开 main、tag 或发布
+声明。下一步不是继续开发，而是由 Product Owner 使用 H2 实际运行入口重新执行 T12；若再次发现
+P0/P1 体验问题，再按新反馈进入下一轮返工。
