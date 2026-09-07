@@ -54,7 +54,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
 | T5 一键生成与真实进度 | 开发完成，待独立验收 | 生成工作台 DS-002 重构（`39be12f`，见 §11）；真实 4 阶段映射、前端可判定阻断检查、失败保留输入 |
 | T6 内容预览、事实依据与 DOCX 下载 | 开发完成，待独立验收 | doc_preview/evidence 透出 + result 预览/依据/下载（`1e25e10`，见 §12）；零密钥验证 15/0 |
-| T7 隐私、Coming Soon 与缺席能力边界 | 未开始 | 等待 T3 |
+| T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
 | T8 Design Fidelity 与可访问性 | 未开始 | 等待 T3–T7 |
 | T9 回归、统一预检与便携包 | 未开始 | 等待 T1–T8 |
 | T10 RESULT 与冻结候选 | 未开始 | 等待 T9 |
@@ -238,3 +238,21 @@ T0 已完成。Development Agent 启动前必须：
 - 后端零密钥验证脚本 `backend/_v21_t6_doc_preview.py`：固定 PASS=15/FAIL=0，exit 0（含 DTO 序列化、默认/携带响应、真实 ResumeDocument 投影、空/内存 SQLite 注入 Fact 边界、py_compile、route import）；开发 Agent 独立复跑一致。
 - 前端生产 build 通过（strict tsc + vite，exit 0）；提交 `1e25e10` 复核通过，git status 干净。
 - 偏差：无 per-fact 采用理由真实来源（后端选择流程未持久化逐条理由），依据栏如实只展示原文与所属经历；真实 LLM 端到端联调（需 Key）交由 T11/人工联调。
+
+## 13. T7 欢迎双冷启动 / 隐私精修 / Coming Soon 与 Absent 边界（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `b088f26`（version/v2.1.0，工作区 clean）。
+> 由独立执行体按完整约束清单实施，开发 Agent 复核提交与锚点后记录。
+
+### 13.1 内容
+
+- **WelcomeGate（路由 / 门控）**：真实调 `experience.list()` 判空——无经历渲染欢迎视图（hero + 双路径卡 + 三原则），有经历渲染既有 GeneratePage；未取到状态前轻量提示，读取失败显示错误与重试，不落假状态。
+- 欢迎卡 A「我有一份现有简历」Active → `/profile?import=1`（ProfilePage 首次挂载读一次 query 自动打开导入弹窗并聚焦文件选择）；卡 B「我还没有简历」Coming Soon：仅展开可见说明，不调 API、不落状态。
+- **PrivacyPage 精修**：五卡——数据保存位置（本机 SQLite/runtime data root/输出目录/凭据库）、第三方模型调用边界、缺失信息真实规则、三层可靠性说明、删除与清理**真实路径**（逐条删除经历 / 开发者后台清理诊断日志 / 删除数据目录）。后端无清空业务数据 API → 不提供「一键清空」假按钮。
+- **边界清点**：普通界面无生成历史/简历记录入口与假列表；GeneratePage 结果区无意图级修改假残留；身份摘要补充「身份自动带入为后续版本功能」诚实说明。未发现假接通，无新 API 调用。
+- 新增 `pages/WelcomeGate.tsx`；改 App.tsx / ProfilePage / PrivacyPage / GeneratePage / global.css。
+
+### 13.2 验证
+
+- 前端生产 build 通过（strict tsc + vite，exit 0）；提交 `b088f26` 复核通过（锚点命中），git status 干净。
+- 偏差：无（视觉细调与像素对照归 T8）。
