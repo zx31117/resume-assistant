@@ -4,6 +4,12 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import OperationTimeline from '../components/OperationTimeline'
+import StageFlowList, {
+  calcPhaseStatus,
+  phaseElapsedMs,
+  type PhaseStatus,
+  type StageFlowPhase,
+} from '../components/StageFlowList'
 import { Field, TextArea, TextInput } from '../components/ui/Field'
 import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
@@ -66,15 +72,7 @@ function toGenError(e: unknown): GenError {
   return { message: String(e) }
 }
 
-interface ProcessPhase {
-  key: string
-  label: string
-  detail: string
-  /** 点亮该阶段所需的后端真实 stage_code（全部出现 COMPLETED 事件才算完成）。 */
-  codes: string[]
-}
-
-const PROCESS_PHASES: ProcessPhase[] = [
+const PROCESS_PHASES: StageFlowPhase[] = [
   {
     key: 'selection',
     label: '从你的经历中挑选相关事实',
@@ -100,26 +98,6 @@ const PROCESS_PHASES: ProcessPhase[] = [
     codes: ['render', 'save_docx', 'response_assembly'],
   },
 ]
-
-type PhaseStatus = 'pending' | 'active' | 'done' | 'failed'
-
-/** 依据真实 operation 事件计算某一用户阶段的点亮状态。 */
-function phaseStatus(op: OperationDetail | null, codes: string[]): PhaseStatus {
-  if (!op) return 'pending'
-  const events = op.stages ?? []
-  let sawStarted = false
-  let failed = false
-  for (const ev of events) {
-    if (!codes.includes(ev.stage_code)) continue
-    if (ev.event_type === 'STARTED') sawStarted = true
-    else if (ev.event_type === 'FAILED' || ev.event_type === 'ROLLED_BACK') failed = true
-  }
-  const allCompleted = codes.every((c) => events.some((e) => e.stage_code === c && e.event_type === 'COMPLETED'))
-  if (allCompleted) return 'done'
-  if (failed) return 'failed'
-  if (sawStarted || (op.stage_code && codes.includes(op.stage_code))) return 'active'
-  return 'pending'
-}
 
 /** 单条摘要 chips 区块（JDAnalysis 真实字段驱动；按 DS-002 冻结原型以「标签 · 值」单 chip 形式展示）。 */
 function AnalysisChips({ a }: { a: JDAnalysis }) {
@@ -248,73 +226,185 @@ function EvidencePanel({
   )
 }
 
-/** 4 个用户语言阶段的可视列表（由真实阶段事件点亮）。 */
-function ProcessStages({ op }: { op: OperationDetail | null }) {
-  const tailOf: Record<PhaseStatus, string> = { done: '已完成', active: '进行中', pending: '等待', failed: '失败' }
-  const indicatorOf: Record<PhaseStatus, { bg: string; color: string; content: string }> = {
-    done: { bg: 'var(--primary)', color: '#fff', content: '✓' },
-    active: { bg: 'var(--tint)', color: 'var(--primary)', content: '…' },
-    pending: { bg: 'var(--surface-2)', color: 'var(--ink-faint)', content: '' },
-    failed: { bg: 'var(--danger-wash)', color: 'var(--danger)', content: '!' },
+/* ============================================================
+   V2.1.0 T12-R4：处理视图右侧组件
+   - PhaseStream：单选阶段的真实 stage 事件流（按 phase.codes 过滤）。
+   - FailurePanel：失败态右侧面板（阶段名 + 原因 + 诊断 + 恢复动作）。
+   - 全部基于真实 operation.stages / genError，不编造 stage_code 直出。
+   ============================================================ */
+
+const PHASE_STREAM_RESOURCE_LABEL: Record<string, string> = {
+  LOCAL_DB: '本地数据库',
+  LOCAL_FILE: '本地文件',
+  LOCAL_CPU: '本地计算',
+  LLM: 'LLM',
+  EMBEDDING: 'Embedding',
+}
+
+function phaseEventLabel(t: string): string {
+  switch (t) {
+    case 'STARTED':
+      return '开始'
+    case 'COMPLETED':
+      return '完成'
+    case 'FAILED':
+      return '失败'
+    case 'ROLLED_BACK':
+      return '已回滚'
+    default:
+      return t
   }
+}
+
+function phaseEventTone(t: string): 'neutral' | 'ok' | 'warn' | 'danger' {
+  switch (t) {
+    case 'COMPLETED':
+      return 'ok'
+    case 'FAILED':
+      return 'danger'
+    case 'ROLLED_BACK':
+      return 'warn'
+    case 'STARTED':
+    default:
+      return 'neutral'
+  }
+}
+
+interface PhaseStreamProps {
+  phase: StageFlowPhase
+  phaseIdx: number
+  status: PhaseStatus
+  operation: OperationDetail | null
+}
+
+function PhaseStream({ phase, phaseIdx, status, operation }: PhaseStreamProps) {
+  const events = (operation?.stages ?? []).filter((e) => phase.codes.includes(e.stage_code))
+  const elapsed = phaseElapsedMs(operation, phase.codes)
+  const tag = status === 'failed' ? '阶段失败' : status === 'active' ? '正在执行' : '阶段明细'
   return (
-    <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-      {PROCESS_PHASES.map((p, i) => {
-        const st = phaseStatus(op, p.codes)
-        const ind = indicatorOf[st]
-        return (
-          <li
-            key={p.key}
-            style={{
-              display: 'flex',
-              gap: 'var(--s4)',
-              alignItems: 'center',
-              padding: 'var(--s4) var(--s5)',
-              ...(i > 0 ? { borderTop: '1px solid var(--line)' } : {}),
-            }}
-          >
-            <span
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
-                flexShrink: 0,
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 600,
-                fontSize: 'var(--text-sm)',
-                background: ind.bg,
-                color: ind.color,
-              }}
-              aria-hidden="true"
-            >
-              {ind.content || i + 1}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="ai-stream" aria-live="polite">
+      <div className="ai-stream__head">
+        <span className="ai-stream__tag">{tag}</span>
+        <span className="ai-stream__title">
+          {phaseIdx + 1}. {phase.label}
+        </span>
+        <span className="ai-stream__sub">{elapsed != null ? fmtMs(elapsed) : '—'}</span>
+      </div>
+      <div className="ai-stream__list" role="log">
+        {events.length === 0 ? (
+          <div className="ai-stream__empty">
+            {status === 'pending'
+              ? '该阶段尚未开始；可点击左侧已开始阶段查看明细。'
+              : '等待服务端推送该阶段事件…'}
+          </div>
+        ) : (
+          events.map((ev, i) => {
+            const isStart = ev.event_type === 'STARTED'
+            const recent = operation?.recent_stats?.[ev.stage_code]
+            const stageDisplay = ev.stage_name || phase.label
+            return (
               <div
-                style={{
-                  fontWeight: st === 'active' ? 600 : 500,
-                  color: st === 'failed' ? 'var(--danger)' : 'var(--ink)',
-                }}
+                key={`${ev.seq}-${i}`}
+                className={`ai-stream__line ai-stream__line--${ev.event_type.toLowerCase()}`}
               >
-                {p.label}
+                <div className="ai-stream__line-main">
+                  <Badge tone={phaseEventTone(ev.event_type)}>{phaseEventLabel(ev.event_type)}</Badge>
+                  <span className="ai-stream__line-name">{stageDisplay}</span>
+                  {!isStart && (
+                    <span className="ai-stream__line-elapsed">{fmtMs(ev.elapsed_ms)}</span>
+                  )}
+                </div>
+                {ev.message ? <div className="ai-stream__line-msg">{ev.message}</div> : null}
+                {(ev.resource_type || ev.attempt > 1 || recent) && (
+                  <div className="ai-stream__line-meta">
+                    {ev.resource_type ? (
+                      <span>{PHASE_STREAM_RESOURCE_LABEL[ev.resource_type] ?? ev.resource_type}</span>
+                    ) : null}
+                    {ev.attempt > 1 ? <span>· 第 {ev.attempt}/{ev.max_attempts} 次</span> : null}
+                    {recent && recent.sample_size > 0 ? (
+                      <span>
+                        · 近{recent.sample_size}次 中位 {fmtMs(recent.median_ms)} / 最大{' '}
+                        {fmtMs(recent.max_ms)}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
               </div>
-              <div className="muted">{p.detail}</div>
-            </div>
-            <span
-              className="muted"
-              style={{
-                flexShrink: 0,
-                color: st === 'active' ? 'var(--primary)' : st === 'failed' ? 'var(--danger)' : undefined,
-                fontWeight: st === 'active' ? 600 : undefined,
-              }}
-            >
-              {tailOf[st]}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface FailurePanelProps {
+  phase: StageFlowPhase | null
+  phaseIdx: number
+  op: OperationDetail | null
+  genError: GenError | null
+  generating: boolean
+  onRegenerate: () => void
+  onBackToEdit: () => void
+}
+
+function FailurePanel({
+  phase,
+  phaseIdx,
+  op,
+  genError,
+  generating,
+  onRegenerate,
+  onBackToEdit,
+}: FailurePanelProps) {
+  const reason = genError?.message ?? (op ? statusLabel(op.status) : '发生未知错误')
+  return (
+    <div className="process-error" role="alert">
+      <div className="process-error__head">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          aria-hidden="true"
+        >
+          <path d="M12 9v4M12 17h.01" />
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+        </svg>
+        生成未完成
+      </div>
+      {phase ? (
+        <div className="process-error__phase">
+          失败阶段：{phaseIdx + 1}. {phase.label}
+        </div>
+      ) : null}
+      <div className="process-error__reason">{reason}</div>
+      {(genError?.stage || genError?.code) && (
+        <div className="process-error__diag">
+          后端返回：stage={genError?.stage ?? '—'} · code={genError?.code ?? '—'}
+        </div>
+      )}
+      {op && (
+        <div className="process-error__diag">
+          操作 #{op.operation_id.slice(0, 8)} {statusLabel(op.status)}
+          {op.diagnostic_code ? ` · 诊断码 ${op.diagnostic_code}` : ''}
+          {op.attempt > 1 || op.max_attempts > 1
+            ? ` · 尝试 ${op.attempt}/${op.max_attempts}`
+            : ''}
+        </div>
+      )}
+      <div className="process-error__actions">
+        <Button variant="primary" size="sm" disabled={generating} onClick={onRegenerate}>
+          重新生成
+        </Button>
+        <Button variant="secondary" size="sm" disabled={generating} onClick={onBackToEdit}>
+          返回修改
+        </Button>
+      </div>
+      <div className="process-error__note">输入已保留，返回修改不会丢失任何字段。</div>
+    </div>
   )
 }
 
@@ -357,10 +447,59 @@ export default function GeneratePage() {
     setSelectedBullet(null)
   }, [result])
 
+  // V2.1.0 T12-R4：处理视图左侧 4 阶段 radio 当前选中（与「当前运行」解耦）。
+  // - 规则：① 每次 op 轮询更新时，若「当前活动」高层阶段发生变化，自动切到新活动阶段；
+  //        ② 用户主动点击已开始/已完成的阶段可回看，不被立即覆盖；
+  //        ③ 离开处理视图或新一次生成时重置。
+  const [selectedPhaseIdx, setSelectedPhaseIdx] = useState(0)
+  const lastActiveIdxRef = useRef<number>(-1)
+
+  useEffect(() => {
+    if (opId) {
+      setSelectedPhaseIdx(0)
+      lastActiveIdxRef.current = -1
+    }
+  }, [opId])
+
   // 生成期间轮询该 op 的真实阶段（约 1s，页面不可见时 3s）；离开处理视图即停止。
   const polled = useOperation(opId, view === 'processing' && opId != null && !result)
   // 仅接受与当前 op 匹配的快照，避免「重新生成」后旧快照短暂串场
   const operation = polled && polled.operation_id === opId ? polled : null
+
+  // 4 高层阶段的实时状态（来自真实 stage 事件，不提前点亮、不虚构）。
+  const phaseStatuses: PhaseStatus[] = useMemo(
+    () => PROCESS_PHASES.map((p) => calcPhaseStatus(operation, p.codes)),
+    [operation],
+  )
+  const currentRunningIdx = useMemo(
+    () => phaseStatuses.findIndex((s) => s === 'active'),
+    [phaseStatuses],
+  )
+  const failedPhaseIdx = useMemo(
+    () => phaseStatuses.findIndex((s) => s === 'failed'),
+    [phaseStatuses],
+  )
+
+  // 自动跟随「当前活动」阶段：新活动阶段出现 / 切换时同步右侧。
+  useEffect(() => {
+    if (view !== 'processing' || result) return
+    if (currentRunningIdx >= 0) {
+      if (currentRunningIdx !== lastActiveIdxRef.current) {
+        lastActiveIdxRef.current = currentRunningIdx
+        setSelectedPhaseIdx(currentRunningIdx)
+      }
+    } else if (operation) {
+      // 没有活动阶段（可能全部已完成或失败）→ 默认显示最后已完成/失败的阶段
+      let target = -1
+      for (let i = phaseStatuses.length - 1; i >= 0; i--) {
+        if (phaseStatuses[i] === 'done' || phaseStatuses[i] === 'failed') {
+          target = i
+          break
+        }
+      }
+      if (target >= 0 && target !== selectedPhaseIdx) setSelectedPhaseIdx(target)
+    }
+  }, [view, result, currentRunningIdx, phaseStatuses, operation, selectedPhaseIdx])
 
   useEffect(() => {
     jdRef.current = jd
@@ -492,10 +631,10 @@ export default function GeneratePage() {
     setGenerating(false)
   }
 
-  const name = identity.name.trim()
   const targetLabel = shownAnalysis?.position ?? ''
-  const processingFailed = genError != null || (operation != null && ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(operation.status))
-  const jdSnippet = jdTrimmed.length > 60 ? `${jdTrimmed.slice(0, 60)}…` : jdTrimmed
+  const processingFailed =
+    genError != null ||
+    (operation != null && ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(operation.status))
 
   const setIdentityField = (k: keyof Identity) => (v: string) =>
     setIdentity((p) => ({ ...p, [k]: v }))
@@ -934,22 +1073,141 @@ export default function GeneratePage() {
   }
 
   // ================= 处理中 / 结果 / 失败视图 =================
+  // 处理视图（DS-002 process-shell 视觉语法：左侧 4 阶段 radio 流程 + 右侧流式/明细/失败）
+  if (!result) {
+    const eyebrow = targetLabel
+      ? `${targetLabel} · ${processingFailed ? '生成未完成' : '生成中'}`
+      : processingFailed
+        ? '生成未完成'
+        : '生成中'
+    const headerTitle = processingFailed
+      ? '简历生成未完成，可恢复或返回修改'
+      : '正在为你准备一份可直接投递的简历'
+    const headerDesc = processingFailed
+      ? '失败原因来自真实后端响应；可重新生成或返回修改，输入已保留。'
+      : '系统按真实阶段推进；输入已保留，失败时不会被静默丢弃。'
+    // 失败时强制定位到失败阶段（若可识别），否则定位到 selectedPhaseIdx
+    const focusFailedIdx = failedPhaseIdx >= 0 ? failedPhaseIdx : selectedPhaseIdx
+    const viewPhaseIdx = processingFailed ? focusFailedIdx : selectedPhaseIdx
+    const safeViewIdx = viewPhaseIdx >= 0 && viewPhaseIdx < PROCESS_PHASES.length ? viewPhaseIdx : 0
+    const viewPhase = PROCESS_PHASES[safeViewIdx]!
+    const viewStatus = phaseStatuses[safeViewIdx] ?? 'pending'
+    const totalElapsedMs = operation?.elapsed_ms ?? null
+    return (
+      <div
+        className="page"
+        style={{
+          maxWidth: 1200,
+          width: '100%',
+          margin: '0 auto',
+          alignItems: 'stretch',
+        }}
+      >
+        <div className="process-shell">
+          {/* —— 左：4 阶段 radio 流程 —— */}
+          <div className="process-main">
+            <div className="process-header">
+              <div className="process-header__eyebrow">{eyebrow}</div>
+              <h1 className="process-header__h1">{headerTitle}</h1>
+              <p className="process-header__desc">{headerDesc}</p>
+            </div>
+
+            <div className="process-elapsed" aria-label="已用时">
+              <span>已用时</span>
+              <span className="process-elapsed__value">
+                {totalElapsedMs != null ? fmtMs(totalElapsedMs) : '—'}
+              </span>
+            </div>
+
+            <StageFlowList
+              phases={PROCESS_PHASES}
+              op={operation}
+              selectedIdx={selectedPhaseIdx}
+              onSelect={setSelectedPhaseIdx}
+            />
+
+            <div className="process-foot">
+              <div className="process-foot__left">
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 12,
+                    color: 'var(--ok)',
+                    background: 'var(--ok-wash)',
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: 'currentColor',
+                    }}
+                  />
+                  输入已保留
+                </span>
+                <span>进度会随服务端更新，可点击已开始阶段查看明细。</span>
+              </div>
+              <Button variant="ghost" size="sm" disabled={generating} onClick={backToEdit}>
+                返回修改输入
+              </Button>
+            </div>
+          </div>
+
+          {/* —— 右：选中阶段的流式/明细 / 失败 —— */}
+          <div className="process-side" aria-label="阶段明细">
+            {processingFailed ? (
+              <FailurePanel
+                phase={viewPhase}
+                phaseIdx={safeViewIdx}
+                op={operation}
+                genError={genError}
+                generating={generating}
+                onRegenerate={() => void beginGenerate()}
+                onBackToEdit={backToEdit}
+              />
+            ) : (
+              <PhaseStream
+                phase={viewPhase}
+                phaseIdx={safeViewIdx}
+                status={viewStatus}
+                operation={operation}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ================= 成功态 =================
   return (
     <div
       className="page"
       style={{
-        maxWidth: result ? 1120 : 900,
+        maxWidth: 1120,
         width: '100%',
         margin: '0 auto',
         alignItems: 'stretch',
       }}
     >
       <div>
-        {targetLabel && (
-          <div className="muted" style={{ textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--ink-faint)' }}>
-            {targetLabel} · {result ? '已生成' : '生成中'}
-          </div>
-        )}
+        <div
+          className="muted"
+          style={{
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontSize: 'var(--text-xs)',
+            fontWeight: 600,
+            color: 'var(--ink-faint)',
+          }}
+        >
+          {targetLabel ? `${targetLabel} · 已生成` : '已生成'}
+        </div>
         <h1
           style={{
             fontSize: 'var(--text-2xl)',
@@ -959,284 +1217,187 @@ export default function GeneratePage() {
             marginTop: 'var(--s2)',
           }}
         >
-          {result ? '简历已生成，可直接下载' : '正在为你准备一份可直接投递的简历'}
+          简历已生成，可直接下载
         </h1>
         <p className="muted" style={{ marginTop: 'var(--s2)' }}>
-          {result
-            ? '以下为本份生成的真实产物与统计。'
-            : '系统按真实阶段推进；输入已保留，失败时不会被静默丢弃。'}
+          以下为本份生成的真实产物与统计。
         </p>
       </div>
 
-      {/* 已提交输入 · 保留中 */}
-      <Card>
-        <div style={{ fontSize: 'var(--text-xs)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink-faint)' }}>
-          已提交输入 · 保留中
-        </div>
-        <div style={{ marginTop: 'var(--s3)', fontSize: 'var(--text-base)', lineHeight: 1.7, color: 'var(--ink-soft)' }}>
-          <div>
-            姓名：<strong style={{ color: 'var(--ink)' }}>{name || '未填写'}</strong>
-            {targetLabel && (
-              <>
-                <span style={{ margin: '0 var(--s2)' }}>·</span>
-                目标岗位：<strong style={{ color: 'var(--ink)' }}>{targetLabel}</strong>
-              </>
-            )}
+      {/* 本次结果摘要：warnings + 关键 kv（不杜撰任何字段） */}
+      <Card title="本次结果" subtitle={result.file_name}>
+        {result.warnings && result.warnings.length > 0 && (
+          <div className="notice notice--warn" style={{ marginTop: 0 }}>
+            {result.warnings.map((w, i) => (
+              <div key={i}>• {w}</div>
+            ))}
           </div>
-          {jdSnippet && <div className="muted" style={{ marginTop: 'var(--s1)' }}>JD：{jdSnippet}</div>}
+        )}
+        <div className="kv" style={{ marginTop: 'var(--s4)' }}>
+          {typeof result.page_count === 'number' && (
+            <div className="kv__row">
+              <span className="kv__k">页数</span>
+              <span className="kv__v">{result.page_count} 页</span>
+            </div>
+          )}
+          <div className="kv__row">
+            <span className="kv__k">匹配经历</span>
+            <span className="kv__v">{result.matched_experience_ids.length} 条</span>
+          </div>
+          <div className="kv__row">
+            <span className="kv__k">渲染经历</span>
+            <span className="kv__v">{result.rendered_experience_ids.length} 条</span>
+          </div>
+          <div className="kv__row">
+            <span className="kv__k">模板</span>
+            <span className="kv__v">{result.template_id}</span>
+          </div>
         </div>
       </Card>
 
-      {/* 进度顶栏：已用时 + 真实状态 */}
-      {!result && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--s3)', justifyContent: 'space-between' }}>
-          <span className="muted">已用时</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-            {operation ? (
-              <>
-                <Badge tone={statusTone(operation.status)}>{statusLabel(operation.status)}</Badge>
-                {operation.stage_name && <Badge tone="accent">{operation.stage_name}</Badge>}
-              </>
-            ) : (
-              <Badge tone="neutral">提交中…</Badge>
-            )}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', fontWeight: 600, minWidth: '6ch', textAlign: 'right' }}>
-              {operation ? fmtMs(operation.elapsed_ms) : '—'}
+      {/* 左：内容预览（真实文本）；右：sticky 下载/依据 侧栏 */}
+      <div className="result-shell">
+        <div className="result-shell__preview">
+          <div className="preview-disclaimer">
+            <Badge tone="neutral">内容预览</Badge>
+            <span>
+              文本来自本次生成结果；<strong>下载的 DOCX 为最终正式文件</strong>，预览不冒充 DOCX 像素。
             </span>
-          </span>
-        </div>
-      )}
-
-      {/* 失败态 */}
-      {processingFailed && !result && (
-        <div className="notice notice--danger" style={{ marginTop: 0 }}>
-          <div style={{ fontWeight: 600 }}>生成未完成：{genError?.message ?? (operation ? `${statusLabel(operation.status)}，见下方阶段明细。` : '发生未知错误。')}</div>
-          {(genError?.stage || genError?.code) && (
-            <div className="muted" style={{ marginTop: 'var(--s2)' }}>
-              后端返回：stage={genError?.stage ?? '—'} code={genError?.code ?? '—'}
-            </div>
-          )}
-          {operation && ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(operation.status) && (
-            <div className="muted" style={{ marginTop: 'var(--s1)' }}>
-              操作 {operation.operation_id.slice(0, 8)} {statusLabel(operation.status)}
-              {operation.diagnostic_code ? ` · 诊断码 ${operation.diagnostic_code}` : ''}
-              {operation.attempt > 1 || operation.max_attempts > 1
-                ? ` · 尝试 ${operation.attempt}/${operation.max_attempts}`
-                : ''}
-            </div>
-          )}
-          <div className="hstack" style={{ marginTop: 'var(--s3)' }}>
-            <Button variant="primary" size="sm" disabled={generating} onClick={() => void beginGenerate()}>
-              重新生成
-            </Button>
-            <Button variant="secondary" size="sm" disabled={generating} onClick={backToEdit}>
-              返回修改
-            </Button>
           </div>
-          <div className="muted" style={{ marginTop: 'var(--s2)' }}>
-            输入已保留，返回修改不会丢失任何字段。
-          </div>
-        </div>
-      )}
-
-      {/* 运行中 / 阶段列表 */}
-      {!result && !processingFailed && (
-        <Card
-          title="生成阶段"
-          subtitle="以下 4 步由服务端真实阶段事件驱动点亮，未确认的阶段保持等待。"
-        >
-          <ProcessStages op={operation} />
-          <div
-            className="hstack"
-            style={{ marginTop: 'var(--s4)', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--s3)' }}
-          >
-            <span className="muted">进度会随服务端更新，可随时查看。</span>
-            <Button variant="ghost" size="sm" disabled={generating} onClick={backToEdit}>
-              返回修改输入
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* 成功态 */}
-      {result && (
-        <>
-          {/* 本次结果摘要：warnings + 关键 kv（不杜撰任何字段） */}
-          <Card title="本次结果" subtitle={result.file_name}>
-            {result.warnings && result.warnings.length > 0 && (
-              <div className="notice notice--warn" style={{ marginTop: 0 }}>
-                {result.warnings.map((w, i) => (
-                  <div key={i}>• {w}</div>
-                ))}
-              </div>
-            )}
-            <div className="kv" style={{ marginTop: 'var(--s4)' }}>
-              {typeof result.page_count === 'number' && (
-                <div className="kv__row">
-                  <span className="kv__k">页数</span>
-                  <span className="kv__v">{result.page_count} 页</span>
+          <div className="preview-scroll">
+            <article className="paper-preview" aria-label="简历内容预览">
+              {result.doc_preview && result.doc_preview.length > 0 ? (
+                result.doc_preview.map((sec, sIdx) => (
+                  <section
+                    key={`${sec.section}-${sIdx}`}
+                    className="paper-preview__section"
+                  >
+                    <h2 className="paper-preview__heading">{sec.title}</h2>
+                    {sec.entries.map((ent, eIdx) => (
+                      <div key={`${sIdx}-${eIdx}`} className="paper-preview__entry">
+                        <div className="paper-preview__entry-head">
+                          {ent.heading && (
+                            <span className="paper-preview__entry-title">{ent.heading}</span>
+                          )}
+                          {ent.subhead && (
+                            <span className="paper-preview__entry-sub">{ent.subhead}</span>
+                          )}
+                        </div>
+                        {sec.section === 'skills' ? (
+                          <div className="paper-preview__skill-line">
+                            <strong>{ent.heading}</strong>
+                            {ent.bullets.join('、')}
+                          </div>
+                        ) : ent.bullets.length > 0 ? (
+                          <ul className="paper-preview__bullets">
+                            {ent.bullets.map((b, bIdx) => {
+                              const isSelected =
+                                selectedBullet?.sectionIdx === sIdx &&
+                                selectedBullet?.entryIdx === eIdx &&
+                                selectedBullet?.bulletIdx === bIdx
+                              return (
+                                <li
+                                  key={`${sIdx}-${eIdx}-${bIdx}`}
+                                  className={
+                                    'paper-preview__bullet' +
+                                    (isSelected ? ' paper-preview__bullet--selected' : '')
+                                  }
+                                  onClick={() =>
+                                    setSelectedBullet({
+                                      sectionIdx: sIdx,
+                                      entryIdx: eIdx,
+                                      bulletIdx: bIdx,
+                                    })
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      setSelectedBullet({
+                                        sectionIdx: sIdx,
+                                        entryIdx: eIdx,
+                                        bulletIdx: bIdx,
+                                      })
+                                    }
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-pressed={isSelected}
+                                >
+                                  {b}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </section>
+                ))
+              ) : (
+                <div
+                  className="empty"
+                  style={{ padding: 'var(--s6) var(--s4)' }}
+                >
+                  <div className="empty__title">本次响应未携带内容预览</div>
+                  <div className="empty__desc">
+                    可直接下载下方 DOCX；预览能力在升级到带 V2.1.0 T6 字段的后端后可用。
+                  </div>
                 </div>
               )}
-              <div className="kv__row">
-                <span className="kv__k">匹配经历</span>
-                <span className="kv__v">{result.matched_experience_ids.length} 条</span>
+            </article>
+          </div>
+        </div>
+
+        <aside className="result-shell__aside" aria-label="依据 / 导出">
+          <Card title="下载 DOCX">
+            <div className="export-card">
+              <div className="export-card__hint">
+                文件名：<strong style={{ color: 'var(--ink)' }}>{result.file_name}</strong>
               </div>
-              <div className="kv__row">
-                <span className="kv__k">渲染经历</span>
-                <span className="kv__v">{result.rendered_experience_ids.length} 条</span>
+              <a
+                className="btn btn--primary btn--lg"
+                href={result.download_url}
+                download
+              >
+                下载 DOCX
+              </a>
+              <div className="export-card__hint">
+                下载为浏览器原生行为，不通过中转。
               </div>
-              <div className="kv__row">
-                <span className="kv__k">模板</span>
-                <span className="kv__v">{result.template_id}</span>
+              <div className="hstack" style={{ marginTop: 0 }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void beginGenerate()}
+                  disabled={generating}
+                >
+                  重新生成
+                </Button>
+                <Button variant="ghost" size="sm" onClick={backToEdit}>
+                  返回修改输入
+                </Button>
+              </div>
+              <div className="hstack" style={{ marginTop: 0 }}>
+                <Badge tone="ok">已生成</Badge>
+                <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
               </div>
             </div>
           </Card>
 
-          {/* 左：内容预览（真实文本）；右：sticky 下载/依据 侧栏 */}
-          <div className="result-shell">
-            <div className="result-shell__preview">
-              <div className="preview-disclaimer">
-                <Badge tone="neutral">内容预览</Badge>
-                <span>
-                  文本来自本次生成结果；<strong>下载的 DOCX 为最终正式文件</strong>，预览不冒充 DOCX 像素。
-                </span>
-              </div>
-              <div className="preview-scroll">
-                <article className="paper-preview" aria-label="简历内容预览">
-                  {result.doc_preview && result.doc_preview.length > 0 ? (
-                    result.doc_preview.map((sec, sIdx) => (
-                      <section
-                        key={`${sec.section}-${sIdx}`}
-                        className="paper-preview__section"
-                      >
-                        <h2 className="paper-preview__heading">{sec.title}</h2>
-                        {sec.entries.map((ent, eIdx) => (
-                          <div key={`${sIdx}-${eIdx}`} className="paper-preview__entry">
-                            <div className="paper-preview__entry-head">
-                              {ent.heading && (
-                                <span className="paper-preview__entry-title">{ent.heading}</span>
-                              )}
-                              {ent.subhead && (
-                                <span className="paper-preview__entry-sub">{ent.subhead}</span>
-                              )}
-                            </div>
-                            {sec.section === 'skills' ? (
-                              <div className="paper-preview__skill-line">
-                                <strong>{ent.heading}</strong>
-                                {ent.bullets.join('、')}
-                              </div>
-                            ) : ent.bullets.length > 0 ? (
-                              <ul className="paper-preview__bullets">
-                                {ent.bullets.map((b, bIdx) => {
-                                  const isSelected =
-                                    selectedBullet?.sectionIdx === sIdx &&
-                                    selectedBullet?.entryIdx === eIdx &&
-                                    selectedBullet?.bulletIdx === bIdx
-                                  return (
-                                    <li
-                                      key={`${sIdx}-${eIdx}-${bIdx}`}
-                                      className={
-                                        'paper-preview__bullet' +
-                                        (isSelected ? ' paper-preview__bullet--selected' : '')
-                                      }
-                                      onClick={() =>
-                                        setSelectedBullet({
-                                          sectionIdx: sIdx,
-                                          entryIdx: eIdx,
-                                          bulletIdx: bIdx,
-                                        })
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                          e.preventDefault()
-                                          setSelectedBullet({
-                                            sectionIdx: sIdx,
-                                            entryIdx: eIdx,
-                                            bulletIdx: bIdx,
-                                          })
-                                        }
-                                      }}
-                                      role="button"
-                                      tabIndex={0}
-                                      aria-pressed={isSelected}
-                                    >
-                                      {b}
-                                    </li>
-                                  )
-                                })}
-                              </ul>
-                            ) : null}
-                          </div>
-                        ))}
-                      </section>
-                    ))
-                  ) : (
-                    <div
-                      className="empty"
-                      style={{ padding: 'var(--s6) var(--s4)' }}
-                    >
-                      <div className="empty__title">本次响应未携带内容预览</div>
-                      <div className="empty__desc">
-                        可直接下载下方 DOCX；预览能力在升级到带 V2.1.0 T6 字段的后端后可用。
-                      </div>
-                    </div>
-                  )}
-                </article>
-              </div>
-            </div>
+          <Card
+            title="逐条依据"
+            subtitle="点击左侧 bullet 查看其真实事实"
+          >
+            <EvidencePanel
+              result={result}
+              selected={selectedBullet}
+              docPreview={result.doc_preview ?? null}
+            />
+          </Card>
+        </aside>
+      </div>
 
-            <aside className="result-shell__aside" aria-label="依据 / 导出">
-              <Card title="下载 DOCX">
-                <div className="export-card">
-                  <div className="export-card__hint">
-                    文件名：<strong style={{ color: 'var(--ink)' }}>{result.file_name}</strong>
-                  </div>
-                  <a
-                    className="btn btn--primary btn--lg"
-                    href={result.download_url}
-                    download
-                  >
-                    下载 DOCX
-                  </a>
-                  <div className="export-card__hint">
-                    下载为浏览器原生行为，不通过中转。
-                  </div>
-                  <div className="hstack" style={{ marginTop: 0 }}>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => void beginGenerate()}
-                      disabled={generating}
-                    >
-                      重新生成
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={backToEdit}>
-                      返回修改输入
-                    </Button>
-                  </div>
-                  <div className="hstack" style={{ marginTop: 0 }}>
-                    <Badge tone="ok">已生成</Badge>
-                    <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card
-                title="逐条依据"
-                subtitle="点击左侧 bullet 查看其真实事实"
-              >
-                <EvidencePanel
-                  result={result}
-                  selected={selectedBullet}
-                  docPreview={result.doc_preview ?? null}
-                />
-              </Card>
-            </aside>
-          </div>
-        </>
-      )}
-
-      {/* 真实阶段明细（operation 轮询事件） */}
+      {/* 真实阶段明细（仅结果态展示，处理态已改为 process-side 阶段流） */}
       {operation && (
         <Card title="真实阶段明细" actions={<Badge tone={statusTone(operation.status)}>{statusLabel(operation.status)}</Badge>}>
           <OperationTimeline operation={operation} />

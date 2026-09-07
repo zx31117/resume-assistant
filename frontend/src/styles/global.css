@@ -1675,3 +1675,480 @@ a.path-card {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ============================================================
+   V2.1.0 T12-R4 生成处理视图（DS-002 process-shell 视觉语法）
+   参照 docs/design/baselines/V2.1.0/DS-002/prototype/index.html
+   .process-shell / .process-header / .process-elapsed /
+   .process-stages / .process-stage / .process-side / .ai-stream
+   全部 token 与现有主题 A 一致（--primary / --ok / --error / --tint 等）。
+   目标：1440×900 一屏完成；窄屏单列降级。
+   ============================================================ */
+
+.process-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--s5);
+  align-items: flex-start;
+  width: 100%;
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  padding-top: var(--s2);
+}
+
+.process-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  min-width: 0;
+}
+
+.process-side {
+  position: sticky;
+  top: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+/* —— 顶部头（eyebrow / h1 / desc） —— */
+.process-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.process-header__eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.process-header__h1 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.process-header__desc {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* —— 已用时（mono） —— */
+.process-elapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.process-elapsed__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 6ch;
+  text-align: right;
+}
+
+/* —— 4 阶段 radio 列表 —— */
+.process-stages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process-stage {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.process-stage:disabled {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.process-stage--done {
+  border-color: color-mix(in srgb, var(--ok) 32%, var(--border));
+}
+
+.process-stage--active {
+  border-color: var(--primary);
+  background: var(--tint);
+}
+
+.process-stage--failed {
+  border-color: color-mix(in srgb, var(--error) 38%, var(--border));
+  background: color-mix(in srgb, var(--error) 5%, var(--surface));
+}
+
+/* 用户当前查看：与「运行中」可叠加（高亮选中态） */
+.process-stage--selected {
+  box-shadow: 0 0 0 2px var(--primary) inset, 0 1px 2px rgba(31, 36, 31, 0.04);
+}
+
+.process-stage--selected.process-stage--active {
+  box-shadow: 0 0 0 2px var(--primary) inset;
+}
+
+.process-stage__indicator {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--border-strong);
+  color: var(--ink-faint);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.process-stage--active .process-stage__indicator {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+}
+
+.process-stage--done .process-stage__indicator {
+  background: var(--ok);
+  color: #fff;
+  border-color: var(--ok);
+}
+
+.process-stage--failed .process-stage__indicator {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+
+.process-stage__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.process-stage__label {
+  font-weight: 500;
+  color: var(--ink);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.process-stage--active .process-stage__label {
+  font-weight: 600;
+}
+
+.process-stage--failed .process-stage__label {
+  color: var(--error);
+}
+
+.process-stage__detail {
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.process-stage__elapsed {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.process-stage__elapsed--active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.process-stage__elapsed--failed {
+  color: var(--error);
+  font-weight: 600;
+}
+
+/* —— 底部：左 状态chip+进度提示，右 返回修改 —— */
+.process-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  margin-top: var(--s2);
+}
+
+.process-foot__left {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.process-foot__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* —— 失败面板（process-side 内的失败视图） —— */
+.process-error {
+  padding: var(--s5);
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+  background: color-mix(in srgb, var(--error) 6%, var(--surface));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.process-error__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--error);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.process-error__head svg {
+  flex-shrink: 0;
+}
+
+.process-error__phase {
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.process-error__reason {
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.process-error__diag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.process-error__actions {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.process-error__note {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+/* —— AI 流式面板（process-side 内的常规视图） —— */
+.ai-stream {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ai-stream__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-bottom: var(--s2);
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: var(--s3);
+}
+
+.ai-stream__tag {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.ai-stream__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-stream__sub {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+}
+
+.ai-stream__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-height: 60px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.ai-stream__line {
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.ai-stream__line:last-child {
+  border-bottom: none;
+}
+
+.ai-stream__line-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.ai-stream__line-name {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  font-weight: 500;
+  min-width: 0;
+  flex: 1;
+  word-break: break-word;
+}
+
+.ai-stream__line-elapsed {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ai-stream__line-msg {
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.ai-stream__line-meta {
+  color: var(--ink-faint);
+  font-size: 11px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ai-stream__line--failed .ai-stream__line-name {
+  color: var(--error);
+}
+
+.ai-stream__line--started .ai-stream__line-name {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.ai-stream__line-role {
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.ai-stream__line-msg {
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  margin-top: 2px;
+  display: block;
+}
+
+.ai-stream__empty {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  padding: var(--s2) 0;
+  line-height: 1.6;
+}
+
+/* —— 响应式：<1080 右侧折叠为单列 —— */
+@media (max-width: 1079px) {
+  .process-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .process-side {
+    position: static;
+  }
+  .ai-stream__list {
+    max-height: 280px;
+  }
+}
+
+@media (max-height: 759px) {
+  .process-shell {
+    padding-top: 0;
+  }
+  .process-header__h1 {
+    font-size: var(--text-xl);
+  }
+  .ai-stream__list {
+    max-height: 240px;
+  }
+}
