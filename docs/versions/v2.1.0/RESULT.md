@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：需修正（T12 Product Owner 人工验收打回，见 §20）
+> 当前状态：第二轮返工完成（H2 `a917de2`），待复验（见 §21）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（返工契约：`8d9034e6921f5f3d9f601a39bbc108fc009b280c` / blob `93523888d36164ecb5352f49af182d7155b53230`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待 T12 集中返工、新候选复验与再次人工验收
+> 发布结论：不发布（待 H2 复验与 Product Owner 再次 T12）
 
 ## 1. 本文件用途
 
@@ -36,8 +36,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
-| 开发候选 commit | 开发结束后冻结 | 源码冻结点 `c5612eebd7f02db021da2eab28c074a98a1985e0`；开发交接 HEAD `e73f1547d8764e7e60ee57407c06c07db29a4f95`（其后仅 RESULT 文档） |
-| 独立验收对象 | 与开发候选完全一致 | T11 报告绑定 `e73f1547d8764e7e60ee57407c06c07db29a4f95`；后续源码返工将使相关结论失效 |
+| 开发候选 commit | 开发结束后冻结 | 旧 H `e73f154…`/源码冻结点 `c5612ee…` 已失效；第二轮返工候选 **H2 = `a917de2`**（见 §21） |
+| 独立验收对象 | 与开发候选完全一致 | 旧 H T11 结论失效；H2 待未参与返工者复验（PLAN §13.6） |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
 一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
@@ -52,15 +52,15 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
 | T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
-| T5 一键生成与真实进度 | 需修正 | 真实阶段映射保留；T12 要求生成中删除输入卡，改为左右结构并按当前高层阶段切换明细，见 §20 |
-| T6 内容预览、事实依据与 DOCX 下载 | 需修正 | 真实 preview/evidence/DOCX 保留；结果页删除重复输入、技术警告和统计摘要，见 §20 |
+| T5 一键生成与真实进度 | 第二轮返工完成，待复验 | processing 左右结构+单阶段明细回看（R4 `e4e2068`）；真实阶段映射保留，见 §21 |
+| T6 内容预览、事实依据与 DOCX 下载 | 第二轮返工完成，待复验 | result 主从+技术摘要退出（R5 `b1a32d1`）；preview/evidence/DOCX 保留，见 §21 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
-| T8 Design Fidelity 与可访问性 | 需修正 | Product Owner 判定生成中/结果页信息结构冗余且需要滚动；按 PLAN §13 返工并重新截图复验 |
-| T9 回归、统一预检与便携包 | 需重建 | 现有 onedir 包内前端资产早于最终视觉构建，与 `frontend/dist` 文件名、大小和 SHA-256 不一致，不能作为最终包 |
-| T10 RESULT 与冻结候选 | 已失效，待新候选 | 原交接 H 仅保留历史证据；完成 T12-R1 至 R7 后按 T12-R8 冻结新 clean 候选 H2 |
-| T11 独立验收 | 历史结论：有条件通过 | 报告绑定旧 H `e73f1547d8764e7e60ee57407c06c07db29a4f95`；返工涉及源码/样式/构建后须绑定 H2 重新复验 |
-| T12 Product Owner 人工验收与发布 | 未通过 | 2026-09-07 根据三个实际页面截图打回；需完成 PLAN §13 后重新人工验收 |
-| T12-R1 至 R8 | 未开始 | 等待开发 Agent 接收五状态 Design Fidelity 集中返工契约 |
+| T8 Design Fidelity 与可访问性 | 第二轮返工完成，待复验 | R1–R6 五状态结构还原 + 1440×900 滚动门禁截图（见 §21）；复验绑定 H2 |
+| T9 回归、统一预检与便携包 | 第二轮重建完成，待复验 | precheck exit 0；onedir 重建且包内 frontend 与最终 dist 逐文件 SHA-256 一致（见 §21） |
+| T10 RESULT 与冻结候选 | H2 冻结完成，待复验 | H2 `a917de2` + 返工记录见 §21；复验由未参与返工者执行 |
+| T11 独立验收 | 历史结论：有条件通过（旧 H） | 绑定旧 H `e73f154…` 的结论在 H2 上失效；H2 待未参与返工者重新复验 |
+| T12 Product Owner 人工验收与发布 | 未通过（旧 H）；待 H2 复验 | 打回记录 §20；H2 复验通过后 Product Owner 重新执行 T12 |
+| T12-R1 至 R8 | R1–R7 开发完成（待 H2 复验） | R1–R6 `4fb3453`/`e4e2068`/`b1a32d1`/`63e8708`/`a917de2`；R7 precheck+onedir 哈希一致；R8 记录见 §21 |
 
 ## 5. 开发交接
 
@@ -505,3 +505,43 @@ Product Owner 进一步提供五个设计状态，明确人工验收的本意是
 `8d9034e6921f5f3d9f601a39bbc108fc009b280c`，PLAN blob 为
 `93523888d36164ecb5352f49af182d7155b53230`。该身份取代 §20.3 和本节较早的返工 PLAN identity，
 作为开发 T12-R1 至 R8 的当前唯一补充契约；最初批准 PLAN commit/blob 继续作为版本初始基线保留。
+
+## 22. 第二轮返工实施（T12-R1 至 R7，开发侧；候选 H2）
+
+> 开发侧实施与自测记录，非复验结论。返工契约：PLAN §13 + §21 补充（8d9034e/93523888）。
+> 旧 H（e73f154/c5612ee）的 T11 Design Fidelity / Integration / 发布包结论在本候选上失效；
+> 复验须绑定 H2 = `a917de2`（version/v2.1.0，工作区 clean）。
+
+### 22.1 R1–R6 五状态结构还原（提交与内容）
+
+| 步骤 | 提交 | 内容 |
+|---|---|---|
+| R3 身份/JD 页 | `4fb3453` | generate input 态按原型 .gen-grid/.gen-main/.gen-rail 还原（身份摘要一行+可编辑、JD 自动分析 chips）；删除模板徽标/下拉/用户选择 state（模板仅后端 is_default 内部传参） |
+| R4 生成处理页 | `e4e2068` | processing 改 .process-shell 左右：左四阶段 radiogroup（roving tabindex/方向键、等待/当前/完成/失败、可回看已开始阶段），右单阶段 PhaseStream/FailurePanel（按 phase.codes 过滤真实 stage 事件，自动切换）；删除「已提交输入」摘要卡与全量 operation 同屏堆叠（OperationTimeline 从 processing 退出） |
+| R5 结果页 | `b1a32d1` | result 主从：左纸张预览（ResultPaperPreview + fitPaper 等比、仅 .preview-scroll 受控滚动），右 sticky「依据/修改/导出」（依据=真实 bullet/fact；修改=disabled+「即将上线」不假接通；下载 Active）；删除重复页头/输入摘要/文件名复述/warnings/页数-匹配-渲染-模板统计/OperationTimeline |
+| R1+R2 欢迎与上传解析 | `63e8708` | 欢迎左卡整卡=上传 drop zone（单击/拖放即选择 PDF，不跳独立页），右卡 disabled/aria-disabled 无假操作；新增 `/upload` 视图（UploadPage）按 .process-shell 左右：左真实阶段（读取文件/本机解析/结构化提取/分类整理，radiogroup 可回看），右单阶段 PhaseOutput（仅真实结果事实，无虚构中间流）；D-038 分流与错误重试迁移保留；ProfilePage 旧导入弹窗删除，「上传 PDF」进入同一视图 |
+| R1 微调 | `a917de2` | 欢迎右卡 CTA 文案「进入演示 →」→「即将上线 · 暂不可用」（disabled 占位语义） |
+
+阶段→真实调用映射（诚实，无伪造流）：①读取文件=本地 File 事实；②本机解析=`POST /api/resume/upload` 成功→文本长度/首行摘要；③结构化提取=`POST /api/experience/extract`→条数+direct/inferred 计数；④分类整理=provenance 分流→direct 自动落库、inferred 待确认。失败显示真实错误并可重试；不暴露迁移/Embedding/资源类型/私有思维链。
+
+### 22.2 R6 滚动与固定门禁（1440×900，agent-browser 实测）
+
+截图：`validation-artifacts/t8/shots/h2_welcome.png`、`h2_generate_blocked.png`、`h2_generate_ready.png`、`h2_processing.png`、`h2_result.png`。DOM 尺寸（`document.documentElement.scrollHeight/Width` @1440×900）：
+
+- welcome（空 runtime）：sw=1440、sh=900 → 无页面滚动
+- generate blocked / ready：sw=1440、sh=900 → 无页面滚动
+- processing（真实生成中）：sh=900 → 无页面滚动（.process-shell 存在）
+- result（真实生成成功）：整页 sh=900 无滚动；右栏 computed position=sticky；仅左侧 `.preview-scroll` 受控滚动（fitPaper 生效）
+
+### 22.3 R7 重建验证（precheck 与发布包）
+
+- 完整统一预检：**阻断检查全部通过，precheck exit 0**（Python 编译、六阻断脚本计数匹配、前端正式构建、F3 默认 runtime 哨兵一致）。报告项：ruff 383；ESLint 17 errors（较前 11 增 6，全部为 react-hooks v7 `set-state-in-effect`/`purity` 规则噪音，抽查确认非真实缺陷，沿用既有"不为此重构页面逻辑"决策）；npm audit 4；pip-audit 本次返回 7 known/4 packages（网络波动，非阻断）。
+- onedir 重建：`python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec` 成功（首跑因安全层拦截旧包删除失败，PowerShell 删 `dist/ResumeAssistant` 后成功）。
+- **包一致性**：`_internal/frontend/dist` 与最终 `frontend/dist` 文件清单一致（index.html + assets JS/CSS，3 文件），逐文件 SHA-256 **MATCH**：index-CqKehJQh.js `e63cdb7f…`、index-DhZa9fFP.css `0cd110e0…`、index.html `eba1101c…`。旧包阻断（§20.2）已消除。
+
+### 22.4 偏差与遗留（如实）
+
+- 欢迎右卡仍显示描述文案但整体灰化 disabled（aria-disabled、无 onClick 副作用）；「即将上线·暂不可用」占位。
+- UploadPage `/upload` 无文件直达时的空态未做专项截图（正常路径经欢迎左卡进入）；复验可覆盖。
+- result 右下显示「已生成 <operation_id 短码>」作为状态标识保留（非技术统计）。
+- 复验范围（未参与返工者绑定 H2 执行）：T12-R1–R7、五状态结构与冻结预览一致、真实阶段映射、诊断保留、滚动/固定边界、包内资产一致性；随后 Product Owner 重新执行 T12。
