@@ -53,7 +53,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
 | T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
 | T5 一键生成与真实进度 | 开发完成，待独立验收 | 生成工作台 DS-002 重构（`39be12f`，见 §11）；真实 4 阶段映射、前端可判定阻断检查、失败保留输入 |
-| T6 内容预览、事实依据与 DOCX 下载 | 未开始 | 等待 T4/T5 |
+| T6 内容预览、事实依据与 DOCX 下载 | 开发完成，待独立验收 | doc_preview/evidence 透出 + result 预览/依据/下载（`1e25e10`，见 §12）；零密钥验证 15/0 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 未开始 | 等待 T3 |
 | T8 Design Fidelity 与可访问性 | 未开始 | 等待 T3–T7 |
 | T9 回归、统一预检与便携包 | 未开始 | 等待 T1–T8 |
@@ -221,3 +221,20 @@ T0 已完成。Development Agent 启动前必须：
 
 - 前端生产 build 通过（strict tsc + vite，exit 0）；git status 干净；提交 `39be12f` 复核通过（关键锚点 13 处）。
 - 偏差：生成中「返回修改」在同步长链路未取消能力下置灰（后端无取消/断点，属既有边界，如实呈现）；身份仍未持久化 Profile（后续版本）。
+
+## 12. T6 内容预览 / 逐 bullet 事实依据 / DOCX 下载（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `1e25e10`（version/v2.1.0，工作区 clean）。
+> 由独立执行体按完整约束清单实施，开发 Agent 复核提交并独立复跑验证脚本后记录。
+
+### 12.1 内容
+
+- **后端薄透出（业务零改动）**：schemas 新增 `DocPreviewSection/DocPreviewEntry/EvidenceFact`；`ResumeDocxGenerateResponse` 增 `doc_preview` 与 `evidence` 可选字段（默认 None，旧调用方不受影响）。`resume_generation_service` 新增两个只读函数：`_build_doc_preview(resume_doc)`（1:1 投影真实 ResumeDocument 的 profile/work/projects/education/skills/awards）与 `_build_evidence_map(db, fact_ids)`（按 fact_id 只读查 Fact 原文，按 experience_id 聚合）；response_assembly 处装配。per-fact「采用理由」本流水线无真实记录 → reason 字段留空/不返回，**不编造**。
+- **前端 result 视图**（GeneratePage 成功态扩展）：纸张样式内容预览区（来自本次真实 doc_preview），明确「内容预览 · 下载的 DOCX 为最终正式文件」，不冒充像素预览；bullet 可选中，依据栏展示真实 evidence（原文/所属经历）；无独立引用时显示「本条没有可回查的独立事实引用」；导出为真实 download_url 下载；预览区区域内滚动，窄屏不横向溢出；doc_preview 为 null 时给友好空态。
+- 前端 types 同步（DocPreview/Evidence 类型，可选字段）。
+
+### 12.2 验证
+
+- 后端零密钥验证脚本 `backend/_v21_t6_doc_preview.py`：固定 PASS=15/FAIL=0，exit 0（含 DTO 序列化、默认/携带响应、真实 ResumeDocument 投影、空/内存 SQLite 注入 Fact 边界、py_compile、route import）；开发 Agent 独立复跑一致。
+- 前端生产 build 通过（strict tsc + vite，exit 0）；提交 `1e25e10` 复核通过，git status 干净。
+- 偏差：无 per-fact 采用理由真实来源（后端选择流程未持久化逐条理由），依据栏如实只展示原文与所属经历；真实 LLM 端到端联调（需 Key）交由 T11/人工联调。
