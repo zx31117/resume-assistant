@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：开发完成，待独立验收（T1–T9 已冻结，候选 commit `e7ad146`，见 §15/§16）
+> 当前状态：开发完成（含视觉重塑），待独立验收（候选 commit `c5612ee`，见 §15/§16/§17）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`
@@ -55,7 +55,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T5 一键生成与真实进度 | 开发完成，待独立验收 | 生成工作台 DS-002 重构（`39be12f`，见 §11）；真实 4 阶段映射、前端可判定阻断检查、失败保留输入 |
 | T6 内容预览、事实依据与 DOCX 下载 | 开发完成，待独立验收 | doc_preview/evidence 透出 + result 预览/依据/下载（`1e25e10`，见 §12）；零密钥验证 15/0 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
-| T8 Design Fidelity 与可访问性 | 开发侧验证完成，待独立验收 | 固定场景截图 + 响应式/键盘抽查完成（见 §14，证据 validation-artifacts/t8）；视觉最终判定归 T11/T12 |
+| T8 Design Fidelity 与可访问性 | 开发侧验证完成，视觉重塑已补做 | 截图 + 响应式/键盘抽查 + 视觉重塑（global.css 组件层 + SystemPage dev 视图重构）见 §14/§17 |
 | T9 回归、统一预检与便携包 | 开发完成，待独立验收 | 版本 2.1.0 元数据 + 完整统一预检绿灯 + onedir 便携包重建与包内隐私扫描（见 §15）；报告项基线如实记录 |
 | T10 RESULT 与冻结候选 | 开发收口完成，待独立验收 | RESULT 收口与候选身份（`e7ad146`）见 §16；T11/T12 为验收/发布门禁 |
 | T11 独立验收 | 未开始 | 等待开发候选（未参与实现的验收 Agent / 用户安排） |
@@ -298,5 +298,23 @@ T0 已完成。Development Agent 启动前必须：
 ## 16. T10 RESULT 收口与候选身份（开发侧）
 
 - 开发候选 commit：**`e7ad146`**（version/v2.1.0，工作区 clean；祖先链覆盖 T1–T9 全部提交）。
-- 开发侧偏差汇总（截至候选）：① T1 GitHub Windows CI 真实 run 需 canonical 侧/验收阶段核对；② SystemPage（隐藏 dev 后台）能力与安全边界保留但视觉仍为 V2.0 风格，未按 DS-002 dev 视图重构（开发侧建议作为 T10 后补项或纳入下一版本，待 Product Owner 裁决）；③ 根 README 版本标识待发布收口；④ D-038 未持久化 experiences 来源列（零迁移口径，用户已确认）；⑤ per-fact 采用理由无真实来源（不编造）；⑥ axe 未运行/生成长链路二次不稳定（T8 bugs 记录）；⑦ 报告项（ruff/ESLint/pip-audit/npm audit）基线如实记录如上。
+- **视觉重塑补做（2026-09-07）**：global.css 组件层按 DS-002 视觉规格系统性重写（`2997160`）+ SystemPage 整页重构为 dev 视图（`c5612ee`），最终候选更新为 **`c5612ee`**（祖先含视觉重塑全部提交）。详细见 §17。
+- 开发侧偏差汇总（截至候选）：① T1 GitHub Windows CI 真实 run 需 canonical 侧/验收阶段核对；② 根 README 版本标识待发布收口；③ D-038 未持久化 experiences 来源列（零迁移口径，用户已确认）；④ per-fact 采用理由无真实来源（不编造）；⑤ axe 未运行/生成长链路二次不稳定（T8 bugs 记录）；⑥ 报告项（ruff/ESLint/pip-audit/npm audit）基线如实记录如 §15。**原偏差②（SystemPage 视觉）已通过 T8-1/T8-2 补做消除。**
 - T11（独立验收）与 T12（Product Owner 人工验收 + 发布）为角色门禁，非开发 Agent 可执行。
+
+## 17. 视觉重塑补做（DS-002 完整落地）
+
+> 由用户质询触发：原"页面按 DS-002 重塑"的表述对主用户流程页面成立，但组件层与 SystemPage 视觉仍带 V2.0 旧风，未达 PLAN「完全重构现有页面、交互流程、组件和视觉表现」承诺。补做后候选更新为 `c5612ee`。
+
+### 17.1 三块交付
+
+- **T8-1 组件视觉层**（`2997160`，`frontend/src/styles/global.css` 仅此文件，577+/478-）：按 DS-002 冻结基线系统性重写——按钮 44/48（圆角 8/12/16）、primary 深松绿/hover/ghost/secondary、input/textarea 44 高 1px border-strong + `:focus` 2px `--focus` 焦点环 + 2px offset、badge/tag 药丸 wash+语义字+彩色边框（状态非纯色）、notice ok/warn/error wash、exp-item/kv/table/diag/modal/empty、欢迎双卡、隐私/结果/依据栏；保留 `:focus-visible`、reduced-motion、899/519 响应式断点。删除 JSX 未引用的死类；类名与 JSX 全部兼容（仅改样式不破坏结构）。
+- **T8-2 dev 后台重构**（`c5612ee`，`frontend/src/pages/SystemPage.tsx` 仅此文件，475+/329-）：从 V2.0 单页管理台改为 DS-002 dev 视图——顶部 PageHeader「开发者后台」+ 隐藏入口说明；双列网格承载「Provider 配置」「数据库与索引」+ 整行宽「最近运行活动」「诊断」；操作详情改模态（Esc/遮罩关闭）；Key 掩码、空态/失败可见、轮询区 aria-live 保留。**所有原能力零回退**（连接配置/测试激活/迁移/重建/重试/活动列表/详情弹窗/日志流/清空），同步从直连 endpoints **切换到 useServices() 端口**（config/system）。
+- **逐页视觉抽查**：在主 runtime 重启同源服务并用 agent-browser 截 `validation-artifacts/t8/shots/v2_generate.png` / `v2_experience.png` / `v2_dev.png`，对比新视觉与冻结基线：组件规格一致、卡片 1px 边框+白底+圆角 12、状态药丸+ dot、焦点环深松绿，整体达到"克制职业工作台"；未发现需大改的明显视觉偏差。
+
+### 17.2 验证
+
+- 前端生产 build（strict tsc + vite）：两处均 exit 0。
+- git 状态：两提交后 `git status --porcelain` 空；分支 ref 已固化 `.git/refs/heads/version/v2.1.0 → c5612ee`。
+- 原 §16 偏差②（SystemPage 视觉）已消除；其他偏差继续保留如 §16。
+- 体验：前端产物已由前轮 precheck 重建（组件类名兼容，旧 dist 无需另作处理）；若需在干净环境重跑 precheck（验证视觉重塑不破坏六脚本），可由验收阶段在 CI 触发（本地重跑约 17 分钟）。
