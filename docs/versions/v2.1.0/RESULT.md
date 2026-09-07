@@ -458,6 +458,9 @@ Product Owner 在 `<current-workspace>` 运行真实生成流程并提供三个�
 
 ### 20.3 状态与下一交接
 
+- Product Owner 于 2026-09-07 直接给出并批准本轮页面返工要求；承载 PLAN §13 返工契约的固定
+  commit 为 `dd381585aa73858f3ab3531da1319e9afbc1a2b1`，对应 PLAN blob 为
+  `d6b5e71cc4b62763baa7cfed688df11986cec529`。开发返工必须同时核对原 PLAN 批准身份和本补充身份；
 - 当前版本状态改为“需修正”，发布结论为“不发布”；
 - 不更新 `CURRENT_STATE.md`、根 README、公开 main 或 tag；
 - 不要求推翻已通过的事实链、D-038、服务 Adapter 或用户/后台分离，只集中修改 PLAN §13；
