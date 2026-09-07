@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：开发完成（含视觉重塑），待独立验收（候选 commit `c5612ee`，见 §15/§16/§17）
+> 当前状态：开发完成（含视觉重塑），待独立验收（候选 commit `c5612ee`，见 §16/§18）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`
@@ -36,8 +36,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
-| 开发候选 commit | 开发结束后冻结 | 尚未产生 |
-| 独立验收对象 | 与开发候选完全一致 | 尚未产生 |
+| 开发候选 commit | 开发结束后冻结 | `c5612ee`（version/v2.1.0，含视觉重塑 T8-1/T8-2；见 §16/§17） |
+| 独立验收对象 | 与开发候选完全一致 | 与开发候选 `c5612ee` 完全一致（尚未独立验收） |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
 一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
@@ -57,7 +57,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
 | T8 Design Fidelity 与可访问性 | 开发侧验证完成，视觉重塑已补做 | 截图 + 响应式/键盘抽查 + 视觉重塑（global.css 组件层 + SystemPage dev 视图重构）见 §14/§17 |
 | T9 回归、统一预检与便携包 | 开发完成，待独立验收 | 版本 2.1.0 元数据 + 完整统一预检绿灯 + onedir 便携包重建与包内隐私扫描（见 §15）；报告项基线如实记录 |
-| T10 RESULT 与冻结候选 | 开发收口完成，待独立验收 | RESULT 收口与候选身份（`e7ad146`）见 §16；T11/T12 为验收/发布门禁 |
+| T10 RESULT 与冻结候选 | 开发收口完成，待独立验收 | RESULT 收口与验收交接骨架（候选 `c5612ee`）见 §16/§18；T11/T12 为验收/发布门禁 |
 | T11 独立验收 | 未开始 | 等待开发候选（未参与实现的验收 Agent / 用户安排） |
 | T12 Product Owner 人工验收与发布 | 未开始 | 等待 T11 |
 
@@ -318,3 +318,50 @@ T0 已完成。Development Agent 启动前必须：
 - git 状态：两提交后 `git status --porcelain` 空；分支 ref 已固化 `.git/refs/heads/version/v2.1.0 → c5612ee`。
 - 原 §16 偏差②（SystemPage 视觉）已消除；其他偏差继续保留如 §16。
 - 体验：前端产物已由前轮 precheck 重建（组件类名兼容，旧 dist 无需另作处理）；若需在干净环境重跑 precheck（验证视觉重塑不破坏六脚本），可由验收阶段在 CI 触发（本地重跑约 17 分钟）。
+
+## 18. 验收交接（给 T11 独立验收 Agent 的路径与结果同步）
+
+> 本节由开发 Agent 在候选冻结时写入，供未参与本候选实现的验收 Agent 启动；验收结论在验收后由
+> 文档 Agent/验收记录追加，开发侧不预填“通过”。参与本候选实现、自测或源码修复的开发 Agent
+> 不得兼任验收 Agent（docs/README.md §“独立验收”）。
+
+### 18.1 验收入口与绑定对象
+
+- 候选 commit：**`c5612ee`**（分支 `version/v2.1.0`）；验收绑定对象 = 与开发候选完全一致
+  （工作树需 clean；若验收环境检出后有任何差异，以差异为验收阻断项并记录）。
+- 只读材料（候选冻结后不再由开发修改）：
+  - 本 RESULT（执行/验证/偏差；§6–§17 为开发侧自测记录，非独立验收结论）
+  - `docs/versions/v2.1.0/PLAN.md`（批准 commit `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / blob `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`）
+  - 冻结设计基线 `docs/design/baselines/V2.1.0/DS-002/`（manifest `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc`；prototype SHA-256 `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d`）
+  - 产品事实基线 `docs/CURRENT_STATE.md`（V2.0.2 已验收状态，V2.1.0 新能力在验收通过前不得进入）
+- 候选提交链（供逐 Task 对照）：`7ddfa92`(T1) → `3839402`→`27512ea`(T2) → `0a16c78`(T3) → `03d9871`/`fc2870e`(T4) → `39be12f`(T5) → `1e25e10`(T6) → `b088f26`(T7) → `bda5870`/`e7ad146`(T9 版本与修正) → `2997160`/`c5612ee`(视觉重塑 T8-1/T8-2)；祖先含 RESULT 收口记录提交（`cf3cf0f`、`906cd98` 等，不改变产品源码）。
+
+### 18.2 本版本实际全局变化（验收“结构变更”对象）
+
+| 类别 | 变化 |
+|---|---|
+| API / Schema | `backend/api/schemas.py`：新增 `ExperienceProvenance`/`ExtractExperienceItem`（extract 响应条目带 D-038 证据，零 DB 迁移）；新增 `DocPreviewSection/DocPreviewEntry/EvidenceFact` 并给 `ResumeDocxGenerateResponse` 加可选 `doc_preview`/`evidence`（默认 None，旧调用兼容）。其余既有 API 未变 |
+| 数据表 / 迁移 | **无变化**（未新增 experiences 来源列；D-038 证据仅在 extract 会话内，长期溯源依赖既有 Fact.source） |
+| 提示词 | `backend/prompts/experience_extract.py`：输出携带 provenance（direct/inferred + source_snippets），LLM 拿不准一律 inferred |
+| 模块职责（后端） | `resume_generation_service` 新增只读 `_build_doc_preview`/`_build_evidence_map`；extract 路由/提取器逻辑不变 |
+| 前端结构 | 新增 `src/services/`（typed 端口+注入）、`src/state/`（AppState）、`pages/WelcomeGate.tsx`；重构 AppShell（208px 侧栏+隐藏 dev 入口）、全部页面（Generate/Profile/Privacy/System）信息架构与视觉；`styles/tokens.css` 主题 A、`global.css` 组件视觉 DS-002 化；路由含 /privacy 与隐藏 /system |
+| 配置 / 依赖 | 版本元数据 2.1.0（`backend/core/version.py`、`frontend/package.json`）；无新增运行依赖 |
+| 验证/脚本 | 新增 `backend/_v21_t6_doc_preview.py`（零密钥 15/0）；历史门禁 `_v20_smoke`/`_v201_validation` 运行期版本断言文本同步 2.1.0 |
+| 对外文档 | 根 README 版本标识由文档 Agent 发布收口更新（开发未写） |
+
+### 18.3 验证总表（开发侧状态；验收结论由验收 Agent 记录）
+
+| 验收对象 | 开发侧证据 | 功能验收 | 结构变更验收 |
+|---|---|---|---|
+| T1 编码闭环 / CI | §6；本地 precheck 绿灯；GitHub CI run 待 canonical 侧核对 | 待独立验收 | 见 §18.2（无子进程编码结构变化之外变更） |
+| T2 tokens/service/state | §7；build 通过 | 待独立验收 | 待独立验收 |
+| T3 壳层/开发者后台分离 | §8 | 待独立验收 | 待独立验收 |
+| T4 上传/D-038/我的经历 | §9/§10；schema 行为 8/8 | 待独立验收 | 待独立验收 |
+| T5 生成工作台/真实进度 | §11 | 待独立验收 | — |
+| T6 预览/依据/DOCX | §12；`_v21_t6_doc_preview.py` 15/0 | 待独立验收 | 待独立验收 |
+| T7 欢迎/隐私/边界 | §13 | 待独立验收 | — |
+| T8 视觉/无障碍 | §14/§17；截图 `validation-artifacts/t8/` | 待独立验收 | 待独立验收 |
+| T9 版本/预检/便携包 | §15；precheck exit 0 | 待独立验收 | 待独立验收（版本元数据） |
+| T10 收口 | §16/本 § | 待独立验收 | — |
+
+已知待验收阶段核对项：GitHub Windows CI 真实 run（本工作树不可 push，需 canonical 侧/CI 记录）；LLM 端到端真实生成在 LLM 可用窗口复测（§14 bugs 记录：曾一次成功、一次 content_generation 长挂）；axe 自动扫描未运行（CDN 不可达）。
