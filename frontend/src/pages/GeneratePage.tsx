@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-import OperationTimeline from '../components/OperationTimeline'
+import ResultPaperPreview, { type SelectedBullet } from '../components/ResultPaperPreview'
 import StageFlowList, {
   calcPhaseStatus,
   phaseElapsedMs,
@@ -13,7 +13,7 @@ import StageFlowList, {
 import { Field, TextArea, TextInput } from '../components/ui/Field'
 import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
-import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
+import { useOperation, statusLabel, fmtMs } from '../hooks/useOperation'
 import type {
   DocPreviewSection,
   EvidenceFact,
@@ -438,13 +438,23 @@ export default function GeneratePage() {
   const [result, setResult] = useState<ResumeDocxGenerateResponse | null>(null)
   const [genError, setGenError] = useState<GenError | null>(null)
   // V2.1.0 T6：当前选中的 bullet（用于依据面板）；新生成结果时清空
-  const [selectedBullet, setSelectedBullet] = useState<
-    { sectionIdx: number; entryIdx: number; bulletIdx: number } | null
-  >(null)
+  const [selectedBullet, setSelectedBullet] = useState<SelectedBullet | null>(null)
+  // V2.1.0 T12-R5：结果页右侧「依据 / 修改」标签与「复制简历全文」反馈状态。
+  // - 修改标签在真实链路未实现前为 Coming Soon/disabled，不假接通；
+  // - 新结果时重置到「依据」并清空复制反馈。
+  const [resultTab, setResultTab] = useState<'evidence' | 'modify'>('evidence')
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const copyTimerRef = useRef<number | null>(null)
   const runSeq = useRef(0)
 
   useEffect(() => {
     setSelectedBullet(null)
+    setResultTab('evidence')
+    setCopyState('idle')
+    if (copyTimerRef.current) {
+      window.clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = null
+    }
   }, [result])
 
   // V2.1.0 T12-R4：处理视图左侧 4 阶段 radio 当前选中（与「当前运行」解耦）。
@@ -629,6 +639,55 @@ export default function GeneratePage() {
     setResult(null)
     setGenError(null)
     setGenerating(false)
+  }
+
+  // V2.1.0 T12-R5：把 doc_preview 投影为可复制纯文本（仅使用真实 result.doc_preview，不编造）。
+  function formatDocPreviewAsText(sections: DocPreviewSection[]): string {
+    const lines: string[] = []
+    for (const sec of sections) {
+      lines.push(`【${sec.title}】`)
+      for (const ent of sec.entries) {
+        const head = [ent.heading, ent.subhead].filter(Boolean).join(' · ')
+        if (head) lines.push(head)
+        for (const b of ent.bullets) lines.push(`· ${b}`)
+      }
+      lines.push('')
+    }
+    return lines.join('\n').trim()
+  }
+
+  async function handleCopyText() {
+    if (!result?.doc_preview || result.doc_preview.length === 0) {
+      setCopyState('failed')
+      scheduleCopyReset()
+      return
+    }
+    const text = formatDocPreviewAsText(result.doc_preview)
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // 退化路径：旧浏览器走一次性 textarea + execCommand，不构造假成功。
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+        if (!ok) throw new Error('copy command rejected')
+      }
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+    scheduleCopyReset()
+  }
+
+  function scheduleCopyReset() {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setCopyState('idle'), 2000)
   }
 
   const targetLabel = shownAnalysis?.position ?? ''
@@ -1185,6 +1244,19 @@ export default function GeneratePage() {
   }
 
   // ================= 成功态 =================
+  // V2.1.0 T12-R5：结果页主从布局（DS-002 result-shell）。
+  // - 左：真实简历纸张预览（ResultPaperPreview，fitPaper 等比缩放；内容超长时仅该列受控滚动）；
+  // - 右：sticky 固定区，顶部「依据 / 修改」标签 + 主体面板 + 底部「导出」卡；
+  // - 删除项：重复页头、"本次结果"技术摘要、preview-disclaimer、OperationTimeline 阶段明细。
+  //   真实技术字段（warnings / page_count / matched/rendered/template kv）已下沉到开发者后台，
+  //   普通结果页不再展示；bullet→fact 真实映射仍由 EvidencePanel 保留。
+  const copyButtonText =
+    copyState === 'copied'
+      ? '已复制全文'
+      : copyState === 'failed'
+        ? '复制失败，请手动选择'
+        : '复制简历全文'
+  const canCopy = !!result.doc_preview && result.doc_preview.length > 0
   return (
     <div
       className="page"
@@ -1195,178 +1267,131 @@ export default function GeneratePage() {
         alignItems: 'stretch',
       }}
     >
-      <div>
-        <div
-          className="muted"
-          style={{
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            color: 'var(--ink-faint)',
-          }}
-        >
-          {targetLabel ? `${targetLabel} · 已生成` : '已生成'}
-        </div>
-        <h1
-          style={{
-            fontSize: 'var(--text-2xl)',
-            fontWeight: 600,
-            letterSpacing: '-0.01em',
-            lineHeight: 1.25,
-            marginTop: 'var(--s2)',
-          }}
-        >
-          简历已生成，可直接下载
-        </h1>
-        <p className="muted" style={{ marginTop: 'var(--s2)' }}>
-          以下为本份生成的真实产物与统计。
-        </p>
-      </div>
-
-      {/* 本次结果摘要：warnings + 关键 kv（不杜撰任何字段） */}
-      <Card title="本次结果" subtitle={result.file_name}>
-        {result.warnings && result.warnings.length > 0 && (
-          <div className="notice notice--warn" style={{ marginTop: 0 }}>
-            {result.warnings.map((w, i) => (
-              <div key={i}>• {w}</div>
-            ))}
-          </div>
-        )}
-        <div className="kv" style={{ marginTop: 'var(--s4)' }}>
-          {typeof result.page_count === 'number' && (
-            <div className="kv__row">
-              <span className="kv__k">页数</span>
-              <span className="kv__v">{result.page_count} 页</span>
-            </div>
-          )}
-          <div className="kv__row">
-            <span className="kv__k">匹配经历</span>
-            <span className="kv__v">{result.matched_experience_ids.length} 条</span>
-          </div>
-          <div className="kv__row">
-            <span className="kv__k">渲染经历</span>
-            <span className="kv__v">{result.rendered_experience_ids.length} 条</span>
-          </div>
-          <div className="kv__row">
-            <span className="kv__k">模板</span>
-            <span className="kv__v">{result.template_id}</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* 左：内容预览（真实文本）；右：sticky 下载/依据 侧栏 */}
       <div className="result-shell">
+        {/* 左：fitPaper 真实简历纸张预览（默认尽量不滚轮；仅此列允许受控滚动） */}
         <div className="result-shell__preview">
-          <div className="preview-disclaimer">
-            <Badge tone="neutral">内容预览</Badge>
-            <span>
-              文本来自本次生成结果；<strong>下载的 DOCX 为最终正式文件</strong>，预览不冒充 DOCX 像素。
-            </span>
-          </div>
-          <div className="preview-scroll">
-            <article className="paper-preview" aria-label="简历内容预览">
-              {result.doc_preview && result.doc_preview.length > 0 ? (
-                result.doc_preview.map((sec, sIdx) => (
-                  <section
-                    key={`${sec.section}-${sIdx}`}
-                    className="paper-preview__section"
-                  >
-                    <h2 className="paper-preview__heading">{sec.title}</h2>
-                    {sec.entries.map((ent, eIdx) => (
-                      <div key={`${sIdx}-${eIdx}`} className="paper-preview__entry">
-                        <div className="paper-preview__entry-head">
-                          {ent.heading && (
-                            <span className="paper-preview__entry-title">{ent.heading}</span>
-                          )}
-                          {ent.subhead && (
-                            <span className="paper-preview__entry-sub">{ent.subhead}</span>
-                          )}
-                        </div>
-                        {sec.section === 'skills' ? (
-                          <div className="paper-preview__skill-line">
-                            <strong>{ent.heading}</strong>
-                            {ent.bullets.join('、')}
-                          </div>
-                        ) : ent.bullets.length > 0 ? (
-                          <ul className="paper-preview__bullets">
-                            {ent.bullets.map((b, bIdx) => {
-                              const isSelected =
-                                selectedBullet?.sectionIdx === sIdx &&
-                                selectedBullet?.entryIdx === eIdx &&
-                                selectedBullet?.bulletIdx === bIdx
-                              return (
-                                <li
-                                  key={`${sIdx}-${eIdx}-${bIdx}`}
-                                  className={
-                                    'paper-preview__bullet' +
-                                    (isSelected ? ' paper-preview__bullet--selected' : '')
-                                  }
-                                  onClick={() =>
-                                    setSelectedBullet({
-                                      sectionIdx: sIdx,
-                                      entryIdx: eIdx,
-                                      bulletIdx: bIdx,
-                                    })
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault()
-                                      setSelectedBullet({
-                                        sectionIdx: sIdx,
-                                        entryIdx: eIdx,
-                                        bulletIdx: bIdx,
-                                      })
-                                    }
-                                  }}
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-pressed={isSelected}
-                                >
-                                  {b}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        ) : null}
-                      </div>
-                    ))}
-                  </section>
-                ))
-              ) : (
-                <div
-                  className="empty"
-                  style={{ padding: 'var(--s6) var(--s4)' }}
-                >
-                  <div className="empty__title">本次响应未携带内容预览</div>
-                  <div className="empty__desc">
-                    可直接下载下方 DOCX；预览能力在升级到带 V2.1.0 T6 字段的后端后可用。
-                  </div>
-                </div>
-              )}
-            </article>
-          </div>
+          <ResultPaperPreview
+            sections={result.doc_preview ?? null}
+            selected={selectedBullet}
+            onSelect={setSelectedBullet}
+          />
         </div>
 
-        <aside className="result-shell__aside" aria-label="依据 / 导出">
-          <Card title="下载 DOCX">
+        {/* 右：sticky 固定区 —— 依据/修改 + 导出（顺序稳定，不随左侧预览滚出视野） */}
+        <aside className="result-shell__aside" aria-label="依据 / 修改 / 导出">
+          <div className="result-tabs" role="tablist" aria-label="结果侧栏标签">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resultTab === 'evidence'}
+              tabIndex={resultTab === 'evidence' ? 0 : -1}
+              className={
+                'result-tabs__tab' +
+                (resultTab === 'evidence' ? ' result-tabs__tab--active' : '')
+              }
+              onClick={() => setResultTab('evidence')}
+            >
+              依据
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={resultTab === 'modify'}
+              tabIndex={resultTab === 'modify' ? 0 : -1}
+              className={
+                'result-tabs__tab' +
+                (resultTab === 'modify' ? ' result-tabs__tab--active' : '')
+              }
+              onClick={() => setResultTab('modify')}
+              aria-label="修改（即将上线）"
+            >
+              <span>修改</span>
+              <span className="result-tabs__soon" aria-hidden="true">
+                即将上线
+              </span>
+            </button>
+          </div>
+
+          <Card
+            className="result-aside-panel"
+            title={resultTab === 'evidence' ? '逐条依据' : '意图级修改'}
+            subtitle={
+              resultTab === 'evidence'
+                ? '点击左侧 bullet 查看其真实事实原文与采用原因。'
+                : '描述你希望调整的方向；真实链路尚未接通，仅展示占位。'
+            }
+          >
+            {resultTab === 'evidence' ? (
+              <EvidencePanel
+                result={result}
+                selected={selectedBullet}
+                docPreview={result.doc_preview ?? null}
+              />
+            ) : (
+              <div className="modify-placeholder" role="region" aria-label="修改占位（即将上线）">
+                <div className="modify-placeholder__head">
+                  <Badge tone="neutral">即将上线</Badge>
+                  <span className="muted modify-placeholder__hint">
+                    例如：更突出项目 / 更技术 / 更简洁 / 强调某项真实成果。
+                  </span>
+                </div>
+                <textarea
+                  className="intent-input"
+                  rows={3}
+                  placeholder="描述你希望调整的方向"
+                  disabled
+                  aria-label="修改意图（即将上线，暂不可用）"
+                />
+                <div className="intent-row">
+                  <Button variant="secondary" size="sm" disabled>
+                    更突出项目
+                  </Button>
+                  <Button variant="secondary" size="sm" disabled>
+                    更技术
+                  </Button>
+                  <Button variant="secondary" size="sm" disabled>
+                    更简洁
+                  </Button>
+                  <Button variant="secondary" size="sm" disabled>
+                    强调真实成果
+                  </Button>
+                </div>
+                <div className="modify-placeholder__scope">
+                  <strong style={{ color: 'var(--ink)' }}>当前简历作用范围</strong>
+                  <p className="muted">
+                    仅修改此份简历；不会改动「我的经历」或长期事实。修订历史与回退为后续版本功能。
+                  </p>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <Card className="result-export" title="导出">
             <div className="export-card">
-              <div className="export-card__hint">
+              <div className="export-card__name">
                 文件名：<strong style={{ color: 'var(--ink)' }}>{result.file_name}</strong>
               </div>
               <a
                 className="btn btn--primary btn--lg"
                 href={result.download_url}
                 download
+                style={{ width: '100%' }}
               >
                 下载 DOCX
               </a>
-              <div className="export-card__hint">
-                下载为浏览器原生行为，不通过中转。
-              </div>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => void handleCopyText()}
+                disabled={!canCopy}
+                style={{ width: '100%' }}
+                aria-live="polite"
+              >
+                {copyButtonText}
+              </Button>
               <div className="hstack" style={{ marginTop: 0 }}>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onClick={() => void beginGenerate()}
                   disabled={generating}
@@ -1381,28 +1406,11 @@ export default function GeneratePage() {
                 <Badge tone="ok">已生成</Badge>
                 <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
               </div>
+              <div className="export-card__hint">下载为浏览器原生行为，不通过中转。</div>
             </div>
-          </Card>
-
-          <Card
-            title="逐条依据"
-            subtitle="点击左侧 bullet 查看其真实事实"
-          >
-            <EvidencePanel
-              result={result}
-              selected={selectedBullet}
-              docPreview={result.doc_preview ?? null}
-            />
           </Card>
         </aside>
       </div>
-
-      {/* 真实阶段明细（仅结果态展示，处理态已改为 process-side 阶段流） */}
-      {operation && (
-        <Card title="真实阶段明细" actions={<Badge tone={statusTone(operation.status)}>{statusLabel(operation.status)}</Badge>}>
-          <OperationTimeline operation={operation} />
-        </Card>
-      )}
     </div>
   )
 }

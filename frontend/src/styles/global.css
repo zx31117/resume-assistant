@@ -1295,6 +1295,139 @@ select.input {
 }
 
 /* ============================================================
+   V2.1.0 T12-R5：结果页主从布局附加（依据/修改 标签 + 修改占位 + 导出）
+   ============================================================ */
+
+.result-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--s2);
+}
+
+.result-tabs__tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: var(--s2) var(--s3);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.result-tabs__tab:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.result-tabs__tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.result-tabs__tab--active {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--tint);
+}
+
+.result-tabs__soon {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  background: var(--surface-2);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.result-aside-panel .card__body,
+.result-export .card__body {
+  /* 紧凑内边距：右侧栏整体高度受 sticky 约束 */
+  padding-top: var(--s2);
+}
+
+.export-card__name {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.modify-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.modify-placeholder__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.modify-placeholder__hint {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.modify-placeholder__scope {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.modify-placeholder__scope p {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.intent-input {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: var(--s2) var(--s3);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-sizing: border-box;
+}
+
+.intent-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  color: var(--ink-faint);
+}
+
+.intent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.intent-row .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ============================================================
    欢迎页（冷启动双路径）
    ============================================================ */
 
