@@ -145,7 +145,16 @@ def _build_doc_preview(resume_doc: ResumeDocument) -> list[DocPreviewSection]:
     纯只读：不修改 resume_doc；不调 LLM/DB；不编造任何字段。
     字段全部来自真实 ResumeDocument（profile / work / project / education /
     skills / awards），空 section 直接不输出。
+
+    V2.1.0 R9：返回章节顺序与 pm_template v1.2 模板章节顺序对齐
+    （personal→education→work→project→skills→awards），保证预览 JSON 与
+    Word/PDF 渲染出的章节顺序一致（PLAN §14.2.A）。
     """
+    # R9：模板（_build_templates.py）章节顺序映射；未知 section 保持靠后
+    _SECTION_RANK = {
+        "personal": 0, "education": 1, "work": 2,
+        "project": 3, "skills": 4, "awards": 5,
+    }
     sections: list[DocPreviewSection] = []
 
     # ── personal：profile 头部（不来自模板） ──
@@ -254,7 +263,10 @@ def _build_doc_preview(resume_doc: ResumeDocument) -> list[DocPreviewSection]:
             entries=[DocPreviewEntry(heading="", subhead="", bullets=list(resume_doc.awards))],
         ))
 
-    return sections
+    return sorted(
+        sections,
+        key=lambda s: _SECTION_RANK.get(s.section, len(_SECTION_RANK)),
+    )
 
 
 def _build_evidence_map(
@@ -440,6 +452,26 @@ def generate_docx(
                 doc.save(file_path_abs)
             except Exception as e:
                 raise FileSaveError(f"DOCX 保存失败: {e}", details={"path": file_path_abs}) from e
+            # V2.1.0 R9：同一 resume_doc 产出真实 PDF（同目录、固定文件名）。
+            # PDF 渲染/保存失败不中断 DOCX 主链：响应 pdf_* 字段留空 + warning，
+            # 下载 PDF 时由 download 端点返回真实 4xx/5xx，绝不假装成功。
+            pdf_file_name: Optional[str] = None
+            pdf_download_url: Optional[str] = None
+            try:
+                from services import pdf_renderer  # lazy：reportlab 缺失不阻塞 docx 链路
+                pdf_bytes, pdf_render_warnings = pdf_renderer.render(
+                    resume_doc, req.template_id, str(BACKEND_ROOT),
+                )
+                for _w_pdf in pdf_render_warnings:
+                    warnings.append(f"PDF: {_w_pdf}")
+                pdf_file_name = f"resume_{safe_user_id}_{req.template_id}.pdf"
+                pdf_path_abs = os.path.join(OUTPUT_DIR, pdf_file_name)
+                with open(pdf_path_abs, "wb") as _f_pdf:
+                    _f_pdf.write(pdf_bytes)
+                pdf_download_url = f"/api/template/download?path=output/{pdf_file_name}"
+            except Exception as _e_pdf:  # noqa: BLE001 —— 真实失败状态由响应字段 + warning 表达
+                logger.warning("PDF 渲染/保存失败（不影响 DOCX）: %s", _e_pdf)
+                warnings.append(f"PDF 生成失败（可下载 Word；PDF 不可用）: {type(_e_pdf).__name__}: {_e_pdf}")
         download_url = f"/api/template/download?path=output/{file_name}"
 
         # ── 11. 组装响应 ───────────────────────────────────────
@@ -492,6 +524,8 @@ def generate_docx(
             file_path=f"output/{file_name}",
             file_name=file_name,
             download_url=download_url,
+            pdf_file_name=pdf_file_name,
+            pdf_download_url=pdf_download_url,
             stages=_stages_from_recording(recording),
             matched_experience_ids=matched_ids,
             rendered_experience_ids=rendered_ids,

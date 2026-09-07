@@ -308,12 +308,16 @@ def download_file(path: str = Query(..., description="文件名，或相对 DOCX
     abs_requested = os.path.join(abs_output, filename)
     if not os.path.isfile(abs_requested):
         raise HTTPException(status_code=404, detail=f"文件不存在: {filename}")
+    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+    if ext == "pdf":
+        media_type = "application/pdf"
+    elif ext == "docx":
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    else:
+        media_type = "application/octet-stream"
     return FileResponse(
         abs_requested,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            if filename.lower().endswith(".docx") else "application/octet-stream"
-        ),
+        media_type=media_type,
         filename=filename,
     )
 

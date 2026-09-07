@@ -413,6 +413,11 @@ class ResumeDocxGenerateResponse(BaseModel):
     file_name: str
     download_url: str
 
+    # V2.1.0 R9：同一生成结果附带的真实 PDF（可选；旧调用方不传/不消费时默认 None）。
+    # PDF 生成失败时两字段留空并写入 warnings，下载由 /api/template/download 返回真实错误状态。
+    pdf_file_name: Optional[str] = None
+    pdf_download_url: Optional[str] = None
+
     # V2.0.1：本次操作的统一编号（前端据此轮询 / 复盘，PLAN §3.5）
     operation_id: str = ""
 
