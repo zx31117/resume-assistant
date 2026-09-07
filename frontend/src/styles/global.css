@@ -1268,3 +1268,288 @@ button {
   color: var(--ink-faint);
   line-height: 1.5;
 }
+
+/* ============================================================
+   V2.1.0 T7：欢迎双冷启动（无经历门控）+ 个人与隐私精修
+   ============================================================ */
+
+/* —— 欢迎页（"冷启动"：无经历时取代生成工作台） —— */
+
+.welcome-page {
+  max-width: 880px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s6) 0 var(--s5);
+  border-bottom: 1px solid var(--line);
+}
+
+.welcome-eyebrow {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.welcome-title {
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: var(--leading-tight);
+}
+
+.welcome-lead {
+  font-size: var(--text-lg);
+  color: var(--ink-soft);
+  line-height: var(--leading-body);
+  max-width: 46em;
+}
+
+.welcome-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--s4);
+}
+
+.path-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.path-card {
+  text-decoration: none;
+}
+
+.path-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.path-card:active {
+  transform: translateY(1px);
+}
+
+.path-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.path-card__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.path-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.path-card h3 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.path-card p {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+.path-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-top: var(--s1);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.path-card--soon {
+  cursor: default;
+}
+
+.path-card--soon:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.path-card--soon .path-card__cta {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.path-card--soon .path-card__icon {
+  color: var(--ink-faint);
+}
+
+.welcome-manual {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.welcome-manual a {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.welcome-manual a:hover {
+  text-decoration: underline;
+}
+
+.welcome-principles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s4);
+}
+
+.principle {
+  padding: var(--s4) var(--s5);
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+}
+
+.principle h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.principle p {
+  margin-top: var(--s2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+/* —— 个人与隐私：事实行 / 可靠性分层 / 行动入口 —— */
+
+.privacy-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+}
+
+.privacy-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+  gap: var(--s4);
+  padding: var(--s3) var(--s1);
+  align-items: baseline;
+}
+
+.privacy-row + .privacy-row {
+  border-top: 1px solid var(--line);
+}
+
+.privacy-row__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.privacy-row__desc {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  line-height: 1.65;
+  min-width: 0;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .privacy-row {
+    grid-template-columns: 1fr;
+    gap: var(--s1);
+    padding: var(--s3) 0;
+  }
+}
+
+.reliability-layer {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  padding: var(--s3) var(--s1);
+}
+
+.reliability-layer + .reliability-layer {
+  border-top: 1px solid var(--line);
+}
+
+.reliability-layer__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 120px;
+}
+
+.reliability-layer__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.reliability-layer__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding-top: var(--s1);
+}
+
+@media (max-width: 640px) {
+  .reliability-layer {
+    flex-direction: column;
+    gap: var(--s2);
+  }
+}
+
+.privacy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.privacy-actions a {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.privacy-actions a:hover {
+  text-decoration: underline;
+}
+
+.privacy-row__desc code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--surface-muted);
+  padding: 0 var(--s1);
+  border-radius: var(--r-sm);
+}

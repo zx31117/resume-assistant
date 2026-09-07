@@ -291,6 +291,9 @@ export default function ProfilePage() {
   // 分流提示（如「N 项已自动整理入库」），review 期显示
   const [importSummary, setImportSummary] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const chooseFileBtnRef = useRef<HTMLButtonElement>(null)
+  // V2.1.0 T7：/profile?import=1 只在初始挂载读取一次，不随渲染循环触发
+  const importParamHandled = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -308,6 +311,22 @@ export default function ProfilePage() {
   useEffect(() => {
     load()
   }, [load])
+
+  // V2.1.0 T7：欢迎页卡 A 跳转 /profile?import=1 → 打开导入弹窗并聚焦「选择 PDF 文件」。
+  // 仅在首次挂载读取 query 一次；若浏览器不允许程序化拉起文件选择器，
+  // 用户仍可直接操作已聚焦的选择按钮（真实路径，不伪造任何状态）。
+  useEffect(() => {
+    if (importParamHandled.current) return
+    importParamHandled.current = true
+    if (new URLSearchParams(window.location.search).get('import') !== '1') return
+    resetImport()
+    setImportOpen(true)
+    window.setTimeout(() => {
+      chooseFileBtnRef.current?.focus()
+      fileRef.current?.click()
+    }, 120)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sorted = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -706,9 +725,14 @@ export default function ProfilePage() {
                     style={{ display: 'none' }}
                     onChange={(e) => onPickFile(e.target.files?.[0])}
                   />
-                  <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+                  <button
+                    ref={chooseFileBtnRef}
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => fileRef.current?.click()}
+                  >
                     选择 PDF 文件
-                  </Button>
+                  </button>
                   <span className="muted">
                     {importText ? '已解析出文本，可点击「提取经历」。' : '支持 PDF，解析成功后提取为经历。'}
                   </span>

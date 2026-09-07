@@ -552,7 +552,7 @@ export default function GeneratePage() {
           >
             <Card
               title="身份摘要"
-              subtitle="以下信息仅用于本次生成，不写入「我的经历」；姓名为必填。"
+              subtitle="以下信息仅用于本次生成，不写入「我的经历」；姓名为必填，身份自动带入为后续版本功能。"
               actions={
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Badge tone="neutral">本次生成使用</Badge>
