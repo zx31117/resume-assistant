@@ -1070,18 +1070,33 @@ select.input {
    生成结果页：预览 + 依据侧栏
    ============================================================ */
 
+/* ============================================================
+   生成结果页：预览（卡片）+ 依据侧栏
+   预览卡：单一外层容器，border/shadow 只在这一层；
+   内部 .pm-paper 不再画二级边框，简历内容从内容区左缘铺到右缘；
+   内部滚动只发生在 .result-shell__preview 这一层。
+   ============================================================ */
+
 .result-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--s5);
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .result-shell__preview {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
+  /* 唯一外层卡：border / radius / shadow 在此层 */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  /* 桌面：限制最大高度并在卡片内部滚动（页面整体不滚）；
+     240px ≈ 页顶/页底 + 一些呼吸空间 */
+  max-height: calc(100vh - 200px);
+  overflow: auto;
 }
 
 .result-shell__aside {
@@ -1091,6 +1106,7 @@ select.input {
   display: flex;
   flex-direction: column;
   gap: var(--s4);
+  max-height: calc(100vh - 2 * var(--s5));
 }
 
 @media (max-width: 1023px) {
@@ -1099,142 +1115,284 @@ select.input {
   }
   .result-shell__aside {
     position: static;
+    max-height: none;
+  }
+  .result-shell__preview {
+    max-height: none;
   }
 }
 
-.preview-scroll {
-  max-height: calc(100vh - 240px);
-  overflow: auto;
-  padding: var(--s4);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+/* ============================================================
+   V2.1.0 T12-R10：结果预览（按 pm_template v1.2 忠实视觉）
+   - 唯一外层容器（卡片）= 唯一边框/圆角/阴影来源；
+   - 内部不维护二级纸张，简历内容从内容区左缘铺到右缘；
+   - 字号/行高/分隔线/条目行/bullet 全部映射 pm_template v1.2；
+   - 依据 onSelect 仅作为不改变排版尺寸的背景状态。
+   ============================================================ */
+
+.pm-paper {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  /* 模板页边距意图（T=0.92 R=1.09 B=1.39 L=1.13cm @ 96dpi ≈ 35/41/52/43px，
+     在 web 预览里用接近比例；统一四面，避免几何跳变。 */
+  padding: 36px 42px 52px 44px;
+  font-family: var(--font-sans);
+  color: var(--ink);
+  font-size: 14px;          /* 正文/bullet ≈ 10.6pt */
+  line-height: 1.7;
+  /* 不画边框 / 圆角 / 阴影：卡片是唯一外层容器 */
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-.paper-preview {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--s7) var(--s7);
-  font-size: var(--text-base);
-  line-height: 1.65;
+.pm-paper__empty {
+  padding: var(--s7) var(--s5);
+}
+
+/* 右上角照片占位框（空框）。fixed 几何不挤压文本流、不影响换行。
+   2.375cm × 2.9cm @ 96dpi ≈ 90px × 110px；距顶 ≈ 22px，距右 ≈ 30px。 */
+.pm-photo {
+  position: absolute;
+  top: 22px;
+  right: 30px;
+  width: 90px;
+  height: 110px;
+  background: #f2f2f2;
+  border: 0.5px solid #bfbfbf;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+/* —— Profile 头部（姓名 + 联系行，不渲染为「个人信息」普通章节）—— */
+.pm-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.pm-header__name {
+  font-size: 26px;          /* 姓名 ≈ 20pt */
+  font-weight: 700;
+  line-height: 1.25;
   color: var(--ink);
+  letter-spacing: -0.005em;
+  /* 名字右侧需为右上角照片框留出空间，但不强制换行；窄屏下回退到自动换行。 */
+  padding-right: 104px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.pm-header__contact {
+  font-size: 13px;          /* 联系方式 ≈ 10pt */
+  line-height: 1.5;
+  color: var(--ink-soft);
+  min-width: 0;
+  word-break: break-all;
+}
+
+.pm-header__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
   min-width: 0;
 }
 
-.paper-preview__section + .paper-preview__section {
-  margin-top: var(--s6);
-  padding-top: var(--s5);
-  border-top: 1px solid var(--border);
-}
-
-.paper-preview__heading {
-  font-size: var(--text-base);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.pm-header__line {
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--ink-soft);
-  margin-bottom: var(--s3);
-}
-
-.paper-preview__entry {
-  padding: var(--s3) 0;
-}
-
-.paper-preview__entry + .paper-preview__entry {
-  border-top: 1px dashed var(--border);
-}
-
-.paper-preview__entry-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
-
-.paper-preview__entry-title {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.paper-preview__entry-sub {
-  color: var(--ink-faint);
-  font-size: var(--text-sm);
-}
-
-.paper-preview__bullets {
-  list-style: disc;
-  padding-left: 1.4em;
-  margin: var(--s2) 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s1);
-}
-
-.paper-preview__bullet {
+  display: block;
+  padding: 1px 0;
+  border-radius: var(--r-sm);
+  /* 选中态对齐 bullet 规则：仅在 padding 范围内加圆角浅底，不挤压文本/换行 */
+  transition: background-color 120ms ease-out;
   cursor: pointer;
-  padding: 2px 6px;
-  margin: 0 -6px;
-  border-radius: 6px;
-  transition:
-    background-color 120ms ease-out,
-    color 120ms ease-out;
-  color: var(--ink);
+  min-width: 0;
+  word-break: break-word;
 }
 
-.paper-preview__bullet:hover {
+.pm-header__line-prefix {
+  color: var(--ink-soft);
+  margin-right: 2px;
+}
+
+.pm-header__line:hover {
   background: var(--surface-2);
 }
 
-.paper-preview__bullet:focus-visible {
+.pm-header__line:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 
-.paper-preview__bullet--selected {
-  background: var(--tint);
+/* —— 章节（教育/实习/项目/技能/奖项/自我评价） —— */
+.pm-section {
+  margin-top: 14px;
+  padding-top: 10px;
+  min-width: 0;
+}
+
+.pm-section__title {
+  font-size: 16px;          /* 节标题 ≈ 12pt */
+  font-weight: 700;
+  line-height: 1.35;
   color: var(--ink);
-  font-weight: 500;
+  margin: 0 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--ink);
+  letter-spacing: 0;
 }
 
-.paper-preview__skill-line {
-  margin-top: var(--s1);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-}
-
-.paper-preview__skill-line strong {
-  color: var(--ink);
-  font-weight: 600;
-  margin-right: var(--s2);
-}
-
-.preview-disclaimer {
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex-wrap: wrap;
-}
-
-.preview-disclaimer strong {
-  color: var(--ink-soft);
-  font-weight: 600;
-}
-
-.export-card {
+.pm-section__entries {
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
+  gap: 10px;
+  min-width: 0;
 }
 
-.export-card__hint {
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  line-height: 1.5;
+/* —— 经历条目（work / project / education） —— */
+.pm-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.pm-entry__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pm-entry__title {
+  font-size: 14px;          /* 条目标题 ≈ 10.6pt */
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.45;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.pm-entry__sub {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.pm-entry__date {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* —— bullets：●/⚫ 前缀，10pt 常规不加粗 —— */
+.pm-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 2px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pm-bullet {
+  font-size: 14px;          /* 正文 bullet ≈ 10.6pt */
+  font-weight: 400;         /* 全部常规，无关键词加粗（与 v1.2 模板一致） */
+  color: var(--ink);
+  line-height: 1.7;
+  padding: 1px 6px;
+  margin: 0 -6px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  min-width: 0;
+  word-break: break-word;
+  position: relative;
+  /* 模板约定 bullet 前缀为 ⚫（U+26AB）；这里以 CSS 伪元素渲染避免影响文本流。 */
+  padding-left: 16px;
+}
+
+.pm-bullet::before {
+  content: '\26AB';          /* ⚫ */
+  position: absolute;
+  left: 2px;
+  top: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.pm-bullet:hover {
+  background: var(--surface-2);
+}
+
+.pm-bullet:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* 依据 onSelect 选中：仅在 padding 范围内加圆角浅底，不改换行 / 不挤压文本 / 不加粗边框 */
+.pm-bullet--selected {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+.pm-bullet--selected::before {
+  color: var(--ink);
+}
+
+/* —— 技能条目（无彩底标签，常规文本） —— */
+.pm-entry--skill {
+  display: block;
+}
+
+.pm-skill__line {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.pm-skill__category {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pm-skill__items {
+  color: var(--ink);
+}
+
+/* —— 奖项条目 —— */
+.pm-entry--awards {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 1023px) {
+  .pm-header__name {
+    padding-right: 0;
+  }
+  .pm-photo {
+    position: static;
+    width: 64px;
+    height: 78px;
+    margin-bottom: 8px;
+  }
 }
 
 /* 依据面板 */
@@ -1350,16 +1508,79 @@ select.input {
   font-weight: 500;
 }
 
-.result-aside-panel .card__body,
-.result-export .card__body {
+.result-aside-panel .card__body {
   /* 紧凑内边距：右侧栏整体高度受 sticky 约束 */
   padding-top: var(--s2);
 }
 
-.export-card__name {
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  word-break: break-all;
+/* 右侧栏顶部操作条：仅承载"重新生成/返回修改"等通用动作，不属于导出卡。 */
+.result-aside-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   V2.1.0 T12-R11：导出卡（结果页可用区域左下角固定）
+   - 外框不随文件名/状态/错误文案变化；
+   - 只保留两个主按钮（下载 Word / 下载 PDF）；
+   - 卡内固定高区域表达错误/缺失，不改变卡片外框尺寸。
+   ============================================================ */
+
+.result-export-card {
+  position: fixed;
+  /* 锚点：结果页可用区域左下角 = 视口左下角向右偏移出侧栏 208px + 边距 */
+  left: calc(var(--sidebar-w) + var(--s5));
+  bottom: var(--s5);
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  min-width: 280px;
+  max-width: min(420px, calc(100vw - 2 * var(--s5)));
+  pointer-events: auto;
+}
+
+.result-export-card__buttons {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s2);
+}
+
+.result-export-card__buttons .btn {
+  width: 100%;
+}
+
+.result-export-card__err {
+  /* 卡内固定高区域：错误/缺失信息只能出现在这里，不改变卡片外框尺寸。 */
+  min-height: 18px;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--warn);
+  text-align: left;
+  word-break: break-word;
+}
+
+.result-export-card__err[data-tone='danger'] {
+  color: var(--error);
+}
+
+@media (max-width: 899px) {
+  .result-export-card {
+    /* 侧栏在 <900px 折叠为顶栏：直接锚到视口左下 */
+    left: var(--s4);
+    bottom: var(--s4);
+    min-width: 0;
+    width: calc(100vw - 2 * var(--s4));
+    max-width: none;
+  }
 }
 
 .modify-placeholder {

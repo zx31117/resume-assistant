@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -439,30 +439,27 @@ export default function GeneratePage() {
   const [genError, setGenError] = useState<GenError | null>(null)
   // V2.1.0 T6：当前选中的 bullet（用于依据面板）；新生成结果时清空
   const [selectedBullet, setSelectedBullet] = useState<SelectedBullet | null>(null)
-  // V2.1.0 T12-R5：结果页右侧「依据 / 修改」标签与「复制简历全文」反馈状态。
-  // - 修改标签在真实链路未实现前为 Coming Soon/disabled，不假接通；
-  // - 新结果时重置到「依据」并清空复制反馈。
+  // V2.1.0 T12-R5：结果页右侧「依据 / 修改」标签（修改链路尚未接通，disabled 占位）。
   const [resultTab, setResultTab] = useState<'evidence' | 'modify'>('evidence')
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  const copyTimerRef = useRef<number | null>(null)
-  const runSeq = useRef(0)
-
-  useEffect(() => {
-    setSelectedBullet(null)
-    setResultTab('evidence')
-    setCopyState('idle')
-    if (copyTimerRef.current) {
-      window.clearTimeout(copyTimerRef.current)
-      copyTimerRef.current = null
-    }
-  }, [result])
-
   // V2.1.0 T12-R4：处理视图左侧 4 阶段 radio 当前选中（与「当前运行」解耦）。
   // - 规则：① 每次 op 轮询更新时，若「当前活动」高层阶段发生变化，自动切到新活动阶段；
   //        ② 用户主动点击已开始/已完成的阶段可回看，不被立即覆盖；
   //        ③ 离开处理视图或新一次生成时重置。
   const [selectedPhaseIdx, setSelectedPhaseIdx] = useState(0)
   const lastActiveIdxRef = useRef<number>(-1)
+  // V2.1.0 T12-R11：导出卡 PDF 按钮状态（真实可恢复）；
+  // - pdfMissing: 后端未返回 pdf_download_url（PDF 未生成/失败）；
+  // - pdfError : 用户点击时探测到下载链不可达 / 浏览器拒绝。
+  // 不进入布局推挤：使用卡内固定高区域表达。
+  const [pdfMissing, setPdfMissing] = useState<boolean>(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const runSeq = useRef(0)
+
+  useEffect(() => {
+    setSelectedBullet(null)
+    setPdfMissing(false)
+    setPdfError(null)
+  }, [result])
 
   useEffect(() => {
     if (opId) {
@@ -639,55 +636,6 @@ export default function GeneratePage() {
     setResult(null)
     setGenError(null)
     setGenerating(false)
-  }
-
-  // V2.1.0 T12-R5：把 doc_preview 投影为可复制纯文本（仅使用真实 result.doc_preview，不编造）。
-  function formatDocPreviewAsText(sections: DocPreviewSection[]): string {
-    const lines: string[] = []
-    for (const sec of sections) {
-      lines.push(`【${sec.title}】`)
-      for (const ent of sec.entries) {
-        const head = [ent.heading, ent.subhead].filter(Boolean).join(' · ')
-        if (head) lines.push(head)
-        for (const b of ent.bullets) lines.push(`· ${b}`)
-      }
-      lines.push('')
-    }
-    return lines.join('\n').trim()
-  }
-
-  async function handleCopyText() {
-    if (!result?.doc_preview || result.doc_preview.length === 0) {
-      setCopyState('failed')
-      scheduleCopyReset()
-      return
-    }
-    const text = formatDocPreviewAsText(result.doc_preview)
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        // 退化路径：旧浏览器走一次性 textarea + execCommand，不构造假成功。
-        const ta = document.createElement('textarea')
-        ta.value = text
-        ta.style.position = 'fixed'
-        ta.style.opacity = '0'
-        document.body.appendChild(ta)
-        ta.select()
-        const ok = document.execCommand('copy')
-        document.body.removeChild(ta)
-        if (!ok) throw new Error('copy command rejected')
-      }
-      setCopyState('copied')
-    } catch {
-      setCopyState('failed')
-    }
-    scheduleCopyReset()
-  }
-
-  function scheduleCopyReset() {
-    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
-    copyTimerRef.current = window.setTimeout(() => setCopyState('idle'), 2000)
   }
 
   const targetLabel = shownAnalysis?.position ?? ''
@@ -1244,19 +1192,66 @@ export default function GeneratePage() {
   }
 
   // ================= 成功态 =================
-  // V2.1.0 T12-R5：结果页主从布局（DS-002 result-shell）。
-  // - 左：真实简历纸张预览（ResultPaperPreview，fitPaper 等比缩放；内容超长时仅该列受控滚动）；
-  // - 右：sticky 固定区，顶部「依据 / 修改」标签 + 主体面板 + 底部「导出」卡；
-  // - 删除项：重复页头、"本次结果"技术摘要、preview-disclaimer、OperationTimeline 阶段明细。
+  // V2.1.0 T12-R10/R11：结果页主从布局（DS-002 result-shell）。
+  // - 左：简历内容预览（pm_template v1.2 忠实视觉；满宽，仅卡内滚动）；
+  // - 右：sticky 固定区 —— 顶部操作条 + 「依据/修改」标签 + 主体面板；
+  // - 导出卡已收口为页面左下角固定独立卡（见 .result-export-card），只含两个真实按钮。
+  //   "重新生成/返回修改"动作迁出导出卡，放在右侧栏顶部操作条，不参与导出卡外框。
+  //   删除项：重复页头、"本次结果"技术摘要、preview-disclaimer、OperationTimeline 阶段明细、
+  //   复制简历全文按钮、文件名校复述、生成短码、操作编号、说明文字。
   //   真实技术字段（warnings / page_count / matched/rendered/template kv）已下沉到开发者后台，
   //   普通结果页不再展示；bullet→fact 真实映射仍由 EvidencePanel 保留。
-  const copyButtonText =
-    copyState === 'copied'
-      ? '已复制全文'
-      : copyState === 'failed'
-        ? '复制失败，请手动选择'
-        : '复制简历全文'
-  const canCopy = !!result.doc_preview && result.doc_preview.length > 0
+  const wordHref = result.download_url
+  const wordDownloadName = result.file_name || 'resume.docx'
+  const pdfHref = result.pdf_download_url
+  const pdfDownloadName = result.pdf_file_name || 'resume.pdf'
+  // T12-R11：PDF 真实状态可恢复
+  // - 后端未返 pdf_download_url → disabled + 卡内固定高区域显示「PDF 未生成」
+  // - 用户点击时探测下载链；HEAD 失败 → 卡内固定高区域显示具体错误并可重新生成
+  useEffect(() => {
+    setPdfMissing(!pdfHref)
+  }, [pdfHref])
+
+  async function probePdfDownload(): Promise<boolean> {
+    if (!pdfHref) {
+      setPdfMissing(true)
+      setPdfError(null)
+      return false
+    }
+    try {
+      const r = await fetch(pdfHref, { method: 'HEAD' })
+      if (!r.ok) {
+        setPdfError(`PDF 下载失败（HTTP ${r.status}）；请稍后重试或重新生成。`)
+        return false
+      }
+      setPdfError(null)
+      return true
+    } catch (e) {
+      setPdfError(e instanceof Error ? `PDF 不可达：${e.message}` : 'PDF 不可达。')
+      return false
+    }
+  }
+
+  function handlePdfClick(e: ReactMouseEvent<HTMLAnchorElement>) {
+    // 同步探测 + 阻止无效下载（探测失败则让按钮保持可恢复的「重新生成」状态）
+    if (!pdfHref) {
+      e.preventDefault()
+      setPdfMissing(true)
+      return
+    }
+    void probePdfDownload()
+  }
+
+  const exportErrTone: 'warn' | 'danger' | null = pdfError
+    ? 'danger'
+    : pdfMissing
+      ? 'warn'
+      : null
+  const exportErrText = pdfError
+    ? pdfError
+    : pdfMissing
+      ? 'PDF 尚未生成或本次生成失败；重新生成后可下载。'
+      : ''
   return (
     <div
       className="page"
@@ -1268,7 +1263,7 @@ export default function GeneratePage() {
       }}
     >
       <div className="result-shell">
-        {/* 左：fitPaper 真实简历纸张预览（默认尽量不滚轮；仅此列允许受控滚动） */}
+        {/* 左：pm_template v1.2 忠实预览（满宽、单一外层卡、仅卡内滚动） */}
         <div className="result-shell__preview">
           <ResultPaperPreview
             sections={result.doc_preview ?? null}
@@ -1277,8 +1272,22 @@ export default function GeneratePage() {
           />
         </div>
 
-        {/* 右：sticky 固定区 —— 依据/修改 + 导出（顺序稳定，不随左侧预览滚出视野） */}
-        <aside className="result-shell__aside" aria-label="依据 / 修改 / 导出">
+        {/* 右：sticky 固定区 —— 顶部操作 + 依据/修改（顺序稳定） */}
+        <aside className="result-shell__aside" aria-label="依据 / 修改 / 操作">
+          <div className="result-aside-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void beginGenerate()}
+              disabled={generating}
+            >
+              重新生成
+            </Button>
+            <Button variant="ghost" size="sm" onClick={backToEdit}>
+              返回修改输入
+            </Button>
+          </div>
+
           <div className="result-tabs" role="tablist" aria-label="结果侧栏标签">
             <button
               type="button"
@@ -1365,52 +1374,52 @@ export default function GeneratePage() {
               </div>
             )}
           </Card>
-
-          <Card className="result-export" title="导出">
-            <div className="export-card">
-              <div className="export-card__name">
-                文件名：<strong style={{ color: 'var(--ink)' }}>{result.file_name}</strong>
-              </div>
-              <a
-                className="btn btn--primary btn--lg"
-                href={result.download_url}
-                download
-                style={{ width: '100%' }}
-              >
-                下载 DOCX
-              </a>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => void handleCopyText()}
-                disabled={!canCopy}
-                style={{ width: '100%' }}
-                aria-live="polite"
-              >
-                {copyButtonText}
-              </Button>
-              <div className="hstack" style={{ marginTop: 0 }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void beginGenerate()}
-                  disabled={generating}
-                >
-                  重新生成
-                </Button>
-                <Button variant="ghost" size="sm" onClick={backToEdit}>
-                  返回修改输入
-                </Button>
-              </div>
-              <div className="hstack" style={{ marginTop: 0 }}>
-                <Badge tone="ok">已生成</Badge>
-                <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
-              </div>
-              <div className="export-card__hint">下载为浏览器原生行为，不通过中转。</div>
-            </div>
-          </Card>
         </aside>
       </div>
+
+      {/* 左下角固定独立导出卡：只保留「下载 Word / 下载 PDF」两个真实按钮。
+          外框尺寸不随文件名/状态/错误文案变化；错误/缺失走卡内固定高区域。 */}
+      <aside className="result-export-card" aria-label="导出">
+        <div className="result-export-card__buttons">
+          <a
+            className="btn btn--primary btn--md"
+            href={wordHref}
+            download={wordDownloadName}
+            data-role="download-word"
+          >
+            下载 Word
+          </a>
+          {pdfHref ? (
+            <a
+              className="btn btn--secondary btn--md"
+              href={pdfHref}
+              download={pdfDownloadName}
+              onClick={handlePdfClick}
+              data-role="download-pdf"
+            >
+              下载 PDF
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--secondary btn--md"
+              disabled
+              data-role="download-pdf"
+              aria-label="下载 PDF（暂不可用）"
+            >
+              下载 PDF
+            </button>
+          )}
+        </div>
+        <div
+          className="result-export-card__err"
+          data-tone={exportErrTone ?? ''}
+          role={exportErrTone ? 'status' : undefined}
+          aria-live="polite"
+        >
+          {exportErrText || ' '}
+        </div>
+      </aside>
     </div>
   )
 }

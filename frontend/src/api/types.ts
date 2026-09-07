@@ -182,6 +182,10 @@ export interface ResumeDocxGenerateResponse {
   // V2.1.0 T6：内容预览 + 逐 bullet 事实依据（老契约不消费时为 null）
   doc_preview?: DocPreviewSection[] | null
   evidence?: Record<string, EvidenceFact[]> | null
+  // V2.1.0 T12-R11：真实 PDF 下载链（application/pdf）；未生成或生成失败时为 undefined。
+  // 不造假：缺值时前端按钮必须真实地呈现「无 PDF」状态而不是改后缀 / 打印对话 / 占位提示。
+  pdf_file_name?: string
+  pdf_download_url?: string
 }
 
 // ———— 模板（GET /api/template/list） ————
