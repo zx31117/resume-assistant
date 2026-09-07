@@ -55,7 +55,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T5 一键生成与真实进度 | 开发完成，待独立验收 | 生成工作台 DS-002 重构（`39be12f`，见 §11）；真实 4 阶段映射、前端可判定阻断检查、失败保留输入 |
 | T6 内容预览、事实依据与 DOCX 下载 | 开发完成，待独立验收 | doc_preview/evidence 透出 + result 预览/依据/下载（`1e25e10`，见 §12）；零密钥验证 15/0 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
-| T8 Design Fidelity 与可访问性 | 未开始 | 等待 T3–T7 |
+| T8 Design Fidelity 与可访问性 | 开发侧验证完成，待独立验收 | 固定场景截图 + 响应式/键盘抽查完成（见 §14，证据 validation-artifacts/t8）；视觉最终判定归 T11/T12 |
 | T9 回归、统一预检与便携包 | 未开始 | 等待 T1–T8 |
 | T10 RESULT 与冻结候选 | 未开始 | 等待 T9 |
 | T11 独立验收 | 未开始 | 等待 T10 |
@@ -256,3 +256,21 @@ T0 已完成。Development Agent 启动前必须：
 
 - 前端生产 build 通过（strict tsc + vite，exit 0）；提交 `b088f26` 复核通过（锚点命中），git status 干净。
 - 偏差：无（视觉细调与像素对照归 T8）。
+
+## 14. T8 Design Fidelity / 响应式 / 可访问性开发验证
+
+> 开发侧验证记录，非独立验收；视觉最终判定归 T11 独立验收与 T12 人工验收。
+> 无源码改动（未发现需修复 bug），因此本节无新提交；证据文件在 `validation-artifacts/t8/`（不入库）。
+
+### 14.1 环境与截图（agent-browser / Chromium，FastAPI 同源托管）
+
+- 主实例 8000（真实 runtime：159 经历 / 291 facts / 迁移齐全 / LLM Key 已配置）；空实例 8001（迁移后 0 经历，用于冷启动欢迎）。
+- 截图 19 张：welcome 双卡+Coming Soon 展开（8001）、/profile?import=1 导入弹窗与空列表（8001）、generate 就绪态、JD≥60 自动分析 chips、processing 真实 4 阶段、experience / privacy / dev 三页、响应式 4 分辨率（1280×800 / 1024×768 / 390×844 / 320×568）。
+- 端到端真实生成证据：首次触发成功产出 `resume_demo-user_pm_template.docx`（39,935 B）。
+
+### 14.2 结果
+
+- 响应式：四分辨率均无横向溢出（scrollWidth ≤ innerWidth：1280/1024 相等，390→375，320→305）；<900px 侧栏折叠为顶部导航。
+- 键盘/语义：Tab 首焦点入侧栏链接，沿主区推进；snapshot 可访问性树 nav/heading/link/button/textbox 完整；生成/经历页输入均有 label/aria-label/placeholder，无可访问名缺失的按钮，SVG 均 aria-hidden 或由文本命名。
+- 语义对照 DS-002：整体框架/主题一致；结构性差异（单列列表 vs 360px 双栏、真实类型筛选值域、processing 无原型流式侧栏、records 反向不实现）逐条记录于 notes/fidelity.md。
+- 偏差/限制：axe 自动扫描未运行（CDN 不可达，如实记录不视为通过）；第二次真实生成在 content_generation 阶段长时间未收尾（首次成功证明链路可用，疑似 LLM 长请求/限流）——已记 notes/bugs.md，建议验收时以 LLM 可用窗口复测。
