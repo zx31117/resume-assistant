@@ -172,7 +172,7 @@ function WelcomeView() {
           </div>
           <h3>我还没有简历</h3>
           <p>通过几次简短问答，把零散的经历整理成形。该功能即将上线。</p>
-          <span className="path-card__cta">进入演示 →</span>
+          <span className="path-card__cta path-card__cta--soon">即将上线 · 暂不可用</span>
         </button>
       </div>
 
