@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：待验收（T0 已完成；开发待启动）
+> 当前状态：开发完成，待独立验收（T1–T9 已冻结，候选 commit `e7ad146`，见 §15/§16）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不适用
+> 发布结论：不适用（待 T11 独立验收 / T12 人工验收）
 
 ## 1. 本文件用途
 
@@ -56,9 +56,9 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T6 内容预览、事实依据与 DOCX 下载 | 开发完成，待独立验收 | doc_preview/evidence 透出 + result 预览/依据/下载（`1e25e10`，见 §12）；零密钥验证 15/0 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
 | T8 Design Fidelity 与可访问性 | 开发侧验证完成，待独立验收 | 固定场景截图 + 响应式/键盘抽查完成（见 §14，证据 validation-artifacts/t8）；视觉最终判定归 T11/T12 |
-| T9 回归、统一预检与便携包 | 未开始 | 等待 T1–T8 |
-| T10 RESULT 与冻结候选 | 未开始 | 等待 T9 |
-| T11 独立验收 | 未开始 | 等待 T10 |
+| T9 回归、统一预检与便携包 | 开发完成，待独立验收 | 版本 2.1.0 元数据 + 完整统一预检绿灯 + onedir 便携包重建与包内隐私扫描（见 §15）；报告项基线如实记录 |
+| T10 RESULT 与冻结候选 | 开发收口完成，待独立验收 | RESULT 收口与候选身份（`e7ad146`）见 §16；T11/T12 为验收/发布门禁 |
+| T11 独立验收 | 未开始 | 等待开发候选（未参与实现的验收 Agent / 用户安排） |
 | T12 Product Owner 人工验收与发布 | 未开始 | 等待 T11 |
 
 ## 5. 开发交接
@@ -274,3 +274,29 @@ T0 已完成。Development Agent 启动前必须：
 - 键盘/语义：Tab 首焦点入侧栏链接，沿主区推进；snapshot 可访问性树 nav/heading/link/button/textbox 完整；生成/经历页输入均有 label/aria-label/placeholder，无可访问名缺失的按钮，SVG 均 aria-hidden 或由文本命名。
 - 语义对照 DS-002：整体框架/主题一致；结构性差异（单列列表 vs 360px 双栏、真实类型筛选值域、processing 无原型流式侧栏、records 反向不实现）逐条记录于 notes/fidelity.md。
 - 偏差/限制：axe 自动扫描未运行（CDN 不可达，如实记录不视为通过）；第二次真实生成在 content_generation 阶段长时间未收尾（首次成功证明链路可用，疑似 LLM 长请求/限流）——已记 notes/bugs.md，建议验收时以 LLM 可用窗口复测。
+
+## 15. T9 回归、统一预检与便携包（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `bda5870`（版本 2.1.0）、`e7ad146`（D-038 白名单 payload 修 2 处 lint）。
+
+### 15.1 版本元数据（2.1.0）
+
+- `backend/core/version.py` APP_VERSION → 2.1.0（单一真源）；运行期断言脚本 `_v20_smoke`/`_v201_validation`（含消息文本）→ 2.1.0；`frontend/package.json` → 2.1.0。
+- 根 README 版本标识由文档 Agent 发布收口更新（开发侧不写，记录偏差）。
+
+### 15.2 统一预检（完整，两轮）
+
+- 首轮仅前端构建因环境安全删除层拦截 vite 清空已存在 `frontend/dist` 而失败（tsc 与 transform 已通过，CI 无此问题）；`PowerShell Remove-Item` 删 dist 后第二轮**阻断检查全部通过，precheck exit 0**：Python 编译、六阻断脚本固定计数全部匹配（含 2.1.0 版本断言后 _v201 77/0、_v20 20/0 等）、前端正式构建通过、F3 默认 runtime 哨兵一致。
+- 报告项（非阻断，如实记录）：ruff 383（较基线 370 +13：T4a/T6 新增验证脚本）、pip-audit 执行超时（>900s，同 V2.0.2 环境限制）、ESLint 11（10 errors + 1 warning；较基线 6 增加：react-hooks v7 `set-state-in-effect` 规则在 T5–T7 页面的既有模式，未为此重构页面逻辑；本轮已修复开发引入的 2 处 unused-vars）、npm audit 4（3 moderate + 1 high，同基线）。
+
+### 15.3 便携包（PyInstaller onedir）
+
+- `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec` 成功（2m15s），产物 `dist/ResumeAssistant/`（git 忽略，不入库）。
+- 结构校验 4/4：入口 exe、_internal/frontend/dist/index.html、templates/pm_template.docx、config/template_mapping.json。
+- 包内隐私扫描：无开发机绝对路径、无真实 API Key/凭据、无 `.env`/数据库/输出 docx、无输入简历内容样本；仅第三方依赖的正常公共证书（certifi/grpc CA bundle）与库内 `your-api-key` 占位字符串。
+
+## 16. T10 RESULT 收口与候选身份（开发侧）
+
+- 开发候选 commit：**`e7ad146`**（version/v2.1.0，工作区 clean；祖先链覆盖 T1–T9 全部提交）。
+- 开发侧偏差汇总（截至候选）：① T1 GitHub Windows CI 真实 run 需 canonical 侧/验收阶段核对；② SystemPage（隐藏 dev 后台）能力与安全边界保留但视觉仍为 V2.0 风格，未按 DS-002 dev 视图重构（开发侧建议作为 T10 后补项或纳入下一版本，待 Product Owner 裁决）；③ 根 README 版本标识待发布收口；④ D-038 未持久化 experiences 来源列（零迁移口径，用户已确认）；⑤ per-fact 采用理由无真实来源（不编造）；⑥ axe 未运行/生成长链路二次不稳定（T8 bugs 记录）；⑦ 报告项（ruff/ESLint/pip-audit/npm audit）基线如实记录如上。
+- T11（独立验收）与 T12（Product Owner 人工验收 + 发布）为角色门禁，非开发 Agent 可执行。
