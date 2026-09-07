@@ -52,7 +52,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
 | T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
-| T5 一键生成与真实进度 | 未开始 | 等待 T2/T3 |
+| T5 一键生成与真实进度 | 开发完成，待独立验收 | 生成工作台 DS-002 重构（`39be12f`，见 §11）；真实 4 阶段映射、前端可判定阻断检查、失败保留输入 |
 | T6 内容预览、事实依据与 DOCX 下载 | 未开始 | 等待 T4/T5 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 未开始 | 等待 T3 |
 | T8 Design Fidelity 与可访问性 | 未开始 | 等待 T3–T7 |
@@ -203,3 +203,21 @@ T0 已完成。Development Agent 启动前必须：
 
 - 前端生产 build 通过（strict tsc + vite，exit 0）；git status 干净；提交 `fc2870e` 内容经复核与报告一致。
 - 偏差：页面为「工具条 + 单列列表」而非原型 360px 主从双栏（避免窄列表降低可用性，双栏/视觉细调归 T8 Design Fidelity）；ProfilePage 仍直连 endpoints（service 迁移归其后续重做）。
+
+## 11. T5 生成工作台 DS-002 重构（开发实施与自测）
+
+> 开发侧实施记录，非独立源码验收。提交 `39be12f`（version/v2.1.0，工作区 clean）。
+> 由独立执行体按完整约束清单实施，开发 Agent 复核提交与关键锚点后记录。
+
+### 11.1 内容
+
+- 输入视图：身份摘要默认一行（姓名·电话·邮箱·所在地，姓名必填缺失行内提示）可展开编辑（仅本次请求）；目标 JD 大文本 ≥60 字自动 `jd.analyze`（600ms 防抖、竞态丢弃、JD 变短清空摘要），chips 展示真实 JDAnalysis 字段；右侧生成前检查只列前端可判定阻断项（姓名缺失 / `counts.experience===0` / JD<60 字），全过显示「事实与输入已就绪」并放行主按钮；保留轻量模板选择（默认 is_default）。
+- processing：大标题 + 目标岗位 +「已提交输入 · 保留中」摘要 + 真实已用时 + 4 个用户语言阶段（从你的经历中挑选相关事实 / 受约束起草表达 / 排版装配 / 完成 DOCX 装配）+ 真实阶段明细（OperationTimeline）。
+- 4 阶段点亮规则（真实映射，宁可少点亮不猜）：阶段1=`select_experiences`+`select_evidence`、阶段2=`content_generation`、阶段3=`resume_build`、阶段4=`render`+`save_docx`+`response_assembly`（后端 resume_generation_service 真实 stage_code），仅对应 stage 全部 COMPLETED 才点亮。
+- 失败：保留输入、后端错误可见（ApiError message/stage）、diagnostic/重试信息若可得则显示；「重新生成」与「返回修改」可用；成功展示真实 download_url 下载 + warnings + 关键 stats。
+- 全程 useServices 端口；无假进度/假状态。
+
+### 11.2 验证
+
+- 前端生产 build 通过（strict tsc + vite，exit 0）；git status 干净；提交 `39be12f` 复核通过（关键锚点 13 处）。
+- 偏差：生成中「返回修改」在同步长链路未取消能力下置灰（后端无取消/断点，属既有边界，如实呈现）；身份仍未持久化 Profile（后续版本）。
