@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import OperationTimeline from '../components/OperationTimeline'
-import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
+import { Field, TextArea, TextInput } from '../components/ui/Field'
 import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
@@ -16,7 +15,6 @@ import type {
   OperationDetail,
   ResumeDocxGenerateResponse,
   SystemStatus,
-  TemplateInfo,
 } from '../api/types'
 
 /**
@@ -123,39 +121,27 @@ function phaseStatus(op: OperationDetail | null, codes: string[]): PhaseStatus {
   return 'pending'
 }
 
-/** 单条摘要 chips 区块（JDAnalysis 真实字段驱动）。 */
+/** 单条摘要 chips 区块（JDAnalysis 真实字段驱动；按 DS-002 冻结原型以「标签 · 值」单 chip 形式展示）。 */
 function AnalysisChips({ a }: { a: JDAnalysis }) {
-  const rows: Array<{ label: string; values: string[]; strong?: boolean }> = []
-  if (a.position) rows.push({ label: '目标岗位', values: [a.position], strong: true })
+  const rows: Array<{ label: string; values: string[] }> = []
+  if (a.position) rows.push({ label: '目标岗位', values: [a.position] })
   if (a.required_skills.length) rows.push({ label: '核心要求', values: a.required_skills })
   if (a.preferred_skills.length) rows.push({ label: '加分项', values: a.preferred_skills })
   if (a.experience_preferences.length) rows.push({ label: '经验偏好', values: a.experience_preferences })
   if (a.keywords.length) rows.push({ label: '关键词', values: a.keywords })
   if (a.industry) rows.push({ label: '行业', values: [a.industry] })
   return (
-    <div className="stack" style={{ gap: 'var(--s3)', marginTop: 'var(--s4)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
       {rows.map((r) => (
-        <div className="jd-field" key={r.label}>
-          <span className="jd-field__label">{r.label}</span>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 'var(--s2)',
-              fontWeight: r.strong ? 600 : undefined,
-            }}
-          >
-            {r.values.map((v, i) => (
-              <span
-                className="tag"
-                key={`${r.label}-${i}`}
-                style={r.strong ? { background: 'var(--tint)', color: 'var(--primary)' } : undefined}
-              >
-                {v}
-              </span>
-            ))}
-          </div>
-        </div>
+        <span
+          className="tag"
+          key={r.label}
+          style={{ height: 'auto', padding: '4px 10px', fontSize: 12, color: 'var(--ink)' }}
+        >
+          <strong style={{ fontWeight: 600 }}>{r.label}</strong>
+          <span style={{ margin: '0 6px', color: 'var(--border-strong)' }}>·</span>
+          {r.values.join(' · ')}
+        </span>
       ))}
     </div>
   )
@@ -335,8 +321,7 @@ function ProcessStages({ op }: { op: OperationDetail | null }) {
 export default function GeneratePage() {
   const services = useServices()
 
-  // —— 元信息：模板 / 系统状态 ——
-  const [templates, setTemplates] = useState<TemplateInfo[]>([])
+  // —— 元信息：固定模板（后端 is_default，无 UI）+ 系统状态 ——
   const [templateId, setTemplateId] = useState('')
   const [status, setStatus] = useState<SystemStatus | null>(null)
   const [metaError, setMetaError] = useState<string | null>(null)
@@ -381,11 +366,10 @@ export default function GeneratePage() {
     jdRef.current = jd
   }, [jd])
 
-  // —— 元信息加载 ——
+  // —— 元信息加载：固定模板（取后端 is_default 供 generateDocx 使用，无 UI） ——
   const loadMeta = useCallback(async () => {
     try {
       const [tpl, st] = await Promise.all([services.template.list(), services.system.status()])
-      setTemplates(tpl.templates)
       const def = tpl.templates.find((t) => t.is_default) ?? tpl.templates[0]
       setTemplateId((cur) => cur || def?.template_id || '')
       setStatus(st)
@@ -452,12 +436,12 @@ export default function GeneratePage() {
 
   // —— 生成前检查（只展示前端可真实判定的项）——
   const issues = useMemo(() => {
-    const list: Array<{ text: string }> = []
-    if (!identity.name.trim()) list.push({ text: '姓名未填写，简历无法署名。请先补全身份信息。' })
-    if (experienceCount === 0) list.push({ text: '暂无可用经历，没有可挑选的事实。请先在「我的经历」录入内容。' })
-    if (jdTooShort) {
-      list.push({ text: `JD 过短（当前 ${jdTrimmed.length} 字，至少需要 ${JD_MIN_CHARS} 字）。` })
-    }
+    const list: Array<{ title: string; desc: string }> = []
+    if (!identity.name.trim()) list.push({ title: '姓名必填', desc: '请确认已填入姓名后再继续。' })
+    if (experienceCount === 0)
+      list.push({ title: '暂无可用经历', desc: '请先在「我的经历」录入内容。' })
+    if (jdTooShort)
+      list.push({ title: 'JD 过短', desc: `当前 ${jdTrimmed.length} 字，至少需要 ${JD_MIN_CHARS} 字。` })
     return list
   }, [identity.name, experienceCount, jdTooShort, jdTrimmed.length])
 
@@ -516,65 +500,124 @@ export default function GeneratePage() {
   const setIdentityField = (k: keyof Identity) => (v: string) =>
     setIdentity((p) => ({ ...p, [k]: v }))
 
-  // ================= 输入视图 =================
+  // ================= 输入视图（DS-002 冻结原型：gen-topbar / gen-grid > gen-main + gen-rail） =================
   if (view === 'input') {
+    const position = (shownAnalysis?.position ?? '').trim()
+    const factChipTone = metaError ? 'warn' : factCount != null ? 'ok' : 'neutral'
+    const factChipText = metaError
+      ? '状态读取失败'
+      : factCount != null
+        ? `${factCount} 条事实已就绪`
+        : '读取状态中…'
     return (
-      <div className="page">
-        <PageHeader
-          title="生成简历"
-          description="根据「我的经历」中已确认的事实与目标 JD，生成一份可直接投递的 DOCX。身份输入仅用于本次请求，不会写入经历。"
-          actions={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {metaError ? (
-                <Badge tone="warn">状态读取失败</Badge>
-              ) : factCount != null ? (
-                <Badge tone="ok">{factCount} 条事实已就绪</Badge>
-              ) : (
-                <Badge tone="neutral">读取状态中…</Badge>
-              )}
-              <Link className="btn btn--secondary btn--sm" to="/profile">
-                查看我的经历
-              </Link>
-            </span>
-          }
-        />
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s6)', alignItems: 'flex-start' }}>
-          {/* —— 左列：身份摘要 + 目标岗位与 JD —— */}
-          <div
+      <div className="page" style={{ gap: 'var(--s4)' }}>
+        {/* 任务上下文 topbar：冻结原型 .gen-topbar */}
+        <div
+          role="region"
+          aria-label="当前任务上下文"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--s3)',
+            padding: 'var(--s2) var(--s4)',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-md)',
+            boxShadow: 'var(--shadow-sm)',
+            fontSize: 13,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ color: 'var(--ink-faint)' }}>生成简历</span>
+          <span style={{ color: 'var(--border-strong)' }}>/</span>
+          <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
+            目标岗位 · {position || '待分析'}
+          </span>
+          <span
+            className="tag"
             style={{
-              flex: '1 1 440px',
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--s5)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 22,
+              padding: '0 10px',
+              color:
+                factChipTone === 'ok'
+                  ? 'var(--ok)'
+                  : factChipTone === 'warn'
+                    ? 'var(--warn)'
+                    : 'var(--ink-soft)',
+              background:
+                factChipTone === 'ok'
+                  ? 'var(--ok-wash)'
+                  : factChipTone === 'warn'
+                    ? 'var(--warn-wash)'
+                    : 'var(--surface-2)',
             }}
           >
-            <Card
-              title="身份摘要"
-              subtitle="以下信息仅用于本次生成，不写入「我的经历」；姓名为必填，身份自动带入为后续版本功能。"
-              actions={
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <Badge tone="neutral">本次生成使用</Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingIdentity((v) => !v)}
-                    disabled={generating}
-                  >
-                    {editingIdentity ? '收起' : '编辑'}
-                  </Button>
-                </span>
-              }
-            >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+            {factChipText}
+          </span>
+          <span
+            className="tag"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 22,
+              padding: '0 10px',
+              color: 'var(--ok)',
+              background: 'var(--ok-wash)',
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+            输入保留中
+          </span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--s2)' }}>
+            <Link className="btn btn--secondary btn--sm" to="/profile">
+              查看我的经历
+            </Link>
+          </div>
+        </div>
+
+        {/* 冻结原型 .gen-grid：minmax(0,1fr) 400px 左右两列 */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) 400px',
+            gap: 'var(--s4)',
+            alignItems: 'start',
+          }}
+        >
+          {/* —— 左侧 .gen-main：身份摘要 + 目标岗位与 JD —— */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s4)', minWidth: 0 }}>
+            {/* .identity-card */}
+            <div className="card" style={{ padding: 'var(--s4) var(--s5)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 'var(--s3)',
+                  gap: 'var(--s3)',
+                }}
+              >
+                <div className="card__title" style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s2)' }}>
+                  身份摘要
+                  <span style={{ color: 'var(--ink-faint)', fontSize: 12, fontWeight: 400 }}>
+                    默认可见 · 点击编辑
+                  </span>
+                </div>
+                <Badge tone="accent">本次生成使用</Badge>
+              </div>
               {editingIdentity ? (
-                <div className="stack">
+                <div>
                   <div className="form-grid">
-                    <Field label="姓名（必填）" hint="用于简历署名。">
+                    <Field label="姓名 *" hint="必填。仅用于本次生成；身份信息自动带入为后续版本功能。">
                       <TextInput
                         value={identity.name}
                         onChange={(e) => setIdentityField('name')(e.target.value)}
-                        placeholder="张三"
+                        placeholder="例如：张三"
                       />
                     </Field>
                     <Field label="联系电话">
@@ -600,43 +643,102 @@ export default function GeneratePage() {
                       />
                     </Field>
                   </div>
-                  <div className="hstack" style={{ marginTop: 'var(--s2)' }}>
+                  <div
+                    style={{
+                      marginTop: 'var(--s3)',
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
                     <Button variant="secondary" size="sm" onClick={() => setEditingIdentity(false)}>
                       完成
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="hstack" style={{ marginTop: 0, gap: 'var(--s2)' }}>
-                  <span style={identity.name.trim() ? undefined : { color: 'var(--error)', fontWeight: 600 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--s3)',
+                    flexWrap: 'wrap',
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: 'var(--ink-soft)',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
                     {identity.name.trim() || '—'}
                   </span>
-                  {!identity.name.trim() && <span style={{ color: 'var(--error)', fontWeight: 600 }}>姓名未填写</span>}
-                  <span className="muted">·</span>
+                  {!identity.name.trim() && (
+                    <span style={{ color: 'var(--warn)', fontWeight: 600, fontSize: 12 }}>
+                      姓名未填写
+                    </span>
+                  )}
+                  <span style={{ color: 'var(--border-strong)' }}>·</span>
                   <span>{identity.phone.trim() || '—'}</span>
-                  <span className="muted">·</span>
+                  <span style={{ color: 'var(--border-strong)' }}>·</span>
                   <span>{identity.email.trim() || '—'}</span>
-                  <span className="muted">·</span>
+                  <span style={{ color: 'var(--border-strong)' }}>·</span>
                   <span>{identity.location.trim() || '—'}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingIdentity(true)}
+                    disabled={generating}
+                    style={{ marginLeft: 'auto', height: 30, padding: '0 10px' }}
+                  >
+                    编辑
+                  </Button>
                 </div>
               )}
-            </Card>
+            </div>
 
-            <Card
-              title="目标岗位与 JD"
-              subtitle="粘贴完整岗位描述；文本达到 60 字后会自动分析一次，右侧展示解析摘要。"
-            >
-              <TextArea
-                value={jd}
-                onChange={(e) => setJd(e.target.value)}
-                placeholder="将招聘 JD 完整粘贴于此…"
-                style={{ minHeight: 200 }}
-              />
-              <div className="hstack" style={{ marginTop: 'var(--s3)', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="muted">
-                  {jdTrimmed.length} 字{jdTooShort ? `（不足 ${JD_MIN_CHARS} 字，暂不分析）` : ''}
+            {/* .jd-card */}
+            <div className="card" style={{ padding: 'var(--s4) var(--s5)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 'var(--s3)',
+                  gap: 'var(--s3)',
+                }}
+              >
+                <div className="card__title" style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s2)' }}>
+                  目标岗位与 JD
+                  <span style={{ color: 'var(--ink-faint)', fontSize: 12, fontWeight: 400 }}>同屏输入</span>
+                </div>
+                <Badge tone="ok">JD 分析 · Active</Badge>
+              </div>
+              <div className="field" style={{ marginBottom: 'var(--s3)' }}>
+                <label htmlFor="i-jd" className="field__label">
+                  粘贴完整岗位描述
+                </label>
+                <TextArea
+                  id="i-jd"
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                  placeholder="将招聘 JD 完整粘贴于此。系统会在右侧实时输出解析过程。"
+                  style={{ minHeight: 220 }}
+                />
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 'var(--s2)',
+                  fontSize: 12,
+                  color: 'var(--ink-soft)',
+                }}
+              >
+                <span>
+                  {jdTrimmed.length} 字
+                  {jdTooShort ? `（不足 ${JD_MIN_CHARS} 字，暂不分析）` : ''}
                 </span>
-                <div className="hstack" style={{ marginTop: 0, gap: 'var(--s2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
                   {analyzing ? (
                     <Badge tone="accent">分析中…</Badge>
                   ) : shownAnalysis ? (
@@ -660,71 +762,141 @@ export default function GeneratePage() {
               </div>
               {analyzeError && <div className="notice notice--danger">{analyzeError}</div>}
               {analysis != null && !analysisFresh && !analyzing && (
-                <div className="notice notice--warn">JD 已修改，将自动重新分析（约 {JD_ANALYZE_DEBOUNCE_MS / 1000}s 内触发）。</div>
-              )}
-              {shownAnalysis && <AnalysisChips a={shownAnalysis} />}
-            </Card>
-          </div>
-
-          {/* —— 右列：生成前检查 + 生成 CTA —— */}
-          <div
-            style={{
-              flex: '0 1 340px',
-              width: 340,
-              maxWidth: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--s4)',
-            }}
-          >
-            <Card title="生成前检查">
-              {blocked ? (
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--s3)' }}>
-                  {issues.map((it, i) => (
-                    <li key={i} style={{ display: 'flex', gap: 'var(--s3)', color: 'var(--error)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-                      <span aria-hidden="true">•</span>
-                      <span>{it.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="notice notice--ok" style={{ marginTop: 0 }}>
-                  事实与输入已就绪，可直接生成。
+                <div className="notice notice--warn">
+                  JD 已修改，将自动重新分析（约 {JD_ANALYZE_DEBOUNCE_MS / 1000}s 内触发）。
                 </div>
               )}
-            </Card>
+              {shownAnalysis && <AnalysisChips a={shownAnalysis} />}
+            </div>
+          </div>
 
-            <div
-              style={{
-                padding: 'var(--s4) var(--s5)',
-                borderRadius: 'var(--r-lg)',
-                background: 'var(--surface-2)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--ink-soft)',
-                lineHeight: 1.6,
-              }}
-            >
-              系统会基于你已确认的事实与本岗位 JD 完成选材、表达与排版。生成中保留输入与状态；失败时返回修改不会丢失任何字段。
+          {/* —— 右侧 .gen-rail：生成前检查 + 产品级说明 + gen-cta —— */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s3)', minWidth: 0 }}>
+            {/* .missing-summary / .missing-panel：生成前检查 */}
+            <div className="card" style={{ padding: 'var(--s4)' }}>
+              <h4
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--ink)',
+                  margin: 0,
+                  marginBottom: 'var(--s3)',
+                }}
+              >
+                生成前检查
+              </h4>
+              {blocked ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {issues.map((it, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 'var(--s3)',
+                        padding: 'var(--s2) 0',
+                        borderTop: i === 0 ? 'none' : '1px dashed var(--border)',
+                      }}
+                    >
+                      <div style={{ flex: 1, fontSize: 13, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{it.title}</div>
+                        <div style={{ color: 'var(--ink-soft)', fontSize: 12, marginTop: 2 }}>
+                          {it.desc}
+                        </div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                        <Badge tone="danger">阻断</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--s2)',
+                    color: 'var(--ok)',
+                    fontSize: 13,
+                  }}
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  事实与输入已就绪，可直接生成
+                </div>
+              )}
             </div>
 
-            <Card
-              title="生成"
-              actions={<Badge tone="neutral">{templates.length ? `${templates.length} 个模板` : '…'}</Badge>}
+            {/* .gen-banner：产品级说明 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--s2)',
+                padding: 'var(--s2) var(--s3)',
+                background: 'var(--info-wash)',
+                border: '1px solid color-mix(in srgb, var(--info) 22%, transparent)',
+                borderRadius: 'var(--r-md)',
+                fontSize: 12,
+                color: 'var(--ink-soft)',
+                lineHeight: 1.5,
+              }}
             >
-              <Field label="模板">
-                <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                  {templates.length === 0 && <option value="">加载模板中…</option>}
-                  {templates.map((t) => (
-                    <option key={t.template_id} value={t.template_id}>
-                      {t.display_name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {metaError && <div className="notice notice--warn">模板 / 状态读取失败：{metaError}</div>}
-              {blocked && (
-                <div className="muted" style={{ marginTop: 'var(--s3)' }}>
-                  请先处理上方 {issues.length} 项问题后即可生成。
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                style={{ color: 'var(--info)', flexShrink: 0 }}
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              <div>
+                <strong style={{ color: 'var(--ink)' }}>
+                  系统会基于你已确认的事实与本岗位 JD 完成选材、表达与排版。
+                </strong>
+                生成中保留输入与状态；失败时返回修改不会丢失任何字段。
+              </div>
+            </div>
+
+            {/* .gen-cta：precheck-ready + 主按钮 + 底部行 */}
+            <div className="card" style={{ padding: 'var(--s4)' }}>
+              {!blocked && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--s2)',
+                    fontSize: 13,
+                    color: 'var(--ok)',
+                    marginBottom: 'var(--s3)',
+                  }}
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  事实与输入已就绪，可直接生成
                 </div>
               )}
               <Button
@@ -732,14 +904,29 @@ export default function GeneratePage() {
                 size="lg"
                 onClick={() => void beginGenerate()}
                 disabled={blocked}
-                style={{ width: '100%', marginTop: 'var(--s4)' }}
+                style={{ width: '100%' }}
               >
                 生成岗位简历
               </Button>
-              <div className="muted" style={{ marginTop: 'var(--s3)' }}>
-                生成中保留输入与状态；全程由真实服务端阶段驱动。
+              <div
+                style={{
+                  marginTop: 'var(--s3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: 12,
+                  color: 'var(--ink-soft)',
+                }}
+              >
+                <span>生成中保留输入与状态</span>
+                <Link
+                  to="/profile"
+                  style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
+                >
+                  查看我的经历
+                </Link>
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </div>
