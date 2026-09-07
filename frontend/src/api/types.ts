@@ -135,6 +135,34 @@ export interface RenderStats {
   capacity_warnings: string[]
 }
 
+// ———— V2.1.0 T6：内容预览 + 逐 bullet 事实依据 ————
+
+/** V2.1.0 T6：内容预览条目（来自最终 ResumeDocument 的只读投影）。 */
+export interface DocPreviewEntry {
+  heading: string
+  subhead?: string
+  bullets: string[]
+  experience_id?: string | null
+  /** 真实 EvidenceEntry.selection_reason；无值时为 null/undefined，不编造。 */
+  selection_reason?: string | null
+}
+
+/** V2.1.0 T6：内容预览的一个 section（personal/work/project/education/skills/awards）。 */
+export interface DocPreviewSection {
+  section: string
+  title: string
+  entries: DocPreviewEntry[]
+}
+
+/** V2.1.0 T6：单条事实原文（来自 Fact.text 的真实 DB 读取）。
+ *  - reason：本流水线不记录 per-fact 采用理由，留空，不编造。 */
+export interface EvidenceFact {
+  fact_id: string
+  experience_id?: string | null
+  text: string
+  reason?: string
+}
+
 export interface ResumeDocxGenerateResponse {
   ok: true
   file_path: string
@@ -151,6 +179,9 @@ export interface ResumeDocxGenerateResponse {
   build_meta: BuildMeta
   render_stats: RenderStats
   template_id: string
+  // V2.1.0 T6：内容预览 + 逐 bullet 事实依据（老契约不消费时为 null）
+  doc_preview?: DocPreviewSection[] | null
+  evidence?: Record<string, EvidenceFact[]> | null
 }
 
 // ———— 模板（GET /api/template/list） ————

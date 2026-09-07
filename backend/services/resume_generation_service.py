@@ -20,6 +20,9 @@ from sqlalchemy.orm import Session
 from api.schemas import (
     BuildCounts,
     BuildMeta,
+    DocPreviewEntry,
+    DocPreviewSection,
+    EvidenceFact,
     JDAnalysisOut,
     RenderStats,
     RequestProfile,
@@ -39,7 +42,7 @@ from core.errors import (
 )
 from core.operations import OperationType, Recording, ResourceType, tracker
 from database import models
-from database.models import SchemaVersion
+from database.models import Fact, SchemaVersion
 from database.migrations import (
     SCHEMA_VERSION_FACT_MIGRATION,
     SCHEMA_VERSION_FACT_SCHEMA,
@@ -132,6 +135,157 @@ def _ensure_migrations_applied(db: Session) -> dict:
             details={"missing": missing, "applied": sorted(applied)},
         )
     return {"applied": sorted(applied)}
+
+
+# ── V2.1.0 T6：内容预览 + 逐 bullet 事实依据（只读投影） ──────────────── #
+
+def _build_doc_preview(resume_doc: ResumeDocument) -> list[DocPreviewSection]:
+    """V2.1.0 T6：把最终 ResumeDocument 投影为内容预览 DTO 列表。
+
+    纯只读：不修改 resume_doc；不调 LLM/DB；不编造任何字段。
+    字段全部来自真实 ResumeDocument（profile / work / project / education /
+    skills / awards），空 section 直接不输出。
+    """
+    sections: list[DocPreviewSection] = []
+
+    # ── personal：profile 头部（不来自模板） ──
+    profile = resume_doc.profile
+    personal_bullets: list[str] = []
+    if profile.target_position:
+        personal_bullets.append(f"目标岗位：{profile.target_position}")
+    if profile.location:
+        personal_bullets.append(f"所在地：{profile.location}")
+    if profile.summary:
+        personal_bullets.append(f"自我评价：{profile.summary}")
+    contact_subhead = " · ".join(
+        x for x in [profile.phone, profile.email] if x
+    )
+    sections.append(DocPreviewSection(
+        section="personal",
+        title="个人信息",
+        entries=[DocPreviewEntry(
+            heading=profile.name or "（未署名）",
+            subhead=contact_subhead,
+            bullets=personal_bullets,
+        )],
+    ))
+
+    # ── work：工作经历 ──
+    if resume_doc.work:
+        sec = DocPreviewSection(section="work", title="工作经历")
+        for w in resume_doc.work:
+            head = " · ".join(
+                x for x in [w.company, w.role] if x
+            ) or "工作经历"
+            sub_parts: list[str] = []
+            if w.start_time:
+                sub_parts.append(f"{w.start_time} - {w.end_time or '至今'}")
+            elif w.end_time:
+                sub_parts.append(w.end_time)
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=list(w.bullets or []),
+                experience_id=w.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── project：项目经历 ──
+    if resume_doc.projects:
+        sec = DocPreviewSection(section="project", title="项目经历")
+        for p in resume_doc.projects:
+            head = " · ".join(
+                x for x in [p.name, p.role] if x
+            ) or "项目"
+            sub_parts: list[str] = []
+            if p.start_time:
+                sub_parts.append(f"{p.start_time} - {p.end_time or '至今'}")
+            elif p.end_time:
+                sub_parts.append(p.end_time)
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=list(p.bullets or []),
+                experience_id=p.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── education：教育背景（formal + campus） ──
+    if resume_doc.education:
+        sec = DocPreviewSection(section="education", title="教育背景")
+        for e in resume_doc.education:
+            head = " · ".join(
+                x for x in [e.school, e.major] if x
+            ) or "教育"
+            sub_parts: list[str] = []
+            if e.start_time:
+                sub_parts.append(f"{e.start_time} - {e.end_time or '至今'}")
+            elif e.end_time:
+                sub_parts.append(e.end_time)
+            bullets = list(e.bullets or [])
+            if e.description and not bullets:
+                # formal education 通常没有 bullets；将 description 作为单条 bullet
+                # 真实保留事实文本，不杜撰内容。
+                bullets = [e.description]
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=bullets,
+                experience_id=e.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── skills：技能分组 ──
+    if resume_doc.skills:
+        sec = DocPreviewSection(section="skills", title="技能")
+        for g in resume_doc.skills:
+            sec.entries.append(DocPreviewEntry(
+                heading=g.category or "技能",
+                subhead="",
+                bullets=list(g.items or []),
+            ))
+        sections.append(sec)
+
+    # ── awards：获奖 / 证书（扁平字符串） ──
+    if resume_doc.awards:
+        sections.append(DocPreviewSection(
+            section="awards",
+            title="获奖 / 证书",
+            entries=[DocPreviewEntry(heading="", subhead="", bullets=list(resume_doc.awards))],
+        ))
+
+    return sections
+
+
+def _build_evidence_map(
+    db: Session,
+    fact_ids: list[str],
+) -> dict[str, list[EvidenceFact]]:
+    """V2.1.0 T6：按 fact_id 从 Fact 表读取原文，按 experience_id 聚合。
+
+    只读：仅 SELECT；不写库。空入参直接返回空 dict。
+    reason 字段保持空字符串——本流水线不记录 per-fact 采用理由。
+    """
+    if not fact_ids:
+        return {}
+    seen: list[str] = []
+    dedup: dict[str, None] = {}
+    for fid in fact_ids:
+        if fid and fid not in dedup:
+            dedup[fid] = None
+            seen.append(fid)
+    if not seen:
+        return {}
+    rows = db.query(Fact).filter(Fact.fact_id.in_(seen)).all()
+    out: dict[str, list[EvidenceFact]] = {}
+    for f in rows:
+        out.setdefault(f.experience_id or "", []).append(EvidenceFact(
+            fact_id=f.fact_id,
+            experience_id=f.experience_id,
+            text=(f.text or "").strip(),
+            reason="",
+        ))
+    return out
 
 
 def generate_docx(
@@ -307,6 +461,32 @@ def generate_docx(
                 merged = sorted(set(build_meta_obj.ai_unrecognized_experience_ids) | set(cg_unrecognized))
                 build_meta_obj = build_meta_obj.model_copy(update={"ai_unrecognized_experience_ids": merged})
 
+            # V2.1.0 T6：内容预览 + 逐 bullet 事实依据（只读投影，不改 builder/renderer/selection/rewrite）
+            doc_preview = _build_doc_preview(resume_doc)
+            # 取真实 selection_reason（per-experience 来自 EvidenceEntry；evidence_set 在作用域内）
+            selection_reason_by_exp: dict[str, str] = {}
+            if evidence_set is not None:
+                for _entry in evidence_set.entries:
+                    if _entry.selection_reason and _entry.experience_id:
+                        selection_reason_by_exp[_entry.experience_id] = _entry.selection_reason
+            for _sec in doc_preview:
+                for _ent in _sec.entries:
+                    if _ent.experience_id and _ent.experience_id in selection_reason_by_exp:
+                        _ent.selection_reason = selection_reason_by_exp[_ent.experience_id]
+            # 收集 doc_preview 涉及到的全部 experience_id，按 build_meta.fact_refs_per_experience 找 fact_id
+            _exp_ids = {
+                _ent.experience_id
+                for _sec in doc_preview
+                for _ent in _sec.entries
+                if _ent.experience_id
+            }
+            _fact_ids: list[str] = []
+            for _eid in _exp_ids:
+                for _fid in (build_meta.get("fact_refs_per_experience") or {}).get(_eid, []) or []:
+                    if _fid:
+                        _fact_ids.append(_fid)
+            evidence_map = _build_evidence_map(db, _fact_ids)
+
         return ResumeDocxGenerateResponse(
             operation_id=recording.operation_id,
             file_path=f"output/{file_name}",
@@ -322,4 +502,6 @@ def generate_docx(
             build_meta=build_meta_obj,
             render_stats=render_stats,
             template_id=req.template_id,
+            doc_preview=doc_preview,
+            evidence=evidence_map,
         )

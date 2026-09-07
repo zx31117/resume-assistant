@@ -1,7 +1,7 @@
 """Pydantic 请求/响应模型（对外契约）。"""
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -360,6 +360,51 @@ class RenderStats(BaseModel):
         return all(s.input_items == s.rendered_items for s in self.sections)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# V2.1.0 T6：内容预览 + 逐 bullet 事实依据（薄投影，事实与依据真实可得）
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DocPreviewEntry(BaseModel):
+    """V2.1.0 T6：内容预览条目——来自最终 ResumeDocument 的只读投影。
+
+    - heading / subhead / bullets：完全来自 Builder 装配后的真实字段
+      （work/project：事实字段来自 SQL；bullets 来自受约束改写或 SQL 回退）。
+    - experience_id：仅当该条目对应一次 Experience 装配时给出。
+    - selection_reason：来自第二层事实选材 EvidenceEntry.selection_reason
+      （本次生成真实可得时携带；无值则不返回，不编造）。
+    """
+
+    heading: str = ""
+    subhead: str = ""
+    bullets: List[str] = []
+    experience_id: Optional[str] = None
+    selection_reason: Optional[str] = None
+
+
+class DocPreviewSection(BaseModel):
+    """V2.1.0 T6：内容预览的一个 section。
+
+    section ∈ "personal" | "work" | "project" | "education" | "skills" | "awards"
+    """
+
+    section: str
+    title: str
+    entries: List[DocPreviewEntry] = []
+
+
+class EvidenceFact(BaseModel):
+    """V2.1.0 T6：单条事实的原文（来自 Fact.text 的真实 DB 读取）。
+
+    - reason：当前流水线不记录 per-fact 采用理由；遵循「无法真实获取则
+      留空/不返回，禁止编造」，故默认空字符串。
+    """
+
+    fact_id: str
+    experience_id: Optional[str] = None
+    text: str = ""
+    reason: str = ""
+
+
 class ResumeDocxGenerateResponse(BaseModel):
     """PLAN §4.3：核心接口成功响应。"""
 
@@ -384,6 +429,12 @@ class ResumeDocxGenerateResponse(BaseModel):
     build_meta: BuildMeta = BuildMeta()
     render_stats: RenderStats = RenderStats()
     template_id: str = ""
+
+    # V2.1.0 T6：内容预览（来自本次真实 ResumeDocument 的只读投影）
+    # + 逐 bullet 事实依据所需的事实原文（按 experience_id 聚合）。
+    # 旧调用方不传/不消费时默认 None；不破坏既有契约。
+    doc_preview: Optional[List[DocPreviewSection]] = None
+    evidence: Optional[Dict[str, List[EvidenceFact]]] = None
 
 
 

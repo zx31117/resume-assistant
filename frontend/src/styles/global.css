@@ -1037,3 +1037,234 @@ button {
 .exp-source div + div {
   margin-top: var(--s1);
 }
+
+/* ============================================================
+   V2.1.0 T6：生成结果页 —— 内容预览（paper）+ 逐 bullet 依据侧栏
+   ============================================================ */
+
+/* 双栏壳：左 paper 预览，右 sticky 依据 / 导出侧栏 */
+.result-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--s5);
+  align-items: flex-start;
+}
+
+.result-shell__preview {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.result-shell__aside {
+  min-width: 0;
+  position: sticky;
+  top: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+@media (max-width: 1023px) {
+  .result-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .result-shell__aside {
+    position: static;
+  }
+}
+
+/* 预览区滚动容器（防止长内容把整页撑开） */
+.preview-scroll {
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+  padding: var(--s3);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+/* 纸张（内容预览）：真实文本，不冒充 DOCX 像素预览 */
+.paper-preview {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--s7) var(--s7);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.paper-preview__section + .paper-preview__section {
+  margin-top: var(--s6);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+.paper-preview__heading {
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: var(--s3);
+}
+
+.paper-preview__entry {
+  padding: var(--s3) 0;
+}
+
+.paper-preview__entry + .paper-preview__entry {
+  border-top: 1px dashed var(--line);
+}
+
+.paper-preview__entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.paper-preview__entry-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.paper-preview__entry-sub {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+}
+
+.paper-preview__bullets {
+  list-style: disc;
+  padding-left: 1.4em;
+  margin: var(--s2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+/* 单条 bullet：可点击高亮；可访问聚焦态 */
+.paper-preview__bullet {
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  color: var(--ink);
+}
+
+.paper-preview__bullet:hover {
+  background: var(--surface-2);
+}
+
+.paper-preview__bullet:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-preview__bullet--selected {
+  background: var(--tint);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.paper-preview__skill-line {
+  margin-top: var(--s1);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.paper-preview__skill-line strong {
+  color: var(--ink);
+  font-weight: 600;
+  margin-right: var(--s2);
+}
+
+/* 内容预览声明：诚实告知「下载的 DOCX 为最终正式文件」 */
+.preview-disclaimer {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.preview-disclaimer strong {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* 依据面板（sticky 侧栏） */
+.evidence-panel__empty {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.evidence-panel__hint {
+  margin-top: var(--s3);
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.evidence-panel__meta {
+  margin-top: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.evidence-panel__meta-row {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.evidence-panel__meta-row strong {
+  color: var(--ink);
+  font-weight: 600;
+  margin-right: var(--s2);
+}
+
+.evidence-panel__fact {
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  padding: var(--s2) var(--s3);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.evidence-panel__fact + .evidence-panel__fact {
+  margin-top: var(--s2);
+}
+
+.evidence-panel__fact-text {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.evidence-panel__fact-meta {
+  margin-top: var(--s1);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+/* 导出卡（侧栏底部） */
+.export-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.export-card__hint {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  line-height: 1.5;
+}

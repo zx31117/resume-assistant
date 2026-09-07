@@ -9,7 +9,15 @@ import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
-import type { JDAnalysis, OperationDetail, ResumeDocxGenerateResponse, SystemStatus, TemplateInfo } from '../api/types'
+import type {
+  DocPreviewSection,
+  EvidenceFact,
+  JDAnalysis,
+  OperationDetail,
+  ResumeDocxGenerateResponse,
+  SystemStatus,
+  TemplateInfo,
+} from '../api/types'
 
 /**
  * V2.1.0（T5）：生成简历 —— 按 DS-002 基线重构交互，但所有能力保持真实：
@@ -153,6 +161,107 @@ function AnalysisChips({ a }: { a: JDAnalysis }) {
   )
 }
 
+/** V2.1.0 T6：依据面板 —— 点击 bullet 后展示其真实 evidence（事实原文 / 采用原因 / 所属经历）。
+ *  一切以 `result.evidence`（来自后端 Fact 表的真实原文）与 `result.build_meta.bullet_fact_refs`
+ *  （后端 R7 per-bullet 引用映射）为准；本流水线不记录 per-fact 采用原因，故 EvidenceFact.reason
+ *  保持空、不编造；selection_reason 仅在该经历真实携带时显示。
+ */
+function EvidencePanel({
+  result,
+  selected,
+  docPreview,
+}: {
+  result: ResumeDocxGenerateResponse
+  selected: { sectionIdx: number; entryIdx: number; bulletIdx: number } | null
+  docPreview: DocPreviewSection[] | null
+}) {
+  if (!selected || !docPreview) {
+    return (
+      <div>
+        <div className="evidence-panel__empty">未选中任何 bullet。</div>
+        <div className="evidence-panel__hint">
+          点击左侧「内容预览」中的 bullet 即可查看其真实事实原文与采用原因；
+          流水线不记录 per-fact 采用原因时不会编造内容。
+        </div>
+      </div>
+    )
+  }
+  const sec = docPreview[selected.sectionIdx]
+  const ent = sec?.entries[selected.entryIdx]
+  if (!ent) {
+    return <div className="evidence-panel__empty">未选中任何 bullet。</div>
+  }
+  const bullet = ent.bullets[selected.bulletIdx] ?? ''
+  const expId = ent.experience_id ?? null
+  const perBulletRefs = expId
+    ? (result.build_meta.bullet_fact_refs?.[expId]?.[selected.bulletIdx] ?? [])
+    : []
+  const factIds = perBulletRefs.filter((x) => !!x)
+  const factsForExp = expId ? (result.evidence?.[expId] ?? []) : []
+  const facts: EvidenceFact[] = factIds
+    .map((fid) => factsForExp.find((f) => f.fact_id === fid))
+    .filter((x): x is EvidenceFact => !!x)
+  return (
+    <div>
+      <div className="evidence-panel__meta">
+        {ent.heading && (
+          <div className="evidence-panel__meta-row">
+            <strong>所在条目</strong>
+            <span style={{ color: 'var(--ink)' }}>{ent.heading}</span>
+          </div>
+        )}
+        {ent.subhead && (
+          <div className="evidence-panel__meta-row">
+            <strong>时段</strong>
+            <span style={{ color: 'var(--ink)' }}>{ent.subhead}</span>
+          </div>
+        )}
+        <div className="evidence-panel__meta-row">
+          <strong>当前 bullet</strong>
+          <span style={{ color: 'var(--ink)' }}>{bullet || '—'}</span>
+        </div>
+      </div>
+
+      {ent.selection_reason && (
+        <div className="evidence-panel__meta" style={{ marginTop: 'var(--s3)' }}>
+          <div className="evidence-panel__meta-row">
+            <strong>采用原因</strong>
+            <span style={{ color: 'var(--ink)' }}>{ent.selection_reason}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 'var(--s3)' }}>
+        <div
+          className="evidence-panel__meta-row"
+          style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 'var(--s1)' }}
+        >
+          事实原文
+        </div>
+        {facts.length > 0 ? (
+          facts.map((f) => (
+            <div key={f.fact_id} className="evidence-panel__fact">
+              <div className="evidence-panel__fact-text">{f.text || '（事实原文为空）'}</div>
+              <div className="evidence-panel__fact-meta">
+                所属经历：{f.experience_id ?? '—'} · fact_id: {f.fact_id}
+                {f.reason ? ` · 采用：${f.reason}` : ''}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="evidence-panel__empty">本条没有可回查的独立事实引用。</div>
+        )}
+      </div>
+
+      {expId && factIds.length === 0 && (
+        <div className="evidence-panel__hint">
+          （该 bullet 未在本次第二层选材中关联到独立 fact，可能是材料不足走 SQL 回退；不虚构理由）
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** 4 个用户语言阶段的可视列表（由真实阶段事件点亮）。 */
 function ProcessStages({ op }: { op: OperationDetail | null }) {
   const tailOf: Record<PhaseStatus, string> = { done: '已完成', active: '进行中', pending: '等待', failed: '失败' }
@@ -253,7 +362,15 @@ export default function GeneratePage() {
   const [opId, setOpId] = useState<string | null>(null)
   const [result, setResult] = useState<ResumeDocxGenerateResponse | null>(null)
   const [genError, setGenError] = useState<GenError | null>(null)
+  // V2.1.0 T6：当前选中的 bullet（用于依据面板）；新生成结果时清空
+  const [selectedBullet, setSelectedBullet] = useState<
+    { sectionIdx: number; entryIdx: number; bulletIdx: number } | null
+  >(null)
   const runSeq = useRef(0)
+
+  useEffect(() => {
+    setSelectedBullet(null)
+  }, [result])
 
   // 生成期间轮询该 op 的真实阶段（约 1s，页面不可见时 3s）；离开处理视图即停止。
   const polled = useOperation(opId, view === 'processing' && opId != null && !result)
@@ -634,7 +751,7 @@ export default function GeneratePage() {
     <div
       className="page"
       style={{
-        maxWidth: 900,
+        maxWidth: result ? 1120 : 900,
         width: '100%',
         margin: '0 auto',
         alignItems: 'stretch',
@@ -757,7 +874,8 @@ export default function GeneratePage() {
       {/* 成功态 */}
       {result && (
         <>
-          <Card title="下载 DOCX" subtitle={result.file_name}>
+          {/* 本次结果摘要：warnings + 关键 kv（不杜撰任何字段） */}
+          <Card title="本次结果" subtitle={result.file_name}>
             {result.warnings && result.warnings.length > 0 && (
               <div className="notice notice--warn" style={{ marginTop: 0 }}>
                 {result.warnings.map((w, i) => (
@@ -785,21 +903,148 @@ export default function GeneratePage() {
                 <span className="kv__v">{result.template_id}</span>
               </div>
             </div>
-            <div className="hstack" style={{ marginTop: 'var(--s4)' }}>
-              <a className="btn btn--primary" href={result.download_url} download>
-                下载 DOCX
-              </a>
-              <Link className="btn btn--secondary" to="/profile">
-                前往我的经历
-              </Link>
-              <Button variant="ghost" size="sm" onClick={backToEdit}>
-                返回修改输入
-              </Button>
-            </div>
           </Card>
-          <div className="hstack" style={{ marginTop: 0 }}>
-            <Badge tone="ok">已生成</Badge>
-            <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
+
+          {/* 左：内容预览（真实文本）；右：sticky 下载/依据 侧栏 */}
+          <div className="result-shell">
+            <div className="result-shell__preview">
+              <div className="preview-disclaimer">
+                <Badge tone="neutral">内容预览</Badge>
+                <span>
+                  文本来自本次生成结果；<strong>下载的 DOCX 为最终正式文件</strong>，预览不冒充 DOCX 像素。
+                </span>
+              </div>
+              <div className="preview-scroll">
+                <article className="paper-preview" aria-label="简历内容预览">
+                  {result.doc_preview && result.doc_preview.length > 0 ? (
+                    result.doc_preview.map((sec, sIdx) => (
+                      <section
+                        key={`${sec.section}-${sIdx}`}
+                        className="paper-preview__section"
+                      >
+                        <h2 className="paper-preview__heading">{sec.title}</h2>
+                        {sec.entries.map((ent, eIdx) => (
+                          <div key={`${sIdx}-${eIdx}`} className="paper-preview__entry">
+                            <div className="paper-preview__entry-head">
+                              {ent.heading && (
+                                <span className="paper-preview__entry-title">{ent.heading}</span>
+                              )}
+                              {ent.subhead && (
+                                <span className="paper-preview__entry-sub">{ent.subhead}</span>
+                              )}
+                            </div>
+                            {sec.section === 'skills' ? (
+                              <div className="paper-preview__skill-line">
+                                <strong>{ent.heading}</strong>
+                                {ent.bullets.join('、')}
+                              </div>
+                            ) : ent.bullets.length > 0 ? (
+                              <ul className="paper-preview__bullets">
+                                {ent.bullets.map((b, bIdx) => {
+                                  const isSelected =
+                                    selectedBullet?.sectionIdx === sIdx &&
+                                    selectedBullet?.entryIdx === eIdx &&
+                                    selectedBullet?.bulletIdx === bIdx
+                                  return (
+                                    <li
+                                      key={`${sIdx}-${eIdx}-${bIdx}`}
+                                      className={
+                                        'paper-preview__bullet' +
+                                        (isSelected ? ' paper-preview__bullet--selected' : '')
+                                      }
+                                      onClick={() =>
+                                        setSelectedBullet({
+                                          sectionIdx: sIdx,
+                                          entryIdx: eIdx,
+                                          bulletIdx: bIdx,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault()
+                                          setSelectedBullet({
+                                            sectionIdx: sIdx,
+                                            entryIdx: eIdx,
+                                            bulletIdx: bIdx,
+                                          })
+                                        }
+                                      }}
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-pressed={isSelected}
+                                    >
+                                      {b}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            ) : null}
+                          </div>
+                        ))}
+                      </section>
+                    ))
+                  ) : (
+                    <div
+                      className="empty"
+                      style={{ padding: 'var(--s6) var(--s4)' }}
+                    >
+                      <div className="empty__title">本次响应未携带内容预览</div>
+                      <div className="empty__desc">
+                        可直接下载下方 DOCX；预览能力在升级到带 V2.1.0 T6 字段的后端后可用。
+                      </div>
+                    </div>
+                  )}
+                </article>
+              </div>
+            </div>
+
+            <aside className="result-shell__aside" aria-label="依据 / 导出">
+              <Card title="下载 DOCX">
+                <div className="export-card">
+                  <div className="export-card__hint">
+                    文件名：<strong style={{ color: 'var(--ink)' }}>{result.file_name}</strong>
+                  </div>
+                  <a
+                    className="btn btn--primary btn--lg"
+                    href={result.download_url}
+                    download
+                  >
+                    下载 DOCX
+                  </a>
+                  <div className="export-card__hint">
+                    下载为浏览器原生行为，不通过中转。
+                  </div>
+                  <div className="hstack" style={{ marginTop: 0 }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void beginGenerate()}
+                      disabled={generating}
+                    >
+                      重新生成
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={backToEdit}>
+                      返回修改输入
+                    </Button>
+                  </div>
+                  <div className="hstack" style={{ marginTop: 0 }}>
+                    <Badge tone="ok">已生成</Badge>
+                    <span className="op-id">#{result.operation_id.slice(0, 8)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                title="逐条依据"
+                subtitle="点击左侧 bullet 查看其真实事实"
+              >
+                <EvidencePanel
+                  result={result}
+                  selected={selectedBullet}
+                  docPreview={result.doc_preview ?? null}
+                />
+              </Card>
+            </aside>
           </div>
         </>
       )}
