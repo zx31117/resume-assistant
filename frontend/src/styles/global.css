@@ -33,6 +33,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* T12-R12：document 永不滚动 —— 滚动只发生在壳层内的内容宿主上 */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  overflow: hidden;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 h1,
 h2,
 h3,
@@ -106,7 +122,9 @@ code {
    ============================================================ */
 
 .shell {
-  min-height: 100vh;
+  /* T12-R12：确定高度 + overflow:hidden；不再由内容决定 document 高度 */
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
 }
@@ -231,7 +249,14 @@ code {
 .app-main {
   grid-column: 2;
   min-width: 0;
-  padding: var(--s6) var(--s6) var(--s8);
+  min-height: 0;
+  /* T12-R12：主内容宿主固定可用高度 + overflow:hidden，
+     各页内容由 .page 承接（卡内滚动 / 内容宿主滚动） */
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s5) var(--s6) var(--s5);
 }
 
 /* ============================================================
@@ -243,6 +268,19 @@ code {
   flex-direction: column;
   gap: var(--s5);
   width: 100%;
+  max-width: 100%;
+  /* T12-R12：页面占满 .app-main 可用高度；页面自身不滚，内容在宿主内滚 */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.page > * {
+  min-width: 0;
+}
+
+.page > .page-head {
+  flex-shrink: 0;
 }
 
 .page-head {
@@ -2043,6 +2081,14 @@ a.path-card {
 @media (max-width: 899px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
+    /* T12-R12：顶栏行 auto + 主区 minmax 承接剩余，保持壳层不滚 */
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-main {
+    height: auto;
+    min-height: 0;
+    padding: var(--s4) var(--s3) var(--s5);
   }
 
   .app-sidebar {
@@ -2087,10 +2133,6 @@ a.path-card {
 
   .dev-link {
     padding: var(--s1) var(--s2);
-  }
-
-  .app-main {
-    padding: var(--s5) var(--s3) var(--s7);
   }
 }
 
@@ -2625,3 +2667,334 @@ a.path-card {
     max-height: 240px;
   }
 }
+
+/* ============================================================
+   V2.1.0 T12-R12：全局固定卡片 · 页面零滚动（集中返工）
+   ------------------------------------------------------------
+   目标：document 永不滚动（壳层已 overflow:hidden）；
+   每页的卡片外框由视口 / flex·grid 固定份额决定，内容超卡只在
+   对应内容宿主（卡内 / 内容区）滚动，不推挤相邻卡片，不产生抖动。
+   全部为布局层 CSS，不改语义与文案。
+   ============================================================ */
+
+/* —— 通用：单一滚动宿主（隐私说明长文 / 开发者后台）——
+   .page 已 overflow:hidden，此处把该元素转为本区域内的滚动宿主。 */
+.page-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: var(--s1);
+}
+
+.page > .page-head {
+  flex-shrink: 0;
+}
+
+/* —— 欢迎页（WelcomeGate / WelcomeView）——
+   hero（标题区）固定，其下内容在 .welcome-body-scroll 内滚动；
+   loading / error 为短态直接放 .page 内不滚动。 */
+.welcome-page {
+  overflow: hidden;
+}
+
+.welcome-hero {
+  flex-shrink: 0;
+}
+
+.welcome-body-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: var(--s1);
+}
+
+/* —— 生成工作台输入视图（GeneratePage view=input）——
+   topbar 固定；左右两列共享 minmax(0,1fr) 行高，超长内容在各自列内滚，
+   列宽列高由 grid 决定，不因 JD / 编辑态变长而推挤整页。 */
+.gen-topbar {
+  flex-shrink: 0;
+}
+
+.gen-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.gen-grid > * {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* —— 上传闲置态（/upload mode=idle）—— */
+.upload-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.upload-layout > * {
+  min-width: 0;
+  min-height: 0;
+}
+
+.upload-layout > .card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.upload-layout > .card .upload-dropzone {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-self: stretch;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.upload-layout > aside {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.upload-layout > aside .ai-stream {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.upload-layout > aside .ai-stream__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+/* —— 处理视图（GeneratePage processing / 失败 / UploadPage parsing）——
+   .process-shell 承接 .page 剩余高度，两列各为内部滚动宿主，
+   阶段选择 / 头部内容不依赖 document 滚动可见。 */
+.process-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.process-main {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.process-side {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.process-side > .ai-stream,
+.process-side > .process-error {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.process-side .ai-stream__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.process-side > .process-error {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* —— 上传解析完成 · 需确认条目（review）——
+   process-shell 受 max-height 约束（内部各列自己滚），
+   确认卡片承接剩余份额；条目栈在卡片内容宿主内滚动。 */
+.upload-review-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: var(--s3);
+}
+
+.upload-review-panel .card__head {
+  flex-shrink: 0;
+}
+
+.upload-review-panel .card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-top: var(--s3);
+}
+
+.page:has(.upload-review-panel) > .process-shell {
+  flex: 0 1 auto;
+  max-height: 46vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* —— 我的经历（/profile）——
+   页头固定；主列表卡承接剩余高度；工具条（tab/搜索）卡内固定，
+   只有 exp-list 滚动；空态在剩余份额内垂直居中。 */
+.profile-master-card {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-master-card > .card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--s2);
+}
+
+.profile-master-card .exp-master {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.profile-master-card .exp-toolbar {
+  flex-shrink: 0;
+}
+
+.profile-master-card .exp-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.profile-master-card .empty {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+/* 本页 CRUD 操作卡：头部可见，明细阶段在卡内滚 */
+.profile-crud-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 34vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.profile-crud-card > .card__head {
+  flex-shrink: 0;
+}
+
+.profile-crud-card > .card__body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* —— 结果页（GeneratePage result 成功态）——
+   预览卡与依据侧栏共同占满 .page 剩余高度（grid 单行 minmax），
+   预览区卡内滚动；依据/修改卡头与操作固定，明细内容卡内滚动。 */
+.result-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.result-shell__preview {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.result-shell__aside {
+  position: static;
+  max-height: none;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.result-shell__aside > * {
+  flex-shrink: 0;
+}
+
+.result-shell__aside > .result-aside-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.result-aside-panel .card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* ≤1023：结果页单列堆叠，整壳转滚动宿主（不再裁切） */
+@media (max-width: 1023px) {
+  .result-shell {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    grid-template-rows: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .result-shell__preview {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .result-shell__aside {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+}
+
+/* —— 隐私页（/privacy）：页头固定，多卡说明长文在单一滚动宿主内 —— */
+.privacy-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+/* —— 窄屏（<1080）处理视图：单列并允许壳内整体滚动 —— */
+@media (max-width: 1079px) {
+  .process-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    overflow-y: auto;
+  }
+
+  .process-side {
+    position: static;
+    max-height: 46vh;
+  }
+}
+

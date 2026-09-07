@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import { ApiError } from '../api/client'
 import { experienceApi, resumeApi } from '../api/endpoints'
@@ -961,12 +962,14 @@ export default function UploadPage() {
           </div>
         </div>
 
+        {/* T12-R12：upload-layout 由 .page 剩余份额决定高度，两列内各自滚动 */}
         <div
+          className="upload-layout"
           style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1fr) 360px',
             gap: 'var(--s4)',
-            alignItems: 'start',
+            alignItems: 'stretch',
           }}
         >
           <div className="card" style={{ padding: 'var(--s5)', minWidth: 0 }}>
@@ -1177,18 +1180,33 @@ export default function UploadPage() {
       </div>
 
       {mode === 'review' && (
-        <div
-          className="card"
-          style={{ marginTop: 'var(--s5)', padding: 'var(--s4) var(--s5)' }}
+        <Card
+          className="upload-review-panel"
+          title={
+            <>
+              需确认条目
+              <span style={{ color: 'var(--ink-faint)', fontSize: 12, fontWeight: 400 }}>
+                内容含 AI 推断 / 补全，请核对原文后保存
+              </span>
+            </>
+          }
+          actions={
+            reviewItems.length > 0 ? (
+              <div className="hstack" style={{ marginTop: 0, gap: 'var(--s2)' }}>
+                <Button onClick={() => void saveAllReview()} disabled={reviewSaving}>
+                  {reviewSaving ? '保存中…' : '批量保存'}
+                </Button>
+                {doneOk && (
+                  <Button variant="ghost" onClick={() => navigate('/profile')}>
+                    完成 · 查看我的经历
+                  </Button>
+                )}
+              </div>
+            ) : undefined
+          }
         >
-          <div className="card__title" style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s2)' }}>
-            需确认条目
-            <span style={{ color: 'var(--ink-faint)', fontSize: 12, fontWeight: 400 }}>
-              内容含 AI 推断 / 补全，请核对原文后保存
-            </span>
-          </div>
           {reviewSummary && (
-            <div className="notice notice--ok" style={{ margin: 'var(--s3) 0' }}>
+            <div className="notice notice--ok" style={{ margin: '0 0 var(--s3)' }}>
               {reviewSummary}
             </div>
           )}
@@ -1201,7 +1219,7 @@ export default function UploadPage() {
               </Button>
             </div>
           ) : (
-            <div className="stack" style={{ marginTop: 'var(--s3)' }}>
+            <div className="stack">
               {reviewItems.map((item, idx) => {
                 const r = reviewResults.find((x) => x.idx === idx)
                 const snippets = item.provenance?.source_snippets ?? []
@@ -1285,22 +1303,9 @@ export default function UploadPage() {
                   </div>
                 )
               })}
-              <div className="hstack" style={{ marginTop: 'var(--s2)' }}>
-                <Button onClick={() => void saveAllReview()} disabled={reviewSaving}>
-                  {reviewSaving ? '保存中…' : '批量保存'}
-                </Button>
-                {doneOk && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => navigate('/profile')}
-                  >
-                    完成 · 查看我的经历
-                  </Button>
-                )}
-              </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
     </div>
   )

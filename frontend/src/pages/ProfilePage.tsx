@@ -90,9 +90,11 @@ const tabCountStyle: CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 }
 
-// 列表区内区域滚动（页面顶栏固定，长列表不撑破工作台）
+// V2.1.0 T12-R12：列表区内区域滚动（页面顶栏固定，长列表不撑破工作台）。
+// 高度交给 .profile-master-card 的 flex 份额决定（外框由布局分配，不随内容量跳动）。
 const listScrollStyle: CSSProperties = {
-  maxHeight: 'max(360px, calc(100vh - 348px))',
+  flex: '1 1 auto',
+  minHeight: 0,
   overflowY: 'auto',
   overflowX: 'hidden',
   paddingRight: 'var(--s1)',
@@ -403,13 +405,17 @@ export default function ProfilePage() {
 
       {/* ── V2.0.1 本页当前操作 ── */}
       {crudActive && (
-        <Card title="当前操作" subtitle="本页发起操作（新增 / 更新 / 删除）的实时阶段与耗时。">
+        <Card
+          className="profile-crud-card"
+          title="当前操作"
+          subtitle="本页发起操作（新增 / 更新 / 删除）的实时阶段与耗时。"
+        >
           <InlineOperation operation={crudOperation} />
         </Card>
       )}
 
       {/* ── V2.1.0 DS-002：我的经历主从视图（信息架构：tab 筛选 + 搜索 + 单列主列表） ── */}
-      <Card>
+      <Card className="profile-master-card">
         <div className="exp-master" style={masterStyle}>
           <div className="exp-toolbar" style={toolbarStyle}>
             <div className="exp-tabs" role="tablist" aria-label="按经历类型筛选" style={tabsStyle}>

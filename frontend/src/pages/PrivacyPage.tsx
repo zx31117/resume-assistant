@@ -20,6 +20,8 @@ export default function PrivacyPage() {
         description="数据边界、可见性与你的权利：数据保存在哪里、缺失信息如何处理、如何真正删除。"
       />
 
+      {/* T12-R12：页头固定；长文多卡在单一滚动宿主内（页面壳层零滚动） */}
+      <div className="page-scroll privacy-cards">
       <Card title="数据保存在哪里" subtitle="本地单用户应用：不登录、不账号体系、不上传云端。">
         <ul className="privacy-list">
           <li className="privacy-row">
@@ -194,6 +196,7 @@ export default function PrivacyPage() {
           </li>
         </ul>
       </Card>
+      </div>
     </div>
   )
 }

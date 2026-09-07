@@ -657,10 +657,11 @@ export default function GeneratePage() {
         : '读取状态中…'
     return (
       <div className="page" style={{ gap: 'var(--s4)' }}>
-        {/* 任务上下文 topbar：冻结原型 .gen-topbar */}
+        {/* 任务上下文 topbar：冻结原型 .gen-topbar（T12-R12：固定不随内容滚动） */}
         <div
           role="region"
           aria-label="当前任务上下文"
+          className="gen-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -726,13 +727,15 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* 冻结原型 .gen-grid：minmax(0,1fr) 400px 左右两列 */}
+        {/* 冻结原型 .gen-grid：minmax(0,1fr) 400px 左右两列；
+            T12-R12：行高由 .page 剩余份额决定，列内各自滚动，卡片外框不随内容跳动 */}
         <div
+          className="gen-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1fr) 400px',
             gap: 'var(--s4)',
-            alignItems: 'start',
+            alignItems: 'stretch',
           }}
         >
           {/* —— 左侧 .gen-main：身份摘要 + 目标岗位与 JD —— */}

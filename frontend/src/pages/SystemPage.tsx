@@ -302,7 +302,7 @@ export default function SystemPage() {
 
   return (
     <>
-      <div className="page">
+      <div className="page page-scroll">
         <PageHeader
           title="开发者后台"
           description="普通导航中隐藏本页，仅经侧栏脚注进入。本页管理 Provider 配置、本地数据库与索引，并提供运行活动与脱敏日志诊断；所有写操作仅作用于本机。"

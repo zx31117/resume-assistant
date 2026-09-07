@@ -114,7 +114,9 @@ function WelcomeView() {
         </p>
       </div>
 
-      <div className="welcome-paths">
+      {/* T12-R12：hero 固定，下方内容在单一滚动宿主内（壳层零滚动） */}
+      <div className="welcome-body-scroll">
+        <div className="welcome-paths">
         {/* 卡 A：整张就是 drop zone —— 整张 label 包裹 file input。
             标签原生语义：点击 / 拖拽 / 键盘 Enter/Space 都会触发文件选择器。 */}
         <label
@@ -195,6 +197,7 @@ function WelcomeView() {
           <h4>失败可见、输入可保留</h4>
           <p>材料不足或关键模型失败会被明确告知，且你已填写的身份信息与 JD 在一次生成尝试内不会被悄悄丢弃。</p>
         </div>
+      </div>
       </div>
     </>
   )
