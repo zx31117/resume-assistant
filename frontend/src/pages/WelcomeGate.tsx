@@ -1,21 +1,24 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { useServices } from '../services'
 import GeneratePage from './GeneratePage'
 
 /**
- * V2.1.0（T7）：欢迎双冷启动门控 —— 位于路由 "/"。
+ * V2.1.0 T12-R1：无简历初始页（冷启动门控）— 位于路由 "/"。
  *
  * 真实门控：以 useServices().experience.list() 判断「我的经历」是否为空。
  * - 有经历 → 渲染现有 GeneratePage（DS-002 生成工作台）；
  * - 无经历 → 渲染欢迎视图（两条路径卡 + 三条原则）；
  * - 读取失败 → 显示可见错误与重试，绝不渲染假状态。
  *
- * 欢迎页仅提供两条真实/诚实路径：
- * - 卡 A「我有一份现有简历」→ 跳转 /profile?import=1（ProfilePage 识别后打开导入弹窗）；
- * - 卡 B「我还没有简历」→ Coming Soon：点击仅展示可见提示，不调 API、不落任何状态。
+ * 欢迎页两条路径：
+ * - 卡 A「我有一份现有简历」整张 = 上传 drop zone：单击立即打开系统文件选择器
+ *   （不先跳到独立 /upload 页面），拖入 PDF 立即接收；选中后 navigate('/upload', { state: { file } })
+ *   让 UploadPage 接管真实解析链；
+ * - 卡 B「我还没有简历」保留占位外观但 disabled + aria-disabled：不进入演示、
+ *   不产生 toast/假状态，符合 D-002 "即将上线"语义。
  */
 export default function WelcomeGate() {
   const services = useServices()
@@ -67,10 +70,39 @@ export default function WelcomeGate() {
   )
 }
 
-/** 欢迎视图：无经历时的冷启动页面（语义对齐 DS-002 welcome 视图，视觉随 T8 统一对照）。 */
+/** 欢迎视图：无经历时的冷启动页面（语义对齐 DS-002 welcome 视图）。 */
 function WelcomeView() {
-  // 卡 B「我还没有简历」为 Coming Soon：仅本地提示状态，不调 API、不落任何状态
-  const [soonOpen, setSoonOpen] = useState(false)
+  // V2.1.0 T12-R1：左卡内嵌 file input 触发真实文件选择；选中后跳到 /upload 路由
+  // 并通过 router state 把 File 对象带过去（仅在 SPA 内传递，刷新不保留：可接受）。
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
+  const [dragOver, setDragOver] = useState(false)
+
+  function takeFile(file: File | undefined) {
+    if (!file) return
+    // 类型校验：仅接受 PDF；其它（即使带 .pdf 扩展）一律提示。
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+    if (!isPdf) {
+      // 显式可见错误：不静默忽略，也不假通到解析页。
+      window.alert('仅支持 PDF 文件，请重新选择。')
+      return
+    }
+    navigate('/upload', { state: { file } })
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    takeFile(f)
+    // 允许同一文件再次选择也能触发 change
+    e.target.value = ''
+  }
+
+  function onCardDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer?.files?.[0]
+    takeFile(f)
+  }
 
   return (
     <>
@@ -83,13 +115,34 @@ function WelcomeView() {
       </div>
 
       <div className="welcome-paths">
-        {/* 卡 A：真实上传路径 —— 进入「我的经历」并打开 PDF 导入弹窗 */}
-        <Link className="path-card" to="/profile?import=1">
+        {/* 卡 A：整张就是 drop zone —— 整张 label 包裹 file input。
+            标签原生语义：点击 / 拖拽 / 键盘 Enter/Space 都会触发文件选择器。 */}
+        <label
+          className={'path-card path-card--drop' + (dragOver ? ' path-card--drag' : '')}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onCardDrop}
+          htmlFor="welcome-pdf-input"
+        >
+          <input
+            ref={fileInputRef}
+            id="welcome-pdf-input"
+            type="file"
+            accept="application/pdf,.pdf"
+            className="path-card__file"
+            onChange={onFileChange}
+            tabIndex={0}
+            aria-label="选择 PDF 简历（单击或拖入）"
+          />
           <div className="path-card__head">
             <span className="path-card__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <path d="M14 2v6h6" />
+                <path d="M8 13h8M8 17h6" />
               </svg>
             </span>
             <Badge tone="ok">Active · PDF 解析</Badge>
@@ -99,14 +152,15 @@ function WelcomeView() {
             上传 PDF，在本机完成解析与提取。AI 推断或补全的条目会请你逐条确认后再写入「我的经历」，随后即可进入生成。
           </p>
           <span className="path-card__cta">开始上传 →</span>
-        </Link>
+        </label>
 
-        {/* 卡 B：Coming Soon —— 只展示说明，点击仅给可见提示 */}
+        {/* 卡 B：Coming Soon —— 整卡不可点击、不产生假状态。 */}
         <button
           type="button"
           className="path-card path-card--soon"
-          aria-pressed={soonOpen}
-          onClick={() => setSoonOpen((v) => !v)}
+          disabled
+          aria-disabled="true"
+          aria-label="我还没有简历（即将上线）"
         >
           <div className="path-card__head">
             <span className="path-card__icon" aria-hidden="true">
@@ -118,19 +172,14 @@ function WelcomeView() {
           </div>
           <h3>我还没有简历</h3>
           <p>通过几次简短问答，把零散的经历整理成形。该功能即将上线。</p>
-          <span className="path-card__cta">即将上线 →</span>
+          <span className="path-card__cta">进入演示 →</span>
         </button>
       </div>
 
-      {soonOpen && (
-        <div className="notice notice--warn" role="status" style={{ marginTop: 0 }}>
-          「对话整理经历」即将上线：上线后将围绕教育、实习、项目与技能做简短问答，每段事实经你确认后才会写入「我的经历」。在此之前，请先上传现有简历，或在「我的经历」中手工逐条新增。
-        </div>
-      )}
-
       <p className="welcome-manual">
         没有现成 PDF？也可以到{' '}
-        <Link to="/profile">我的经历</Link> 手工逐条新增。
+        <Link to="/profile">我的经历</Link> 手工逐条新增，或点击{' '}
+        <Link to="/upload">上传简历</Link> 直接进入上传视图。
       </p>
 
       <div className="welcome-principles">

@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import OperationTimeline from '../components/OperationTimeline'
-import { experienceApi, resumeApi } from '../api/endpoints'
+import { experienceApi } from '../api/endpoints'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
-import type { ExperienceItem, ExperienceOut, OperationDetail, ExtractExperienceItem } from '../api/types'
+import type { ExperienceItem, ExperienceOut, OperationDetail } from '../api/types'
 
 const EXPERIENCE_TYPES: { value: string; label: string }[] = [
   { value: 'work', label: '工作' },
@@ -30,21 +31,6 @@ const masterStyle: CSSProperties = {
   flexDirection: 'column',
   minWidth: 0,
   minHeight: 0,
-}
-
-/** V2.1.0 D-038：把「提取响应条目（含 provenance）」显式白名单为写库请求体，避免把证据字段透传后端。 */
-function toCreatePayload(item: ExtractExperienceItem): ExperienceItem {
-  return {
-    type: item.type,
-    title: item.title,
-    company: item.company,
-    time: item.time,
-    role: item.role,
-    description: item.description,
-    skills: item.skills ?? [],
-    achievements: item.achievements ?? [],
-    raw_text: item.raw_text ?? '',
-  }
 }
 
 const toolbarStyle: CSSProperties = {
@@ -130,7 +116,7 @@ function summaryMeta(status?: string): { label: string; tone: 'neutral' | 'ok' |
   }
 }
 
-// V2.0.1：本页发起操作（提取 / 新增 / 更新 / 删除）的实时状态与阶段时间线
+// V2.0.1：本页发起操作（新增 / 更新 / 删除）的实时状态与阶段时间线
 function InlineOperation({ operation }: { operation: OperationDetail | null }) {
   if (!operation) return <Badge tone="neutral">提交中…</Badge>
   return (
@@ -274,6 +260,7 @@ function ExperienceForm({
 }
 
 export default function ProfilePage() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<ExperienceOut[]>([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
@@ -288,27 +275,10 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState<ExperienceOut | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
-  // V2.0.1：单条 CRUD 与提取操作的实时阶段
+  // V2.0.1：单条 CRUD 操作的实时阶段
   const [crudOpId, setCrudOpId] = useState<string | null>(null)
   const [crudActive, setCrudActive] = useState(false)
   const crudOperation = useOperation(crudOpId, crudActive)
-
-  // PDF 导入流程
-  const [importOpen, setImportOpen] = useState(false)
-  const [importStep, setImportStep] = useState<'upload' | 'review'>('upload')
-  const [importText, setImportText] = useState('')
-  const [importExtracting, setImportExtracting] = useState(false)
-  // V2.1.0 D-038：review 列表只保留「需确认」条目（inferred 或自动直入失败项）
-  const [importItems, setImportItems] = useState<ExtractExperienceItem[]>([])
-  const [importResults, setImportResults] = useState<{ idx: number; ok: boolean; msg: string }[]>([])
-  const [importSaving, setImportSaving] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  // 分流提示（如「N 项已自动整理入库」），review 期显示
-  const [importSummary, setImportSummary] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const chooseFileBtnRef = useRef<HTMLButtonElement>(null)
-  // V2.1.0 T7：/profile?import=1 只在初始挂载读取一次，不随渲染循环触发
-  const importParamHandled = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -326,22 +296,6 @@ export default function ProfilePage() {
   useEffect(() => {
     load()
   }, [load])
-
-  // V2.1.0 T7：欢迎页卡 A 跳转 /profile?import=1 → 打开导入弹窗并聚焦「选择 PDF 文件」。
-  // 仅在首次挂载读取 query 一次；若浏览器不允许程序化拉起文件选择器，
-  // 用户仍可直接操作已聚焦的选择按钮（真实路径，不伪造任何状态）。
-  useEffect(() => {
-    if (importParamHandled.current) return
-    importParamHandled.current = true
-    if (new URLSearchParams(window.location.search).get('import') !== '1') return
-    resetImport()
-    setImportOpen(true)
-    window.setTimeout(() => {
-      chooseFileBtnRef.current?.focus()
-      fileRef.current?.click()
-    }, 120)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const sorted = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -421,127 +375,10 @@ export default function ProfilePage() {
     }
   }
 
-  function resetImport() {
-    setImportStep('upload')
-    setImportText('')
-    setImportItems([])
-    setImportResults([])
-    setImportError(null)
-    setImportSummary(null)
-    setNotice(null)
-  }
-
-  async function onPickFile(file: File | undefined) {
-    if (!file) return
-    setImportError(null)
-    try {
-      const res = await resumeApi.uploadPdf(file)
-      setImportText(res.text)
-      setImportStep('upload')
-    } catch (e) {
-      setImportError(e instanceof ApiError ? e.message : String(e))
-    }
-  }
-
-  // V2.1.0 D-038：direct 条目自动落库（group 聚合），失败项回到「需确认」可重试
-  async function autoSaveDirect(direct: ExtractExperienceItem[]) {
-    const groupId = newOperationId()
-    const failed: ExtractExperienceItem[] = []
-    let okCount = 0
-    for (const item of direct) {
-      try {
-        const data = toCreatePayload(item)
-        await experienceApi.create(data, newOperationId(), groupId)
-        okCount++
-      } catch {
-        failed.push(item)
-      }
-    }
-    if (failed.length > 0) {
-      setImportItems((cur) => [...cur, ...failed])
-      setImportSummary(
-        `已自动整理 ${okCount} 项进入「我的经历」；${failed.length} 项自动保存失败，请在下方核对后重新保存。`,
-      )
-    } else {
-      setImportSummary(`已自动整理 ${okCount} 项进入「我的经历」。`)
-    }
-    await load()
-  }
-
-  async function runExtract() {
-    if (!importText.trim()) return
-    const id = newOperationId()
-    setCrudOpId(id)
-    setCrudActive(true)
-    setImportExtracting(true)
-    setImportError(null)
-    setImportSummary(null)
-    try {
-      const res = await experienceApi.extract({ resume_text: importText }, id)
-      if (!res.experiences || res.experiences.length === 0) {
-        setImportError('未能从简历中提取到经历，请确认「本地系统」已配置并测试连接后重试。')
-        setImportStep('upload')
-        return
-      }
-      // D-038 分流：direct → 自动入库；其余（inferred/无证据）→ 需确认
-      const needsConfirm = res.experiences.filter(
-        (e) => e.provenance?.classification !== 'direct',
-      )
-      const direct = res.experiences.filter((e) => e.provenance?.classification === 'direct')
-      setImportItems(needsConfirm)
-      if (direct.length > 0) {
-        await autoSaveDirect(direct)
-      } else {
-        setImportSummary('本次提取均为 AI 推断/补全内容，请在下方逐项核对后保存。')
-      }
-      setImportResults([])
-      setImportStep('review')
-    } catch (e) {
-      setImportError(e instanceof ApiError ? e.message : String(e))
-      setImportStep('upload')
-    } finally {
-      setImportExtracting(false)
-      setCrudActive(false)
-    }
-  }
-
-  function updateImported(idx: number, patch: Partial<ExperienceItem>) {
-    setImportItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)))
-  }
-
-  async function saveAllImported() {
-    setImportSaving(true)
-    setNotice(null)
-    const groupId = newOperationId()
-    const results: { idx: number; ok: boolean; msg: string }[] = []
-    for (let i = 0; i < importItems.length; i++) {
-      try {
-        const data = toCreatePayload(importItems[i])
-        await experienceApi.create(data, newOperationId(), groupId)
-        results.push({ idx: i, ok: true, msg: '已保存' })
-      } catch (e) {
-        results.push({ idx: i, ok: false, msg: e instanceof ApiError ? e.message : String(e) })
-      }
-    }
-    setImportResults(results)
-    setImportSaving(false)
-    const okCount = results.filter((r) => r.ok).length
-    const failCount = results.length - okCount
-    setNotice(
-      failCount === 0
-        ? { ok: true, text: `全部 ${okCount} 项已保存。` }
-        : { ok: false, text: `部分完成：成功 ${okCount} 项，失败 ${failCount} 项（未保存项见下）。` },
-    )
-    await load()
-  }
-
-  // DS-002：页头「上传 PDF」——重置并打开导入 Modal，等 Modal 挂载后聚焦/拉起 file input
-  function openImportUpload() {
-    resetImport()
-    setImportOpen(true)
-    window.setTimeout(() => {
-      fileRef.current?.click()
-    }, 80)
+  // V2.1.0 T12-R2：「上传 PDF」按钮直接进入新的 /upload 路由视图，
+  // 由 UploadPage 接管真实 4 阶段解析与 D-038 分流（不在本页面重复实现）。
+  function goToUpload() {
+    navigate('/upload')
   }
 
   function clearFilters() {
@@ -556,7 +393,7 @@ export default function ProfilePage() {
         description="长期事实库 · 新事实经确认后写入。本页为「我的经历」主列表；每条的 summary_status 徽章为真实索引状态，事实明细由后端 Fact 服务维护。"
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', flexWrap: 'wrap' }}>
-            <Button onClick={openImportUpload}>上传 PDF</Button>
+            <Button onClick={goToUpload}>上传 PDF</Button>
             <Button variant="ghost" onClick={openCreate}>
               新增经历
             </Button>
@@ -566,7 +403,7 @@ export default function ProfilePage() {
 
       {/* ── V2.0.1 本页当前操作 ── */}
       {crudActive && (
-        <Card title="当前操作" subtitle="本页发起操作（提取 / 新增 / 更新 / 删除）的实时阶段与耗时。">
+        <Card title="当前操作" subtitle="本页发起操作（新增 / 更新 / 删除）的实时阶段与耗时。">
           <InlineOperation operation={crudOperation} />
         </Card>
       )}
@@ -629,7 +466,7 @@ export default function ProfilePage() {
                 <p className="empty__title">还没有任何经历</p>
                 <p className="empty__desc">上传现有简历或新增一段经历，从这里开始构建你的长期事实库。</p>
                 <div style={{ display: 'flex', gap: 'var(--s3)', marginTop: 'var(--s3)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <Button onClick={openImportUpload}>上传 PDF</Button>
+                  <Button onClick={goToUpload}>上传 PDF</Button>
                   <Button variant="secondary" onClick={openCreate}>
                     新增经历
                   </Button>
@@ -715,166 +552,6 @@ export default function ProfilePage() {
                 <Button variant="ghost" onClick={() => setDeleting(null)} disabled={deleteBusy}>
                   取消
                 </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {importOpen && (
-        <div className="modal-backdrop" onClick={() => setImportOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="modal__head">
-              <h2 className="modal__title">导入 PDF</h2>
-              <Button variant="ghost" size="sm" onClick={() => setImportOpen(false)}>
-                关闭
-              </Button>
-            </div>
-            <div className="modal__body">
-              <div className="stack">
-                <div className="hstack">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    style={{ display: 'none' }}
-                    onChange={(e) => onPickFile(e.target.files?.[0])}
-                  />
-                  <button
-                    ref={chooseFileBtnRef}
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    选择 PDF 文件
-                  </button>
-                  <span className="muted">
-                    {importText ? '已解析出文本，可点击「提取经历」。' : '支持 PDF，解析成功后提取为经历。'}
-                  </span>
-                </div>
-
-                {importText && (
-                  <TextArea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder="解析出的简历文本"
-                  />
-                )}
-
-                {importError && <div className="notice notice--danger">{importError}</div>}
-
-                {importStep === 'upload' && (
-                  <div className="stack">
-                    <div className="hstack" style={{ marginTop: 0 }}>
-                      <Button onClick={runExtract} disabled={!importText.trim() || importExtracting}>
-                        {importExtracting ? '提取中…' : '提取经历'}
-                      </Button>
-                    </div>
-                    {importExtracting && <InlineOperation operation={crudOperation} />}
-                  </div>
-                )}
-
-                {importStep === 'review' && (
-                  <div className="stack">
-                    {importSummary && <div className="notice notice--ok">{importSummary}</div>}
-                    <h3 className="section-label">
-                      需确认条目（共 {importItems.length} 项）：内容含 AI 推断/补全，请核对原文后保存
-                    </h3>
-                    {importItems.map((item, idx) => {
-                      const r = importResults.find((x) => x.idx === idx)
-                      const snippets = item.provenance?.source_snippets ?? []
-                      return (
-                        <div className="exp-item" key={idx}>
-                          <div className="exp-item__head">
-                            <span className="exp-item__title">
-                              {idx + 1}. {item.title || '（未命名）'}
-                            </span>
-                            <Badge tone="warn">需确认</Badge>
-                            {r && (
-                              <Badge tone={r.ok ? 'ok' : 'danger'}>{r.ok ? '已保存' : '失败'}</Badge>
-                            )}
-                          </div>
-                          {snippets.length > 0 && (
-                            <blockquote className="exp-source">
-                              {snippets.map((s, si) => (
-                                <div key={si}>“{s}”</div>
-                              ))}
-                            </blockquote>
-                          )}
-                          <div className="form-grid" style={{ marginTop: 'var(--s3)' }}>
-                            <Field label="类型">
-                              <Select value={item.type} onChange={(e) => updateImported(idx, { type: e.target.value })}>
-                                {EXPERIENCE_TYPES.map((t) => (
-                                  <option key={t.value} value={t.value}>
-                                    {t.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            </Field>
-                            <Field label="标题">
-                              <TextInput value={item.title} onChange={(e) => updateImported(idx, { title: e.target.value })} />
-                            </Field>
-                            <Field label="公司 / 组织">
-                              <TextInput value={item.company} onChange={(e) => updateImported(idx, { company: e.target.value })} />
-                            </Field>
-                            <Field label="时间">
-                              <TextInput value={item.time} onChange={(e) => updateImported(idx, { time: e.target.value })} />
-                            </Field>
-                            <Field label="角色">
-                              <TextInput value={item.role} onChange={(e) => updateImported(idx, { role: e.target.value })} />
-                            </Field>
-                            <Field label="技能（逗号分隔）">
-                              <TextInput
-                                value={(item.skills ?? []).join(', ')}
-                                onChange={(e) => updateImported(idx, { skills: splitSkills(e.target.value) })}
-                              />
-                            </Field>
-                          </div>
-                          <div className="stack" style={{ marginTop: 'var(--s4)' }}>
-                            <Field label="职责描述">
-                              <TextArea value={item.description} onChange={(e) => updateImported(idx, { description: e.target.value })} />
-                            </Field>
-                            <Field label="成果（每行一条）">
-                              <TextArea
-                                value={(item.achievements ?? []).join('\n')}
-                                onChange={(e) => updateImported(idx, { achievements: splitAchievements(e.target.value) })}
-                              />
-                            </Field>
-                            {r && !r.ok && <p className="notice notice--danger">{r.msg}</p>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {importItems.length === 0 && !importSummary && (
-                      <div className="empty">
-                        <p className="empty__desc">没有提取到经历，请返回检查简历文本或连接配置。</p>
-                        <Button variant="secondary" onClick={() => { setImportStep('upload'); setImportError(null) }}>
-                          返回重新提取
-                        </Button>
-                      </div>
-                    )}
-                    {importItems.length === 0 && importSummary && (
-                      <div className="empty">
-                        <p className="empty__desc">本次提取全部自动整理入库，无需逐条确认。</p>
-                        <Button variant="secondary" onClick={() => { setImportOpen(false); resetImport() }}>
-                          完成
-                        </Button>
-                      </div>
-                    )}
-                    {importItems.length > 0 && (
-                      <div className="hstack">
-                        <Button onClick={saveAllImported} disabled={importSaving}>
-                          {importSaving ? '保存中…' : '批量保存'}
-                        </Button>
-                        {importResults.length > 0 && (
-                          <Button variant="ghost" onClick={() => { setImportOpen(false); resetImport() }}>
-                            完成
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
