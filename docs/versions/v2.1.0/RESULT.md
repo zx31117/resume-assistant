@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第二轮返工完成（H2 `a917de2`），待复验（见 §21）
+> 当前状态：第二轮返工完成（源码冻结点 H2-SRC `a917de2`；开发 RESULT 交接 H2-DEV `22a69a4`），待复验（见 §22）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（返工契约：`8d9034e6921f5f3d9f601a39bbc108fc009b280c` / blob `93523888d36164ecb5352f49af182d7155b53230`）
@@ -36,8 +36,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
-| 开发候选 commit | 开发结束后冻结 | 旧 H `e73f154…`/源码冻结点 `c5612ee…` 已失效；第二轮返工候选 **H2 = `a917de2`**（见 §21） |
-| 独立验收对象 | 与开发候选完全一致 | 旧 H T11 结论失效；H2 待未参与返工者复验（PLAN §13.6） |
+| 开发候选 commit | 开发结束后冻结 | 旧 H `e73f154…`/源码冻结点 `c5612ee…` 已失效；第二轮源码冻结点 **H2-SRC = `a917de2`**，开发 RESULT 交接 **H2-DEV = `22a69a4`**（后者相对前者仅改本文件） |
+| 独立验收对象 | 与开发候选完全一致 | 旧 H T11 结论失效；固定 review 绑定文档 Agent 指定的 H2-HANDOFF，并核对其相对 H2-SRC 只含 RESULT 文档，源码仍唯一绑定 `a917de2` |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
 一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
@@ -52,15 +52,15 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T2 tokens、adapter、路由与状态骨架 | 开发骨架完成，待独立验收 | 主题 A tokens / typed service 端口与注入 / 全局状态骨架已提交（见 §7，commit `3839402`→`27512ea`）；Profile/System 页面与路由壳层顺延 T3 一并重构 |
 | T3 用户界面与开发者后台分离 | 开发骨架完成，待独立验收 | 侧栏壳层 + 普通导航三项 + 隐藏 dev 入口已提交（见 §8，commit `0a16c78`）；SystemPage 能力与安全边界保留 |
 | T4 上传、D-038 确认边界与经历管理 | 开发完成，待独立验收 | D-038 契约与自动整理分流（`03d9871`）+「我的经历」DS-002 布局重构（`fc2870e`）见 §9/§10；真实 CRUD/筛选/搜索/来源/失败路径接通 |
-| T5 一键生成与真实进度 | 第二轮返工完成，待复验 | processing 左右结构+单阶段明细回看（R4 `e4e2068`）；真实阶段映射保留，见 §21 |
-| T6 内容预览、事实依据与 DOCX 下载 | 第二轮返工完成，待复验 | result 主从+技术摘要退出（R5 `b1a32d1`）；preview/evidence/DOCX 保留，见 §21 |
+| T5 一键生成与真实进度 | 第二轮返工完成，待复验 | processing 左右结构+单阶段明细回看（R4 `e4e2068`）；真实阶段映射保留，见 §22 |
+| T6 内容预览、事实依据与 DOCX 下载 | 第二轮返工完成，待复验 | result 主从+技术摘要退出（R5 `b1a32d1`）；preview/evidence/DOCX 保留，见 §22 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 开发完成，待独立验收 | 欢迎双冷启动 + 隐私精修 + Coming Soon/Absent 边界（`b088f26`，见 §13）；无假接通 |
-| T8 Design Fidelity 与可访问性 | 第二轮返工完成，待复验 | R1–R6 五状态结构还原 + 1440×900 滚动门禁截图（见 §21）；复验绑定 H2 |
-| T9 回归、统一预检与便携包 | 第二轮重建完成，待复验 | precheck exit 0；onedir 重建且包内 frontend 与最终 dist 逐文件 SHA-256 一致（见 §21） |
-| T10 RESULT 与冻结候选 | H2 冻结完成，待复验 | H2 `a917de2` + 返工记录见 §21；复验由未参与返工者执行 |
+| T8 Design Fidelity 与可访问性 | 第二轮返工完成，待复验 | R1–R6 五状态结构还原 + 1440×900 滚动门禁截图（见 §22）；复验绑定 H2-HANDOFF，并保持源码绑定 H2-SRC |
+| T9 回归、统一预检与便携包 | 第二轮重建完成，待复验 | precheck exit 0；onedir 重建且包内 frontend 与最终 dist 逐文件 SHA-256 一致（见 §22） |
+| T10 RESULT 与冻结候选 | 开发交接完成，待复验 | H2-SRC `a917de2` + H2-DEV `22a69a4`；文档 Agent 校正身份后冻结 H2-HANDOFF，复验由未参与返工者执行 |
 | T11 独立验收 | 历史结论：有条件通过（旧 H） | 绑定旧 H `e73f154…` 的结论在 H2 上失效；H2 待未参与返工者重新复验 |
 | T12 Product Owner 人工验收与发布 | 未通过（旧 H）；待 H2 复验 | 打回记录 §20；H2 复验通过后 Product Owner 重新执行 T12 |
-| T12-R1 至 R8 | R1–R7 开发完成（待 H2 复验） | R1–R6 `4fb3453`/`e4e2068`/`b1a32d1`/`63e8708`/`a917de2`；R7 precheck+onedir 哈希一致；R8 记录见 §21 |
+| T12-R1 至 R8 | R1–R8 开发交接完成，待复验 | R1–R6 `4fb3453`/`e4e2068`/`b1a32d1`/`63e8708`/`a917de2`；R7 precheck+onedir 哈希一致；R8 开发记录见 §22 |
 
 ## 5. 开发交接
 
@@ -510,7 +510,9 @@ Product Owner 进一步提供五个设计状态，明确人工验收的本意是
 
 > 开发侧实施与自测记录，非复验结论。返工契约：PLAN §13 + §21 补充（8d9034e/93523888）。
 > 旧 H（e73f154/c5612ee）的 T11 Design Fidelity / Integration / 发布包结论在本候选上失效；
-> 复验须绑定 H2 = `a917de2`（version/v2.1.0，工作区 clean）。
+> 源码复验须唯一绑定 H2-SRC = `a917de2`；开发 RESULT 交接为 H2-DEV = `22a69a4`，后者
+> 相对前者仅修改本 RESULT。实际固定 review 须 detached 到文档 Agent 给出的 H2-HANDOFF，
+> 并先证明 H2-SRC..H2-HANDOFF 除本 RESULT 外无源码、测试、依赖、配置或构建文件变化。
 
 ### 22.1 R1–R6 五状态结构还原（提交与内容）
 
@@ -544,4 +546,4 @@ Product Owner 进一步提供五个设计状态，明确人工验收的本意是
 - 欢迎右卡仍显示描述文案但整体灰化 disabled（aria-disabled、无 onClick 副作用）；「即将上线·暂不可用」占位。
 - UploadPage `/upload` 无文件直达时的空态未做专项截图（正常路径经欢迎左卡进入）；复验可覆盖。
 - result 右下显示「已生成 <operation_id 短码>」作为状态标识保留（非技术统计）。
-- 复验范围（未参与返工者绑定 H2 执行）：T12-R1–R7、五状态结构与冻结预览一致、真实阶段映射、诊断保留、滚动/固定边界、包内资产一致性；随后 Product Owner 重新执行 T12。
+- 复验范围（未参与返工者绑定 H2-HANDOFF，并将源码结论绑定 H2-SRC 执行）：T12-R1–R7、五状态结构与冻结预览一致、真实阶段映射、诊断保留、滚动/固定边界、包内资产一致性；随后 Product Owner 重新执行 T12。
