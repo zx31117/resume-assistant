@@ -135,6 +135,28 @@ export interface RenderStats {
   capacity_warnings: string[]
 }
 
+// ———— V2.1.0 R15a/R16：PDF artifact 元数据与逐 bullet 锚点 ————
+
+/** V2.1.0 R15a：PDF 版式中的可点内容行锚点（backend/api/schemas.py PreviewAnchor）。
+ *  - 坐标一律 PDF 用户坐标 pt、y 自底部向上（A4 高 842）；x0<x1、y0<y1；
+ *  - page_index 从 0 起（与 pdf.js pageIndex 一致）；pdf.js 渲染时经
+ *    page.getViewport().convertToViewportPoint 换算为屏幕坐标（y 翻转为自顶向下）；
+ *  - content_item_id：经历类条目为其 experience_id；技能组等无库 id 的内容行用
+ *    定位 key（如 skills:0）；无对应条目时为 null；
+ *  - fact_refs：该 bullet 的真实 fact 引用（无映射不编造 → 空列表）。 */
+export interface PdfAnchor {
+  artifact_id: string
+  page_index: number
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  content_item_id?: string | null
+  bullet_index?: number | null
+  text: string
+  fact_refs?: string[]
+}
+
 // ———— V2.1.0 T6：内容预览 + 逐 bullet 事实依据 ————
 
 /** V2.1.0 T6：内容预览条目（来自最终 ResumeDocument 的只读投影）。 */
@@ -186,6 +208,11 @@ export interface ResumeDocxGenerateResponse {
   // 不造假：缺值时前端按钮必须真实地呈现「无 PDF」状态而不是改后缀 / 打印对话 / 占位提示。
   pdf_file_name?: string
   pdf_download_url?: string
+  // V2.1.0 R15a：PDF artifact 身份与元数据（viewer 与「下载 PDF」读取同一 artifact）。
+  pdf_artifact_id?: string
+  pdf_sha256?: string
+  pdf_size_bytes?: number
+  pdf_anchors?: PdfAnchor[] | null
 }
 
 // ———— 模板（GET /api/template/list） ————

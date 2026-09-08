@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-import ResultPaperPreview, { type SelectedBullet } from '../components/ResultPaperPreview'
+import PdfPreview from '../components/PdfPreview'
 import StageFlowList, {
   calcPhaseStatus,
   phaseElapsedMs,
@@ -15,10 +15,10 @@ import { useServices } from '../services'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, fmtMs } from '../hooks/useOperation'
 import type {
-  DocPreviewSection,
   EvidenceFact,
   JDAnalysis,
   OperationDetail,
+  PdfAnchor,
   ResumeDocxGenerateResponse,
   SystemStatus,
 } from '../api/types'
@@ -125,72 +125,95 @@ function AnalysisChips({ a }: { a: JDAnalysis }) {
   )
 }
 
-/** V2.1.0 T6：依据面板 —— 点击 bullet 后展示其真实 evidence（事实原文 / 采用原因 / 所属经历）。
- *  一切以 `result.evidence`（来自后端 Fact 表的真实原文）与 `result.build_meta.bullet_fact_refs`
- *  （后端 R7 per-bullet 引用映射）为准；本流水线不记录 per-fact 采用原因，故 EvidenceFact.reason
- *  保持空、不编造；selection_reason 仅在该经历真实携带时显示。
+/** V2.1.0 R16：依据面板 —— 点击 PDF 命中层的锚点后展示其真实 evidence。
+ *  数据链路（真实、无编造）：
+ *  - 锚点坐标/文本/fact_refs 来自后端 PreviewAnchor（PDF 成品内的真实位置）；
+ *  - 事实原文来自 `result.evidence`（按 experience_id 聚合的真实 Fact 原文），
+ *    前端把 anchor.fact_refs 的 fact_id 放进 evidence map 反查原文；
+ *  - fail closed：锚点无 fact_refs / 原文缺失 / artifact 不匹配时，
+ *    一律不猜测、不编造，只显示「无可用依据」的诚实状态。
  */
 function EvidencePanel({
   result,
-  selected,
-  docPreview,
+  selectedAnchor,
 }: {
   result: ResumeDocxGenerateResponse
-  selected: { sectionIdx: number; entryIdx: number; bulletIdx: number } | null
-  docPreview: DocPreviewSection[] | null
+  selectedAnchor: PdfAnchor | null
 }) {
-  if (!selected || !docPreview) {
+  // fact_id → 原文（读 GeneratePage 现有 evidence 数据源，不改后端）
+  const factIndex = useMemo(() => {
+    const m = new Map<string, EvidenceFact>()
+    for (const list of Object.values(result.evidence ?? {})) {
+      for (const f of list ?? []) {
+        if (f && f.fact_id) m.set(f.fact_id, f)
+      }
+    }
+    return m
+  }, [result])
+
+  if (!selectedAnchor) {
     return (
       <div>
-        <div className="evidence-panel__empty">未选中任何 bullet。</div>
+        <div className="evidence-panel__empty">未选中任何内容行。</div>
         <div className="evidence-panel__hint">
-          点击左侧「内容预览」中的 bullet 即可查看其真实事实原文与采用原因；
-          流水线不记录 per-fact 采用原因时不会编造内容。
+          点击左侧「PDF 成品预览」中的内容行即可查看其真实事实原文与采用情况；
+          流水线未记录的采用原因不会被编造。
         </div>
       </div>
     )
   }
-  const sec = docPreview[selected.sectionIdx]
-  const ent = sec?.entries[selected.entryIdx]
-  if (!ent) {
-    return <div className="evidence-panel__empty">未选中任何 bullet。</div>
+
+  const anchorText = selectedAnchor.text || ''
+  const refs = (selectedAnchor.fact_refs ?? []).filter((x) => !!x)
+  const contentId = selectedAnchor.content_item_id ?? null
+  const facts: EvidenceFact[] = refs
+    .map((fid) => factIndex.get(fid))
+    .filter((f): f is EvidenceFact => !!f)
+  const missingCount = refs.length - facts.length
+
+  // 仅在 doc_preview 中按 experience_id 精确命中时才展示条目名称/时段，避免猜配。
+  let entryHeading: string | null = null
+  let entrySubhead: string | null = null
+  let selectionReason: string | null = null
+  if (contentId) {
+    outer: for (const sec of result.doc_preview ?? []) {
+      for (const ent of sec.entries) {
+        if (ent.experience_id && ent.experience_id === contentId) {
+          entryHeading = ent.heading || null
+          entrySubhead = ent.subhead || null
+          selectionReason = ent.selection_reason || null
+          break outer
+        }
+      }
+    }
   }
-  const bullet = ent.bullets[selected.bulletIdx] ?? ''
-  const expId = ent.experience_id ?? null
-  const perBulletRefs = expId
-    ? (result.build_meta.bullet_fact_refs?.[expId]?.[selected.bulletIdx] ?? [])
-    : []
-  const factIds = perBulletRefs.filter((x) => !!x)
-  const factsForExp = expId ? (result.evidence?.[expId] ?? []) : []
-  const facts: EvidenceFact[] = factIds
-    .map((fid) => factsForExp.find((f) => f.fact_id === fid))
-    .filter((x): x is EvidenceFact => !!x)
+
   return (
     <div>
       <div className="evidence-panel__meta">
-        {ent.heading && (
+        {entryHeading && (
           <div className="evidence-panel__meta-row">
             <strong>所在条目</strong>
-            <span style={{ color: 'var(--ink)' }}>{ent.heading}</span>
+            <span style={{ color: 'var(--ink)' }}>{entryHeading}</span>
           </div>
         )}
-        {ent.subhead && (
+        {entrySubhead && (
           <div className="evidence-panel__meta-row">
             <strong>时段</strong>
-            <span style={{ color: 'var(--ink)' }}>{ent.subhead}</span>
+            <span style={{ color: 'var(--ink)' }}>{entrySubhead}</span>
           </div>
         )}
         <div className="evidence-panel__meta-row">
-          <strong>当前 bullet</strong>
-          <span style={{ color: 'var(--ink)' }}>{bullet || '—'}</span>
+          <strong>当前内容</strong>
+          <span style={{ color: 'var(--ink)' }}>{anchorText || '—'}</span>
         </div>
       </div>
 
-      {ent.selection_reason && (
+      {selectionReason && (
         <div className="evidence-panel__meta" style={{ marginTop: 'var(--s3)' }}>
           <div className="evidence-panel__meta-row">
             <strong>采用原因</strong>
-            <span style={{ color: 'var(--ink)' }}>{ent.selection_reason}</span>
+            <span style={{ color: 'var(--ink)' }}>{selectionReason}</span>
           </div>
         </div>
       )}
@@ -202,26 +225,41 @@ function EvidencePanel({
         >
           事实原文
         </div>
-        {facts.length > 0 ? (
-          facts.map((f) => (
-            <div key={f.fact_id} className="evidence-panel__fact">
-              <div className="evidence-panel__fact-text">{f.text || '（事实原文为空）'}</div>
-              <div className="evidence-panel__fact-meta">
-                所属经历：{f.experience_id ?? '—'} · fact_id: {f.fact_id}
-                {f.reason ? ` · 采用：${f.reason}` : ''}
-              </div>
+        {refs.length === 0 ? (
+          <>
+            <div className="evidence-panel__empty">该内容行没有可回查的独立事实依据。</div>
+            <div className="evidence-panel__hint">
+              该行可能为技能/奖项等非独立事实行或走 SQL 回退生成；不虚构理由。
             </div>
-          ))
+          </>
+        ) : facts.length > 0 ? (
+          <>
+            {facts.map((f) => (
+              <div key={f.fact_id} className="evidence-panel__fact">
+                <div className="evidence-panel__fact-text">{f.text || '（事实原文为空）'}</div>
+                <div className="evidence-panel__fact-meta">
+                  所属经历：{f.experience_id ?? '—'} · fact_id: {f.fact_id}
+                  {f.reason ? ` · 采用：${f.reason}` : ''}
+                </div>
+              </div>
+            ))}
+            {missingCount > 0 && (
+              <div className="evidence-panel__hint">
+                另有 {missingCount} 条引用的 fact_id 未包含在本次响应 evidence 中，无法展示原文。
+              </div>
+            )}
+          </>
         ) : (
-          <div className="evidence-panel__empty">本条没有可回查的独立事实引用。</div>
+          <>
+            <div className="evidence-panel__empty">
+              该内容行引用了事实，但本次响应未携带其原文（无可用依据）。
+            </div>
+            <div className="evidence-panel__hint">
+              引用 fact_id：{refs.join('、')}。未在 evidence 中命中，不做猜测。
+            </div>
+          </>
         )}
       </div>
-
-      {expId && factIds.length === 0 && (
-        <div className="evidence-panel__hint">
-          （该 bullet 未在本次第二层选材中关联到独立 fact，可能是材料不足走 SQL 回退；不虚构理由）
-        </div>
-      )}
     </div>
   )
 }
@@ -437,8 +475,8 @@ export default function GeneratePage() {
   const [opId, setOpId] = useState<string | null>(null)
   const [result, setResult] = useState<ResumeDocxGenerateResponse | null>(null)
   const [genError, setGenError] = useState<GenError | null>(null)
-  // V2.1.0 T6：当前选中的 bullet（用于依据面板）；新生成结果时清空
-  const [selectedBullet, setSelectedBullet] = useState<SelectedBullet | null>(null)
+  // V2.1.0 R16：当前选中的 PDF 内容行锚点（用于依据面板 + 命中层高亮）；新结果时清空
+  const [selectedAnchor, setSelectedAnchor] = useState<PdfAnchor | null>(null)
   // V2.1.0 T12-R5：结果页右侧「依据 / 修改」标签（修改链路尚未接通，disabled 占位）。
   const [resultTab, setResultTab] = useState<'evidence' | 'modify'>('evidence')
   // V2.1.0 T12-R4：处理视图左侧 4 阶段 radio 当前选中（与「当前运行」解耦）。
@@ -456,7 +494,7 @@ export default function GeneratePage() {
   const runSeq = useRef(0)
 
   useEffect(() => {
-    setSelectedBullet(null)
+    setSelectedAnchor(null)
     setPdfMissing(false)
     setPdfError(null)
   }, [result])
@@ -1195,15 +1233,16 @@ export default function GeneratePage() {
   }
 
   // ================= 成功态 =================
-  // V2.1.0 T12-R10/R11：结果页主从布局（DS-002 result-shell）。
-  // - 左：简历内容预览（pm_template v1.2 忠实视觉；满宽，仅卡内滚动）；
+  // V2.1.0 T12-R10/R11/R15b：结果页主从布局（DS-002 result-shell）。
+  // - 左：真实 PDF 成品预览（内置 pdf.js viewer，读取与「下载 PDF」同一 pdf_download_url）；
+  //   单一外层预览卡、满宽、仅卡内滚动；任何失败都不回退 HTML 近似预览。
+  //   ResultPaperPreview（HTML 版式渲染）已从产品路径退出，不再被引用。
   // - 右：sticky 固定区 —— 顶部操作条 + 「依据/修改」标签 + 主体面板；
   // - 导出卡已收口为页面左下角固定独立卡（见 .result-export-card），只含两个真实按钮。
   //   "重新生成/返回修改"动作迁出导出卡，放在右侧栏顶部操作条，不参与导出卡外框。
-  //   删除项：重复页头、"本次结果"技术摘要、preview-disclaimer、OperationTimeline 阶段明细、
-  //   复制简历全文按钮、文件名校复述、生成短码、操作编号、说明文字。
   //   真实技术字段（warnings / page_count / matched/rendered/template kv）已下沉到开发者后台，
-  //   普通结果页不再展示；bullet→fact 真实映射仍由 EvidencePanel 保留。
+  //   普通结果页不再展示；anchor→fact 真实映射由 R16 EvidencePanel 保留。
+  //   doc_preview JSON 仅保留为内容核对/无障碍依据来源，不再承担版式渲染。
   const wordHref = result.download_url
   const wordDownloadName = result.file_name || 'resume.docx'
   const pdfHref = result.pdf_download_url
@@ -1266,13 +1305,27 @@ export default function GeneratePage() {
       }}
     >
       <div className="result-shell">
-        {/* 左：pm_template v1.2 忠实预览（满宽、单一外层卡、仅卡内滚动） */}
+        {/* 左：真实 PDF 成品预览（单一外层卡、满宽、仅卡内滚动；不回退 HTML 近似） */}
         <div className="result-shell__preview">
-          <ResultPaperPreview
-            sections={result.doc_preview ?? null}
-            selected={selectedBullet}
-            onSelect={setSelectedBullet}
-          />
+          {pdfHref ? (
+            <PdfPreview
+              url={pdfHref}
+              artifactId={result.pdf_artifact_id}
+              anchors={result.pdf_anchors}
+              selectedAnchor={selectedAnchor}
+              onSelectAnchor={setSelectedAnchor}
+              onBackToEdit={backToEdit}
+            />
+          ) : (
+            <div className="pdf-preview pdf-preview--state" data-state="unavailable" role="status">
+              <div className="pdf-preview__stateblock">
+                <div className="pdf-preview__statetitle">PDF 成品未生成</div>
+                <p className="pdf-preview__statesub">
+                  本次生成未产出可预览的 PDF；不使用 HTML 近似替代预览。可下载 Word，或重新生成后重试。
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 右：sticky 固定区 —— 顶部操作 + 依据/修改（顺序稳定） */}
@@ -1329,16 +1382,12 @@ export default function GeneratePage() {
             title={resultTab === 'evidence' ? '逐条依据' : '意图级修改'}
             subtitle={
               resultTab === 'evidence'
-                ? '点击左侧 bullet 查看其真实事实原文与采用原因。'
+                ? '点击左侧 PDF 预览中的内容行查看真实事实原文与采用情况。'
                 : '描述你希望调整的方向；真实链路尚未接通，仅展示占位。'
             }
           >
             {resultTab === 'evidence' ? (
-              <EvidencePanel
-                result={result}
-                selected={selectedBullet}
-                docPreview={result.doc_preview ?? null}
-              />
+              <EvidencePanel result={result} selectedAnchor={selectedAnchor} />
             ) : (
               <div className="modify-placeholder" role="region" aria-label="修改占位（即将上线）">
                 <div className="modify-placeholder__head">

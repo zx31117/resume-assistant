@@ -1161,6 +1161,153 @@ select.input {
 }
 
 /* ============================================================
+   V2.1.0 R15b/R16：真实 PDF 成品预览（PdfPreview）
+   - 外层预览卡（.result-shell__preview）是唯一容器；PDF 页不加额外
+     纸张边框/圆角/阴影/灰边带，canvas 直接铺在卡内容区；
+   - PDF 页超出卡片固定高度 → 仅在预览卡内容区纵向滚动（外框不变）；
+   - loading / 失败 / unavailable 用固定尺寸状态块，外框不跳动；
+   - 命中层为纯绝对定位透明可点元素，不改 canvas 尺寸/文本换行/布局。
+   ============================================================ */
+
+.pdf-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.pdf-preview--state {
+  align-items: center;
+  justify-content: center;
+  padding: var(--s5);
+}
+
+.pdf-preview__stateblock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: 240px; /* 固定尺寸状态区：不随文案/状态改变外框高度 */
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.pdf-preview__spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  animation: pdf-preview-spin 0.8s linear infinite;
+}
+
+@keyframes pdf-preview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pdf-preview__statetitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pdf-preview__statesub {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 52ch;
+  word-break: break-word;
+}
+
+.pdf-preview__stateactions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+
+.pdf-preview__note {
+  flex-shrink: 0;
+  padding: var(--s2) var(--s4);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-preview__note--warn {
+  color: var(--warn);
+  border-bottom: 0;
+}
+
+.pdf-preview__pages {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--s5);
+}
+
+.pdf-page {
+  position: relative;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.pdf-page + .pdf-page {
+  margin-top: var(--s5);
+}
+
+.pdf-page__canvas {
+  display: block;
+  border: 0;
+  box-shadow: none;
+  background: var(--surface);
+}
+
+.pdf-page__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pdf-hit {
+  position: absolute;
+  pointer-events: auto;
+  appearance: none;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 2px;
+  /* 命中区 ≥ 可点最小目标，避免过小行难以点中 */
+  min-width: 12px;
+  min-height: 12px;
+}
+
+.pdf-hit:hover {
+  outline: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 0;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+.pdf-hit:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.pdf-hit--selected {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* ============================================================
    V2.1.0 T12-R10：结果预览（按 pm_template v1.2 忠实视觉）
    - 唯一外层容器（卡片）= 唯一边框/圆角/阴影来源；
    - 内部不维护二级纸张，简历内容从内容区左缘铺到右缘；

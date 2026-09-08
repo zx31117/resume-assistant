@@ -1,7 +1,11 @@
 import type { DocPreviewSection } from '../api/types'
 
 /**
- * V2.1.0 T12-R10：结果页内容预览（按 pm_template v1.2 忠实视觉）。
+ * ⚠ V2.1.0 R15b：已退出产品路径（死代码，保留仅作历史参考；不得再被引用）。
+ * 结果页「内容预览」已由 components/PdfPreview.tsx（真实 PDF 成品 + 命中层）取代；
+ * GeneratePage result 不再用本组件做版式渲染，doc_preview JSON 也不再承担版式渲染。
+
+ * 历史职责（V2.1.0 T12-R10）：结果页内容预览（按 pm_template v1.2 忠实视觉）。
  * - 视觉真源 = backend/templates/pm_template.json（v1.2），禁止通用纸张排版；
  * - 预览内容直接铺在预览卡内容区，不再维护 720×1018 二级纸张与 transform: scale 缩放；
  * - 字号/行高/分隔线/条目行/bullet 规则全部映射 pm_template v1.2：
