@@ -656,3 +656,103 @@ V2.1.0 不因采用 PDF viewer 而实现以下能力：
 
 上述源码复验通过后仍需 Product Owner 在实际应用中重新执行 T12，重点确认 PDF 成品视觉、预览
 可读性、卡片几何、依据交互和双格式下载。人工验收未通过前不更新公开事实、main、tag 或发布声明。
+
+## 16. Product Owner 第三次 T12 白屏返工补充（2026-09-08）
+
+### 16.1 触发、证据与优先级
+
+H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1` 已取得第四轮独立源码验收
+Conditional Pass，但 Product Owner 随后在真实 onedir 应用执行第三次 T12 时发现：生成任务与
+PDF/DOCX 产物已经成功，浏览器结果页却变为无错误说明、无返回入口的整页白屏。
+
+现场 Console 出现两条同源生产错误：
+
+~~~text
+Error: Minified React error #310
+Uncaught Error: Minified React error #310
+~~~
+
+React 官方 error decoder 将 #310 定义为 `Rendered more hooks than during the previous render.`。
+由此确认根因类别是同一组件在前后渲染中改变了 Hook 数量或顺序；生产压缩栈只显示 bundle 与
+`useEffect` 调用，尚不能唯一定位具体源码组件和行号。
+
+该问题破坏唯一核心交付流程，定级 **P0**。Product Owner 已于 2026-09-08 批准本节返工；H3
+不得发布，本问题不得下移到 V2.1.1。H3 的独立源码验收保留为历史事实，但任何修复提交都形成
+新的 H4-SRC，不能自动继承 H3 结论。
+
+### 16.2 根因修复契约
+
+Development Agent 必须在非压缩开发环境使用能够触发现场状态转换的真实/等价成功响应复现
+React #310，并记录：
+
+- 发生异常的源码组件与行号；
+- 前后两次渲染分别经过的条件分支；
+- 发生变化的 Hook 类型、数量或顺序；
+- 触发所需的响应字段和页面状态；
+- 为什么既有单元、构建、fixture 与第四轮源码验收没有覆盖该路径。
+
+修复必须遵守 React Hooks 的稳定调用顺序：不得在条件分支、循环、事件函数或可能提前 return
+之后新增 Hook；不能通过隐藏结果页、吞掉异常、禁用真实 PDF/PreviewAnchor、固定测试数据或
+延迟状态更新来规避 #310。若根因来自多个组件或共用 Hook，必须一次审计并修正同类路径。
+
+### 16.3 白屏失败边界
+
+除修复当前根因外，应用还必须建立最外层 React Error Boundary 或等价渲染恢复边界：
+
+1. 工作台或结果页任一子组件抛出未捕获渲染异常时，不得卸载成空白 body；
+2. 固定错误界面必须使用普通用户能理解的文案，提供返回工作台或重试**页面渲染**的操作；
+3. 恢复操作不得重新提交生成 API、创建新 operation、重复模型调用或产生额外计费；
+4. 已成功的 operation 与 PDF/DOCX artifact 不得因前端渲染失败被删除、覆盖或标记为生成失败；
+5. 开发者诊断可以记录脱敏错误标识、组件栈和版本，但不得记录 API Key、完整履历、完整 JD、
+   生成正文或浏览器本地敏感状态；
+6. 错误边界本身必须有稳定最小布局，并在生产 build 与 onedir 中可见；Console error 不能成为
+   用户唯一可见的失败说明。
+
+本节只要求当前页面生命周期内的错误恢复，不提前实现 V2.1.1 的跨路由任务状态保持、浏览器刷新
+恢复、应用重启续跑或多任务中心。
+
+### 16.4 状态转换与回归矩阵
+
+结果页回归不能只测试静态 mount。至少覆盖同一个真实工作台组件在以下状态间的连续转换：
+
+| 起始状态 | 目标状态 | 必须证明 |
+|---|---|---|
+| 初始输入 | 生成中 | Hook 顺序稳定，只提交一个生成 operation |
+| 生成中 | 生成成功、PDF 可用 | 结果页正常渲染，PDF viewer、依据和双下载可用 |
+| 生成中 | 生成成功、PDF 不可用、Word 可用 | 固定失败态可见，不白屏，Word 可独立下载 |
+| 生成中 | 业务失败 | 保留输入和原失败信息，不白屏、不伪造成功 |
+| 生成成功 | 依据选择/取消 | PreviewAnchor 交互不改变 Hook 顺序或重新生成 |
+| 任一结果子组件注入 render exception | Error Boundary | 用户可见恢复界面出现，operation/artifact 不变，无额外 API 调用 |
+
+测试必须使用包含真实 PDF artifact 字段、PreviewAnchor、多个 section、entry、bullet、空/非空
+`fact_refs` 的成功响应，并补充能在修复前稳定触发 React #310、修复后通过的回归用例。测试还应
+审计 ESLint React Hooks 规则是否实际覆盖产品源码；规则缺失或未执行时必须补齐阻断检查，不能
+只报告人工代码审查。
+
+### 16.5 H4 集中返工任务
+
+| Task | 工作 | 完成标准 |
+|---|---|---|
+| T12-R19 | 复现并定位 React #310 | 非压缩环境取得组件/行号/Hook 分支；记录触发数据和漏测原因；修复前用例稳定失败 |
+| T12-R20 | 修复 Hook 顺序及同类路径 | 所有渲染路径 Hook 顺序稳定；真实成功响应正常进入结果页，不隐藏或降级 PDF/依据能力 |
+| T12-R21 | 建立应用级白屏恢复边界 | 注入渲染异常时出现用户可见恢复界面；不重复 operation/API/计费，不破坏已成功 artifact |
+| T12-R22 | 完成状态矩阵、回归与包验证 | 开发/生产 build/onedir 均完成真实生成到结果页；React #310 为 0；PDF/Word 下载、依据、失败态与既有固定计数通过 |
+| T12-R23 | 更新 RESULT 并冻结 H4 | 记录根因、修复、测试、Console、API 调用计数、产物与包身份；形成 clean H4-SRC 和只改 RESULT 的开发交接 |
+
+### 16.6 H4 验收与发布边界
+
+Documentation Agent 收到开发交接后，先核对 H4-SRC、RESULT、PLAN blob、工作区 clean 和
+H3..H4 范围；只在文档与候选身份闭合后把固定 `<review-workspace>` detached 到 H4-SRC。
+
+未参与 R19-R23 实现、自测或修复的验收 Agent 至少独立验证：
+
+1. 修复前触发 fixture 在 H3 出现 React #310，在 H4 不再出现；
+2. 状态转换矩阵全部通过，实际生成 API/operation 只有一次；
+3. 结果子组件异常注入能够命中 Error Boundary，页面不白屏，operation/artifact 未变化；
+4. 生产 build 与 onedir 的真实成功响应可进入 PDF 结果页，Word/PDF 下载和依据交互正常；
+5. 既有 R9、R17、R17a、完整 precheck、前端 build 与包内资产一致性无回退；
+6. 修复没有把 V2.1.1 的跨路由状态保持或其他新功能混入 V2.1.0。
+
+独立源码验收通过后，Product Owner 必须在实际 onedir 进行第四次 T12。第四次人工验收通过、
+候选对应的 GitHub Windows CI 成功且 Documentation Agent 完成发布文档收口前，不更新
+`CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub 发布声明。
