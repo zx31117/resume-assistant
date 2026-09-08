@@ -36,8 +36,12 @@ datas.append((str(backend_dir / "templates" / "pm_template.json"), "templates"))
 # R17：PDF 内嵌中文字体（templates/fonts/NotoSansSC-Regular.ttf，OFL 可再分发）。
 # 冻结后 BASE_DIR=sys._MEIPASS（onedir 即 _internal），pdf_renderer 以
 # BASE_DIR/templates/fonts/<font> 解析（services/pdf_renderer.py FONT_TEMPLATE_SUBDIR），
-# 故字体目录须落在 _internal/templates/fonts；缺失时 reportlab 会临时回退本机 simsun。
+# 故字体目录须落在 _internal/templates/fonts。字体缺失/损坏/hash 不符时渲染器
+# fail closed（抛确定性错误，绝不回退系统字体）。
 datas.append((str(backend_dir / "templates" / "fonts"), "templates/fonts"))
+# R17a：第三方授权分发材料（Noto Sans SC 的 OFL 1.1 全文 / pdfjs-dist 的 Apache 2.0 全文 /
+# 登记清单 THIRD_PARTY_NOTICES.md）随包进入 _internal/licenses（稳定可见目录）。
+datas.append((str(backend_dir / "templates" / "licenses"), "licenses"))
 datas.append((str(backend_dir / "config"), "config"))
 
 # ── AI 栈动态子模块/数据文件（含 cacert 证书、tiktoken bpe 编码） ── #

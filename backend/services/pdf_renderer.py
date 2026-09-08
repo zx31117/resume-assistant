@@ -17,8 +17,14 @@ V2.1.0 R15a（可移植中文字体内嵌）：
   放弃内置 Adobe CID 字体 STSong-Light（UnicodeCIDFont 不内嵌字形，浏览器/无字体机器不可读、
   不可移植）；改为内嵌可再分发 OFL 字体 templates/fonts/NotoSansSC-Regular.ttf（Noto Sans SC，
   reportlab TTFont 子集化内嵌为 FontFile2），使 PDF 自带字形、任何 viewer 与机器可读。
-  字体资源走模板资源目录（backend_root/templates/fonts/）；资源缺失时仅对本机临时回退
-  C:/Windows/Fonts/simsun.ttc（不可再分发，仅兜底并在 warnings 注明）。
+  字体资源走模板资源目录（backend_root/templates/fonts/）。
+
+V2.1.0 R17a（确定性字体加载，fail closed）：
+  仅使用打包/源码随附的固定 Noto 字体，不再有任何本机/系统字体回退。加载前校验字体文件
+  存在且 SHA-256 == 固定值（d45f67f0…，来自 @expo-google-fonts/noto-sans-sc@0.4.3，
+  OFL-1.1）；文件缺失、损坏或 hash 不符一律抛确定性 RuntimeError —— generate 链按既有
+  "PDF 失败不中断 docx"处理（pdf_* 字段留空 + warning，前端显示真实"PDF 预览不可用"），
+  绝不伪造 PDF 成功、绝不回退任何系统字体。
 
 V2.1.0 R15a（PreviewAnchor 输出）：
   render() 绘制每条 bullet（经历/技能等可点内容行）时记录锚点，随渲染结果一起返回：
@@ -35,10 +41,10 @@ V2.1.0 R15a（PreviewAnchor 输出）：
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
-import sys
 
 from reportlab.lib.colors import Color, HexColor
 from reportlab.lib.pagesizes import A4
@@ -60,7 +66,9 @@ from models.template_schema import TemplateSpec
 FONT_CN = "NotoSansSC"
 FONT_FILE_NAME = "NotoSansSC-Regular.ttf"       # templates/fonts/ 下可再分发 OFL 字体（TrueType）
 FONT_TEMPLATE_SUBDIR = os.path.join("templates", "fonts")
-FONT_FALLBACK_SIMSUN = "C:/Windows/Fonts/simsun.ttc"  # 仅本机临时回退，不可再分发
+# R17a：固定字体指纹。字体来自 @expo-google-fonts/noto-sans-sc@0.4.3（jsdelivr，OFL-1.1，
+# 原始文件名 NotoSansSC-Regular.ttf）；加载前强制 SHA-256 校验，缺失/损坏/不符即失败。
+FONT_EXPECTED_SHA256 = "d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16"
 
 # 行内 bbox 估算（reportlab TTF 度量近似，用于 PreviewAnchor 命中区域）
 _EM_ASCENT = 0.88    # Noto Sans SC ascent ≈ 0.88em
@@ -111,9 +119,12 @@ _font_registered = False
 
 
 def _ensure_font_registered(backend_root: str) -> str | None:
-    """按模板资源目录机制注册内嵌字体；缺失时回退本机 simsun.ttc 并返回 warning。
+    """按模板资源目录机制注册固定的 Noto Sans SC 字体（确定性，R17a）。
 
-    全局只注册一次（reportlab 进程级字体注册表）。返回非 None 表示走了临时回退。
+    全局只注册一次（reportlab 进程级字体注册表）。加载前校验字体文件存在且
+    SHA-256 == FONT_EXPECTED_SHA256；缺失 / 损坏 / hash 不符一律抛 RuntimeError
+    （fail closed）——绝不回退任何系统字体。成功恒返回 None
+    （不再存在"临时回退"warning）。
     """
     global _font_registered
     if _font_registered:
@@ -131,26 +142,22 @@ def _ensure_font_registered(backend_root: str) -> str | None:
     if rel not in candidates:
         candidates.insert(0, rel)
     path = next((p for p in candidates if os.path.isfile(p)), None)
-    warning: str | None = None
     if path is None:
-        # 临时回退（仅本机）：OFL/可再分发字体缺失时 simsun.ttc 兜底，报告再分发风险
-        if sys.platform.startswith("win") and os.path.isfile(FONT_FALLBACK_SIMSUN):
-            path = FONT_FALLBACK_SIMSUN
-            warning = (
-                f"PDF 字体资源缺失 templates/fonts/{FONT_FILE_NAME}，已临时回退本机 "
-                f"{FONT_FALLBACK_SIMSUN}（仅本机可用，字体不可再分发）"
-            )
-        else:
-            raise RuntimeError(
-                "PDF 中文字体不可用：templates/fonts/" + FONT_FILE_NAME + " 不存在，且无本机回退；"
-                "请放置可再分发 TTF（OFL，如 Noto Sans SC）到 backend/templates/fonts/"
-            )
-    kwargs = {}
-    if path.lower().endswith(".ttc"):
-        kwargs["subfontIndex"] = 0
-    pdfmetrics.registerFont(TTFont(FONT_CN, path, **kwargs))
+        raise RuntimeError(
+            "PDF 中文字体不可用：templates/fonts/" + FONT_FILE_NAME + " 不存在；"
+            "请随包放置固定可再分发 TTF（OFL Noto Sans SC，SHA-256 "
+            + FONT_EXPECTED_SHA256[:16] + "…）"
+        )
+    actual = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    if actual != FONT_EXPECTED_SHA256:
+        raise RuntimeError(
+            "PDF 中文字体校验失败（确定性失败边界，不回退系统字体）："
+            + FONT_FILE_NAME + " SHA-256 不符，期望 "
+            + FONT_EXPECTED_SHA256 + "，实际 " + actual
+        )
+    pdfmetrics.registerFont(TTFont(FONT_CN, path))
     _font_registered = True
-    return warning
+    return None
 
 
 def _load_spec(template_id: str, backend_root: str) -> TemplateSpec:
