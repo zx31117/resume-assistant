@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三次 T12 白屏 P0 已打回；H4 返工 PLAN 已批准，待 Development Agent 执行（见 §34–§35）
+> 当前状态：H4 白屏返工完成（H4-SRC `aecafc9`），待文档核对与复验（见 §31）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H4 返工契约：`f8f9a8f8e308fc30e8dcd61ad954e901a87569dc` / blob `598d3326bce4281a546b40651b466a8a4a51455c`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；H3 源码独立验收结论保留，但已被第三次 T12 的用户可见 P0 阻断
+> 发布结论：不发布；等待文档核对 H4-SRC、独立复验与 Product Owner 第四次 T12（PLAN §16.6）
 
 ## 1. 本文件用途
 
@@ -63,7 +63,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
-| T12-R19 至 R23 | H4 返工 PLAN 已批准，待开发 | 定位并修复 React #310、建立 Error Boundary、状态转换回归、重建包并冻结 H4；见 PLAN §16/RESULT §34–§35 |
+| T12-R19 至 R23 | H4 返工开发完成，待文档核对与复验 | #310 根因修复（`be9a0b9`）+ pdf.js canvas/ErrorBoundary/矩阵（`aecafc9`）；H4-SRC = `aecafc9`，见 §31 |
 
 ## 5. 开发交接
 
@@ -1171,3 +1171,43 @@ React #310 根因、白屏错误边界、状态转换回归、生产/onedir 真�
 固定 `<review-workspace>` 继续 detached 在 H3-SRC，不因 PLAN 批准提前移动。Development Agent
 完成 H4 并交接后，由 Documentation Agent 先做身份与范围核对，再决定是否将 review 切换到
 H4-SRC。当前不更新公开事实、main、tag 或 GitHub。
+
+## 31. H4 白屏返工实施（T12-R19 至 R22，开发侧；H4-SRC）
+
+> 开发侧实施与自测记录，非复验结论。契约：PLAN §16（f8f9a8f/598d3326）+ RESULT §34/§35。
+> 复验须绑定 **H4-SRC = `aecafc9`**（version/v2.1.0，工作区 clean）。
+
+### 31.1 R19/R20 React #310 根因定位与修复（`be9a0b9`）
+
+- 根因：`GeneratePage` 单一组件函数体内，input/processing 视图以**提前 return**结束渲染，而成功态
+  路径在其后仍有一个 `useEffect`（原 1253 行，按 pdfHref 初始化 pdfMissing）。input/processing
+  渲染不执行该 Hook，success 渲染执行 → 同一组件跨渲染 Hook 数变化 → React #310
+  `Rendered more hooks than during the previous render` → 整页白屏（第三次 T12 现场证据）。
+- 修复：删除 post-return effect，把 `setPdfMissing(!result?.pdf_download_url)` 并入顶部
+  `[result]` effect（所有渲染路径的 Hook 数量与顺序一致）。
+- 漏测原因：既有单元/fixture/build 均只单状态静态覆盖，未做 input/processing→success 连续状态
+  转换的真实渲染回归；该类动态条件 return 不在 react-hooks/rules-of-hooks 静态可检测范围。
+- 验证：真实生成到结果页不再白屏（body 非空、root 有内容）。
+
+### 31.2 R21/R22 pdf.js canvas、ErrorBoundary 与状态矩阵（`aecafc9`）
+
+- canvas 修复：pdf.js `#canvasInUse` 守卫——PdfPreview 重绘 effect 从未真正 `renderTask.cancel()`
+  → 新绘制撞上同一 canvas 被占用 →「PDF 预览不可用」。现按页登记 renderTask、重绘前 cancel+await
+  全部在途任务（覆盖 ResizeObserver/availW/reload 重绘），cleanup/resetDoc 先取消再 destroy。
+- ErrorBoundary：class 组件经 main.tsx 挂最外层，固定兜底界面 +「重试/返回生成工作台」（仅重渲染
+  与路由回退，不触发生成/不新增 operation/不破坏 artifact）；诊断仅组件栈+版本脱敏。注入自测：
+  /system 叶子抛错 → 兜底出现 → 返回 "/" 恢复（临时改动已撤销）。ESLint `react-hooks/rules-of-hooks`
+  = error、`exhaustive-deps` = warn，已在 eslint.config.js 显式固定；存量 19 项 purity/set-state 噪音。
+- 状态矩阵（1440×900 真实后端）：① 每次提交仅新建 1 个 operation；② 生成成功：canvas≥1、无
+  「不可用」、点 bullet 依据显示真实原文、Word/PDF 均为真实 a[download]、不白屏；③ 返回修改→再次
+  生成：两次 LLM 瞬时 `ContentGenerationError` 显示 FailurePanel 可重试，第 3 次成功不白屏。
+- 截图：validation-artifacts/t8/shots/h4_pdfview.png 等；console 无 pdf.js 报错。
+
+### 31.3 H4-SRC 与复验边界
+
+- **H4-SRC = `aecafc9`**（version/v2.1.0，工作区 clean；祖先含 §34/§35 文档与 be9a0b9/aecafc9）。
+- Documentation Agent 核对后切换 review；未参与实现者按 PLAN §16.6 复验（#310 修复前用例在 H4 不
+  复现、状态矩阵全过且 operation 只一次、真实结果页 PDF viewer/依据/双下载、白屏边界、包/预检）；
+  随后 Product Owner 第四次 T12。未通过前不更新公开事实/main/tag/发布声明。
+- 遗留（如实）：两次失败为后端 LLM 瞬时故障（非前端）；完整 precheck/onedir 重建在文档核对后按
+  H4 冻结口径执行（当前变更仅前端，R9/R17 fixture 不受影响）。
