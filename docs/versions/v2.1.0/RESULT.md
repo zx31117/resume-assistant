@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：H5 开发提交已收到（H5-SRC `012242c`），但前置交接核对因证据未闭环打回；待 Development Agent 补齐后再进入独立复验（见 §37–§38）
+> 当前状态：H5 v2 补证已收到；Product Owner 已批准 H6 分层门禁，待 Development Agent 固化测试资产并完成最终 onedir 非侵入式验证（见 §38–§40）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H5 补充契约：`67321f1ca7965975b06c1e1130c746c5222bbd6c` / blob `ea7fd411961cee6ce587d059e26b06515bf5e2dd`）
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H6 补充契约：`233dcf56ed49ae740cc94f25036a1520b4f65b1e` / blob `99e3eace423d183fd3f9671cb92e3540d1d431e2`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；H5 尚未取得进入独立复验的交接资格，review 保持 H3（PLAN §17.6/§17.7）
+> 发布结论：不发布；H6 尚未形成，review 保持 H3（PLAN §18）
 
 ## 1. 本文件用途
 
@@ -35,8 +35,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | Canonical Design Baseline | `docs/design/baselines/V2.1.0/DS-002/` | 已导入；15 个文件 |
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
-| PLAN 批准 commit/blob | Product Owner 批准后记录 | 初始基线 `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`；当前 H5 补充 `67321f1ca7965975b06c1e1130c746c5222bbd6c` / `ea7fd411961cee6ce587d059e26b06515bf5e2dd` |
-| 开发候选 commit | 开发结束后冻结 | 已收到 H5-SRC `012242ce8310d361f88076140ead11e0efe2b2da` 与 H5-DEV `019a6a857ad88b6f68acb9a6e788ae909ec90ccf`，但交接证据未闭环，尚未接受为 review 对象；前一冻结点 H3-SRC 为 `5ea56c4fe0ea4f1eead436bd03439485ea8218e1` |
+| PLAN 批准 commit/blob | Product Owner 批准后记录 | 初始基线 `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`；当前 H6 补充 `233dcf56ed49ae740cc94f25036a1520b4f65b1e` / `99e3eace423d183fd3f9671cb92e3540d1d431e2` |
+| 开发候选 commit | 开发结束后冻结 | H5 字节基线 `012242ce8310d361f88076140ead11e0efe2b2da` 与 v2 补证 `67c93702c19d7ccb971f0a9d23f0b8e12fa3ef1c` 已收到，作为 H6 开发输入保留；新的 H6-SRC 尚未形成，review 仍绑定 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1` |
 | 独立验收对象 | 与开发候选完全一致 | 第四轮报告唯一绑定 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`，review detached 且 clean；H3 后的 RESULT/文档提交不属于源码验收对象 |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
@@ -64,7 +64,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
 | T12-R19 至 R23 | H4 开发记录已存在，尚未按 H5 门禁接受 | #310、PDF.js canvas、Error Boundary 与包重建记录对应 `be9a0b9`、`aecafc9`、`89d254b`、`74d4a7c`；其形成早于 PLAN §17，且手工回滚未解决，不能自动关闭 P0；见开发侧 §31–§32 与 §36 |
-| T12-R24 至 R27 | 前置交接核对打回，待开发补齐 | 已收到 H5-SRC `012242c` / H5-DEV `019a6a8`；R24 回滚事实与确定性复现、R26 onedir 六组矩阵及 §17.7 可移交证据仍未闭环，见 §38 |
+| T12-R24 至 R27 | H5 v2 补证已收到，转为 H6 输入 | H3＋虚构 fixture 复现及 dev/production 证据已补；ignored 测试资产与 onedir 注入边界由 PLAN §18/R28–R31 收口，见 §38–§40 |
+| T12-R28 至 R31 | H6 PLAN 已批准，待开发 | 固化可移交 fixture/runner，完成 dev/production test build 全矩阵与最终 onedir 非侵入式门禁，冻结 H6；见 PLAN §18/RESULT §40 |
 
 ## 5. 开发交接
 
@@ -1410,3 +1411,29 @@ Development Agent 不需要重做已经机械成立的 PLAN 身份、Hooks 阻�
 - 身份：补证无源码改动 → **H5-SRC 字节基线 = `012242c`**；本 RESULT 补证提交 = 新的开发交接
   （H5 交接 v2）。请求 Documentation Agent 复核后，由未参与 H4/H5 实现且可运行真实浏览器的独立
   验收按 PLAN §17.5 执行；随后 Product Owner 用新重建 onedir 再次 T12。未通过前不发布。
+
+## 40. H6 分层门禁批准与开发交接（2026-09-08）
+
+Documentation Agent 对 H5 v2 补证提交 `67c93702c19d7ccb971f0a9d23f0b8e12fa3ef1c` 完成机械核对：
+该提交只修改本 RESULT，current clean；H3-SRC＋虚构 fixture 的旧态复现、当前源码对照、
+development/production 动态证据及 PDF/DOCX hash 已补充。上述材料作为后续 H6 的开发输入保留，
+不直接等同于独立验收通过。
+
+核对同时确认：fixture、stub 和 runner 仍只存在于 ignored `validation-artifacts/h5/`，固定 review
+无法从候选原样重建；§39 也明确没有在最终 onedir 执行四区域源码异常注入。Product Owner 据此
+批准 PLAN §18 的分层修订：完整故障注入留在不进入正式包的可移交测试环境，最终 onedir 只执行
+真实链路和请求阻断、隔离 artifact 操作等非侵入式门禁。
+
+当前唯一有效的 H6 补充契约身份为：
+
+- PLAN commit：`233dcf56ed49ae740cc94f25036a1520b4f65b1e`；
+- PLAN blob：`99e3eace423d183fd3f9671cb92e3540d1d431e2`；
+- 开发输入：H5 字节基线 `012242ce8310d361f88076140ead11e0efe2b2da`，H5 v2 补证
+  `67c93702c19d7ccb971f0a9d23f0b8e12fa3ef1c`；
+- 任务范围：T12-R28 至 T12-R31；
+- 目标身份：新的 clean H6-SRC，以及只修改 RESULT 的 H6-DEV。
+
+Development Agent 只处理测试资产可移交性、dev/production test build 矩阵、最终 onedir
+非侵入式验证和交接记录；不得扩展用户功能或让故障注入进入正式包。Documentation Agent 收到
+H6 完整交接并完成身份、范围、包内无测试后门和文档机械核对前，不移动固定 review。当前仍不
+更新 `CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub。
