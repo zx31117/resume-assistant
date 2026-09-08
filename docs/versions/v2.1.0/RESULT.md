@@ -1211,3 +1211,22 @@ H4-SRC。当前不更新公开事实、main、tag 或 GitHub。
   随后 Product Owner 第四次 T12。未通过前不更新公开事实/main/tag/发布声明。
 - 遗留（如实）：两次失败为后端 LLM 瞬时故障（非前端）；完整 precheck/onedir 重建在文档核对后按
   H4 冻结口径执行（当前变更仅前端，R9/R17 fixture 不受影响）。
+
+## 32. 第四次 T12 白屏复现定位：验收包未含 H4 修复（2026-09-08）
+
+Product Owner 在第四次 T12 报告"仍白屏"。定位结论：**白屏 bundle 未进入验收包**。
+
+- 现场核对：`dist/ResumeAssistant/_internal/frontend/dist/assets/` 内仍为
+  `index-BL6DWcQ4.js`——正是第三次 T12 白屏现场 Console 报错的同一 bundle（§34.2）；当时正在
+  运行的 `ResumeAssistant.exe`（PID 85408）即该旧包进程。H4 源码修复（`be9a0b9`/`aecafc9`）只
+  更新源码与 `frontend/dist`（新 bundle `index-CiJrscP0.js`），**onedir 在 H4 修复后从未重建**，
+  因此验收打开的应用仍是含 #310 的旧前端（且无 ErrorBoundary 兜底）→ 白屏必然复现。
+- 处置：停止占用进程（PID 85408），删除旧包与构建缓存，重新执行
+  `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`（3m18s，exit 0）。
+- 重建后包内一致性：`_internal/frontend/dist` 与最终 `frontend/dist` **4 文件清单一致且逐文件
+  SHA-256 MATCH**：index-CiJrscP0.js `0248708e5c8d9679…`、index-BSOI6Jaa.css `e773df6c…`、
+  pdf.worker.min-yatZIOMy.mjs `1baa1844…`、index.html `a65042df…`；旧 bundle BL6DWcQ4 已不在包内。
+  该 `frontend/dist` 即 R21/R22 状态矩阵中"真实生成→结果页 canvas≥1、不白屏"已验证的产物。
+- 记录为开发侧修正并请求 Product Owner 以**新重建的 onedir**（dist/ResumeAssistant）重新执行
+  第四次 T12；若新包仍白屏，按 §34 流程补浏览器 Console 与堆栈后继续定位（ErrorBoundary 应使
+  白屏退化为可见错误界面，便于定位）。
