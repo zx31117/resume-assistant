@@ -1370,3 +1370,43 @@ Development Agent 不需要重做已经机械成立的 PLAN 身份、Hooks 阻�
 
 固定 `<review-workspace>` 继续 detached 在 H3-SRC `5ea56c4`，本次不启动独立验收、不更新公开
 事实、main、tag 或 GitHub。
+
+## 39. H5 补证（§38.3 四缺口关闭；开发侧，2026-09-08）
+
+> 对应 RESULT §38 文档打回。补证过程**未修改产品源码**；H5-SRC 字节基线保持 `012242c`。
+> 本补证提交构成新的开发交接（只改 RESULT）。证据明细在 ignored `validation-artifacts/h5/`
+> （r38a_h3_fixture_repro.md、r38b_matrix.md、screens/），报告正文给出可重建摘要。
+
+### 39.1 §38.2.1/§38.3.1 回滚事实与确定性复现
+
+- 回滚对象：git reflog/log 无 revert/reset/回滚提交；文档所称人工回滚发生在 git 记录之外
+  （未提交工作树/构建产物层面），**对象与前后 Console 证据不可恢复**，按 §38.3.1 如实声明，
+  不把其等同于旧包事件以外的结论。
+- 替代证据（PLAN §17.2(5) 可重复失败）：检出 **H3-SRC `5ea56c4`（git worktree，含 #310 原缺陷
+  形态：success 分支 post-return `useEffect`）** + 虚构 fixture（stub_backend，确定性、非 LLM，
+  成功响应含 pdf_download_url/pdf_artifact_id/pdf_sha256/anchors full/双下载）→ dev 稳定触发
+  `Warning: React has detected a change in the order of Hooks called by GeneratePage` + 差异表
+  第 41 位 `undefined → useEffect` + `Uncaught Rendered more hooks…`，非压缩栈
+  `GeneratePage.tsx:624`，白屏。截图 h5/screens/h5_h3_fixture_blank.png。
+- 当前源码（H4 修复字节）同一 fixture 复核：`errs=[]`、`canvas=3`、非白屏。
+
+### 39.2 §38.2.3/§38.3.2 六组风险矩阵（开发侧动态，dev + production）
+
+- fixture 同上。逐场景结果见 validation-artifacts/h5/r38b_matrix.md（Hook 顺序 success/fail、
+  PDF missing/broken/anchors empty↔full/artifact 更换、PdfPreview 异常注入→ErrorBoundary、
+  幂等 __stub/count 逐轮 +1 且 EB 后无新增、产物下载 hash、production 同源）——dev 与 production
+  全部 errs=[]、失败/不可用态非白屏且诚实显示。
+- Word/PDF 下载产物（stub fixture）SHA-256：fixture.docx = `b41d8cff6f2edbad3787cad3cb4102b34ec740b577151f70b9e66f4b29e99ff2`；
+  fixture.pdf = `a0ed1fa7e9463c5a1c1142e86cc118bf4e2c6021d92972851808f406b1422d8a`。
+- onedir 注入限制（如实）：onedir exe 绑定真实后端，无法注入 stub/损坏 fixture；开发侧 onedir
+  正常成功路径已由真实 LLM 端到端多次验证（§31.2/§32/R24），注入类在 production build（与
+  onedir 内前端同字节）通过；给独立验收在 onedir 复核失败路径的可执行步骤见 r38b_matrix.md。
+
+### 39.3 §38.2.4/§38.3.3 可移交证据与身份
+
+- 命令/退出码：stub `python -c "import uvicorn; uvicorn.run('stub_backend:app', port=8000)"`（后台）；
+  dev `npm run dev -- --port 5173`；agent-browser 注入断言；frontend build exit 0（index-CiJrscP0）；
+  precheck exit 0（§37）；H3 复现与复核均在真实浏览器（Chromium 1440×900）完成。
+- 身份：补证无源码改动 → **H5-SRC 字节基线 = `012242c`**；本 RESULT 补证提交 = 新的开发交接
+  （H5 交接 v2）。请求 Documentation Agent 复核后，由未参与 H4/H5 实现且可运行真实浏览器的独立
+  验收按 PLAN §17.5 执行；随后 Product Owner 用新重建 onedir 再次 T12。未通过前不发布。
