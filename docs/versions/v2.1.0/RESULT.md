@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三轮交接暂停（预览渲染真源方案待 Product Owner 确认；见 §26）
+> 当前状态：第四轮返工完成（新 H3 `c4a55a3`），待文档核对与复验（见 §28）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第三轮返工契约：`02a4a604710a466299d0d1558475fd4b85d3f3fb` / blob `3db39b79b66880cf910c3736d977391ded65b5df`）
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第四轮返工契约：`17359a7d83b25647c5b44ecf87fb67e1be724de0` / blob `824e0845cfc8f6622750296eeb80f56ce8b69cb4`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；先确定预览应绑定 PDF 还是 DOCX 的技术方案，再修订返工契约并重新冻结 H3
+> 发布结论：不发布；等待 Documentation Agent 核对新 H3、独立复验与 Product Owner 第三次 T12（PLAN §15.6）
 
 ## 1. 本文件用途
 
@@ -61,7 +61,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T11 独立验收 | H2 历史结论：有条件通过 | H2 报告绑定 `3d821f2` 已失效；H3 须由未参与返工者重新独立验收 |
 | T12 Product Owner 人工验收与发布 | 第二次未通过（H2）；待 H3 第三次 T12 | 打回记录 §24；H3 复验通过后 Product Owner 第三次 T12 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
-| T12-R9 至 R14 | 实现批次已到达，方案决策待定 | R10-R13 已有实现与开发证据；当前三渲染器架构无法天然保证稳定一致，R14 暂停，等待 Product Owner 选择预览真源 |
+| T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
+| T12-R15 至 R18 | 第四轮开发完成，待文档核对与复验 | R15a/R15b+R16/R17 实现与证据见 §28（新 H3 `c4a55a3`） |
 
 ## 5. 开发交接
 
@@ -792,3 +793,37 @@ Product Owner 确认 V2.1.0 的范围分为两层：
 - `CURRENT_STATE.md`、根 README、公开 main、tag 和 GitHub 保持不变；
 - Documentation Agent 收到新 clean H3 后先核对 PLAN blob、源码范围、RESULT、PDF artifact 身份、
   viewer/下载同文件证据和包重建记录，再执行固定 review 交接。
+
+## 28. 第四轮返工实施（T12-R15a / R15b+R16 / R17，开发侧；新 H3）
+
+> 开发侧实施与自测记录，非复验结论。契约：PLAN §15（17359a7/824e0845）+ RESULT §26/§27
+> （Product Owner 确认"真实 PDF 成品预览"：viewer 与"下载 PDF"读取同一 artifact；doc_preview 不再
+> 承担版式渲染；撤 R9–R13 的 HTML/三渲染器一致要求）。`6664e37`/`a9a3d56` 仅作第三轮历史。
+> 复验须绑定 **新 H3 = `c4a55a3`**（version/v2.1.0，工作区 clean）。
+
+### 28.1 R15a 后端：可移植字体内嵌 / artifact 身份 / PreviewAnchor（`4f0577c`）
+
+- 字体：`backend/templates/fonts/NotoSansSC-Regular.ttf`（Noto Sans SC 静态 TTF，SIL OFL 1.1，经 jsdelivr 拉取）；reportlab `TTFont` 注册 + 子集化内嵌（PDF 含 `/FontFile2`，无 STSong-Light 依赖；fixture 断言）。字体缺失时仅本机回退 simsun.ttc 并告警（注明不可再分发）。
+- artifact：`write_pdf_artifact` 命名 `resume_<user>_<template>_<gen-uuid>.pdf`（uuid=operation_id），不原地覆盖；响应带 `pdf_artifact_id/pdf_sha256/pdf_size_bytes/pdf_download_url`；落盘 SHA-256 稳定。
+- anchors：逐 bullet 记录 `{artifact_id,page_index,x0,y0,x1,y1(底部原点 pt),content_item_id,bullet_index,text,fact_refs[]}`；fact_refs 源自 build_meta.bullet_fact_refs（experience→bullet→fact_id）；无映射/越界留空不编造。
+- fixture：`_v21_r9_preview_pdf.py` 扩展 → **PASS=54/FAIL=0**（字体内嵌/anchors 几何·文本·溯源/artifact 身份/下载 SHA 一致/字段序列化；原 34 项不倒退）。开发侧复跑一致。
+
+### 28.2 R15b+R16 前端：内置 PDF.js viewer 与依据锚点（`f187d78`）
+
+- 依赖：`pdfjs-dist@4.10.38`（dependencies 固定）；worker 经 vite `?url` 随包（dist 内独立 `pdf.worker.min-*.mjs`，无 CDN）。
+- PdfPreview：fetch 同一 `pdf_download_url` → getDocument → 多页 canvas（scale=容器可用宽/页宽），预览卡为唯一容器、满宽、仅卡内纵向滚动；loading/失败「PDF 预览不可用」+ 重试/返回为固定尺寸态；**产品路径不再用 ResultPaperPreview 渲染版式**（doc_preview 仅作依据/无障碍辅助）。
+- 依据：命中层用渲染同一 viewport 换算 anchors（左上=(x0,y1)、右下=(x1,y0)），透明可点 button（键盘可达）→ EvidencePanel 按 fact_refs 反查 response.evidence 显示真实原文；无 refs/原文缺失/artifact 不匹配/越界 → fail closed 诚实「无可用依据」。
+- 文案：结果页声明「预览对应 PDF，Word 在不同软件中可能有轻微排版差异」。
+- 记录缺口：anchor fact_refs 若不在 response.evidence 的 fact 集内则前端无原文可显（如实计数缺原文；验收证据阶段宜覆盖常用路径 refs 均在 evidence）。
+
+### 28.3 R17 失败态、回归与便携包（`c4a55a3`）
+
+- spec datas 增 `backend/templates/fonts` → `_internal/templates/fonts`；packaging 后 pdf_renderer 经 BASE_DIR(_MEIPASS) 找字体。
+- 失败注入：新增 `backend/_v21_r17_failures.py` → **PASS=17/FAIL=0**（缺失 404/非法路径不泄漏/非 PDF MIME/截断如实返回/hash 替换已知边界）；R9 fixture 复跑 54/0。
+- 完整统一预检 **exit 0**（六阻断+F3+前端 build）。非阻断报告项（如实）：ruff 403、ESLint 21、pip-audit 7、npm audit 4。
+- onedir 重建成功；包内 `_internal/frontend/dist` 与最终 frontend/dist **4 文件 SHA-256 MATCH**（含 pdf.worker.min-*.mjs 独立 asset）；`_internal/templates/fonts/NotoSansSC-Regular.ttf` 在包；reportlab 在包；前端 JS/CSS/HTML **无 CDN 命中**；结构校验 4/4。
+
+### 28.4 新 H3 与复验边界
+
+- **新 H3 = `c4a55a3`**（version/v2.1.0，工作区 clean，祖先含 R15a/R15b+R16/R17 全部提交与 §26/§27 文档）。
+- Documentation Agent 先核对（PLAN blob `824e0845…`/源码范围/RESULT/artifact 身份/viewer-下载同文件/包重建）→ 未参与实现者按 PLAN §15.6 八项复验（fixture 三端相等、API/viewer/下载 SHA-256 三同一、两结果交替 artifact 身份、失败注入无近似预览、锚点正向/越界/未知、三视口几何零滚动、双格式真实下载、precheck/包一致性）→ Product Owner 第三次 T12。未通过前不更新公开事实/main/tag/发布声明。
