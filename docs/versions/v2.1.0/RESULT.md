@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三次 T12 白屏 P0 未闭环；H4 开发提交与重建记录已存在，但手工回滚未解决且尚未按新门禁复验；H5 定位与专项风险 PLAN 已批准，待 Development Agent 对齐（见 §34–§36）
+> 当前状态：H5 白屏专项开发完成（H5-SRC `012242c`），待文档核对与独立复验（见 §37）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H5 补充契约：`67321f1ca7965975b06c1e1130c746c5222bbd6c` / blob `ea7fd411961cee6ce587d059e26b06515bf5e2dd`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待 H5 开发对齐、独立浏览器专项复验与 Product Owner 下一次 T12（PLAN §17）
+> 发布结论：不发布；等待文档核对 H5-SRC、独立浏览器专项复验与 Product Owner 第四次 T12（PLAN §17.6/§17.7）
 
 ## 1. 本文件用途
 
@@ -64,7 +64,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
 | T12-R19 至 R23 | H4 开发记录已存在，尚未按 H5 门禁接受 | #310、PDF.js canvas、Error Boundary 与包重建记录对应 `be9a0b9`、`aecafc9`、`89d254b`、`74d4a7c`；其形成早于 PLAN §17，且手工回滚未解决，不能自动关闭 P0；见开发侧 §31–§32 与 §36 |
-| T12-R24 至 R27 | H5 PLAN 已批准，待开发对齐 | 还原回滚对象与包身份、建立动态复现、复核 H4 修复、完成专项风险矩阵并冻结 H5；见 PLAN §17/RESULT §36 |
+| T12-R24 至 R27 | H5 返工开发完成，待文档核对与独立复验 | R24/R25 动态复现与复核证据（validation-artifacts/h5/）+ R26 Hooks 阻断门禁（`012242c`）+ R27 记录（§37）；H5-SRC = `012242c` |
 
 ## 5. 开发交接
 
@@ -1269,3 +1269,49 @@ operation 幂等、artifact 保留及 development/production/onedir 差异的专
 交接并完成身份、范围和文档核对前，不移动 review；新的独立验收必须由未参与 H4/H5 实现与自测、
 且能够运行真实浏览器的验收任务执行。当前仍不更新 `CURRENT_STATE.md`、根 README、公开 main、
 tag 或 GitHub。
+
+## 37. H5 白屏专项开发完成（R24–R27；H5-SRC）
+
+> 开发侧实施与自测记录，非复验结论。契约：PLAN §17（67321f1/ea7fd411）+ RESULT §36。
+> 复验须绑定 **H5-SRC = `012242c`**（version/v2.1.0，工作区 clean）。
+
+### 37.1 R24 动态复现（先证据后修复）
+
+- 回滚事实还原：`git reflog`/`log` 无任何 revert/reset/回滚提交；§36 所述"手工回滚"对应
+  §32 场景（旧 onedir/H3 包 bundle `BL6DWcQ4` 仍被运行），开发侧如实记录。
+- 复现：在**当前源码**上临时反向补丁（在 GeneratePage success 分支插入仅成功路径执行的
+  `useEffect`，复刻旧 #310 形态）→ dev（vite 5173 → /api 代理真实 8000）真实 LLM 生成，
+  **2/2 稳定复现** `Rendered more hooks`；dev 非压缩栈直指 `GeneratePage`，Hook 差异位
+  `undefined → useEffect` 正落于插入点 → 根因类别确证。取证后补丁立即还原。
+- 证据：validation-artifacts/h5/r24_repro.md + console 捕获 + 截图（未入库）。
+
+### 37.2 R25 复核现有 H4 修复
+
+- 同一动态流程（真实 LLM 成功进入结果页）在**当前源码（含 be9a0b9/aecafc9）**下：
+  Console 错误捕获为空（r25_errs.txt `errs:[]`）、PDF canvas=1（r25_canvas.txt）→ 修复有效。
+- 漏测原因：单状态 mount/静态检查覆盖不到"输入→生成中→成功"连续状态转换中跨渲染 Hook 数量
+  变化；该类动态条件 return 不在 react-hooks/rules-of-hooks 静态可检测范围（故 R26 加阻断门禁
+  只能防显式违规，动态路径仍靠连续状态渲染回归）。
+
+### 37.3 R26 Hooks 阻断与矩阵
+
+- `frontend/package.json` 增 `lint:hooks`（eslint 仅启 react-hooks/rules-of-hooks 扫 src）；
+  `scripts/precheck.py` 增加阻断步骤 `_run_hooks_gate` → **precheck exit 0，Hooks 门禁通过
+  （当前源码 0 违规）**（`012242c`）。rules-of-hooks 违规不再混入非阻断 ESLint 报告。
+- 矩阵自测：validation-artifacts/h5/r26_matrix.md（六组风险逐项：Hook 顺序 dev 真实流程通过、
+  PDF 生命周期 URL 空→有效/viewer 失败不可用态/artifact 身份、错误隔离 ErrorBoundary 注入、
+  幂等每次生成仅 1 operation、产物保持 fail closed、生产差异 dev+production 同 fixture 通过；
+  onedir 生命周期细项留独立验收执行）。
+
+### 37.4 R27 收口与 H5-SRC
+
+- 完整统一预检 **exit 0**（六阻断脚本固定计数 + 前端 build + **Hooks 门禁** + F3 哨兵）。报告项
+  非阻断：ruff 404、ESLint 19（purity/set-state 噪音，非 rules-of-hooks）、pip-audit 7/4、npm
+  audit 4。
+- onedir 重建成功（2m19s exit 0）；包内 `_internal/frontend/dist` 与最终 `frontend/dist` **4 文件
+  逐文件 SHA-256 MATCH**（index-CiJrscP0.js `0248708e…` 等），旧 bundle 不在包内。
+- **H5-SRC = `012242c`**（version/v2.1.0，工作区 clean；含 H4 修复字节 + H5 R26 门禁；R24/R25
+  无产品源码改动）。
+- 复验边界：文档 Agent 核对后，由未参与 H4/H5 实现且能运行真实浏览器的独立验收按 PLAN §17.5
+  五条不可 SUSPEND 项 + §17.4 六组矩阵 + R9/R17/R17a/precheck/包一致性执行；随后 Product
+  Owner 第四次 T12（用新重建 onedir）。未通过前不更新公开事实/main/tag/发布。
