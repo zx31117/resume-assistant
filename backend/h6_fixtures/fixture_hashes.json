@@ -1,0 +1,17 @@
+{
+  "_meta": {
+    "fixture_id": "h6-fict-hashes-001",
+    "source": "backend/h6_fixtures/gen_fixtures.py（确定性生成器）",
+    "purpose": "冻结时生成字节的 SHA-256 审计对照（矩阵断言再生成字节与其一致 = hash 稳定）",
+    "note": "PDF reportlab invariant=1；DOCX 确定性重打包；requirements.txt 固定版本下字节可复现。"
+  },
+  "pdf": {
+    "sha256": "fbc73dc2bbcbb5857134581bb3203c8be3213623014780429cbd4dee5cb64e8c",
+    "size_bytes": 69537,
+    "pages": 2
+  },
+  "docx": {
+    "sha256": "3f5af68bba1e51ca09383a7ed06448920a11e38285366485e4d0048ba03cf31c",
+    "size_bytes": 831494
+  }
+}

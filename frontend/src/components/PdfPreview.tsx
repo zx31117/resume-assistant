@@ -5,6 +5,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { PdfAnchor } from '../api/types'
 import Button from './ui/Button'
+import { maybeInjectH6 } from '../h6' // V2.1.0 H6 test-only（正式构建剥离）
 
 // pdf.js v4：页面在独立的 worker 线程解析/栅格化。必须设置本地 worker 路径。
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -79,6 +80,7 @@ export default function PdfPreview({
   onRetry,
   onBackToEdit,
 }: PdfPreviewProps) {
+  maybeInjectH6('pdf') // V2.1.0 H6 test-only：viewer 区注入（正式构建剥离）
   const [status, setStatus] = useState<Status>('loading')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [docMeta, setDocMeta] = useState<PageMeta[] | null>(null)
@@ -211,6 +213,7 @@ export default function PdfPreview({
       setPages(null)
       return
     }
+    maybeInjectH6('overlay') // V2.1.0 H6 test-only：命中层区注入（正式构建剥离）
     const byPage = new Map<number, PdfAnchor[]>()
     for (const a of usableAnchors) {
       const list = byPage.get(a.page_index) ?? []

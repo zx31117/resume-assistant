@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import PdfPreview from '../components/PdfPreview'
+import { maybeInjectH6 } from '../h6' // V2.1.0 H6 test-only（正式构建剥离）
 import StageFlowList, {
   calcPhaseStatus,
   phaseElapsedMs,
@@ -140,6 +141,7 @@ function EvidencePanel({
   result: ResumeDocxGenerateResponse
   selectedAnchor: PdfAnchor | null
 }) {
+  maybeInjectH6('basis') // V2.1.0 H6 test-only：依据区注入（正式构建剥离）
   // fact_id → 原文（读 GeneratePage 现有 evidence 数据源，不改后端）
   const factIndex = useMemo(() => {
     const m = new Map<string, EvidenceFact>()
@@ -1428,6 +1430,7 @@ export default function GeneratePage() {
 
       {/* 左下角固定独立导出卡：只保留「下载 Word / 下载 PDF」两个真实按钮。
           外框尺寸不随文件名/状态/错误文案变化；错误/缺失走卡内固定高区域。 */}
+      {(maybeInjectH6('export'), null) /* V2.1.0 H6 test-only：导出区注入（正式构建剥离） */}
       <aside className="result-export-card" aria-label="导出">
         <div className="result-export-card__buttons">
           <a

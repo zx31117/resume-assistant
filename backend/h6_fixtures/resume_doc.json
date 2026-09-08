@@ -1,0 +1,152 @@
+{
+  "_meta": {
+    "fixture_id": "h6-fict-resume-001",
+    "schema": "ResumeDocument（backend/models/resume_document.py）",
+    "purpose": "全虚构确定性测试资产；任何姓名/组织/联系方式/数字均不指向真实个人、机构或事件。",
+    "note": "所有内容经虚构化处理：姓名含占位字、电话用 0000 占位段、邮箱用 .invalid 保留域、公司/学校为合成名。",
+    "privacy_check": "no-real-person / no-real-company / no-real-phone / no-real-key",
+    "render_target": "两页 PDF（含锚点几何）与 DOCX 的单一内容来源"
+  },
+  "profile": {
+    "name": "何小北",
+    "phone": "138-0000-0000",
+    "email": "hexiaobei.h6@example.invalid",
+    "location": "北辰市",
+    "target_position": "高级前端工程师",
+    "summary": null
+  },
+  "education": [
+    {
+      "school": "北辰应用科技大学",
+      "major": "软件工程",
+      "degree": "本科",
+      "start_time": "2019.09",
+      "end_time": "2023.06",
+      "gpa": "GPA 3.6/4.0",
+      "description": "主修前端工程、数据结构与算法；参与校园开发者社区维护，组织 3 期入门工作坊，累计服务 120 余人次。",
+      "experience_id": "h6-edu-1",
+      "bullets": [],
+      "fact_refs": []
+    }
+  ],
+  "work": [
+    {
+      "company": "北辰云图科技有限公司",
+      "role": "前端开发工程师",
+      "start_time": "2023.07",
+      "end_time": "至今",
+      "location": "北辰市",
+      "bullets": [
+        "负责低代码搭建平台前端核心模块，覆盖页面编辑器、组件树与属性面板，支撑 8 条内部业务线在平台上完成日常页面搭建与发布。",
+        "搭建跨端组件库与设计系统基础层，沉淀 26 个基础组件与统一交互规范，推动 5 个前端小组按同一规范迭代，减少重复实现。",
+        "推进前端性能治理：首屏资源体积下降约 34%，长列表滚动帧率保持稳定，并输出可复用的性能巡检工具。"
+      ],
+      "experience_id": "h6-work-1",
+      "fact_refs": []
+    },
+    {
+      "company": "海风数字传媒有限公司",
+      "role": "前端开发实习生",
+      "start_time": "2022.06",
+      "end_time": "2022.12",
+      "location": "北辰市",
+      "bullets": [
+        "参与公司官网与活动专题页开发，按设计稿完成响应式还原，并处理低端安卓设备兼容与降级策略。",
+        "维护埋点与统计面板前端，配合数据同学修正 3 处上报口径，提升数据准确性。"
+      ],
+      "experience_id": "h6-work-2",
+      "fact_refs": []
+    }
+  ],
+  "projects": [
+    {
+      "name": "视界低代码搭建平台",
+      "role": "核心开发",
+      "start_time": "2023.10",
+      "end_time": "2024.09",
+      "bullets": [
+        "设计页面渲染引擎的布局模型与样式序列化，使画布预览与真实发布页保持一致的还原度，降低线上视觉偏差。",
+        "实现拖拽生成与撤销重做机制，支持组件间联动配置，将单个页面的平均搭建耗时从约 2 小时降到约 40 分钟。"
+      ],
+      "experience_id": "h6-proj-1",
+      "fact_refs": []
+    },
+    {
+      "name": "时光胶囊纪念相册小程序",
+      "role": "全栈小助手",
+      "start_time": "2024.02",
+      "end_time": "2024.06",
+      "bullets": [
+        "负责相册时间轴与自动排版前端，用网格化分镜算法把用户照片按时间与主题聚合成可翻看的纪念册页面。"
+      ],
+      "experience_id": "h6-proj-2",
+      "fact_refs": []
+    }
+  ],
+  "skills": [
+    {
+      "category": "前端基础",
+      "items": ["TypeScript", "React", "Vite", "CSS 布局", "性能优化"]
+    },
+    {
+      "category": "工程与协作",
+      "items": ["组件库设计", "低代码引擎", "Node.js", "Git 工作流", "代码评审"]
+    }
+  ],
+  "awards": [],
+  "summary": null,
+  "bullet_fact_refs": {
+    "h6-work-1": [
+      ["h6f-w1-a", "h6f-w1-b"],
+      ["h6f-w1-c"],
+      []
+    ],
+    "h6-work-2": [
+      [],
+      ["h6f-w2-b"]
+    ],
+    "h6-proj-1": [
+      ["h6f-p1-a"],
+      []
+    ],
+    "h6-proj-2": [[]]
+  },
+  "evidence": {
+    "h6-work-1": [
+      {
+        "fact_id": "h6f-w1-a",
+        "experience_id": "h6-work-1",
+        "text": "主导低代码搭建平台前端核心模块：页面编辑器、组件树与属性面板，支撑 8 条业务线日常搭建发布。",
+        "reason": "与目标岗位前端工程经验强相关"
+      },
+      {
+        "fact_id": "h6f-w1-b",
+        "experience_id": "h6-work-1",
+        "text": "沉淀 26 个基础组件与统一交互规范，被 5 个前端小组采纳复用。",
+        "reason": "体现组件化与规范建设能力"
+      },
+      {
+        "fact_id": "h6f-w1-c",
+        "experience_id": "h6-work-1",
+        "text": "首屏资源体积下降约 34%，长列表滚动帧率保持稳定。",
+        "reason": "体现性能优化落地"
+      }
+    ],
+    "h6-work-2": [
+      {
+        "fact_id": "h6f-w2-b",
+        "experience_id": "h6-work-2",
+        "text": "维护埋点与统计面板前端，修正 3 处上报口径，数据准确性提升。",
+        "reason": ""
+      }
+    ],
+    "h6-proj-1": [
+      {
+        "fact_id": "h6f-p1-a",
+        "experience_id": "h6-proj-1",
+        "text": "设计渲染引擎布局模型与样式序列化，画布与发布页还原度一致。",
+        "reason": ""
+      }
+    ]
+  }
+}

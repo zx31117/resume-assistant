@@ -65,6 +65,7 @@ BLOCKING_SCRIPTS = (
     ("_v2_t5_crud_check.py",   r"PASS=15\s+FAIL=0",             "V2.0 T5 CRUD"),
     ("_v2_lifecycle_matrix.py", r"矩阵合计\s+50\s+项，失败\s+0",   "生命周期矩阵"),
     ("_v14_t7_regression.py",  r"total=15\s+PASS=12\s+FAIL=0\s+SUSPEND=3", "V1.4 T7 回归"),
+    ("_v21_h6_matrix.py",      r"PASS=\d+\s+FAIL=0",             "H6 确定性矩阵"),
 )
 
 # 非阻断检查（PLAN §3.3 / §6 R6）：只报告，绝不参与退出码。
