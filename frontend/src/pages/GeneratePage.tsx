@@ -495,7 +495,8 @@ export default function GeneratePage() {
 
   useEffect(() => {
     setSelectedAnchor(null)
-    setPdfMissing(false)
+    // T12-R11：进入成功态时按真实 pdf_download_url 初始化 PDF 可用状态（PDF 未生成→缺失提示）。
+    setPdfMissing(!result?.pdf_download_url)
     setPdfError(null)
   }, [result])
 
@@ -1247,12 +1248,8 @@ export default function GeneratePage() {
   const wordDownloadName = result.file_name || 'resume.docx'
   const pdfHref = result.pdf_download_url
   const pdfDownloadName = result.pdf_file_name || 'resume.pdf'
-  // T12-R11：PDF 真实状态可恢复
-  // - 后端未返 pdf_download_url → disabled + 卡内固定高区域显示「PDF 未生成」
-  // - 用户点击时探测下载链；HEAD 失败 → 卡内固定高区域显示具体错误并可重新生成
-  useEffect(() => {
-    setPdfMissing(!pdfHref)
-  }, [pdfHref])
+  // T12-R11：PDF 真实状态可恢复（pdfMissing/pdfError 由顶部 [result] effect 初始化，
+  // 点击时探测下载链；HEAD 失败 → 卡内固定高区域显示具体错误并可重新生成）
 
   async function probePdfDownload(): Promise<boolean> {
     if (!pdfHref) {
