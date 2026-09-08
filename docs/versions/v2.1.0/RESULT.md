@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：H5 白屏专项开发完成（H5-SRC `012242c`），待文档核对与独立复验（见 §37）
+> 当前状态：H5 开发提交已收到（H5-SRC `012242c`），但前置交接核对因证据未闭环打回；待 Development Agent 补齐后再进入独立复验（见 §37–§38）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H5 补充契约：`67321f1ca7965975b06c1e1130c746c5222bbd6c` / blob `ea7fd411961cee6ce587d059e26b06515bf5e2dd`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待文档核对 H5-SRC、独立浏览器专项复验与 Product Owner 第四次 T12（PLAN §17.6/§17.7）
+> 发布结论：不发布；H5 尚未取得进入独立复验的交接资格，review 保持 H3（PLAN §17.6/§17.7）
 
 ## 1. 本文件用途
 
@@ -36,7 +36,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | 初始基线 `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`；当前 H5 补充 `67321f1ca7965975b06c1e1130c746c5222bbd6c` / `ea7fd411961cee6ce587d059e26b06515bf5e2dd` |
-| 开发候选 commit | 开发结束后冻结 | 第四轮源码冻结点 **H3-SRC = `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`**；开发 RESULT 交接 **H3-DEV = `5489fe5f66fed5c6e6cc3b9ccdbc2dfda4069a20`**；文档交接 `49d9ef6739173cb2a74f1808a89329251a37b2f9` |
+| 开发候选 commit | 开发结束后冻结 | 已收到 H5-SRC `012242ce8310d361f88076140ead11e0efe2b2da` 与 H5-DEV `019a6a857ad88b6f68acb9a6e788ae909ec90ccf`，但交接证据未闭环，尚未接受为 review 对象；前一冻结点 H3-SRC 为 `5ea56c4fe0ea4f1eead436bd03439485ea8218e1` |
 | 独立验收对象 | 与开发候选完全一致 | 第四轮报告唯一绑定 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`，review detached 且 clean；H3 后的 RESULT/文档提交不属于源码验收对象 |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
@@ -64,7 +64,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
 | T12-R19 至 R23 | H4 开发记录已存在，尚未按 H5 门禁接受 | #310、PDF.js canvas、Error Boundary 与包重建记录对应 `be9a0b9`、`aecafc9`、`89d254b`、`74d4a7c`；其形成早于 PLAN §17，且手工回滚未解决，不能自动关闭 P0；见开发侧 §31–§32 与 §36 |
-| T12-R24 至 R27 | H5 返工开发完成，待文档核对与独立复验 | R24/R25 动态复现与复核证据（validation-artifacts/h5/）+ R26 Hooks 阻断门禁（`012242c`）+ R27 记录（§37）；H5-SRC = `012242c` |
+| T12-R24 至 R27 | 前置交接核对打回，待开发补齐 | 已收到 H5-SRC `012242c` / H5-DEV `019a6a8`；R24 回滚事实与确定性复现、R26 onedir 六组矩阵及 §17.7 可移交证据仍未闭环，见 §38 |
 
 ## 5. 开发交接
 
@@ -1315,3 +1315,58 @@ tag 或 GitHub。
 - 复验边界：文档 Agent 核对后，由未参与 H4/H5 实现且能运行真实浏览器的独立验收按 PLAN §17.5
   五条不可 SUSPEND 项 + §17.4 六组矩阵 + R9/R17/R17a/precheck/包一致性执行；随后 Product
   Owner 第四次 T12（用新重建 onedir）。未通过前不更新公开事实/main/tag/发布。
+
+## 38. H5 前置交接核对打回（2026-09-08）
+
+### 38.1 身份与机械范围核对
+
+Documentation Agent 在固定 `<current-workspace>` 只读核对后确认：
+
+- 分支为 `version/v2.1.0`，工作区 clean；
+- H5-SRC 为 `012242ce8310d361f88076140ead11e0efe2b2da`，只修改
+  `frontend/eslint.rules-of-hooks.config.js`、`frontend/package.json` 和 `scripts/precheck.py`；
+- H5-DEV 为 `019a6a857ad88b6f68acb9a6e788ae909ec90ccf`，相对 H5-SRC 只修改本 RESULT；
+- PLAN commit `67321f1ca7965975b06c1e1130c746c5222bbd6c` 是 H5-SRC 的祖先，候选中的 PLAN blob 为
+  `ea7fd411961cee6ce587d059e26b06515bf5e2dd`，与批准身份一致；
+- 当前 `frontend/dist` 与 onedir `_internal/frontend/dist` 均为 4 个文件，逐文件名称、大小和
+  SHA-256 一致；旧 bundle 不在这两个目录中。
+
+上述事实只证明候选身份、修改范围和当前磁盘产物机械一致，不构成源码正确性或浏览器行为验收。
+
+### 38.2 未达到 PLAN §17 的项目
+
+本次交接尚不能送入独立验收，原因如下：
+
+1. **回滚事实没有还原**：§37.1 以 Git reflog/log 无 revert/reset 为依据，把 Product Owner 所述
+   人工回滚直接解释为旧 onedir/H3 包场景。Git 历史为空不能排除未提交工作树撤回、文件级恢复、
+   构建产物切换或对话中的临时修改；当前仍没有回滚目标文件/行为、回滚前后 bundle 与 Console
+   对照，不满足 PLAN §17.2(5) 和 T12-R24。
+2. **R24 的确定性复现对象不符**：开发在当前 H4 修复源码上人工插入一个新的条件 `useEffect`，
+   并用真实 LLM 2/2 触发 Hook 错误。该证据可以说明错误类别和 Error Boundary 行为，但不是在 H3
+   或等价旧状态上以已批准的虚构成功 fixture 重现原故障，不能独立证明原失败数据形态及引入点。
+3. **R26 被明确留空**：本地 `r26_matrix.md` 明写“onedir 生命周期细项由 H5 独立验收执行”，且
+   PDF 请求中止/卸载/worker 失败、四个结果子区域异常注入、StrictMode 幂等、产物保持等多项仍列
+   为“独立验收必测”。PLAN §17.6 要求开发先让六组风险在 development、production build、onedir
+   通过；独立验收负责重新验证，不能代替开发完成标准。
+4. **§17.7 交接证据不完整**：RESULT 和当前本地材料未形成可移交的完整命令/退出码、production
+   与 onedir 浏览器矩阵、生成 API 调用计数与 operation/artifact 对照、Word/PDF 下载 hash。关键
+   材料仅位于 current 的 ignored `validation-artifacts/h5/`，固定 review 切换到提交后不会得到
+   这些材料。
+
+### 38.3 返回开发的最小补充
+
+Development Agent 不需要重做已经机械成立的 PLAN 身份、Hooks 阻断或包内静态 hash，只需集中
+补齐以下内容：
+
+1. 从当时对话、临时补丁、命令记录或构建产物还原人工回滚的真实对象；无法恢复时明确写“证据
+   不可恢复”，不得自行等同为旧包事件，并通过 H3/等价旧源码加虚构 fixture 补上可重复失败；
+2. 用同一虚构 fixture 完成六组风险在 development、production build 与 onedir 的开发侧动态矩阵，
+   包括 PLAN §17.4/§17.5 列出的卸载、中止、worker 失败、四区域异常、StrictMode、operation 与
+   artifact/hash 检查；
+3. 把必要证据摘要、完整命令与退出码、API/operation/artifact 身份和 Word/PDF hash 写入 RESULT；
+   本地截图和长日志可继续不入公开仓库，但报告必须足以让独立验收重建同一用例；
+4. 若补证不改产品源码，可继续以 `012242c` 作为源码字节基线，但必须形成新的 H5-SRC 身份以纳入
+   补充测试/门禁，并另建只改 RESULT 的开发交接提交；若修改源码，则正常冻结新的源码候选。
+
+固定 `<review-workspace>` 继续 detached 在 H3-SRC `5ea56c4`，本次不启动独立验收、不更新公开
+事实、main、tag 或 GitHub。
