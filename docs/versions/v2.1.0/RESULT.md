@@ -752,3 +752,43 @@ React/CSS `ResultPaperPreview`。三者分别维护字号、边距、字段前�
 Development Agent 实施。`6664e37` 仅作为三方案评估的现状基线。
 
 当前不更新固定 review、`CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub。
+
+## 27. Product Owner 确认预览方案并冻结第四轮 PLAN（2026-09-08）
+
+### 27.1 决策
+
+Product Owner 确认 V2.1.0 的范围分为两层：
+
+- **本版本必须完成**：解决预览可信性。结果页直接展示本次真实生成的 PDF artifact，页面 viewer
+  与“下载 PDF”使用同一份文件；Word 继续作为同一 ResumeDocument 的可编辑导出，允许存在明确
+  披露的字体、换行和分页轻微差异。
+- **本版本不做**：单个 Fact/ResumeBullet 重新生成、每条一至两行约束、关键词加粗、全局字体/
+  字号/行距/段距/字距自适应、自动压页及 Revision 回退。这些能力已写入
+  `docs/versions/V2_REQUIREMENTS_POOL.md` §5.7，等待后续版本排期。
+
+由此，§26.3 的“三方案待确认”状态结束；V2.1.0 采用“真实 PDF 成品预览”方案。原第三轮方案中
+由 React/CSS、ReportLab 与 DOCX 三套独立渲染器维持视觉一致的要求被撤回，不能继续通过补 CSS、
+复制模板常量或统一个别标签修补 HTML 预览。
+
+### 27.2 新 PLAN 身份
+
+上述决策已写入 PLAN §15，并形成新的开发契约：
+
+- PLAN commit：`17359a7d83b25647c5b44ecf87fb67e1be724de0`；
+- PLAN blob：`824e0845cfc8f6622750296eeb80f56ce8b69cb4`；
+- 新任务：T12-R15 至 T12-R18；
+- 核心链路：真实 PDF artifact → 内置 PDF viewer / 下载 PDF；
+- 依据联动：PDF Renderer 输出与 artifact 绑定的 PreviewAnchor，overlay 不参与排版；
+- 验收核心：API、viewer、下载文件 SHA-256 完全一致，失败时不得回退 HTML 近似预览。
+
+`6664e37` 和 `a9a3d56c0a27f3d900d6b7e5aac275c60289ccc5` 继续只作为暂停的第三轮实现历史，
+不得沿用为 H3。Development Agent 必须同步上述 PLAN commit/blob，在固定 `<current-workspace>`
+完成 R15-R18，更新 RESULT 并交付新的 clean 源码点。
+
+### 27.3 当前门禁
+
+- 固定 `<review-workspace>` 继续保留 H2，不切换到未满足新 PLAN 的源码；
+- 当前没有有效 H3，不启动第四轮独立验收；
+- `CURRENT_STATE.md`、根 README、公开 main、tag 和 GitHub 保持不变；
+- Documentation Agent 收到新 clean H3 后先核对 PLAN blob、源码范围、RESULT、PDF artifact 身份、
+  viewer/下载同文件证据和包重建记录，再执行固定 review 交接。
