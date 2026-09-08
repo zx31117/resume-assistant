@@ -1114,14 +1114,28 @@ Product Owner 提供，作为本轮人工验收证据保存在对话附件中，
 重复步骤前，**不得把某个组件、PDF.js 或 PreviewAnchor 写成已确认根因**。
 
 本次尝试读取浏览器现场控制台时，计算机控制连接因本机 kernel asset 路径错误不可用；没有取得
-浏览器异常堆栈。该工具失败没有改动应用、浏览器或仓库。
+浏览器异常堆栈。该工具失败没有改动应用、浏览器或仓库。随后 Product Owner 在未刷新白屏现场
+的情况下手工打开浏览器 Console，补充取得两条同源错误：
+
+~~~text
+Error: Minified React error #310
+Uncaught Error: Minified React error #310
+~~~
+
+错误均来自生产 bundle `index-BL6DWcQ4.js`，调用栈包含 React `useEffect`。React 官方 error
+decoder 对 #310 的完整定义是 `Rendered more hooks than during the previous render.`。据此可以
+确认根因类别为：同一 React 组件在前后两次渲染中调用的 Hook 数量或顺序发生变化，React 在结果
+状态切换时终止渲染。常见触发方式包括条件分支中调用 Hook，或某一渲染先提前 return、后续渲染
+再执行额外 Hook。生产压缩栈仍不能唯一定位具体源码组件与行号，必须由开发在非压缩开发环境复现
+后确定；不得仅凭 `useEffect` 字样假定某一个现有组件就是根因。
 
 ### 34.3 后续返工必须覆盖的最小闭环
 
 正式返工契约须在补齐浏览器错误证据后由 Documentation Agent 追加到原 PLAN，并形成新的批准
 commit/blob。至少应要求：
 
-1. 复现真实成功响应进入结果页的白屏，记录 Console stack、触发数据形态和实际根因；
+1. 在非压缩开发环境复现真实成功响应进入结果页的 React #310 白屏，记录具体源码组件、行号、
+   Hook 调用路径、触发数据形态和实际根因；
 2. 修复根因，并以包含真实 PDF artifact、PreviewAnchor、多个 section/entry/bullet 的成功响应
    覆盖结果页渲染；
 3. 增加应用级错误边界或等价恢复机制：任一结果子组件异常时显示明确错误、保留当前任务/输入和
@@ -1130,6 +1144,10 @@ commit/blob。至少应要求：
 5. 对开发模式、生产 build 和重建 onedir 分别执行真实生成到结果页的端到端回归；
 6. 新源码候选按 H4 冻结，针对白屏根因、错误边界、结果页、PDF/Word 下载和包一致性执行聚焦
    独立复验，再由 Product Owner 进行第四次 T12。
+
+返工测试还必须覆盖同一组件在初始、生成中、生成成功、生成失败、PDF 可用和 PDF 不可用等状态
+之间切换，确保所有渲染路径具有稳定的 Hook 调用顺序；单纯让本次 fixture 不触发异常，或通过
+隐藏结果组件绕过真实成功响应，不能视为修复。
 
 本节只记录事故事实和待形成的最小返工边界，不授权 Development Agent 修改源码。H3 的独立
 源码验收报告仍是该提交的历史事实，但不能覆盖后续发现的 T12 P0；任何修复提交都不自动继承
