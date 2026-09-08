@@ -886,3 +886,61 @@ Development Agent 只需完成以下包与失败边界修正，不重开已完�
 该修正属于 T12-R17“包内 viewer/PDF Renderer 依赖完整”和 PLAN §15 的确定性失败边界，不扩展
 V2.1.0 产品功能。固定 `<review-workspace>` 继续保持 H2；新候选到达前不启动第四轮独立验收，
 不更新 `CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub。
+
+## 30. R17a 第三方授权与字体失败边界修正（开发侧，2026-09-08）
+
+> 契约：RESULT §29.3（Documentation Agent 打回：第三方资源分发材料不完整 + 系统字体回退破坏
+> 确定性）。本轮只做授权材料与失败边界修正，不重开产品交互范围；开发侧自测记录，非复验结论。
+
+### 30.1 第三方授权目录与来源（源码 = 包内同目录）
+
+- 新增 `backend/templates/licenses/`（随 spec datas 进入 onedir `_internal/licenses`，稳定可见）：
+
+  | 文件 | 内容 | 来源 URL（实际取得） | SHA-256 |
+  | --- | --- | --- | --- |
+  | `NOTO-OFL.txt` | Noto Sans SC 完整未经改写 OFL 1.1 全文（4,301 B） | `https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/LICENSE`（curl 原样入库） | `6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2` |
+  | `PDFJS-APACHE2.txt` | Apache License 2.0 全文（10,174 B） | `frontend/node_modules/pdfjs-dist/LICENSE` 原样复制 | `0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594` |
+  | `THIRD_PARTY_NOTICES.md` | 两第三方登记（上游项目/来源 URL/包名版本/原始文件名/SHA-256/许可证链接） | 本仓库自写 | `bc5af6f7ab798c26ab290af7490042629fa27a0587b65c4c0ff88c42cfb38c64` |
+
+- 登记要点：Noto Sans SC（上游 notofonts/noto-cjk；分发包
+  `@expo-google-fonts/noto-sans-sc@0.4.3`，jsdelivr 获取；原始文件名
+  `NotoSansSC-Regular.ttf`，SHA-256 `d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16`，
+  10,559,284 B；OFL-1.1，链接 scripts.sil.org/OFL）与 pdfjs-dist（`pdfjs-dist@4.10.38`，
+  Apache-2.0）。
+
+### 30.2 simsun 移除与确定性失败边界
+
+- `services/pdf_renderer.py` 删除 `FONT_FALLBACK_SIMSUN`、`C:/Windows/Fonts/simsun.ttc` 回退分支、
+  `.ttc/subfontIndex` 与“临时回退”warning；产品源码 grep 不再出现 simsun / 系统字体回退。
+- 字体加载改为确定性：仅用源码/打包的固定 Noto 字体；注册前校验文件存在且
+  SHA-256 == `d45f67f0…`，缺失 / 损坏 / 不符一律抛确定性 `RuntimeError`。generate 链沿用既有
+  “PDF 失败不中断 docx”（`pdf_*` 字段留空 + warning → download 真实 4xx/5xx，前端显示真实
+  “PDF 预览不可用”），绝不伪造 PDF 成功。
+- 新增零 Key 断言 `backend/_v21_r17a_licensing.py` → **PASS=18/FAIL=0**（末行
+  `PASS=18 FAIL=0`，exit 0）：(a) 授权三文件存在非空、OFL 含 “OFL”/“SIL OPEN FONT LICENSE”、
+  PDFJS 含 “Apache License”、与 node_modules 字节一致、登记清单关键身份；(b) 字体存在且
+  sha==`d45f67f0…`；(c) 损坏（写错误字节到独立模板根）与缺失（临时改名）在子进程注入 →
+  确定性 RuntimeError、不产生 PDF，注入后字体复原；(d) 源码 grep 无 simsun/回退；(e) docx
+  渲染正常态与“字体缺失”态均不受影响。
+- 复跑：`_v21_r9_preview_pdf.py` → **PASS=54/FAIL=0**；`_v21_r17_failures.py` →
+  **PASS=17/FAIL=0**（各自末行 PASS=… FAIL=0，exit 0）。
+
+### 30.3 前端 build / 完整 precheck / onedir 重建与包内验证
+
+- `frontend` `npm run build` exit 0；`scripts/precheck.py` **exit 0**（编译 + 六阻断 + F3 哨兵全过；
+  非阻断如实：ruff 404、ESLint 21、pip-audit 7、npm audit 4）。
+- onedir 重建：`python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec` exit 0。
+- 包内验证（`dist/ResumeAssistant/_internal`）：
+  - `licenses/NOTO-OFL.txt` / `licenses/PDFJS-APACHE2.txt` / `licenses/THIRD_PARTY_NOTICES.md`
+    三文件在，与源码 SHA-256 逐项一致（6a73f954… / 0d542e0c… / bc5af6f7…）；
+  - `templates/fonts/NotoSansSC-Regular.ttf` 在，SHA-256 `d45f67f0…`（与源码一致）；
+  - `frontend/dist` 4 文件与最终 frontend/dist SHA-256 MATCH（含 `pdf.worker.min-*.mjs`
+    独立 asset）；
+  - 前端 JS/CSS/HTML 扫描无 jsdelivr/unpkg/cdnjs 等运行时 CDN。
+
+### 30.4 交接身份
+
+- clean 源码候选提交：`5ea56c4`（licenses / fonts 确定性逻辑 / spec / 测试脚本）。
+- 只改 RESULT 的开发交接提交：本提交（RESULT §30，随本段提交；其 SHA 由复核对齐时以
+  `git log --oneline -1` 解析，同 §29.1 对 `b11d48b` 的机制）。
+- 固定 `<review-workspace>` 保持 H2；本候选到达后按 §29.3 进入 Documentation Agent 复核对齐。
