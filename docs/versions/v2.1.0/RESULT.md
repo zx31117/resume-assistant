@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第四轮返工完成（新 H3 `c4a55a3`），待文档核对与复验（见 §28）
+> 当前状态：第四轮开发交接已收到，文档核对打回；R17 第三方资源分发与字体失败边界待修正（见 §29）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第四轮返工契约：`17359a7d83b25647c5b44ecf87fb67e1be724de0` / blob `824e0845cfc8f6622750296eeb80f56ce8b69cb4`）
@@ -827,3 +827,62 @@ Product Owner 确认 V2.1.0 的范围分为两层：
 
 - **新 H3 = `c4a55a3`**（version/v2.1.0，工作区 clean，祖先含 R15a/R15b+R16/R17 全部提交与 §26/§27 文档）。
 - Documentation Agent 先核对（PLAN blob `824e0845…`/源码范围/RESULT/artifact 身份/viewer-下载同文件/包重建）→ 未参与实现者按 PLAN §15.6 八项复验（fixture 三端相等、API/viewer/下载 SHA-256 三同一、两结果交替 artifact 身份、失败注入无近似预览、锚点正向/越界/未知、三视口几何零滚动、双格式真实下载、precheck/包一致性）→ Product Owner 第三次 T12。未通过前不更新公开事实/main/tag/发布声明。
+
+## 29. 第四轮开发交接的文档 Agent 核对与打回（2026-09-08）
+
+### 29.1 已核对身份与机械证据
+
+Documentation Agent 收到并核对了开发侧第四轮交接：
+
+- 源码冻结点：`c4a55a37207f6b7fe61a43ce1b88a6dac98d7c79`；
+- 开发 RESULT 交接：`b11d48b90665ae0e1f0a604507fe55da934a0342`；
+- `c4a55a3..b11d48b` 只修改本 RESULT；开发路径在 `b11d48b` 上 clean；
+- `9027d32` 是 `c4a55a3` 的祖先，候选中的 PLAN blob 仍为
+  `824e0845cfc8f6622750296eeb80f56ce8b69cb4`；
+- `frontend/dist` 与 onedir 的 `_internal/frontend/dist` 都包含同名 4 个文件，大小与 SHA-256
+  逐项一致，包括随包的 PDF.js worker；
+- 源码字体与 onedir 字体均为 10,559,284 bytes，SHA-256 同为
+  `d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16`；
+- 对最终 HTML/JS/CSS 的定向扫描未发现 jsDelivr、unpkg、cdnjs 等运行时 CDN 引用。
+
+这些结果证明开发提交、PLAN 和当前包之间的基本身份闭环成立，但不证明 R17 已满足全部分发与
+失败边界。
+
+### 29.2 阻断项：新增第三方资源的分发材料不完整
+
+第四轮新增并分发 `NotoSansSC-Regular.ttf` 与 `pdfjs-dist`，但当前交接存在以下缺口：
+
+1. `backend/templates/fonts/` 只有 TTF，没有该字体的完整 OFL 1.1 文本、版权声明文件、确切上游
+   版本/下载地址和来源 hash；onedir 中同样只有 TTF，没有可识别的 Noto/OFL 授权文件。根目录
+   `LICENSE` 是项目自身 MIT License，不能替代字体许可证。
+2. 字体 name table 的 `nameID=0/13/14` 只包含 Adobe 版权、OFL 1.1 摘要和许可证 URL；开发交接
+   没有证明最终用户可以在便携包中直接取得完整许可证文本。Noto 官方发布物将字体与 `LICENSE`
+   一并分发，OFL 条款也要求再分发副本携带版权声明和许可证。
+3. `frontend/node_modules/pdfjs-dist/LICENSE` 存在完整 Apache 2.0 文本，但该文件没有进入 onedir；
+   worker 只保留许可证 notice 与 URL。新增运行依赖的授权材料必须随最终包可查看，不能只存在于
+   开发机 `node_modules`。
+4. §28.1 声明“缺少 Noto 时回退本机 `simsun.ttc` 并告警”。这会让同一 ResumeDocument 的 PDF
+   版式依赖未冻结的系统字体，也可能把未记录分发权限的本机字体嵌入用户下载的 PDF；与 PLAN
+   §15 的可移植、确定性、无外部运行依赖和失败时不伪造预览边界不一致。
+
+因此，`c4a55a3` 不登记为可交付验收的 H3，`b11d48b` 也不是 review handoff。R15/R16 的开发记录
+暂不推翻，但 R17/R18 不能按“完成”进入独立验收。
+
+### 29.3 集中修正 R17a
+
+Development Agent 只需完成以下包与失败边界修正，不重开已完成的产品交互范围：
+
+1. 为 Noto 字体增加完整、未经改写的 OFL 1.1/版权材料，并记录确切上游项目、版本或不可变来源、
+   原始文件名、下载地址与 SHA-256；许可证和来源说明同时进入源码与 onedir 的稳定可见目录。
+2. 将 `pdfjs-dist` 随包所需的完整 Apache 2.0 License 一并纳入同一第三方授权目录；不得依赖开发机
+   `node_modules` 或在线链接作为最终包唯一许可证来源。
+3. 删除 `simsun.ttc`/其他系统字体 fallback。固定的可再分发字体缺失、损坏或 hash 不符时，PDF
+   生成必须 fail closed，并按 PLAN §15.3 显示真实“PDF 预览不可用”；已成功的 Word 可独立下载。
+4. 增加正反向断言：授权文件进入包、字体存在且 hash 正确、字体缺失/损坏不回退系统字体、PDF
+   不生成假成功；复跑 R9/R17 fixture、前端 build、完整 precheck，并重建 onedir。
+5. 更新 §28 或追加开发记录，写明确切来源、授权文件路径、测试计数、包内文件/hash 和失败注入；
+   形成新的 clean 源码候选与只改 RESULT 的开发交接提交。
+
+该修正属于 T12-R17“包内 viewer/PDF Renderer 依赖完整”和 PLAN §15 的确定性失败边界，不扩展
+V2.1.0 产品功能。固定 `<review-workspace>` 继续保持 H2；新候选到达前不启动第四轮独立验收，
+不更新 `CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub。
