@@ -756,3 +756,86 @@ H3..H4 范围；只在文档与候选身份闭合后把固定 `<review-workspace
 独立源码验收通过后，Product Owner 必须在实际 onedir 进行第四次 T12。第四次人工验收通过、
 候选对应的 GitHub Windows CI 成功且 Documentation Agent 完成发布文档收口前，不更新
 `CURRENT_STATE.md`、根 README、公开 main、tag 或 GitHub 发布声明。
+
+## 17. 白屏定位与专项风险验收补充（2026-09-08）
+
+### 17.1 适用关系与候选身份
+
+Product Owner 进一步确认：保留 PLAN §15 的真实 PDF artifact 预览路线，先把 React #310 视为
+新预览方案的前端集成缺陷定位和修复，不因一次 Hook 崩溃回退到 HTML 模拟预览。只有在完成本节
+定位后发现 PDF viewer 仍存在不可控的独立技术阻断，才重新提交预览降级方案给 Product Owner
+选择；Development Agent 不得自行改回旧链路。
+
+固定开发路径已在本节写入前产生声称的 H4-SRC `aecafc9` 及后续 RESULT 提交。它们先于本节新的
+批准 PLAN commit/blob，不能自动视为满足本节，也不能直接送验收。Development Agent 必须先同步
+本节，逐项复核现有修复并补齐缺失证据；因 H4-SRC 名称已经被使用，下一次正式冻结的 clean
+候选统一记为 **H5-SRC**，即使最终产品源码字节相对 `aecafc9` 没有变化，也必须包含本节批准的
+PLAN 身份并重新记录交接关系。
+
+### 17.2 开发侧具体定位方法
+
+1. **建立动态最小复现**：同一个已挂载工作台必须实际经历“初始 → 生成中 → 成功响应 → PDF
+   预览与依据”。不能只把最终成功对象静态 mount。正式 fixture 使用虚构内容，但字段形态覆盖
+   `pdf_download_url`、`pdf_artifact_id`、`pdf_sha256`、PreviewAnchor、多 section/entry/bullet、
+   空与非空 `fact_refs` 及双下载地址；现场真实响应只允许在本机临时定位，不进入仓库。
+2. **取得非压缩源码栈**：在 development build 复现 #310，记录组件、源码行号、Hook 类型和
+   React 给出的前后 Hook 顺序差异；生产 bundle 的压缩函数名不能代替源码定位。
+3. **按变更范围审计**：从 H2 到 H3 的结果状态切换、PDF viewer、PreviewAnchor overlay、依据栏、
+   worker 初始化、下载区和新 custom Hook 开始，检查条件/循环/回调中的 Hook，以及提前 return
+   前后 Hook 数量变化；审计不能只限于报错栈最上层组件。
+4. **必要时提交二分**：若源码栈仍不能确认引入点，使用上述自动复现测试在 H2 与 H3 间执行
+   `git bisect`；不可构建的中间提交标记 skip，不得臆测为 good/bad。
+5. **先证据后修复**：Development Agent 的 RESULT 必须先记录修复前可重复失败、具体根因和漏测
+   原因，再记录修复。只写“调整 useEffect 后恢复”不满足交接。
+
+### 17.3 结构修复与同类风险
+
+页面阶段应由稳定组件边界承载。推荐由父级只选择 `InputView`、`ProcessingView`、`FailureView`
+和 `ResultView`，并让 `ResultView` 内的 `PdfPreview`、依据区和导出区各自保持固定 Hook 顺序；具体
+组件命名不是硬性要求，但外部行为和 Hook 不变量必须相同。
+
+所有 Hook 必须在组件顶层无条件调用，不得位于条件分支、循环、事件函数或可能提前 return 之后；
+custom Hook 内部同样适用。Development Agent 必须确认 React Hooks ESLint 规则真实覆盖全部产品
+前端源码，并把 Hooks 规则错误升级为阻断，不能混在既有普通 ESLint 债务中报告后继续通过。
+
+Error Boundary 分成结果区域与应用外层两个恢复边界时，应避免内层 viewer 错误拖垮工作台，也要
+避免外层 fallback 重新创建生成 operation。错误边界不能吞掉根因、隐藏真实 PDF 能力，或把
+Console 无异常替换成“用户看不到异常”。
+
+### 17.4 专项风险检查矩阵
+
+新的独立验收必须对以下风险做动态检查：
+
+| 风险组 | 必测状态 | 阻断条件 |
+|---|---|---|
+| Hook 顺序 | 初始→生成中→成功/失败、PDF loading→ready/error、依据选择/取消 | 任一 #310、Hooks warning 或不同渲染路径 Hook 顺序变化 |
+| PDF 生命周期 | URL 从空到有效、更换 artifact、anchors 空→非空、加载中卸载、请求中止、worker 失败 | 白屏、旧 PDF、异步更新已卸载组件、overlay 与 artifact 串用 |
+| 错误隔离 | `PdfPreview`、overlay、依据区、导出区分别注入 render exception | 空白 body、无恢复界面、错误扩散到整个应用 |
+| 调用幂等 | 成功切页、viewer 重试、Error Boundary 恢复、React StrictMode 双执行 | 第二次生成 POST、新 operation、重复模型调用或计费 |
+| 产物保持 | 前端渲染异常、viewer 失败、返回工作台 | 已成功 PDF/DOCX 被删除、覆盖或错误标为生成失败 |
+| 生产差异 | development、production build、onedir 使用同一成功 fixture | 只在开发环境通过，生产 bundle/onedir 白屏或行为分叉 |
+
+### 17.5 独立验收角色与不可 SUSPEND 项
+
+Development Agent 负责定位、方案选择、修复和自测。H5 完成后应使用一个**新的独立验收任务**；
+验收 Agent 不提前参与根因分析、实现方案或源码修复。若确需在修复前增加只读风险顾问，该角色
+不得再承担 H5 的独立验收。
+
+H5 验收必须在可运行真实浏览器的环境完成以下项目，不允许标记 SUSPEND 后给出 Conditional Pass：
+
+1. 同一组件实例从生成中进入成功结果，页面与 Console 均无 React #310/Hook warning；
+2. PDF viewer 生命周期矩阵至少覆盖 URL/anchors 变化、加载失败和组件卸载；
+3. 四个结果子区域异常注入均命中 Error Boundary，页面可恢复且不新增 operation；
+4. production build 与 onedir 实际显示 PDF 结果页，可选择依据并下载 Word/PDF；
+5. 生成请求计数、operation 身份和产物 hash 证明没有重复调用或旧 artifact 污染。
+
+验收还须复跑 R9、R17、R17a、完整 precheck、前端 build 和包内资产一致性，证明专项修复没有
+破坏 H3 已通过的 PDF/字体/授权边界。无法提供浏览器运行条件时，结论只能是“验收未完成”，
+不得把静态源码检查、CSS 推断或开发截图替代本节动态门禁。
+
+### 17.6 开发交接补充
+
+H5 RESULT 至少包含：修复前/后 Console、非压缩组件栈、失败测试、Hooks lint 输出、六组风险矩阵、
+生成 API 调用计数、operation/artifact 身份、production/onedir 浏览器证据、Word/PDF 下载 hash、
+完整命令与退出码。Documentation Agent 只核对交接身份和文档/产物机械闭环，不替代专项源码
+验收。H5 独立验收与 Product Owner 第四次 T12 均通过前，继续禁止发布。
