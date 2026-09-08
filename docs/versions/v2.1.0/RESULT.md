@@ -1,9 +1,9 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三次 T12 人工验收不通过；生成流程出现整页白屏 P0，H3 不可发布（见 §34）
+> 当前状态：第三次 T12 白屏 P0 已打回；H4 返工 PLAN 已批准，待 Development Agent 执行（见 §34–§35）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第四轮返工契约：`17359a7d83b25647c5b44ecf87fb67e1be724de0` / blob `824e0845cfc8f6622750296eeb80f56ce8b69cb4`）
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H4 返工契约：`f8f9a8f8e308fc30e8dcd61ad954e901a87569dc` / blob `598d3326bce4281a546b40651b466a8a4a51455c`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
 > 发布结论：不发布；H3 源码独立验收结论保留，但已被第三次 T12 的用户可见 P0 阻断
 
@@ -59,10 +59,11 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T9 回归、统一预检与便携包 | H3 独立源码验收通过；远端 CI 待发布门禁 | 三个第四轮脚本计数命中，onedir 重建与包内资产匹配；真实 GitHub Windows CI 仍需单独证据 |
 | T10 RESULT 与冻结候选 | 已完成 | H3-SRC `5ea56c4`、H3-DEV `5489fe5` 与文档交接身份已经冻结；见 §31 |
 | T11 独立验收 | 条件通过 | 报告绑定 H3-SRC；P0/P1 为 0，剩余条件均属于 T12 与发布门禁；见 §33 |
-| T12 Product Owner 人工验收与发布 | 第三次未通过（H3） | 真实生成流程出现整页白屏 P0；H3 不可发布，见 §34 |
+| T12 Product Owner 人工验收与发布 | 第三次未通过（H3）；H4 返工待开发 | React #310 白屏 P0；§16/R19-R23 已批准，修复复验后执行第四次 T12 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
+| T12-R19 至 R23 | H4 返工 PLAN 已批准，待开发 | 定位并修复 React #310、建立 Error Boundary、状态转换回归、重建包并冻结 H4；见 PLAN §16/RESULT §34–§35 |
 
 ## 5. 开发交接
 
@@ -1152,3 +1153,21 @@ commit/blob。至少应要求：
 本节只记录事故事实和待形成的最小返工边界，不授权 Development Agent 修改源码。H3 的独立
 源码验收报告仍是该提交的历史事实，但不能覆盖后续发现的 T12 P0；任何修复提交都不自动继承
 H3 的验收结论。
+
+## 35. H4 白屏返工 PLAN 批准与开发交接（2026-09-08）
+
+Product Owner 已批准 PLAN §16 的 H4 集中返工契约。冻结身份为：
+
+- PLAN commit：`f8f9a8f8e308fc30e8dcd61ad954e901a87569dc`；
+- PLAN blob：`598d3326bce4281a546b40651b466a8a4a51455c`；
+- 返工基线：H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`；
+- 任务范围：T12-R19 至 T12-R23；
+- 目标候选：新的 clean H4-SRC，加只改 RESULT 的开发交接提交。
+
+Development Agent 在固定 `<current-workspace>` 开始前必须核对上述 PLAN commit/blob，并只处理
+React #310 根因、白屏错误边界、状态转换回归、生产/onedir 真实结果页验证和对应 RESULT/候选
+冻结。V2.1.1 的跨页面工作台状态保持、浏览器刷新恢复、应用重启续跑及其他优化不进入本轮。
+
+固定 `<review-workspace>` 继续 detached 在 H3-SRC，不因 PLAN 批准提前移动。Development Agent
+完成 H4 并交接后，由 Documentation Agent 先做身份与范围核对，再决定是否将 review 切换到
+H4-SRC。当前不更新公开事实、main、tag 或 GitHub。
