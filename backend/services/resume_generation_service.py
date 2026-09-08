@@ -10,8 +10,10 @@ V1.5.0 PLAN §2 / §5 / §7 T6：
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import uuid
 from datetime import date
 from typing import Any, Optional
 
@@ -24,6 +26,7 @@ from api.schemas import (
     DocPreviewSection,
     EvidenceFact,
     JDAnalysisOut,
+    PreviewAnchor,
     RenderStats,
     RequestProfile,
     ResumeDocxGenerateRequest,
@@ -300,6 +303,45 @@ def _build_evidence_map(
     return out
 
 
+# ── V2.1.0 R15a：PDF artifact 身份与不可变落盘 ──────────────────── #
+
+def _safe_artifact_id(artifact_id: str) -> str:
+    """把 artifact 身份收敛为合法文件名字段；异常值一律回退新 UUID。"""
+    if not artifact_id:
+        return str(uuid.uuid4())
+    clean = "".join(ch for ch in artifact_id if ch.isalnum() or ch in "-_")
+    return clean or str(uuid.uuid4())
+
+
+def write_pdf_artifact(pdf_bytes: bytes, user_id: str, template_id: str,
+                       artifact_id: str) -> dict:
+    """把 PDF 字节以不可变 artifact 身份写入 OUTPUT_DIR。
+
+    命名含唯一身份（resume_<user>_<template>_<artifact_id>.pdf），同一 artifact_id
+    只落一个文件、不原地覆盖；再次生成使用新 artifact_id → 新文件。
+    返回 artifact 元数据：artifact_id / file_name / file_path / download_url /
+    sha256（内容 SHA-256）/ size_bytes。
+    """
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    safe_user_id = "".join(c for c in (user_id or "") if c.isalnum() or c in "-_") or "user"
+    artifact_id = _safe_artifact_id(artifact_id)
+    file_name = f"resume_{safe_user_id}_{template_id}_{artifact_id}.pdf"
+    file_path_abs = os.path.join(OUTPUT_DIR, file_name)
+    try:
+        with open(file_path_abs, "wb") as f:
+            f.write(pdf_bytes)
+    except Exception as e:
+        raise FileSaveError(f"PDF artifact 保存失败: {e}", details={"path": file_path_abs}) from e
+    return {
+        "artifact_id": artifact_id,
+        "file_name": file_name,
+        "file_path": f"output/{file_name}",
+        "download_url": f"/api/template/download?path=output/{file_name}",
+        "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
+        "size_bytes": len(pdf_bytes),
+    }
+
+
 def generate_docx(
     db: Session,
     req: ResumeDocxGenerateRequest,
@@ -452,23 +494,35 @@ def generate_docx(
                 doc.save(file_path_abs)
             except Exception as e:
                 raise FileSaveError(f"DOCX 保存失败: {e}", details={"path": file_path_abs}) from e
-            # V2.1.0 R9：同一 resume_doc 产出真实 PDF（同目录、固定文件名）。
+            # V2.1.0 R9：同一 resume_doc 产出真实 PDF（同目录）。
+            # V2.1.0 R15a：PDF 按不可变 artifact 身份命名，响应携带 artifact 元数据与 anchors。
             # PDF 渲染/保存失败不中断 DOCX 主链：响应 pdf_* 字段留空 + warning，
             # 下载 PDF 时由 download 端点返回真实 4xx/5xx，绝不假装成功。
             pdf_file_name: Optional[str] = None
             pdf_download_url: Optional[str] = None
+            pdf_artifact_id: Optional[str] = None
+            pdf_sha256: Optional[str] = None
+            pdf_size_bytes: Optional[int] = None
+            pdf_anchors: Optional[list[PreviewAnchor]] = None
             try:
                 from services import pdf_renderer  # lazy：reportlab 缺失不阻塞 docx 链路
-                pdf_bytes, pdf_render_warnings = pdf_renderer.render(
+                pdf_artifact_id = recording.operation_id or str(uuid.uuid4())
+                pdf_bytes, pdf_render_warnings, pdf_anchor_dicts = pdf_renderer.render(
                     resume_doc, req.template_id, str(BACKEND_ROOT),
+                    artifact_id=pdf_artifact_id,
+                    bullet_fact_refs=build_meta.get("bullet_fact_refs") or None,
                 )
                 for _w_pdf in pdf_render_warnings:
                     warnings.append(f"PDF: {_w_pdf}")
-                pdf_file_name = f"resume_{safe_user_id}_{req.template_id}.pdf"
-                pdf_path_abs = os.path.join(OUTPUT_DIR, pdf_file_name)
-                with open(pdf_path_abs, "wb") as _f_pdf:
-                    _f_pdf.write(pdf_bytes)
-                pdf_download_url = f"/api/template/download?path=output/{pdf_file_name}"
+                pdf_meta = write_pdf_artifact(
+                    pdf_bytes, user_id=safe_user_id,
+                    template_id=req.template_id, artifact_id=pdf_artifact_id,
+                )
+                pdf_file_name = pdf_meta["file_name"]
+                pdf_download_url = pdf_meta["download_url"]
+                pdf_sha256 = pdf_meta["sha256"]
+                pdf_size_bytes = pdf_meta["size_bytes"]
+                pdf_anchors = [PreviewAnchor(**a) for a in pdf_anchor_dicts]
             except Exception as _e_pdf:  # noqa: BLE001 —— 真实失败状态由响应字段 + warning 表达
                 logger.warning("PDF 渲染/保存失败（不影响 DOCX）: %s", _e_pdf)
                 warnings.append(f"PDF 生成失败（可下载 Word；PDF 不可用）: {type(_e_pdf).__name__}: {_e_pdf}")
@@ -526,6 +580,10 @@ def generate_docx(
             download_url=download_url,
             pdf_file_name=pdf_file_name,
             pdf_download_url=pdf_download_url,
+            pdf_artifact_id=pdf_artifact_id,
+            pdf_sha256=pdf_sha256,
+            pdf_size_bytes=pdf_size_bytes,
+            pdf_anchors=pdf_anchors,
             stages=_stages_from_recording(recording),
             matched_experience_ids=matched_ids,
             rendered_experience_ids=rendered_ids,

@@ -405,6 +405,29 @@ class EvidenceFact(BaseModel):
     reason: str = ""
 
 
+class PreviewAnchor(BaseModel):
+    """V2.1.0 R15a：PDF 版式中的可点内容行锚点（浏览器 viewer 命中区）。
+
+    坐标一律 PDF 用户坐标 pt、y 自底部向上（A4 高 842）。
+    - content_item_id：经历类条目取其 experience_id；技能组等无库 id 的
+      内容行用定位 key（如 skills:0）；无对应内容条目时为 None。
+    - bullet_index：该内容条目内的视觉 bullet 行序（0 起）。
+    - fact_refs：该 bullet 的真实 fact 引用（来自 builder bullet_fact_refs，
+      无映射不编造 → 空列表）。
+    """
+
+    artifact_id: str = ""
+    page_index: int = 0
+    x0: float = 0.0
+    y0: float = 0.0
+    x1: float = 0.0
+    y1: float = 0.0
+    content_item_id: Optional[str] = None
+    bullet_index: Optional[int] = None
+    text: str = ""
+    fact_refs: List[str] = []
+
+
 class ResumeDocxGenerateResponse(BaseModel):
     """PLAN §4.3：核心接口成功响应。"""
 
@@ -417,6 +440,14 @@ class ResumeDocxGenerateResponse(BaseModel):
     # PDF 生成失败时两字段留空并写入 warnings，下载由 /api/template/download 返回真实错误状态。
     pdf_file_name: Optional[str] = None
     pdf_download_url: Optional[str] = None
+
+    # V2.1.0 R15a：PDF artifact 身份与元数据（不可变 artifact 命名；可选）。
+    # pdf_artifact_id = 本次生成唯一身份（= operation_id）；pdf_anchors 为 PDF 内
+    # 逐 bullet 内容行锚点（PreviewAnchor），viewer 与下载读取同一 artifact。
+    pdf_artifact_id: Optional[str] = None
+    pdf_sha256: Optional[str] = None
+    pdf_size_bytes: Optional[int] = None
+    pdf_anchors: Optional[List[PreviewAnchor]] = None
 
     # V2.0.1：本次操作的统一编号（前端据此轮询 / 复盘，PLAN §3.5）
     operation_id: str = ""

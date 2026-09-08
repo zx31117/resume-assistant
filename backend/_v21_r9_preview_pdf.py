@@ -1,17 +1,27 @@
-"""V2.1.0 R9：pm_template v1.2 三端一致性 + 真实 PDF 渲染/下载验证脚本。
+"""V2.1.0 R9/R15a：pm_template v1.2 三端一致性 + 真实 PDF 渲染/下载验证脚本。
 
 零 API Key：不调 LLM/Embedding/外发请求；所有输出写入进程级临时 RESUME_DATA_DIR。
 直接驱动 TemplateRenderer（docx）/ pdf_renderer（PDF）/ _build_doc_preview（预览 JSON），
 并用 mini FastAPI + TestClient 走真实 download 路由做正反向验证。
+
+V2.1.0 R15a 新增覆盖：
+  1) PDF 内嵌中文字体（/FontFile2 子集内嵌，不再引用 STSong-Light）；
+  2) PreviewAnchor：逐 bullet 锚点与 fixture bullet 一一对应（坐标在 A4 页内、
+     text 一致、content_item_id 关联经历、fact_refs 取自真实 bullet_fact_refs 且无映射不编造）；
+  3) artifact 身份与不可变：同 doc 两次生成 → 不同 artifact_id/文件名；同内容 SHA-256 稳定；
+  4) 下载链路：生成 → download 端点取回 → application/pdf + SHA-256 一致；缺失/非法路径 4xx。
 
 运行：python _v21_r9_preview_pdf.py
 要求：exit 0 且末行 PASS=<N> FAIL=0。
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import tempfile
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # ── 进程级临时数据根：必须在任何 backend import 之前设置 ──
@@ -173,13 +183,25 @@ def _count_pdf_bullets(path) -> int:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 1) 三端产物生成（docx/pdf/preview）
+# 1) 三端产物生成（docx/pdf/preview）—— PDF 走真实 artifact 落盘链路
 # ═══════════════════════════════════════════════════════════════════════════
-def _produce_all():
-    """生成并落盘 docx + pdf；返回 (doc, docx_path, pdf_bytes, pdf_path, warnings)。"""
+@dataclass
+class _Produced:
+    doc: object
+    docx_path: str
+    pdf_bytes: bytes
+    pdf_path: str
+    pdf_meta: dict
+    pdf_anchors: list = field(default_factory=list)
+    warnings: tuple = ("", "")
+
+
+def _produce_all() -> _Produced:
+    """生成并落盘 docx + 不可变 artifact PDF；返回一次生成的全部产物。"""
     from core.config import settings
     from services.template_renderer import TemplateRenderer
     from services import pdf_renderer
+    from services.resume_generation_service import write_pdf_artifact
 
     out_dir = settings.DOCX_OUTPUT_DIR
     os.makedirs(out_dir, exist_ok=True)
@@ -195,27 +217,36 @@ def _produce_all():
     docx_path = os.path.join(out_dir, docx_name)
     docx_doc.save(docx_path)
 
-    # PDF：同一 resume_doc → 真实 reportlab 产物
-    pdf_bytes, pdf_warnings = pdf_renderer.render(doc, template_id, str(BACKEND_ROOT))
-    pdf_name = f"resume_{user_id}_{template_id}.pdf"
-    pdf_path = os.path.join(out_dir, pdf_name)
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_bytes)
+    # PDF：同一 resume_doc → 真实 reportlab 产物；按 artifact 身份落盘
+    artifact_id = str(uuid.uuid4())
+    pdf_bytes, pdf_warnings, pdf_anchors = pdf_renderer.render(
+        doc, template_id, str(BACKEND_ROOT), artifact_id=artifact_id,
+    )
+    pdf_meta = write_pdf_artifact(pdf_bytes, user_id, template_id, artifact_id)
+    pdf_path = os.path.join(out_dir, pdf_meta["file_name"])
 
-    return doc, docx_path, pdf_bytes, pdf_path, (docx_warnings, pdf_warnings)
+    return _Produced(
+        doc=doc, docx_path=docx_path, pdf_bytes=pdf_bytes, pdf_path=pdf_path,
+        pdf_meta=pdf_meta, pdf_anchors=pdf_anchors,
+        warnings=(docx_warnings, pdf_warnings),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 2) PDF 真实性与文件名 / 单页
+# 2) PDF 真实性与文件名（不可变 artifact）/ 单页
 # ═══════════════════════════════════════════════════════════════════════════
-def test_pdf_authentic(pdf_bytes, pdf_path, template_id) -> None:
-    _section("1) PDF 真实性 / 文件名 / 页数 / 分隔线")
+def test_pdf_authentic(produced: _Produced, template_id: str) -> None:
+    _section("1) PDF 真实性 / artifact 文件名 / 页数 / 分隔线")
+    pdf_bytes, pdf_path, pdf_meta = produced.pdf_bytes, produced.pdf_path, produced.pdf_meta
     _assert(pdf_bytes[:5] == b"%PDF-", "PDF 产物以 %PDF 头开始", str(pdf_bytes[:8]))
     _assert(len(pdf_bytes) > 800, "PDF 产物非空（字节数足够）", f"len={len(pdf_bytes)}")
+    base = os.path.basename(pdf_path)
     _assert(
-        os.path.basename(pdf_path) == f"resume_r9user_{template_id}.pdf",
-        "PDF 文件名符合 resume_<user>_<template>.pdf",
-        os.path.basename(pdf_path),
+        base.startswith("resume_r9user_pm_template_") and base.endswith(".pdf")
+        and base == pdf_meta["file_name"]
+        and pdf_meta["artifact_id"] in base,
+        "PDF artifact 文件名含唯一身份 resume_<user>_<template>_<artifact_id>.pdf",
+        base,
     )
     import pdfplumber
     with pdfplumber.open(pdf_path) as pdf:
@@ -239,8 +270,9 @@ def test_pdf_authentic(pdf_bytes, pdf_path, template_id) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # 3) 三端内容一致性
 # ═══════════════════════════════════════════════════════════════════════════
-def test_triplet_consistency(doc, docx_path, pdf_path) -> None:
+def test_triplet_consistency(produced: _Produced) -> None:
     _section("2) 三端一致性：profile / 章节顺序 / 条目 / bullets / 空章节")
+    doc, docx_path, pdf_path = produced.doc, produced.docx_path, produced.pdf_path
 
     docx_text = " ".join(_read_docx_text(docx_path))
     docx_n = _norm(docx_text)
@@ -393,7 +425,7 @@ def test_triplet_consistency(doc, docx_path, pdf_path) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # 4) download 端点正反向（真实 ASGI：200 + application/pdf / 缺失 4xx）
 # ═══════════════════════════════════════════════════════════════════════════
-def test_download_endpoint(pdf_bytes, pdf_path, docx_path) -> None:
+def test_download_endpoint(produced: _Produced) -> None:
     _section("3) download 端点正反向")
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -403,10 +435,10 @@ def test_download_endpoint(pdf_bytes, pdf_path, docx_path) -> None:
     app.include_router(template_route.router, prefix="/api/template")
     client = TestClient(app)
 
-    pdf_name = os.path.basename(pdf_path)
-    docx_name = os.path.basename(docx_path)
+    pdf_name = os.path.basename(produced.pdf_path)
+    docx_name = os.path.basename(produced.docx_path)
 
-    # 正向：PDF 取回 200 + application/pdf + 内容一致
+    # 正向：PDF 取回 200 + application/pdf + 内容一致（同一 artifact 字节）
     r = client.get("/api/template/download", params={"path": f"output/{pdf_name}"})
     _assert(r.status_code == 200, "download pdf 正向返回 200", f"status={r.status_code}")
     _assert(
@@ -414,7 +446,7 @@ def test_download_endpoint(pdf_bytes, pdf_path, docx_path) -> None:
         "download pdf Content-Type == application/pdf",
         r.headers.get("content-type"),
     )
-    _assert(r.content == pdf_bytes, "download pdf 字节与生成文件一致")
+    _assert(r.content == produced.pdf_bytes, "download pdf 字节与生成文件一致")
 
     # 正向：Word（旧链路回归）
     r2 = client.get("/api/template/download", params={"path": f"output/{docx_name}"})
@@ -442,11 +474,180 @@ def test_download_endpoint(pdf_bytes, pdf_path, docx_path) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 5) 契约回归：响应新字段可选 + py_compile + 模块 import
+# 5) R15a：PDF 内嵌中文字体（可移植、不自带 Viewer 依赖外部字体）
+# ═══════════════════════════════════════════════════════════════════════════
+def test_embedded_font(produced: _Produced) -> None:
+    _section("4) PDF 内嵌中文字体（/FontFile2 子集）")
+    pdf_bytes = produced.pdf_bytes
+    _assert(
+        b"/FontFile2" in pdf_bytes,
+        "PDF 内含 TTF 内嵌字体对象 /FontFile2（reportlab 子集化）",
+    )
+    _assert(
+        b"NotoSansSC" in pdf_bytes,
+        "PDF 字体名含 NotoSansSC（内嵌字体身份）",
+    )
+    _assert(
+        b"STSong-Light" not in pdf_bytes and b"STSong-Light" not in pdf_bytes.lower(),
+        "PDF 不再引用内置 CID 字体 STSong-Light（浏览器缺字体不可读问题消除）",
+    )
+    # 子集化后 PDF 明显大于纯矢量占位（内嵌了字形数据，而非仅字形名）
+    _assert(len(pdf_bytes) > 2000, "内嵌字形后 PDF 体积明显非空", f"len={len(pdf_bytes)}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6) R15a：PreviewAnchor 输出（bullets ↔ 页内坐标 ↔ fact_refs 溯源）
+# ═══════════════════════════════════════════════════════════════════════════
+def test_anchors(produced: _Produced) -> None:
+    _section("5) PreviewAnchor：几何 / 文本 / 溯源 / 无编造")
+    from services import pdf_renderer
+
+    doc = produced.doc
+    anchors = produced.pdf_anchors
+
+    # 无 bullet_fact_refs 映射时：不编造 → 经历锚点 refs 全空
+    nofake = True
+    for a in anchors:
+        if a["fact_refs"]:
+            nofake = False
+            break
+    _assert(nofake, "无映射时 anchors fact_refs 恒为空（禁止编造）")
+
+    # 携带真实逐 bullet fact_refs 再渲染一次 → refs 正确落到对应 bullet
+    aid2 = str(uuid.uuid4())
+    refs_map = {
+        "exp-work-1": [
+            ["fact-w1-a", "fact-w1-b"],
+            ["fact-w2"],
+        ],
+    }
+    pdf_bytes2, _warn2, anchors2 = pdf_renderer.render(
+        doc, "pm_template", str(BACKEND_ROOT), artifact_id=aid2, bullet_fact_refs=refs_map,
+    )
+
+    # 几何：全部锚点坐标在 A4 页内（0<=x<=595, 0<=y<=842），页号=0
+    geo_ok = True
+    geo_detail = ""
+    for a in anchors2:
+        if not (0.0 <= a["x0"] < a["x1"] <= 595.28 and 0.0 <= a["y0"] < a["y1"] <= 842.0):
+            geo_ok = False
+            geo_detail = f"{a}"
+            break
+        if a["page_index"] != 0:
+            geo_ok = False
+            geo_detail = f"page_index={a['page_index']}"
+            break
+    _assert(geo_ok, "全部 anchors 坐标在 A4 页内且 page_index==0", geo_detail)
+    _assert(
+        all(a["artifact_id"] == aid2 for a in anchors2),
+        "anchors artifact_id == 本次生成 artifact 身份",
+    )
+
+    def by_item(cid):
+        return sorted(
+            [a for a in anchors2 if a["content_item_id"] == cid],
+            key=lambda a: a["bullet_index"] or 0,
+        )
+
+    edu_anchors = by_item("exp-edu-1")
+    _assert(
+        len(edu_anchors) == 1
+        and _norm(edu_anchors[0]["text"]) == _norm(doc.education[0].description)
+        and edu_anchors[0]["fact_refs"] == [],
+        "education description bullet 有锚点且 text/refs 如实（无映射 → 空 refs）",
+    )
+    work_anchors = by_item("exp-work-1")
+    wk_bullets = doc.work[0].bullets
+    _assert(
+        len(work_anchors) == len(wk_bullets)
+        and [_norm(a["text"]) for a in work_anchors] == [_norm(b) for b in wk_bullets],
+        "work 每条 bullet 都有锚点且 text 与 fixture bullet 一致",
+        f"n={len(work_anchors)}",
+    )
+    _assert(
+        work_anchors[0]["fact_refs"] == ["fact-w1-a", "fact-w1-b"]
+        and work_anchors[1]["fact_refs"] == ["fact-w2"],
+        "work bullet fact_refs 与传入的 bullet_fact_refs 逐条对应",
+        f"{work_anchors[0]['fact_refs']} / {work_anchors[1]['fact_refs']}",
+    )
+    proj_anchors = by_item("exp-proj-1")
+    _assert(
+        len(proj_anchors) == 1
+        and _norm(proj_anchors[0]["text"]) == _norm(doc.projects[0].bullets[0])
+        and proj_anchors[0]["fact_refs"] == [],
+        "project bullet 有锚点（无映射经历 → refs 空）",
+    )
+
+    # 全量 anchors 覆盖 fixture 全部 bullet（数量≥每节 bullet 数，文本逐条对应）
+    anchor_texts = [_norm(a["text"]) for a in anchors2]
+    all_ok = all(_norm(b) in anchor_texts for b in _all_bullets(doc))
+    _assert(all_ok, "anchors 文本集合覆盖 fixture 全部 bullet 文本")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7) R15a：artifact 身份与不可变（两次生成不同文件；内容 SHA-256 稳定）
+# ═══════════════════════════════════════════════════════════════════════════
+def test_artifact_identity(produced: _Produced) -> None:
+    _section("6) artifact 身份与不可变（SHA-256）")
+    from services import pdf_renderer
+    from services.resume_generation_service import write_pdf_artifact
+
+    doc = produced.doc
+    out_dir = os.path.dirname(produced.pdf_path)
+
+    # 同 doc 两次渲染 → 不同 artifact_id → 不同文件名（各自独立文件）
+    bytes_a, _w1, _an1 = pdf_renderer.render(doc, "pm_template", str(BACKEND_ROOT),
+                                             artifact_id="", bullet_fact_refs=None)
+    id_a, id_b = str(uuid.uuid4()), str(uuid.uuid4())
+    meta_a = write_pdf_artifact(bytes_a, "r9user", "pm_template", id_a)
+    meta_b = write_pdf_artifact(bytes_a, "r9user", "pm_template", id_b)
+    _assert(
+        meta_a["artifact_id"] == id_a and meta_b["artifact_id"] == id_b
+        and meta_a["file_name"] != meta_b["file_name"],
+        "同一 doc 两次生成 → 不同 artifact_id / 文件名",
+        f"{meta_a['file_name']} vs {meta_b['file_name']}",
+    )
+    path_a = os.path.join(out_dir, meta_a["file_name"])
+    path_b = os.path.join(out_dir, meta_b["file_name"])
+    _assert(
+        os.path.isfile(path_a) and os.path.isfile(path_b) and path_a != path_b,
+        "两次生成各自落盘独立 artifact 文件（不可原地覆盖）",
+    )
+    sha = hashlib.sha256(bytes_a).hexdigest()
+    _assert(
+        meta_a["sha256"] == sha and meta_b["sha256"] == sha,
+        "相同内容两次渲染 SHA-256 稳定且与内容一致",
+        f"{meta_a['sha256'][:16]}...",
+    )
+    _assert(
+        meta_a["size_bytes"] == len(bytes_a)
+        and os.path.getsize(path_a) == len(bytes_a),
+        "artifact size_bytes == 实际字节数",
+    )
+    _assert(
+        meta_a["download_url"] == f"/api/template/download?path=output/{meta_a['file_name']}",
+        "download_url 指向 artifact 文件（同一 PDF artifact）",
+    )
+    # 同一 artifact 落盘后字节稳定：磁盘读取 SHA-256 与生成记录一致（不可原地覆盖改判据）
+    with open(path_a, "rb") as _f:
+        _on_disk_a = _f.read()
+    with open(path_b, "rb") as _f:
+        _on_disk_b = _f.read()
+    _assert(
+        hashlib.sha256(_on_disk_a).hexdigest() == meta_a["sha256"]
+        and hashlib.sha256(_on_disk_b).hexdigest() == meta_b["sha256"],
+        "artifact 文件落盘后 SHA-256 稳定且与生成记录一致（不可变）",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8) 契约回归：响应新字段可选 + py_compile + 模块 import
 # ═══════════════════════════════════════════════════════════════════════════
 def test_response_contract_and_compile() -> None:
-    _section("4) 响应契约回归 + py_compile + 模块 import")
-    from api.schemas import BuildCounts, BuildMeta, RenderStats, ResumeDocxGenerateResponse
+    _section("7) 响应契约回归 + py_compile + 模块 import")
+    from api.schemas import (
+        BuildCounts, BuildMeta, PreviewAnchor, RenderStats, ResumeDocxGenerateResponse,
+    )
 
     # 默认构造（新字段缺省 None，旧契约不破坏）
     resp = ResumeDocxGenerateResponse(
@@ -458,18 +659,40 @@ def test_response_contract_and_compile() -> None:
         resp.pdf_file_name is None and resp.pdf_download_url is None,
         "ResumeDocxGenerateResponse 默认 pdf_file_name/pdf_download_url=None（向后兼容）",
     )
+    _assert(
+        resp.pdf_artifact_id is None and resp.pdf_sha256 is None
+        and resp.pdf_size_bytes is None and resp.pdf_anchors is None,
+        "R15a 新字段 pdf_artifact_id/pdf_sha256/pdf_size_bytes/pdf_anchors 默认 None（向后兼容）",
+    )
     resp2 = ResumeDocxGenerateResponse(
         file_path="output/x.docx", file_name="x.docx",
         download_url="/api/template/download?path=output/x.docx",
         build_counts=BuildCounts(), build_meta=BuildMeta(), render_stats=RenderStats(),
-        pdf_file_name="resume_u_pm_template.pdf",
-        pdf_download_url="/api/template/download?path=output/resume_u_pm_template.pdf",
+        pdf_file_name="resume_u_pm_template_abc.pdf",
+        pdf_download_url="/api/template/download?path=output/resume_u_pm_template_abc.pdf",
+        pdf_artifact_id="art-123",
+        pdf_sha256="ab" * 32,
+        pdf_size_bytes=12345,
+        pdf_anchors=[PreviewAnchor(
+            artifact_id="art-123", page_index=0,
+            x0=32.0, y0=100.0, x1=200.0, y1=110.0,
+            content_item_id="exp-work-1", bullet_index=0,
+            text="bullet", fact_refs=["fact-a"],
+        )],
     )
     dump = resp2.model_dump()
     _assert(
-        dump["pdf_file_name"] == "resume_u_pm_template.pdf"
+        dump["pdf_file_name"] == "resume_u_pm_template_abc.pdf"
         and dump["pdf_download_url"].endswith(".pdf"),
         "携带 pdf_* 字段可序列化往返",
+    )
+    _assert(
+        dump["pdf_artifact_id"] == "art-123"
+        and dump["pdf_sha256"] == "ab" * 32
+        and dump["pdf_size_bytes"] == 12345
+        and dump["pdf_anchors"][0]["fact_refs"] == ["fact-a"]
+        and dump["pdf_anchors"][0]["text"] == "bullet",
+        "R15a artifact 元数据 + anchors 序列化往返",
     )
 
     import py_compile
@@ -507,15 +730,18 @@ def test_response_contract_and_compile() -> None:
 # 入口
 # ═══════════════════════════════════════════════════════════════════════════
 def main() -> int:
-    doc, docx_path, pdf_bytes, pdf_path, (_dw, _pw) = _produce_all()
-    test_pdf_authentic(pdf_bytes, pdf_path, "pm_template")
-    test_triplet_consistency(doc, docx_path, pdf_path)
-    test_download_endpoint(pdf_bytes, pdf_path, docx_path)
+    produced = _produce_all()
+    test_pdf_authentic(produced, "pm_template")
+    test_triplet_consistency(produced)
+    test_download_endpoint(produced)
+    test_embedded_font(produced)
+    test_anchors(produced)
+    test_artifact_identity(produced)
     test_response_contract_and_compile()
 
     print()
     print("=" * 64)
-    print(f"V2.1.0 R9 三端一致性/PDF 渲染：PASS={PASS_COUNT} FAIL={len(FAILURES)}")
+    print(f"V2.1.0 R9/R15a 三端一致性/PDF 渲染/artifact：PASS={PASS_COUNT} FAIL={len(FAILURES)}")
     print("=" * 64)
     if FAILURES:
         for f in FAILURES:

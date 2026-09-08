@@ -1,4 +1,4 @@
-"""V2.1.0 R9：pm_template v1.2 的 reportlab PDF 渲染器。
+"""V2.1.0 R9/R15a：pm_template v1.2 的 reportlab PDF 渲染器。
 
 视觉真源 = templates/_build_templates.py 的 V1.2 参数（与 pm_template.docx / docx 渲染同一套
 视觉规格），本文档只做像素侧还原，不引入第二套样式：
@@ -7,29 +7,44 @@
   - 经历标题行“三列”Tab 布局：时间(左) / 学校·公司·项目名(中) / 专业·职位(右)（Word 用
     center/right 制表位；PDF 侧等价于中心对齐 + 右对齐锚点，逐段手排，不依赖制表符）
   - 章节标题下方底分隔线（还原 Word w:pBdr bottom）
-  - bullet 前缀“●”（PDF 用 U+25CF，STSong-Light 含字形；Word 模板用 ⚫，规格允许 ●/⚫ 互换）
+  - bullet 前缀“●”（PDF 用 U+25CF，Noto Sans SC 含字形；Word 模板用 ⚫，规格允许 ●/⚫ 互换）
   - 全部常规不加粗；仅章节标题 / 姓名 / 经历标题模拟粗体
   - 右上角照片占位框（无真实照片时画空占位框，尺寸与偏移同 build 常量）
   - 空章节隐藏规则与 docx TemplateRenderer 一致（required 章节为空记 warning 并跳过；
     可选章节为空不渲染、加 warning）
 
-输入输出：
-  render(resume_doc, template_id, backend_root) -> (pdf_bytes, warnings)
-  pdf_bytes 为内存 PDF（调用方负责落盘到 OUTPUT_DIR）。
+V2.1.0 R15a（可移植中文字体内嵌）：
+  放弃内置 Adobe CID 字体 STSong-Light（UnicodeCIDFont 不内嵌字形，浏览器/无字体机器不可读、
+  不可移植）；改为内嵌可再分发 OFL 字体 templates/fonts/NotoSansSC-Regular.ttf（Noto Sans SC，
+  reportlab TTFont 子集化内嵌为 FontFile2），使 PDF 自带字形、任何 viewer 与机器可读。
+  字体资源走模板资源目录（backend_root/templates/fonts/）；资源缺失时仅对本机临时回退
+  C:/Windows/Fonts/simsun.ttc（不可再分发，仅兜底并在 warnings 注明）。
 
-中文渲染：使用内置 Adobe CID 字体 STSong-Light（UnicodeCIDFont），不依赖外部 TTF。
+V2.1.0 R15a（PreviewAnchor 输出）：
+  render() 绘制每条 bullet（经历/技能等可点内容行）时记录锚点，随渲染结果一起返回：
+    {artifact_id, page_index, x0,y0,x1,y1（PDF 用户坐标，y 自底部向上，pt，A4 高 842）,
+     content_item_id, bullet_index, text, fact_refs[]}
+  fact_refs 逐 bullet 来源由调用方以 bullet_fact_refs 传入（build_v15 的
+  build_meta.bullet_fact_refs：experience_id → 每条 bullet 的 fact_id 列表，仅覆盖
+  AI 生成 bullets 的经历）；无映射/越界的 bullet 一律给空列表，不编造。
+
+输入输出：
+  render(resume_doc, template_id, backend_root, *, artifact_id="",
+         bullet_fact_refs=None) -> (pdf_bytes, warnings, anchors)
+  pdf_bytes 为内存 PDF（调用方负责按 artifact 身份落盘到 OUTPUT_DIR）。
 """
 from __future__ import annotations
 
 import io
 import json
 import os
+import sys
 
 from reportlab.lib.colors import Color, HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFont
 
 from models.resume_document import (
     EducationItem,
@@ -42,7 +57,14 @@ from models.resume_document import (
 from models.template_schema import TemplateSpec
 
 # ── 视觉参数（与 templates/_build_templates.py 同源同步；改模板必须先改这里再重跑 fixture）──
-FONT_CN = "STSong-Light"
+FONT_CN = "NotoSansSC"
+FONT_FILE_NAME = "NotoSansSC-Regular.ttf"       # templates/fonts/ 下可再分发 OFL 字体（TrueType）
+FONT_TEMPLATE_SUBDIR = os.path.join("templates", "fonts")
+FONT_FALLBACK_SIMSUN = "C:/Windows/Fonts/simsun.ttc"  # 仅本机临时回退，不可再分发
+
+# 行内 bbox 估算（reportlab TTF 度量近似，用于 PreviewAnchor 命中区域）
+_EM_ASCENT = 0.88    # Noto Sans SC ascent ≈ 0.88em
+_EM_DESCENT = 0.12   # Noto Sans SC descent ≈ 0.12em
 
 CM = 28.3465  # 1cm ≈ 28.3465pt
 MARGIN_TOP = 0.92 * CM
@@ -85,7 +107,50 @@ _SECTION_TITLES = {
     "summary": "自我评价",
 }
 
-pdfmetrics.registerFont(UnicodeCIDFont(FONT_CN))
+_font_registered = False
+
+
+def _ensure_font_registered(backend_root: str) -> str | None:
+    """按模板资源目录机制注册内嵌字体；缺失时回退本机 simsun.ttc 并返回 warning。
+
+    全局只注册一次（reportlab 进程级字体注册表）。返回非 None 表示走了临时回退。
+    """
+    global _font_registered
+    if _font_registered:
+        return None
+    candidates = [
+        os.path.join(backend_root, *FONT_TEMPLATE_SUBDIR.split(os.sep), FONT_FILE_NAME),
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            *FONT_TEMPLATE_SUBDIR.split(os.sep),
+            FONT_FILE_NAME,
+        ),
+    ]
+    # 相对 backend_root（开发/打包一致：settings.BASE_DIR 即 backend/ 根）
+    rel = os.path.join(backend_root, "templates", "fonts", FONT_FILE_NAME)
+    if rel not in candidates:
+        candidates.insert(0, rel)
+    path = next((p for p in candidates if os.path.isfile(p)), None)
+    warning: str | None = None
+    if path is None:
+        # 临时回退（仅本机）：OFL/可再分发字体缺失时 simsun.ttc 兜底，报告再分发风险
+        if sys.platform.startswith("win") and os.path.isfile(FONT_FALLBACK_SIMSUN):
+            path = FONT_FALLBACK_SIMSUN
+            warning = (
+                f"PDF 字体资源缺失 templates/fonts/{FONT_FILE_NAME}，已临时回退本机 "
+                f"{FONT_FALLBACK_SIMSUN}（仅本机可用，字体不可再分发）"
+            )
+        else:
+            raise RuntimeError(
+                "PDF 中文字体不可用：templates/fonts/" + FONT_FILE_NAME + " 不存在，且无本机回退；"
+                "请放置可再分发 TTF（OFL，如 Noto Sans SC）到 backend/templates/fonts/"
+            )
+    kwargs = {}
+    if path.lower().endswith(".ttc"):
+        kwargs["subfontIndex"] = 0
+    pdfmetrics.registerFont(TTFont(FONT_CN, path, **kwargs))
+    _font_registered = True
+    return warning
 
 
 def _load_spec(template_id: str, backend_root: str) -> TemplateSpec:
@@ -133,10 +198,16 @@ def _wrap(text: str, size: float, max_w: float) -> list[str]:
 
 
 class _PdfWriter:
-    """直接操作 reportlab canvas 的流式排版器（无第三方 flowable 依赖）。"""
+    """直接操作 reportlab canvas 的流式排版器（无第三方 flowable 依赖）。
 
-    def __init__(self, c):
+    R15a：排版过程逐 bullet 记录 PreviewAnchor（见 _record_anchor）。
+    """
+
+    def __init__(self, c, artifact_id: str = ""):
         self.c = c
+        self.artifact_id = artifact_id
+        self.anchors: list[dict] = []
+        self.page_no = 0
         self.page_w, self.page_h = A4
         self.left = MARGIN_LEFT
         self.top = self.page_h - MARGIN_TOP
@@ -151,6 +222,7 @@ class _PdfWriter:
         """need 单位为 pt：从当前 y 向下排 need 高度之前确认放得下。"""
         if self.y - need < self.bottom:
             self.c.showPage()
+            self.page_no += 1
             self.y = self.top
             self.drawn = True
 
@@ -167,7 +239,7 @@ class _PdfWriter:
         t.setFont(FONT_CN, size)
         t.setFillColor(_hex_color(color))
         if bold:
-            # STSong-Light 为单一字重；用 text render mode=2（fill+stroke）模拟粗体
+            # 只内嵌 Regular 单一字重；用 text render mode=2（fill+stroke）模拟粗体
             t.setTextRenderMode(2)
             self.c.setLineWidth(0.6)
         t.textOut(text)
@@ -191,24 +263,57 @@ class _PdfWriter:
         if space_after:
             self._gap(space_after)
 
+    def _record_anchor(self, *, text: str, x0: float, x1: float,
+                       y_top: float, y_bottom: float,
+                       content_item_id=None, bullet_index=0,
+                       fact_refs=None) -> None:
+        """记录一条 PreviewAnchor（PDF 用户坐标 pt，y 自底部向上，A4 高 842）。"""
+        self.anchors.append({
+            "artifact_id": self.artifact_id,
+            "page_index": self.page_no,
+            "x0": round(x0, 2),
+            "y0": round(y_bottom, 2),
+            "x1": round(x1, 2),
+            "y1": round(y_top, 2),
+            "content_item_id": content_item_id,
+            "bullet_index": bullet_index,
+            "text": text,
+            "fact_refs": list(fact_refs or []),
+        })
+
     # ── bullet（● 前缀 + 悬挂缩进）────────────────────────────
     def draw_bullet(self, text: str, *, size: float = SZ_BODY, leading: float = LEAD_BODY,
-                    space_after: float = 1.0) -> None:
+                    space_after: float = 1.0, content_item_id=None,
+                    bullet_index: int = 0, fact_refs=None) -> None:
         if not text:
             return
         self._ensure(leading)
         indent = _measure(BULLET, size) + 2.0
         first_w = self.left + self.width - indent
         lines = _wrap(text, size, first_w)
+        first_y = self.y
+        max_right = self.left + indent
         for i, ln in enumerate(lines):
+            x = self.left + indent
             if i == 0:
                 self._emit(BULLET, self.left, self.y, size, COLOR_BODY)
-                self._emit(ln, self.left + indent, self.y, size, COLOR_BODY)
-            else:
-                self._emit(ln, self.left + indent, self.y, size, COLOR_BODY)
+            self._emit(ln, x, self.y, size, COLOR_BODY)
+            if x + _measure(ln, size) > max_right:
+                max_right = x + _measure(ln, size)
             self.y -= leading
         if space_after:
             self._gap(space_after)
+        bottom_y = first_y - leading * (len(lines) - 1)
+        self._record_anchor(
+            text=text,
+            x0=self.left,
+            x1=max_right,
+            y_top=first_y + size * _EM_ASCENT,
+            y_bottom=bottom_y - size * _EM_DESCENT,
+            content_item_id=content_item_id,
+            bullet_index=bullet_index,
+            fact_refs=fact_refs,
+        )
 
     # ── 章节标题：加粗 + 底分隔线 ─────────────────────────────
     def draw_section_title(self, text: str) -> None:
@@ -269,21 +374,38 @@ def _fmt_period(start: str, end: str) -> str:
     return start or end
 
 
+def _bullet_refs(prefs: list[list[str]], bullet_source_index: int) -> list[str]:
+    """取某条 bullet 的 fact_refs（bullet_fact_refs 按源索引对齐；越界一律空，不编造）。"""
+    if prefs and 0 <= bullet_source_index < len(prefs):
+        return list(prefs[bullet_source_index] or [])
+    return []
+
+
 def render(resume_doc: ResumeDocument, template_id: str,
-           backend_root: str) -> tuple[bytes, list[str]]:
+           backend_root: str, *, artifact_id: str = "",
+           bullet_fact_refs: dict | None = None) -> tuple[bytes, list[str], list[dict]]:
     """把 ResumeDocument 渲染为 pm_template v1.2 布局的 PDF。
 
-    返回 (pdf_bytes, warnings)。章节顺序 / 空章节规则与 docx 渲染器同源：
+    返回 (pdf_bytes, warnings, anchors)。
+    章节顺序 / 空章节规则与 docx 渲染器同源：
     spec.sections 顺序逐个渲染，required 章节内容缺失记 warning 并跳过，
     可选章节为空则不渲染（记 warning），profile 区三段（姓名/求职意向/联系方式）。
+
+    artifact_id：本次生成 artifact 身份（写入 anchors）；bullet_fact_refs：可选逐 bullet
+    fact_id 映射（experience_id → list[list[str]]，索引对齐该经历 items.bullets）。
     """
-    spec = _load_spec(template_id, backend_root)
     warnings: list[str] = []
+    fb = _ensure_font_registered(backend_root)
+    if fb:
+        warnings.append(fb)
+
+    spec = _load_spec(template_id, backend_root)
+    refs_map: dict[str, list[list[str]]] = dict(bullet_fact_refs or {})
 
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     c.setTitle(f"resume_{template_id}")
-    w = _PdfWriter(c)
+    w = _PdfWriter(c, artifact_id=artifact_id)
 
     profile: Profile = resume_doc.profile
 
@@ -339,68 +461,96 @@ def render(resume_doc: ResumeDocument, template_id: str,
                 warnings.append(f"章节[{sec.id}]为空（非必填，PDF 不渲染）")
             continue
 
-        # 2) 渲染标题 + 内容
+        # 2) 渲染标题 + 内容（各条目传 content_item_id / 逐 bullet fact_refs）
         w.draw_section_title(title)
-        for item in items:
-            if stype == "education":
-                _render_education(w, item)
-            elif stype == "work":
-                _render_work(w, item)
-            elif stype == "project":
-                _render_project(w, item)
-            elif stype == "skills":
-                _render_skill(w, item)
-            elif stype == "awards":
-                w.draw_bullet(str(item), space_after=1.0)
-            elif stype == "summary":
-                w.draw_bullet(str(item), space_after=1.0)
+        if stype in ("education", "work", "project"):
+            for i, item in enumerate(items):
+                eid = getattr(item, "experience_id", "") or ""
+                cid = eid or f"{sec.id}:{i}"
+                prefs = refs_map.get(eid) if eid else None
+                if stype == "education":
+                    _render_education(w, item, cid, prefs)
+                elif stype == "work":
+                    _render_work(w, item, cid, prefs)
+                else:
+                    _render_project(w, item, cid, prefs)
+        elif stype == "skills":
+            for i, g in enumerate(items):
+                _render_skill(w, g, content_item_id=f"skills:{i}", bullet_index=i)
+        elif stype == "awards":
+            for i, a in enumerate(items):
+                w.draw_bullet(str(a), space_after=1.0, content_item_id="awards",
+                              bullet_index=i, fact_refs=[])
+        elif stype == "summary":
+            for i, ln in enumerate(items):
+                w.draw_bullet(str(ln), space_after=1.0, content_item_id="summary",
+                              bullet_index=i, fact_refs=[])
 
     c.showPage()
     c.save()
-    return buf.getvalue(), warnings
+    return buf.getvalue(), warnings, w.anchors
 
 
 # ── 各类条目渲染 ────────────────────────────────────────────────
 
-def _render_education(w: _PdfWriter, item: EducationItem) -> None:
+def _render_education(w: _PdfWriter, item: EducationItem,
+                      content_item_id=None,
+                      prefs: list[list[str]] | None = None) -> None:
     w.draw_item_title(
         _fmt_period(item.start_time, item.end_time),
         item.school,
         f"{item.major}（{item.degree}）" if item.degree else item.major,
     )
     # Education_Body 两行占位：description / gpa（空则隐藏，同 docx）
+    vi = 0
     if item.description and item.description.strip():
-        w.draw_bullet(item.description.strip(), space_after=1.0)
+        w.draw_bullet(item.description.strip(), space_after=1.0,
+                      content_item_id=content_item_id, bullet_index=vi, fact_refs=[])
+        vi += 1
     if item.gpa and item.gpa.strip():
-        w.draw_bullet(item.gpa.strip(), space_after=1.0)
-    for b in (item.bullets or []):
+        w.draw_bullet(item.gpa.strip(), space_after=1.0,
+                      content_item_id=content_item_id, bullet_index=vi, fact_refs=[])
+        vi += 1
+    for j, b in enumerate(item.bullets or []):
         if b and b.strip():
-            w.draw_bullet(b.strip(), space_after=1.0)
+            w.draw_bullet(b.strip(), space_after=1.0,
+                          content_item_id=content_item_id, bullet_index=vi,
+                          fact_refs=_bullet_refs(prefs, j))
+            vi += 1
 
 
-def _render_work(w: _PdfWriter, item: WorkItem) -> None:
+def _render_work(w: _PdfWriter, item: WorkItem,
+                 content_item_id=None,
+                 prefs: list[list[str]] | None = None) -> None:
     w.draw_item_title(
         _fmt_period(item.start_time, item.end_time),
         item.company,
         item.role,
     )
-    for b in (item.bullets or []):
+    for j, b in enumerate(item.bullets or []):
         if b and b.strip():
-            w.draw_bullet(b.strip(), space_after=1.0)
+            w.draw_bullet(b.strip(), space_after=1.0,
+                          content_item_id=content_item_id, bullet_index=j,
+                          fact_refs=_bullet_refs(prefs, j))
 
 
-def _render_project(w: _PdfWriter, item: ProjectItem) -> None:
+def _render_project(w: _PdfWriter, item: ProjectItem,
+                    content_item_id=None,
+                    prefs: list[list[str]] | None = None) -> None:
     w.draw_item_title(
         _fmt_period(item.start_time, item.end_time),
         item.name,
         item.role,
     )
-    for b in (item.bullets or []):
+    for j, b in enumerate(item.bullets or []):
         if b and b.strip():
-            w.draw_bullet(b.strip(), space_after=1.0)
+            w.draw_bullet(b.strip(), space_after=1.0,
+                          content_item_id=content_item_id, bullet_index=j,
+                          fact_refs=_bullet_refs(prefs, j))
 
 
-def _render_skill(w: _PdfWriter, item: SkillGroup) -> None:
+def _render_skill(w: _PdfWriter, item: SkillGroup, *,
+                  content_item_id=None, bullet_index: int = 0) -> None:
     joined = "、".join(x for x in (item.items or []) if x is not None)
     if not item.category or not joined:
         # docx Skill_Line 任一部分空 → 整段删除；PDF 同规则（不进视觉）
@@ -414,10 +564,27 @@ def _render_skill(w: _PdfWriter, item: SkillGroup) -> None:
     # 技能项可能折行
     rest_lines = _wrap(joined, SZ_BODY, w.width - cat_w)
     x = w.left + cat_w
+    first_y = w.y
+    max_right = x + (_measure(rest_lines[0], SZ_BODY) if rest_lines else 0.0)
     for i, ln in enumerate(rest_lines):
         w._emit(ln, x, w.y, SZ_BODY, COLOR_BODY)
+        if x + _measure(ln, SZ_BODY) > max_right:
+            max_right = x + _measure(ln, SZ_BODY)
         if i != len(rest_lines) - 1:
             w.y -= LEAD_BODY
             x = w.left
     w.y -= LEAD_BODY
     w._gap(1.0)
+    # 技能组整行为一个可点内容行锚点（同类 content_item_id=skills:<序>）
+    n = len(rest_lines)
+    last_y = first_y - LEAD_BODY * (n - 1) if n > 1 else first_y
+    w._record_anchor(
+        text=line,
+        x0=w.left,
+        x1=max_right,
+        y_top=first_y + SZ_BODY * _EM_ASCENT,
+        y_bottom=last_y - SZ_BODY * _EM_DESCENT,
+        content_item_id=content_item_id,
+        bullet_index=bullet_index,
+        fact_refs=[],
+    )
