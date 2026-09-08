@@ -543,3 +543,116 @@ T12-R9 至 R14 并冻结 clean H3；文档 Agent 核对源码/RESULT/PLAN/包身
 `<review-workspace>`。未参与 H3 实现或修复的验收 Agent须绑定 H3，重新验证本节、相关 T6/T8/T9、
 真实导出、回归和包一致性。Product Owner 最后再次执行 T12。H3 通过前不更新公开事实，不推送
 main，不创建发布 tag。
+
+## 15. V2.1.0 预览技术方案定案（2026-09-08）
+
+### 15.1 决策与版本边界
+
+Product Owner 确认：V2.1.0 必须解决“页面预览不能可靠代表最终产物”的问题，但本版本不实施
+动态排版能力。PLAN §14 中要求 React/CSS 预览、ReportLab PDF 和 DOCX 三套独立渲染结果持续
+保持视觉一致的方案予以撤回；与本节冲突的 §3、§4、§5、§6.5、T6、§8、§10、§13、§14 表述，
+均以本节为准。
+
+V2.1.0 的用户承诺调整为：
+
+> 结果页展示本次生成的**真实 PDF 成品预览**。页面预览与“下载 PDF”读取同一份不可变 PDF
+> artifact；用户在预览中看到的版式就是所下载 PDF 的版式。Word 是同一份 ResumeDocument 的
+> 可编辑导出物，内容与事实来源一致，但不承诺因字体、分页和办公软件渲染差异而与 PDF 像素一致。
+
+本节只替换预览技术链和相应验收，不解锁模板选择、版式设置、逐条改写、修订历史、关键词加粗、
+自动压页或字体/行距/字距自适应。上述排版与局部再生成能力进入
+`docs/versions/V2_REQUIREMENTS_POOL.md`，由后续版本另行冻结。
+
+### 15.2 唯一预览链路
+
+V2.1.0 冻结以下链路：
+
+~~~text
+ResumeDocument + pm_template v1.2
+        ├─→ DOCX Renderer → 当前 Word artifact
+        └─→ PDF Renderer  → 当前 PDF artifact
+                                  ├─→ 结果页内置 PDF viewer
+                                  └─→ “下载 PDF”
+~~~
+
+具体约束：
+
+1. 后端成功生成 PDF 后返回稳定的 artifact 身份、下载地址、文件大小和 SHA-256；同一生成结果的
+   PDF artifact 写成后不可原地覆盖。重新生成必须产生新的身份，避免页面缓存展示旧文件。
+2. 前端使用随应用打包的 PDF.js 或等价本地 PDF canvas viewer，直接读取该地址返回的 PDF 字节；
+   不依赖 CDN、系统 PDF 插件、Office、LibreOffice、打印对话框或运行时外部服务。
+3. 结果页的“下载 PDF”必须下载 viewer 当前绑定的同一 artifact。禁止前端再生成 PDF、下载时
+   临时重排、用 Word 改后缀，或用另一 URL/另一份文件冒充。
+4. `doc_preview`/section/entry/bullet JSON 只保留为内容核对、事实依据和无障碍辅助数据，不再承担
+   简历版式渲染。产品路径不得在 PDF 缺失或 viewer 失败时回退到 `ResultPaperPreview` 通用 HTML
+   并继续称为预览。
+5. `pm_template v1.2` 仍是本版本 PDF Renderer 的视觉规格。姓名、联系方式、求职意向、章节顺序、
+   条目标题、日期、bullet、空节规则与模板 fixture 必须正确；但只维护“PDF 成品”这一条浏览器
+   可见版式真源，不再复制一套 React/CSS 模板常量。
+6. DOCX 与 PDF 必须来自同一 ResumeDocument、生成操作和事实引用集合；字段文字、章节、条目和
+   bullet 内容不得分叉。允许的差异仅为渲染引擎导致的字体、字距、换行和分页差异，并在结果页
+   以简短产品文案说明“预览对应 PDF，Word 在不同软件中可能有轻微排版差异”。
+
+### 15.3 预览、依据与几何实现
+
+- PDF canvas 填满结果预览卡的可用宽度；预览卡是唯一外层容器，不再出现模拟纸张的额外边框、
+  圆角、阴影或大面积灰色边带。PDF 页本身的白底和模板页边距属于真实产物，不得删改。
+- 页面 shell 不滚动。PDF 页超出卡片固定高度时，只允许预览卡内容区纵向滚动；右侧依据/修改区
+  与左下角双按钮导出卡保持固定。卡片外框继续遵守 §14.3 的视口网格纪律。
+- PDF Renderer 在绘制时同步输出与该 artifact 绑定的 `PreviewAnchor` 清单，至少包含
+  `artifact_id`、`page_index`、矩形坐标、`content_item_id` 和 `fact_refs`。前端依据该坐标在 PDF
+  canvas 上增加不参与文档排版的透明命中层/高亮层，实现点击 bullet 查看依据。
+- overlay 只能覆盖 PDF canvas，不能改变 canvas 尺寸、文字换行或页面布局；坐标缺失、越界、
+  artifact 身份不匹配或未知 `fact_refs` 必须 fail closed，不得用文本模糊匹配猜测来源。
+- viewer 加载中显示固定尺寸 loading；PDF 生成失败、下载 4xx/5xx、MIME 错误、hash 不符或解析
+  失败时，在固定区域显示“PDF 预览不可用”和重试/返回入口。此时 Word 若已成功可以独立下载，
+  但页面不得展示近似 HTML 假预览。
+
+### 15.4 本版本明确不做的排版能力
+
+V2.1.0 不因采用 PDF viewer 而实现以下能力：
+
+- 单个 Fact/ResumeBullet 重新生成、锁定、差异对比或 Revision 回退；
+- 将每条 bullet 自动约束为一至两条视觉行；
+- 根据超页自动切换全局字体、字号、行距、段距或字距；
+- 关键词结构化加粗及其对换行、容量的重新测量；
+- 用户选择模板、密度、页数或逐项排版参数；
+- 为追求 PDF/Word 像素一致而引入 Office/LibreOffice 运行时依赖。
+
+开发不得以“为未来预埋”为由把这些需求混入 V2.1.0 候选。本版本只要求固定
+`pm_template v1.2` 下真实 PDF 的生成、展示、依据联动和下载闭环。
+
+### 15.5 第四轮集中返工任务
+
+| Task | 工作 | 完成标准 |
+|---|---|---|
+| T12-R15 | 退出 HTML 简历渲染并接入真实 PDF viewer | 产品路径不再使用 `ResultPaperPreview` 绘制版式；内置 viewer 加载真实 PDF artifact，满宽、仅卡内滚动、无外部运行依赖 |
+| T12-R16 | 建立 artifact 身份与依据锚点 | viewer、下载按钮和 PreviewAnchor 绑定同一 artifact；点击 PDF bullet 可回查真实 `fact_refs`；旧 artifact、越界坐标和未知来源 fail closed |
+| T12-R17 | 完成失败态、回归和便携包 | loading/生成失败/下载失败/MIME/hash/viewer 解析失败均不回退假预览；前端 build、完整 precheck、固定计数和 onedir 重建通过；包内 viewer 依赖完整且无 CDN |
+| T12-R18 | 更新 RESULT 并冻结新 H3 | 记录实现、接口、fixture、hash 同一性、截图/几何、错误注入、命令/退出码与包身份；clean 新 H3 交 Documentation Agent 核对 |
+
+`6664e37` 与 `a9a3d56` 只作为被暂停的第三轮实现历史，不得沿用为 H3。Development Agent 必须
+基于本 PLAN 新增 R15-R18，完成后交付新的 clean 源码点及 RESULT 记录；Documentation Agent 核对
+后再切换固定 `<review-workspace>`，由未参与实现/修复者绑定新 H3 复验。
+
+### 15.6 新 H3 验收证据
+
+新 H3 至少提供并由独立验收者复核：
+
+1. 固定虚构 ResumeDocument 生成 DOCX、PDF、PreviewAnchor；DOCX/PDF 的字段、章节、条目、bullet
+   和 `fact_refs` 全量相等，PDF 视觉符合 `pm_template v1.2` 参考；
+2. 记录 API PDF 响应、viewer 实际加载字节和“下载 PDF”所得文件的 SHA-256，三者完全一致；
+3. 生成两个不同结果并交替打开，证明 URL/artifact/cache 身份不会让新页面显示旧 PDF；
+4. 验证 PDF 正向、缺失、非法路径、MIME 错误、截断/损坏、hash 不符与 viewer 解析失败；所有失败
+   都诚实显示且不出现 HTML 近似预览；
+5. 验证 PreviewAnchor 正向点击、跨页、重复文本、坐标越界、artifact 不匹配和未知 Fact；依据层
+   不改变 PDF 版式；
+6. 在 1440×900、1280×720、1920×1080 下验证预览满宽、导出卡和右侧固定、页面
+   `scrollHeight == clientHeight`、`scrollWidth == clientWidth`，溢出只发生在预览卡内部；
+7. “下载 Word”“下载 PDF”均返回当前生成结果的真实文件；界面明确 PDF 预览承诺与 Word
+   轻微排版差异边界；
+8. 完整统一预检、既有固定计数、前端正式构建、便携包启动与包内前端/PDF viewer/PDF Renderer
+   依赖一致性全部通过。
+
+上述源码复验通过后仍需 Product Owner 在实际应用中重新执行 T12，重点确认 PDF 成品视觉、预览
+可读性、卡片几何、依据交互和双格式下载。人工验收未通过前不更新公开事实、main、tag 或发布声明。
