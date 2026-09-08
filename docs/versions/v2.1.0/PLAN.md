@@ -841,7 +841,16 @@ H5 验收必须在可运行真实浏览器的环境完成以下项目，不允�
 破坏 H3 已通过的 PDF/字体/授权边界。无法提供浏览器运行条件时，结论只能是“验收未完成”，
 不得把静态源码检查、CSS 推断或开发截图替代本节动态门禁。
 
-### 17.6 开发交接补充
+### 17.6 H5 集中任务
+
+| Task | 工作 | 完成标准 |
+|---|---|---|
+| T12-R24 | 还原回滚事实并建立动态复现 | 记录回滚对象/包身份/前后 Console；H3 或等价旧状态稳定触发 #310，虚构 fixture 可重复 |
+| T12-R25 | 定位根因并复核现有 H4 修复 | 非压缩栈、组件/行号、Hook 差异和漏测原因闭合；现有修复不足时完成结构修正与同类审计 |
+| T12-R26 | 完成 Hooks、PDF 生命周期与错误隔离矩阵 | Hooks lint 为阻断；六组动态风险在 development、production build、onedir 通过且无重复 operation |
+| T12-R27 | 更新 RESULT、重建包并冻结 H5 | 交接证据完整；新 PLAN 身份进入候选；形成 clean H5-SRC 与只改 RESULT 的开发交接提交 |
+
+### 17.7 开发交接补充
 
 H5 RESULT 至少包含：修复前/后 Console、非压缩组件栈、失败测试、Hooks lint 输出、六组风险矩阵、
 生成 API 调用计数、operation/artifact 身份、production/onedir 浏览器证据、Word/PDF 下载 hash、
