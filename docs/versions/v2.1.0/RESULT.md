@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第四轮 R17a 已通过文档交接核对；源码候选 H3 `5ea56c4` 待独立复验（见 §31）
+> 当前状态：第四轮 H3 独立源码验收条件通过，P0/P1 为 0；待 Product Owner 第三次 T12（见 §33）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第四轮返工契约：`17359a7d83b25647c5b44ecf87fb67e1be724de0` / blob `824e0845cfc8f6622750296eeb80f56ce8b69cb4`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
-> 发布结论：不发布；等待 Documentation Agent 核对新 H3、独立复验与 Product Owner 第三次 T12（PLAN §15.6）
+> 发布结论：不发布；源码门禁已关闭，仍等待 Product Owner 第三次 T12 与发布前远端 CI 证据（PLAN §15.6）
 
 ## 1. 本文件用途
 
@@ -36,8 +36,8 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
 | PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
-| 开发候选 commit | 开发结束后冻结 | 旧 H `e73f154…`/源码冻结点 `c5612ee…` 已失效；第二轮源码冻结点 **H2-SRC = `a917de2`**，开发 RESULT 交接 **H2-DEV = `22a69a4`**（后者相对前者仅改本文件） |
-| 独立验收对象 | 与开发候选完全一致 | 第二轮报告绑定 H2-HANDOFF `3d821f2049e1c91fdd4d550bc4fb63686d10359b`；源码唯一绑定 H2-SRC `a917de24ac09d6773362f58f414ebfda66112e95`；二者之间仅修改本 RESULT |
+| 开发候选 commit | 开发结束后冻结 | 第四轮源码冻结点 **H3-SRC = `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`**；开发 RESULT 交接 **H3-DEV = `5489fe5f66fed5c6e6cc3b9ccdbc2dfda4069a20`**；文档交接 `49d9ef6739173cb2a74f1808a89329251a37b2f9` |
+| 独立验收对象 | 与开发候选完全一致 | 第四轮报告唯一绑定 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`，review detached 且 clean；H3 后的 RESULT/文档提交不属于源码验收对象 |
 
 导入结果：原清单覆盖的 14 个文件全部匹配；源和目标文件清单一致，15 个文件逐文件 SHA-256
 一致；源快照没有被改写。Product Owner 已于 2026-09-06 批准 PLAN，批准 commit/blob 已记录。
@@ -50,19 +50,19 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T0 设计基线与 PLAN 身份冻结 | 已完成 | `DS-002` 导入、逐文件 hash、批准 commit/blob 均已冻结 |
 | T1 Windows CI 编码闭环 | 本地与源码独立验收通过；远端 CI 待确认 | 编码修复、同类子进程审计、隔离固定计数与 F3 哨兵通过；GitHub Windows CI 真实 run 仍为 Release Gate |
 | T2 tokens、adapter、路由与状态骨架 | 独立验收通过 | 主题 A tokens、typed service 端口与注入、全局状态及路由骨架成立；见 §19/§23 |
-| T3 用户界面与开发者后台分离 | 独立验收通过 | 普通用户导航与隐藏开发者后台边界成立，SystemPage 能力和安全边界保留；见 §19/§23 |
+| T3 用户界面与开发者后台分层 | 独立验收通过 | 普通一级导航不混入技术配置；左下角可见后台入口按 D-039 保留，当前不宣称权限隔离；见 §19/§23/§32 |
 | T4 上传、D-038 确认边界与经历管理 | 独立验收通过 | D-038 direct/inferred 分流、真实 CRUD/筛选/搜索/来源/失败路径及统一 `/upload` 入口通过；见 §19/§23 |
 | T5 一键生成与真实进度 | 第二轮独立验收通过 | processing 左右结构、单阶段明细与历史回看、真实阶段映射均通过；见 §23 |
-| T6 内容预览、事实依据与下载 | 第三轮实现已提交，技术方案待确认 | HTML、DOCX、ReportLab PDF 仍是三套独立渲染链；字面差异只是漂移样例，不能靠逐项补 CSS/文案根治，见 §25.2/§26 |
+| T6 内容预览、事实依据与下载 | 第四轮独立源码验收通过 | 真实 PDF artifact 为唯一视觉预览真源，viewer、下载与 PreviewAnchor 绑定同一 artifact；见 §28–§33 |
 | T7 隐私、Coming Soon 与缺席能力边界 | 独立验收通过 | 欢迎双冷启动、隐私边界和 Coming Soon/Absent 状态通过；无假接通，见 §19/§23 |
-| T8 Design Fidelity 与可访问性 | 第三轮返工完成，待复验 | R10/R11/R12a+b 已落地：模板忠实预览、预览满宽无二级纸张、全局固定卡片与三视口零滚动（见 §25） |
-| T9 回归、统一预检与便携包 | H3 重建完成，待复验 | precheck exit 0；onedir 含 reportlab+CID 字体；包内前端与 dist 逐文件 SHA-256 一致（见 §25） |
-| T10 RESULT 与冻结候选 | H3 交接暂停 | `6664e37` 作为方案评估基线保留，不登记为正式 H3；Product Owner 确认预览真源后修订实现、验证与包，再重新冻结 |
-| T11 独立验收 | H2 历史结论：有条件通过 | H2 报告绑定 `3d821f2` 已失效；H3 须由未参与返工者重新独立验收 |
-| T12 Product Owner 人工验收与发布 | 第二次未通过（H2）；待 H3 第三次 T12 | 打回记录 §24；H3 复验通过后 Product Owner 第三次 T12 |
+| T8 Design Fidelity 与可访问性 | 技术源码验收通过；真实浏览器验收待 T12 | 固定两栏、卡内滚动、右侧固定和左下导出卡有静态证据；三个真实视口像素实测由 Product Owner 完成 |
+| T9 回归、统一预检与便携包 | H3 独立源码验收通过；远端 CI 待发布门禁 | 三个第四轮脚本计数命中，onedir 重建与包内资产匹配；真实 GitHub Windows CI 仍需单独证据 |
+| T10 RESULT 与冻结候选 | 已完成 | H3-SRC `5ea56c4`、H3-DEV `5489fe5` 与文档交接身份已经冻结；见 §31 |
+| T11 独立验收 | 条件通过 | 报告绑定 H3-SRC；P0/P1 为 0，剩余条件均属于 T12 与发布门禁；见 §33 |
+| T12 Product Owner 人工验收与发布 | 第二次未通过（H2）；待 H3 第三次 T12 | 必须实测三视口、真实 PDF 预览、Word/PDF 下载、锚点交互与最终审美；通过前不发布 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
-| T12-R15 至 R18 | 第四轮开发完成，待文档核对与复验 | R15a/R15b+R16/R17 实现与证据见 §28（新 H3 `c4a55a3`） |
+| T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
 
 ## 5. 开发交接
 
@@ -1014,3 +1014,74 @@ Product Owner 确认：当前用户界面左下角可跳转开发者后台，现
 本次澄清与 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1` 的现有行为一致，不要求
 修改源码，不改变第四轮 PLAN commit/blob，不移动固定 review，也不让 H3 自动通过验收。正在
 进行的独立验收继续绑定 H3-SRC；验收者不得因左下角开发者入口存在而打回。
+
+## 33. 第四轮 H3 独立源码验收结论（2026-09-08）
+
+### 33.1 独立性与绑定身份
+
+独立验收 Agent 声明未参与 R15、R16、R17、R17a 的实现、自测、修复或开发结论编写；验收过程
+从 PLAN、源码和隔离副本独立推导，全程只读，未在固定 review 中 checkout、merge、commit 或
+落盘验收结论。
+
+Documentation Agent 收到报告后复核固定 review：
+
+- 仓库根：`D:/demo/resume-assistant/review`；
+- HEAD/H3-SRC：`5ea56c4fe0ea4f1eead436bd03439485ea8218e1`；
+- 状态：detached、tracked/untracked clean；
+- PLAN commit/blob：`17359a7d83b25647c5b44ecf87fb67e1be724de0` /
+  `824e0845cfc8f6622750296eeb80f56ce8b69cb4`；
+- H3 后的开发 RESULT §30 与文档交接 §31 不在源码候选内，验收未把这些记录当作源码证据。
+
+### 33.2 独立执行结果
+
+| 检查 | 独立结果 |
+|---|---|
+| `backend/_v21_r9_preview_pdf.py` | exit 0，`PASS=54 FAIL=0` |
+| `backend/_v21_r17_failures.py` | exit 0，`PASS=17 FAIL=0` |
+| `backend/_v21_r17a_licensing.py`（`npm ci` 后） | exit 0，`PASS=18 FAIL=0` |
+| `npm ci` / 前端生产 build | exit 0；dist 4 文件，含本地 PDF.js worker asset |
+| PyInstaller onedir 重建 | exit 0 |
+| 便携包启动与健康 | `/api/health` 返回 200，版本 `2.1.0` |
+| 便携包终止 | 验收环境使用 `Stop-Process`，终止后无残留；真实 GUI 正常退出仍由 T12 验证 |
+
+统一预检日志终末为“阻断检查全部通过”，六个阻断脚本固定计数命中：`77/0`、`48/0`、`20/0`、
+`15/0`、`50/0`、`12/0/3`。验收运行外层后台 job 曾上报 exit 1；报告核对预检源码返回逻辑和完整
+日志后判定脚本有效结果为 exit 0，认为外层值来自非阻断子进程/监控管道。为避免把该解释冒充
+远端 CI 事实，V2.1.0 正式发布前仍必须取得候选对应的 GitHub Windows CI 成功证据。
+
+包内与源码核对通过：
+
+- `NotoSansSC-Regular.ttf`：10,559,284 B，SHA-256
+  `d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16`；
+- `NOTO-OFL.txt`：4,301 B，SHA-256 `6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2`；
+- `PDFJS-APACHE2.txt`：10,174 B，SHA-256
+  `0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594`，与安装的
+  `pdfjs-dist@4.10.38` LICENSE 逐字节一致；
+- `THIRD_PARTY_NOTICES.md`：2,708 B，SHA-256
+  `bc5af6f7ab798c26ab290af7490042629fa27a0587b65c4c0ff88c42cfb38c64`；
+- onedir 中字体、三份授权文件和 frontend dist 与源码逐项匹配；无运行时 CDN 引用。
+
+### 33.3 验收判断
+
+验收 Agent 对 R15、R16、R17、R17a 的功能、结构、Integration、技术 Design Fidelity、失败边界
+和便携包结构给出通过结论：真实 PDF artifact 是唯一视觉预览真源；viewer、下载与
+PreviewAnchor 绑定同一 artifact；字体缺失、损坏或 hash 不符时 PDF fail closed，Word 可独立
+成功；无系统字体回退或假 PDF 成功。
+
+问题分级：
+
+- P0：0；
+- P1：0；
+- P2：多页 PreviewAnchor fixture 尚未补充；`ResultPaperPreview.tsx` 为未引用孤儿组件；
+  非阻断基线仍为 npm audit 4、ruff 404、ESLint 21。
+
+源码验收最终结论为 **Conditional Pass**。未在验收环境完成的项目不是新的开发阻断，而是明确
+保留给 Product Owner 第三次 T12：
+
+1. 在真实浏览器以 1440×900、1280×720、1920×1080 验证页面零滚动、固定卡片、卡内滚动和
+   右侧固定区；
+2. 在打包应用使用真实 LLM/API Key 完成 PDF 预览、Word/PDF 下载与正常 GUI 退出；
+3. 实际点击/键盘选择锚点，核对依据回查和最终审美。
+
+Documentation Agent 接受该条件通过结论并关闭 H3 的 T11 源码门禁。V2.1.0 仍未发布；T12 和
+候选对应的远端 CI 证据完成前，不更新 `CURRENT_STATE.md`、根 README、公开 main 或 tag。
