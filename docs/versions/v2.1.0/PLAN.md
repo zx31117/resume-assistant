@@ -856,3 +856,83 @@ H5 RESULT 至少包含：修复前/后 Console、非压缩组件栈、失败测�
 生成 API 调用计数、operation/artifact 身份、production/onedir 浏览器证据、Word/PDF 下载 hash、
 完整命令与退出码。Documentation Agent 只核对交接身份和文档/产物机械闭环，不替代专项源码
 验收。H5 独立验收与 Product Owner 第四次 T12 均通过前，继续禁止发布。
+
+## 18. H6 可移交测试资产与 onedir 分层门禁修订（2026-09-08）
+
+### 18.1 修订原因与适用关系
+
+Product Owner 审阅 H5 补证后批准调整 PLAN §17 的执行边界。H5 已证明旧态 #310 可由虚构 fixture
+确定性复现，也完成 development/production 的部分动态矩阵；但 fixture、控制脚本和详细步骤仍在
+ignored 本地目录，固定 review 无法从候选重建同一用例。同时，要求最终 onedir 对四个结果区域逐一
+注入源码异常，会迫使正式包携带测试后门，或要求只读验收者修改源码后重建另一个包；两种做法都
+不能证明最终交付二进制本身，故本节以分层门禁取代 §17.5/§17.6 中“六组风险全部在 onedir 注入”
+的字面要求。
+
+§17 的根因、风险组和不可 SUSPEND 原则继续有效；只调整“哪一层负责哪种动态验证”。H5-SRC
+`012242c` 已被使用，补齐可移交测试资产后的新 clean 候选统一记为 **H6-SRC**。H6 不得借测试
+收口修改用户交互、PDF 方案、生成业务或 V2.1.1 功能。
+
+### 18.2 必须进入候选的测试资产
+
+Development Agent 必须把以下内容整理为仓库内稳定、可审计、可重复运行的测试资产，而不是继续
+依赖 ignored `validation-artifacts/`：
+
+1. 仅含虚构姓名、经历、JD、PDF、DOCX、PreviewAnchor 与 operation/artifact 的确定性 fixture；
+2. 能驱动同一工作台实例完成初始、生成中、成功、业务失败、PDF loading/ready/error 与依据切换
+   的自动化或半自动化 runner；
+3. 能在**测试环境**分别让 `PdfPreview`、overlay、依据区、导出区抛出 render exception 的注入
+   机制；该机制不得进入正式应用路由、普通构建入口、生产包或对外 API；
+4. 生成 POST 计数、operation/artifact 身份、PDF/DOCX hash、Console/Hook warning、页面非空与
+   Error Boundary 恢复断言；
+5. 一条从干净 checkout 安装依赖并运行全部专项用例的入口，退出码非零即阻断。
+
+测试资产不得包含真实用户数据、真实 API Key、本机绝对路径、历史 Console 中的个人信息或在线
+服务依赖。H6 的统一预检必须调用该入口，至少覆盖不需要 GUI 人工判断的确定性断言。
+
+### 18.3 development 与 production test build 门禁
+
+同一份已提交 fixture 必须在 development 和不含源码热更新的 production test build 中完整覆盖
+PLAN §17.4 六组风险，并明确验证：
+
+- H3 或等价旧态稳定触发 #310，H6 同一 fixture 无 #310、Hook warning 或白屏；
+- PDF URL 空→有效、artifact 更换、anchors 空↔非空、加载中卸载、请求中止、worker/字节失败；
+- `PdfPreview`、overlay、依据区、导出区四处异常分别命中预期边界并可恢复；
+- React StrictMode、成功切页、viewer 重试和 Error Boundary 恢复均不新增生成 POST/operation；
+- viewer 或 UI 失败不删除、不覆盖已成功 PDF/DOCX，下载字节与记录 hash 一致。
+
+production test build 只用于测试，不得被复制进最终 onedir。最终生产 build 必须重新从 clean H6
+源码生成，并由文件清单和 hash 证明不含 fixture server、故障注入入口、测试路由或调试数据。
+
+### 18.4 最终 onedir 非侵入式门禁
+
+最终 onedir 只验证真实交付二进制能够观察到的行为，不修改候选源码，也不携带故障注入后门。
+Development Agent 与独立验收 Agent 均须在隔离 runtime 中执行：
+
+1. 初始→生成中→成功结果的完整链路，页面和 Console 无 #310/Hook warning，PDF viewer、依据与
+   Word/PDF 下载可用；生成 POST 和 operation 各为一次；
+2. 重复打开结果、切换依据、viewer 重试和返回工作台不触发第二次生成，不改变 artifact 身份；
+3. 通过浏览器请求阻断、隔离 runtime 中临时移走/损坏本轮 PDF 等非源码手段，验证 PDF 不可用态
+   诚实可见、Word 保持可下载、页面不白屏；测试后恢复或清理隔离数据；
+4. 下载 PDF/DOCX 的 hash 与后端记录及 viewer artifact 一致，旧 bundle/旧 artifact 不得混入；
+5. onedir 内前端、worker、字体和授权材料与 clean H6 最终生产 build 逐文件一致，且不存在测试
+   fixture、注入开关、测试路由或本机路径。
+
+四区域源码级 render exception 注入只在 §18.3 的可移交测试环境重复，不要求最终 onedir 注入。
+若 onedir 的正常链路或上述非侵入式失败路径无法执行，仍不得 SUSPEND 后给出通过结论。
+
+### 18.5 H6 集中任务与交接
+
+| Task | 工作 | 完成标准 |
+|---|---|---|
+| T12-R28 | 固化虚构 fixture 与 runner | 测试资产进入候选、无隐私/密钥/绝对路径；干净 checkout 可运行，失败为非零退出 |
+| T12-R29 | 完成 dev/production test build 全矩阵 | 六组风险、四区域异常、Hook/幂等/artifact/hash 全部命中；记录命令、计数和退出码 |
+| T12-R30 | 重建并验证最终 onedir | 使用 clean 正式 build；完成 §18.4 五项，证明包内无测试后门且资产逐文件一致 |
+| T12-R31 | 更新 RESULT 并冻结 H6 | 形成新的 clean H6-SRC 与只改 RESULT 的 H6-DEV；交接材料足以让 review 原样重建 |
+
+H6 RESULT 至少记录测试入口、依赖安装、各矩阵计数、浏览器/视口、Console、API/operation/artifact
+身份、下载 hash、最终包文件清单与退出码。Documentation Agent 只在这些身份与材料机械闭合后
+移动固定 review。独立验收者不得参与 H6 实现，须从 H6-SRC 的已提交测试资产重跑 §18.3，并在
+最终 onedir 独立执行 §18.4；两层均不得以开发截图或静态源码检查代替。
+
+H6 独立验收与 Product Owner 下一次 T12 均通过前，继续禁止更新 `CURRENT_STATE.md`、根 README、
+公开 main、tag 或 GitHub 发布声明。
