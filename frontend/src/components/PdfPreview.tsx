@@ -89,8 +89,31 @@ export default function PdfPreview({
   const docRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
   const pageObjsRef = useRef(new Map<number, pdfjsLib.PDFPageProxy>())
   const canvasRefs = useRef(new Map<number, HTMLCanvasElement>())
+  const renderTasksRef = useRef(new Map<number, pdfjsLib.RenderTask>())
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const drawSeqRef = useRef(0)
+
+  /**
+   * 同步取消所有尚未结束的渲染任务。
+   * pdf.js 在 render() 期间通过内部 WeakSet 记录占用中的 canvas
+   * （pdf.mjs initializeGraphics：`Cannot use the same canvas during
+   * multiple render() operations.`），只有任务正常完成或 cancel() 才会释放。
+   * 因此在任何「用同一 canvas 再画一次」之前必须先 cancel 旧任务；
+   * 若需彻底等待其收尾（promise settle），调用方再对任务 promise 取反即可。
+   * clear=false 保留 map：留给紧接着的新一轮绘制在开画前 await settle。
+   */
+  const cancelRenderTasks = useCallback((clear: boolean) => {
+    const inflight = [...renderTasksRef.current.values()]
+    if (clear) renderTasksRef.current.clear()
+    for (const t of inflight) {
+      try {
+        t.cancel()
+      } catch {
+        // 已完成/已取消任务再次 cancel 属预期，忽略。
+      }
+    }
+    return inflight
+  }, [])
 
   const selectedKey = selectedAnchor ? pdfAnchorKey(selectedAnchor) : null
 
@@ -109,11 +132,13 @@ export default function PdfPreview({
     docRef.current = null
     pageObjsRef.current.clear()
     canvasRefs.current.clear()
+    // 先取消未完成渲染并释放其 canvas 占用，再销毁 doc，避免 destroy 撞上活跃渲染。
+    cancelRenderTasks(true)
     if (doc) {
       // 只对仍属于本组件的 doc 调用 destroy（先置 null，避免重复销毁）。
       void doc.destroy().catch(() => undefined)
     }
-  }, [])
+  }, [cancelRenderTasks])
 
   /* ── 加载与解析（同源 GET pdf_download_url → getDocument({data})） ── */
   useEffect(() => {
@@ -239,6 +264,29 @@ export default function PdfPreview({
     const job = ++drawSeqRef.current
     async function draw() {
       try {
+        // 新一轮绘制开始前，先取消上一轮仍在进行的渲染任务并等其 promise settle：
+        // cancel() 是同步的（pdf.js 会立即释放该 canvas 的“占用中”标记并停掉 rAF），
+        // 但这里仍 await 其 promise 收尾，确保旧任务彻底结束后再复用同一 canvas 重绘。
+        // 覆盖路径：可用宽度变化 / 依赖数组变化 / reload / 命中层重算触发的重绘。
+        const inflight = [...renderTasksRef.current.values()]
+        renderTasksRef.current.clear()
+        if (inflight.length > 0) {
+          await Promise.all(
+            inflight.map(async (task) => {
+              try {
+                task.cancel()
+              } catch {
+                // 已完成/已取消，忽略
+              }
+              try {
+                await task.promise
+              } catch {
+                // RenderingCancelledException —— 主动取消的预期结果
+              }
+            }),
+          )
+        }
+        if (cancelled || job !== drawSeqRef.current) return
         for (const pv of pageViews) {
           if (cancelled || job !== drawSeqRef.current) return
           const meta = docMeta?.find((m) => m.pageNo === pv.pageNo)
@@ -253,7 +301,17 @@ export default function PdfPreview({
           canvas.style.height = `${pv.cssH}px`
           const ctx = canvas.getContext('2d')
           if (!ctx) continue
-          await page.render({ canvasContext: ctx, viewport: vp }).promise
+          const renderTask = page.render({ canvasContext: ctx, viewport: vp })
+          renderTasksRef.current.set(pv.pageNo, renderTask)
+          // 任务结束（成功/被取消）即从登记表移除；用同一引用守卫，
+          // 避免把后续新一轮注册的同页任务误删。
+          const settle = () => {
+            if (renderTasksRef.current.get(pv.pageNo) === renderTask) {
+              renderTasksRef.current.delete(pv.pageNo)
+            }
+          }
+          renderTask.promise.then(settle, settle)
+          await renderTask.promise
         }
       } catch (e) {
         if (cancelled || job !== drawSeqRef.current) return
@@ -264,7 +322,10 @@ export default function PdfPreview({
     void draw()
     return () => {
       cancelled = true
+      // 依赖变化/卸载：取消仍占用 canvas 的渲染任务，让下一轮可安全复用同一 canvas。
+      cancelRenderTasks(false)
     }
+    // 依赖保持 [pages, status]：canvas 尺寸/命中层已在 pages 里；其余 ref 读取均为此处最新值。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages, status])
 

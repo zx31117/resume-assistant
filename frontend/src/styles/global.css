@@ -3145,3 +3145,93 @@ a.path-card {
   }
 }
 
+
+/* ============================================================
+   V2.1.0 R21：应用级错误边界（ErrorBoundary 兜底界面）
+   固定布局、普通用户可理解；恢复按钮只做重试/路由回退，不触发生成。
+   ============================================================ */
+
+.eb-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.eb-card {
+  width: min(560px, calc(100% - var(--s6)));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--error);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--s6) var(--s6) var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  text-align: center;
+  align-items: center;
+}
+
+.eb-eyebrow {
+  font-size: var(--text-sm);
+  color: var(--error);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.eb-title {
+  font-size: var(--text-xl);
+  font-weight: 650;
+  color: var(--ink);
+  margin: 0;
+}
+
+.eb-desc {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: var(--leading-body);
+  max-width: 46ch;
+  margin: 0;
+}
+
+.eb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s3);
+  margin-top: var(--s2);
+}
+
+.eb-diag {
+  margin-top: var(--s4);
+  width: 100%;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.eb-diag summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.eb-diag__meta {
+  margin: var(--s2) 0 var(--s2);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.eb-diag__stack {
+  margin: 0;
+  padding: var(--s3);
+  max-height: 200px;
+  overflow: auto;
+  background: var(--surface-sunken);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
