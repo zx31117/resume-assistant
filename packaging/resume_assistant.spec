@@ -33,6 +33,11 @@ datas.append((str(frontend_dist), "frontend/dist"))
 # （.pyc 内嵌开发机绝对路径）与构建脚本 _build_templates.py 带进便携包。
 datas.append((str(backend_dir / "templates" / "pm_template.docx"), "templates"))
 datas.append((str(backend_dir / "templates" / "pm_template.json"), "templates"))
+# R17：PDF 内嵌中文字体（templates/fonts/NotoSansSC-Regular.ttf，OFL 可再分发）。
+# 冻结后 BASE_DIR=sys._MEIPASS（onedir 即 _internal），pdf_renderer 以
+# BASE_DIR/templates/fonts/<font> 解析（services/pdf_renderer.py FONT_TEMPLATE_SUBDIR），
+# 故字体目录须落在 _internal/templates/fonts；缺失时 reportlab 会临时回退本机 simsun。
+datas.append((str(backend_dir / "templates" / "fonts"), "templates/fonts"))
 datas.append((str(backend_dir / "config"), "config"))
 
 # ── AI 栈动态子模块/数据文件（含 cacert 证书、tiktoken bpe 编码） ── #
