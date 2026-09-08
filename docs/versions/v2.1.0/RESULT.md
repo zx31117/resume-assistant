@@ -1,6 +1,6 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第四轮开发交接已收到，文档核对打回；R17 第三方资源分发与字体失败边界待修正（见 §29）
+> 当前状态：第四轮 R17a 已通过文档交接核对；源码候选 H3 `5ea56c4` 待独立复验（见 §31）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
 > PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前第四轮返工契约：`17359a7d83b25647c5b44ecf87fb67e1be724de0` / blob `824e0845cfc8f6622750296eeb80f56ce8b69cb4`）
@@ -944,3 +944,54 @@ V2.1.0 产品功能。固定 `<review-workspace>` 继续保持 H2；新候选到
 - 只改 RESULT 的开发交接提交：本提交（RESULT §30，随本段提交；其 SHA 由复核对齐时以
   `git log --oneline -1` 解析，同 §29.1 对 `b11d48b` 的机制）。
 - 固定 `<review-workspace>` 保持 H2；本候选到达后按 §29.3 进入 Documentation Agent 复核对齐。
+
+## 31. R17a 文档交接核对通过并冻结 H3（2026-09-08）
+
+### 31.1 绑定身份
+
+Documentation Agent 对开发路径完成只读文档与产物身份核对：
+
+- 分支：`version/v2.1.0`；
+- 第四轮源码候选 **H3-SRC**：`5ea56c4fe0ea4f1eead436bd03439485ea8218e1`；
+- 开发 RESULT 交接 **H3-DEV**：`5489fe5f66fed5c6e6cc3b9ccdbc2dfda4069a20`；
+- H3-DEV 工作树 clean；`5ea56c4..5489fe5` 只修改本 RESULT；
+- 当前返工 PLAN commit/blob：`17359a7d83b25647c5b44ecf87fb67e1be724de0` /
+  `824e0845cfc8f6622750296eeb80f56ce8b69cb4`，两提交中的 PLAN blob 一致；
+- 开发基线：`051b7a860302100a1d34c5e0e86b73d5899cf804`，本轮源码范围仅为 §29.3 要求的
+  PDF Renderer 字体失败边界、第三方授权材料、打包配置与对应测试。
+
+独立验收的源码结论必须绑定 H3-SRC；H3-SRC 后的 RESULT/文档提交不改变该源码对象，也不让后续
+任何源码提交自动继承验收结论。
+
+### 31.2 文档与包机械核对
+
+本次核对不读取源码逻辑、不复跑开发自测，也不声明代码正确；只确认交接材料与当前 onedir 的
+机械一致性：
+
+| 对象 | 源码/安装侧 | onedir | 核对结果 |
+|---|---:|---:|---|
+| `NOTO-OFL.txt` | 4,301 B / `6a73f954…` | 4,301 B / `6a73f954…` | MATCH |
+| `PDFJS-APACHE2.txt` | 10,174 B / `0d542e0c…`；与 `pdfjs-dist/LICENSE` 相同 | 10,174 B / `0d542e0c…` | MATCH |
+| `THIRD_PARTY_NOTICES.md` | 2,708 B / `bc5af6f7…` | 2,708 B / `bc5af6f7…` | MATCH |
+| `NotoSansSC-Regular.ttf` | 10,559,284 B / `d45f67f0…` | 10,559,284 B / `d45f67f0…` | MATCH |
+| `frontend/dist` | 4 文件 | 4 文件 | 文件名、大小、SHA-256 全量 MATCH |
+
+`THIRD_PARTY_NOTICES.md` 已记录 Noto 上游、版本化下载 URL、原始文件名、大小、SHA-256、OFL 文本
+来源，以及 `pdfjs-dist@4.10.38` 与 Apache 2.0 文本来源。最终 HTML/JS/CSS 的 jsDelivr、unpkg、
+cdnjs 定向运行时引用扫描为 0。
+
+上述证据足以关闭 §29 的“授权文件未入包”文档阻断项。关于系统字体 fallback 是否完整退出、字体
+缺失/损坏是否确定性失败、PDF 是否无假成功、viewer 与下载是否同 artifact、PreviewAnchor 是否
+fail closed，以及 R9/R17/R17a/precheck 的实际计数，仍必须由未参与实现/修复的验收 Agent 在 H3-SRC
+上独立检查和运行。
+
+### 31.3 固定 review 与剩余门禁
+
+- canonical 使用本地候选引用保护 H3-SRC 与 H3-DEV；
+- 固定 `<review-workspace>` detached 到 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`，
+  开始验收前必须再次确认 HEAD 相同且工作树 clean；
+- 验收范围为 PLAN §15.6 八项及 RESULT §29.3 R17a；验收者必须未参与 R15-R17a 的实现、自测、
+  修复或开发结论编写；
+- 独立验收报告只返回 Documentation Agent，由其追加本 RESULT；验收 Agent 不在 review 中落盘；
+- 验收通过后仍需 Product Owner 在实际应用中执行第三次 T12。此前不更新 `CURRENT_STATE.md`、
+  根 README、公开 main、tag 或 GitHub。
