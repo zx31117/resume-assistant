@@ -1,9 +1,9 @@
 # V2.1.0 RESULT：执行记录（初始化）
 
-> 当前状态：第三次 T12 白屏 P0 已打回；H4 返工 PLAN 已批准，待 Development Agent 执行（见 §34–§35）
+> 当前状态：第三次 T12 白屏 P0 未闭环；H4 开发提交与重建记录已存在，但手工回滚未解决且尚未按新门禁复验；H5 定位与专项风险 PLAN 已批准，待 Development Agent 对齐（见 §34–§36）
 > 当前产品基线：已发布 V2.0.2
 > 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H4 返工契约：`f8f9a8f8e308fc30e8dcd61ad954e901a87569dc` / blob `598d3326bce4281a546b40651b466a8a4a51455c`）
+> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H5 补充契约：`67321f1ca7965975b06c1e1130c746c5222bbd6c` / blob `ea7fd411961cee6ce587d059e26b06515bf5e2dd`）
 > PLAN blob：`45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`
 > 发布结论：不发布；H3 源码独立验收结论保留，但已被第三次 T12 的用户可见 P0 阻断
 
@@ -35,7 +35,7 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | Canonical Design Baseline | `docs/design/baselines/V2.1.0/DS-002/` | 已导入；15 个文件 |
 | manifest SHA-256 | `7ace7413a81d504a16cdfface2faff50b1623dab0f70ceac4edea1c9717c0cfc` | 源与目标一致 |
 | `prototype/index.html` SHA-256 | `548c0ac44a989a550b5f0494f17df15bae9ac27bb524110aaa57ab126cfdd65d` | 源与目标一致 |
-| PLAN 批准 commit/blob | Product Owner 批准后记录 | `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36` |
+| PLAN 批准 commit/blob | Product Owner 批准后记录 | 初始基线 `4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27` / `45fe3a2c3c6d99098ad2ba7fcb4996f7f7ca7e36`；当前 H5 补充 `67321f1ca7965975b06c1e1130c746c5222bbd6c` / `ea7fd411961cee6ce587d059e26b06515bf5e2dd` |
 | 开发候选 commit | 开发结束后冻结 | 第四轮源码冻结点 **H3-SRC = `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`**；开发 RESULT 交接 **H3-DEV = `5489fe5f66fed5c6e6cc3b9ccdbc2dfda4069a20`**；文档交接 `49d9ef6739173cb2a74f1808a89329251a37b2f9` |
 | 独立验收对象 | 与开发候选完全一致 | 第四轮报告唯一绑定 H3-SRC `5ea56c4fe0ea4f1eead436bd03439485ea8218e1`，review detached 且 clean；H3 后的 RESULT/文档提交不属于源码验收对象 |
 
@@ -59,11 +59,12 @@ PLAN 中的目标代替实现事实；尚未完成的工作必须保持“未开
 | T9 回归、统一预检与便携包 | H3 独立源码验收通过；远端 CI 待发布门禁 | 三个第四轮脚本计数命中，onedir 重建与包内资产匹配；真实 GitHub Windows CI 仍需单独证据 |
 | T10 RESULT 与冻结候选 | 已完成 | H3-SRC `5ea56c4`、H3-DEV `5489fe5` 与文档交接身份已经冻结；见 §31 |
 | T11 独立验收 | 条件通过 | 报告绑定 H3-SRC；P0/P1 为 0，剩余条件均属于 T12 与发布门禁；见 §33 |
-| T12 Product Owner 人工验收与发布 | 第三次未通过（H3）；H4 返工待开发 | React #310 白屏 P0；§16/R19-R23 已批准，修复复验后执行第四次 T12 |
+| T12 Product Owner 人工验收与发布 | 白屏 P0 未闭环；H5 待开发与独立复验 | H4 提交与重建记录不能替代新门禁；完成 §17/R24-R27 后再执行下一次 T12 |
 | T12-R1 至 R8 | 第二轮独立验收通过 | R1–R8 的五状态结构、真实链路、回归与包一致性均通过；见 §22 开发记录和 §23 独立报告 |
 | T12-R9 至 R14 | 第三轮实现历史（被 §26/§27 暂停，不得沿用为 H3） | R9–R13 实现与证据见 §25；PO 确认"真实 PDF 成品预览"方案后由 R15–R18 取代 HTML 渲染链 |
 | T12-R15 至 R18 | 第四轮独立源码验收通过 | R15/R16/R17/R17a 均通过；R17a 关闭字体与授权打回项，最终 H3-SRC 为 `5ea56c4`；见 §28–§33 |
-| T12-R19 至 R23 | H4 返工 PLAN 已批准，待开发 | 定位并修复 React #310、建立 Error Boundary、状态转换回归、重建包并冻结 H4；见 PLAN §16/RESULT §34–§35 |
+| T12-R19 至 R23 | H4 开发记录已存在，尚未按 H5 门禁接受 | current 已有 H4 源码与包重建记录；其形成早于 PLAN §17，且手工回滚未解决，不能自动关闭 P0；见 §36 |
+| T12-R24 至 R27 | H5 PLAN 已批准，待开发对齐 | 还原回滚对象与包身份、建立动态复现、复核 H4 修复、完成专项风险矩阵并冻结 H5；见 PLAN §17/RESULT §36 |
 
 ## 5. 开发交接
 
@@ -1171,3 +1172,41 @@ React #310 根因、白屏错误边界、状态转换回归、生产/onedir 真�
 固定 `<review-workspace>` 继续 detached 在 H3-SRC，不因 PLAN 批准提前移动。Development Agent
 完成 H4 并交接后，由 Documentation Agent 先做身份与范围核对，再决定是否将 review 切换到
 H4-SRC。当前不更新公开事实、main、tag 或 GitHub。
+
+## 36. 手工回滚未解决与 H5 专项定位 PLAN 批准（2026-09-08）
+
+### 36.1 当前事实边界
+
+Product Owner 补充确认：开发过程中曾按人工指令执行过一次回滚，但白屏没有因此解决。当前没有
+形成足以独立复核的回滚对象、运行包身份、回滚前后 Console 与复现步骤记录。因此该结果只能证明
+“当次被回滚的变更集合不足以单独解释或消除现象”，不能据此排除 PDF.js、成功态切换、运行包未
+更新或多项因素共同作用，也不能作为继续盲目回滚的依据。
+
+Documentation Agent 只读核对固定 `<current-workspace>` 时发现 H4 开发提交与开发侧 RESULT 记录
+已经存在：H4-SRC 为 `aecafc9`，随后有只改 RESULT 的 `89d254b` 与 `74d4a7c`。开发记录声称已定位
+React #310 的 Hook 数变化、加入 Error Boundary、修正 PDF.js canvas 生命周期，并发现第一次复验
+使用了旧 bundle 后重建 onedir。上述内容属于开发侧主张，形成时间早于 PLAN §17；Documentation
+Agent 未参与源码实现，也未以源码正确性审查或独立浏览器复验接受这些结论。
+
+因此现有 H4 不自动转为通过候选。后续不得只凭“已回滚”“已修 Hook”或“已重建包”中的任一项
+关闭 P0，必须把源码状态、前端 bundle、onedir、实际运行进程和浏览器错误串成同一次可重复证据链。
+
+### 36.2 H5 批准身份与交接边界
+
+Product Owner 已批准 PLAN §17 的白屏定位与专项风险验收补充，并要求纳入上述手工回滚事实。当前
+唯一有效的 H5 补充契约身份为：
+
+- PLAN commit：`67321f1ca7965975b06c1e1130c746c5222bbd6c`；
+- PLAN blob：`ea7fd411961cee6ce587d059e26b06515bf5e2dd`；
+- 任务范围：T12-R24 至 T12-R27；
+- 目标候选：新的 clean **H5-SRC**，以及只修改 RESULT 的开发交接提交。
+
+Development Agent 必须先还原并记录那次手工回滚的精确对象、运行包与前后证据，再在非压缩环境
+建立成功态动态复现，复核而非盲信既有 H4 修复，并完成 Hooks、PDF 生命周期、Error Boundary、
+operation 幂等、artifact 保留及 development/production/onedir 差异的专项矩阵。即使最终确认
+`aecafc9` 的源码字节无需再改，也必须以新 PLAN 身份和新证据冻结 H5，不能继续沿用 H4 名称。
+
+固定 `<review-workspace>` 继续 detached 在 H3-SRC `5ea56c4`。Documentation Agent 收到完整 H5
+交接并完成身份、范围和文档核对前，不移动 review；新的独立验收必须由未参与 H4/H5 实现与自测、
+且能够运行真实浏览器的验收任务执行。当前仍不更新 `CURRENT_STATE.md`、根 README、公开 main、
+tag 或 GitHub。
