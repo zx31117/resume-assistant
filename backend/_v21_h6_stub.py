@@ -370,7 +370,7 @@ def _create_app():
                 "time": f"{w.get('start_time')}-{w.get('end_time')}",
                 "role": w.get("role"), "description": (w.get("bullets") or [""])[0],
                 "skills": [], "achievements": (w.get("bullets") or [])[1:],
-                "raw_text": "", "fact_count": len(fixture_doc().get("evidence") or {}).get(w.get("experience_id") or "", []),
+                "raw_text": "", "fact_count": len(((fixture_doc().get("evidence") or {}).get(w.get("experience_id") or "", []) or [])),
                 "summary_status": "ready",
             })
         return out
