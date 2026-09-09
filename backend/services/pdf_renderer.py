@@ -246,13 +246,19 @@ class _PdfWriter:
         t.setFont(FONT_CN, size)
         t.setFillColor(_hex_color(color))
         if bold:
-            # 只内嵌 Regular 单一字重；用 text render mode=2（fill+stroke）模拟粗体
+            # H7 R33 (rev2)：单一文本对象 fill+stroke（text render mode 2）模拟粗体。
+            # rev1 曾用"同位重叠画两次"，虽消除 R15a 0.6pt 常量在 10.6pt CJK 下的
+            # 双边描边粘连/异常粗黑，但同一字形在内容流出现两次 → PDF 文本提取出现
+            # 重复文本，R9 三端一致性门禁 FAIL（姓名/章节/技能文本对不上）。
+            # rev2 回到单一文本对象：可提取/可选择不受影响；线宽按字号比例收窄
+            # （clamp(size*3%, 0.2, 0.45)pt，10.6pt≈0.32pt）并让 stroke 色同 fill 色，
+            # 在保清晰的同时维持粗体观感。
+            lw = max(0.20, min(0.45, size * 0.030))
             t.setTextRenderMode(2)
-            self.c.setLineWidth(0.6)
+            self.c.setLineWidth(lw)
+            self.c.setStrokeColor(_hex_color(color))
         t.textOut(text)
         self.c.drawText(t)
-        if bold:
-            self.c.setLineWidth(1.0)
 
     def draw_plain_row(self, text: str, size: float, leading: float, *,
                        color: str = COLOR_BODY, bold: bool = False,

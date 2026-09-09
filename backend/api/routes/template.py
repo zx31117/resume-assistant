@@ -293,14 +293,32 @@ def download_file(path: str = Query(..., description="文件名，或相对 DOCX
     V1.4：生成文件统一写入 settings.DOCX_OUTPUT_DIR（源码外 runtime root）；
     安全限制：只允许访问该目录下的文件（防止任意路径穿越）。
     兼容：若调用方仍传入 old-style "output/<name>" 前缀，会自动归一化后校验。
+
+    H7 R34：方法白名单 `GET` 与 `HEAD` 都路由到本处理器（FastAPI/Starlette 默认为 GET
+    路由自动追加 HEAD；这里用 `methods` 显式声明以避免某些代理/中间件截断 HEAD）。
+    Starlette `FileResponse` 原生支持 HTTP Range 请求（PDF.js 走 GET+Range 时返回 206），
+    因此无需额外代码即可满足 §15.2 真实 PDF 成品预览与下载链一致性要求。
     """
+    return _serve_template_file(path)
+
+
+@router.head("/download")
+def head_download_file(path: str = Query(..., description="HEAD 版本，方法白名单显式声明")):
+    """H7 R34：HEAD 探测专用路径；与 GET 走相同安全/路径校验，但不返回 body。
+
+    FileResponse 对 HEAD 请求原生返回 200 + headers（Content-Length / Content-Type），
+    因此前端即使继续走 HEAD 探测也不会得到 405。405 仅出现在某些拦截 HEAD 的代理或
+    路由前缀中，这里提供显式覆盖。
+    """
+    return _serve_template_file(path)
+
+
+def _serve_template_file(path: str):
     if not path:
         raise HTTPException(status_code=400, detail="path 为空")
-    # 兼容旧前端：若传入 "output/xxx" 去掉前缀，只取文件名部分
     normalized = path.replace("\\", "/")
     if normalized.startswith("output/"):
         normalized = normalized[len("output/"):]
-    # 只保留 basename，拒绝 "../" 穿越；文件只能位于 DOCX_OUTPUT_DIR 一级
     filename = os.path.basename(normalized)
     if not filename or filename in (".", ".."):
         raise HTTPException(status_code=400, detail="path 非法")

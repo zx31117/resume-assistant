@@ -1259,8 +1259,14 @@ export default function GeneratePage() {
       return false
     }
     try {
-      const r = await fetch(pdfHref, { method: 'HEAD' })
-      if (!r.ok) {
+      // H7 R34：使用 GET + Range: bytes=0-0 进行可达性探测。
+      // GET 总是被后端允许（@router.get 路径），既不会被路由为 405，又能拿到真实状态码；
+      // Range 头让响应只返回第一字节，避免下载完整 PDF。206 / 200 都视为可达，404/5xx 视为不可达。
+      const r = await fetch(pdfHref, {
+        method: 'GET',
+        headers: { Range: 'bytes=0-0', Accept: 'application/pdf' },
+      })
+      if (!r.ok && r.status !== 206) {
         setPdfError(`PDF 下载失败（HTTP ${r.status}）；请稍后重试或重新生成。`)
         return false
       }
