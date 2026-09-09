@@ -1,8 +1,8 @@
 # V2.1.1 DRAFT：演示收口与工作台连续性
 
 > 状态：需求收集中，尚未形成或批准 PLAN
-> 记录日期：2026-09-08
-> 前置版本：V2.1.0 H3 已独立源码验收条件通过，仍待 Product Owner 第三次 T12 与发布门禁
+> 记录日期：2026-09-09
+> 前置版本：V2.1.0 仍处于 H7 后的开发验证纠偏，尚无通过全部门禁的发布候选
 > 开发授权：无；本文不是 Development Agent 的实施指令
 > Design Baseline：尚未选择；正式 PLAN 只绑定届时最新且经 Product Owner 批准的 Design Snapshot
 
@@ -82,7 +82,167 @@ PLAN 中自动扩大范围：
 - 同时保留或运行多个生成任务；
 - 在其他页面增加全局悬浮进度条、通知或后台任务中心。
 
-## 3. 待继续收集
+## 3. V2.1.1 起试行的提速与防误放行工作流
+
+### 3.1 适用目标与并行边界
+
+V2.1.1 开始试行“工作可以并行，事实合并与门禁转换串行”的工作方式。但结合当前仓库规模、
+前后端耦合度和候选恢复成本，**暂不启用多个 Development Agent 并行修改产品源码**。默认仍由
+一个 Development Integrator 负责本版本源码、测试、集成和候选冻结；它仍属于 Development Agent，
+不得兼任独立 Acceptance Agent。
+
+当前允许的并行仅限：
+
+- Design Agent 持续推进未来设计，Documentation Agent 同时维护下一版本需求草稿；
+- 同一开发工作树中互不写入同一资源的机器任务并发执行，例如 Python 回归、前端 build、PDF
+  fixture 和独立端口的浏览器场景；
+- 候选冻结后，由满足独立性的多个 Acceptance Agent 在各自临时副本和隔离 runtime 中分项验收；
+  若当前仍只使用一个 Acceptance Agent，则按相同分项顺序执行，不改变 Gate；
+- 最终源码集成、完整候选验证、候选 SHA 冻结、文档放行、人工验收和发布决定保持串行。
+
+未来是否启用多个 Development Agent，必须根据 V2.1.1 实际交付数据另行决定，不因“可以并行”
+自动扩张角色数量。
+
+### 3.2 强制状态机
+
+版本工作不再使用笼统的“开发完成”，而按以下单向状态推进：
+
+~~~text
+IMPLEMENTING
+→ DEV_VERIFYING
+→ DEV_VERIFIED
+→ FROZEN
+→ DOC_ACCEPTED
+→ INDEPENDENT_ACCEPTED
+→ HUMAN_ACCEPTED
+→ RELEASED
+~~~
+
+- `IMPLEMENTING`：源码、测试或 runner 仍可能修改；
+- `DEV_VERIFYING`：实现已基本完成，但仍有开发侧强制验证未结束；
+- `DEV_VERIFIED`：PLAN 要求的开发侧必做项目全部得到 PASS 终态；
+- `FROZEN`：形成 clean、不可变的源码候选 commit；
+- `DOC_ACCEPTED`：Documentation Agent 确认身份、范围、PLAN blob、交接证据和开发门禁完整；
+- `INDEPENDENT_ACCEPTED`：未参与实现、自测或修复的 Acceptance Agent 对同一候选独立通过；
+- `HUMAN_ACCEPTED`：Product Owner 使用同一候选完成人工产品验收；
+- `RELEASED`：文档收口、远端核对和发布完成。
+
+任何源码、测试、runner、依赖、配置或构建文件修改都会使当前验证失效，状态至少退回
+`IMPLEMENTING`；不得在旧候选名称下继续补丁。后台任务尚未结束、日志为空或缺少退出码时，状态
+只能是 `DEV_VERIFYING`，不得写成 `DEV_VERIFIED`、`FROZEN` 或“已完成”。
+
+### 3.3 三档验证
+
+#### 快速档：开发内循环
+
+每次相关修改后只运行受影响的快速集合，目标是尽早发现编译、契约和明显回归问题：
+
+- 类型/语法检查、相关单元测试和定向 fixture；
+- frontend build、Hooks lint 和受影响页面 smoke；
+- runner 自检、服务 readiness 与一个最小浏览器场景；
+- 修改模块对应的正向、反向和失败路径。
+
+快速档不产生发布候选，也不要求每次重建 onedir。
+
+#### 集成档：冻结候选前
+
+准备形成候选时一次性完成当前 PLAN 的全部开发门禁：
+
+- 完整统一预检和固定计数；
+- 全部浏览器场景矩阵；
+- 与改动相关的 API、状态、PDF/Word、视觉、三视口和错误注入矩阵；
+- clean production build、最终 onedir 重建与包内资产/hash 验证；
+- RESULT 中每个必做项目都有命令、退出码、PASS/FAIL、候选输入和偏差。
+
+只有集成档全部通过，才能进入 `DEV_VERIFIED` 并分配正式候选编号。
+
+#### 发布档：独立复验与人工验收
+
+Acceptance Agent 绑定同一冻结候选，独立复跑 PLAN 指定的高风险、集成、失败和包门禁；它复核
+开发已经完成的工作，不替开发补跑缺失项目。随后 Product Owner 使用同一候选执行完整人工流程。
+
+### 3.4 早期人工结构检查与全状态展台
+
+涉及界面和流程的版本在完整业务接通前增加一次**非正式早期检查**：Development Agent 先完成
+页面框架、关键布局和主要状态映射，提供可点击 Preview；Product Owner 只确认结构方向、布局、
+滚动、固定区域、信息取舍和对冻结设计的还原，不在此时宣称功能验收通过，也不因检查本身解冻
+Design Baseline。
+
+开发测试环境应使用无真实数据、无真实 Key、不会进入正式包的 fixture 展台快速切换主要状态，
+至少覆盖适用的初始、加载、进行中、完成、失败、空数据、超长内容和恢复状态。Product Owner 每轮
+尽量走查全部可达页面后集中反馈，避免只发现一个问题就结束整轮；P0 白屏或流程完全不可达除外。
+
+### 3.5 候选冻结与命名
+
+开发过程只使用 `working/rN` 或普通开发提交，不提前占用 H 编号。正式 `Hn-SRC` 仅在以下条件全部
+满足后产生：
+
+1. PLAN 强制开发任务全部完成；
+2. 所有必跑矩阵已经结束且成功；
+3. 后台任务数为 0；
+4. 不存在“待运行、后台执行中、未执行、交给验收补跑、环境限制跳过或 SUSPEND”；
+5. runner 已在干净 checkout 按文档入口完成 smoke 和规定矩阵；
+6. 最终 onedir 已从同一 clean 源码构建并完成包验证；
+7. RESULT 如实记录证据和偏差；
+8. 工作树 clean，冻结后不再修改源码、测试或构建输入。
+
+冻结后的任何相关修改形成新的候选编号；产品字节未变但测试/runner 改变时同样适用。仅修改授权
+文档的开发交接提交可以晚于 `Hn-SRC`，但必须通过精确路径 diff 证明没有改变被验收源码。
+
+### 3.6 runner 与“环境限制”协议
+
+runner 本身属于需验证的测试代码。涉及本地服务或浏览器时必须：
+
+1. 从仓库根按文档命令启动，并自行解析仓库与 `frontend` 等工作目录；
+2. 捕获子进程 stdout/stderr 和退出码；
+3. 先检查进程是否提前退出，再进行端口和 HTTP readiness；
+4. readiness 成功后才启动浏览器场景，失败应快速输出根因，不能累计无意义的长超时；
+5. 使用动态或显式隔离端口，结束时终止全部子进程并验证无残留；
+6. 先通过 harness smoke，再运行完整矩阵。
+
+Agent 只有提供原始命令、stdout/stderr、进程状态、端口、HTTP readiness、独立启动对照、最小复现
+和清理结果后，才能把失败归类为环境限制。即使方案 A 的一次全量连跑受真实环境影响，逐场景
+方案 B 仍由原 Development Agent 完成；执行方式可以替换，责任不能转移给 Acceptance Agent。
+
+### 3.7 变更影响矩阵与缓存边界
+
+正式 PLAN 应为每类修改指定开发内循环的最小受影响测试集合，例如 CSS、React 状态、API、PDF
+Renderer、runner、打包或数据迁移分别执行相应定向门禁；最终候选仍执行 PLAN 规定的完整集成档。
+
+测试必须隔离 runtime、数据库、输入输出、日志、artifact、端口、`.env` 和凭据。依赖下载缓存、
+Python wheel、npm cache、浏览器二进制和按 lockfile/hash 管理的构建缓存可以复用，不要求为了隔离
+业务数据而反复下载相同依赖。
+
+### 3.8 RESULT 当前门禁摘要与文档放行
+
+V2.1.1 的 RESULT 顶部必须维护唯一的当前门禁摘要，至少包括：
+
+~~~yaml
+Current Phase: DEV_VERIFYING
+Working Commit: <sha-or-uncommitted>
+Frozen Candidate: NONE
+Plan Blob: <sha>
+Mandatory Dev Gates:
+  fast_checks: PASS
+  integration_precheck: NOT_RUN
+  browser_matrix: RUNNING
+  final_onedir: NOT_RUN
+Ready For Review: NO
+Blocking Reason: browser_matrix 尚未完成
+~~~
+
+历史记录可以继续追加在下方，但不能覆盖顶部当前事实。Documentation Agent 在接收交接时同时核对
+候选身份和开发门禁终态；只要存在强制项未执行、运行中、缺退出码、以环境限制跳过或准备交给
+验收补跑，`Ready For Review` 必须为 `NO`，固定 review 不移动。
+
+### 3.9 V2.1.1 试行与后续固化
+
+本节当前只是 V2.1.1 草稿约束，不授权修改源码。形成 V2.1.1 正式 PLAN 时，Documentation Agent
+应把本节收敛为可执行 Task、状态转换、测试入口和验收表，经 Product Owner 批准后生效。V2.1.1
+完成后复盘实际耗时、返工次数、完整构建次数和漏测情况；确认有效后，再把稳定规则同步到
+`docs/HUMAN_AI_WORKFLOW.md`，而不是现在直接反向改变 V2.1.0 的既有契约。
+
+## 4. 待继续收集
 
 - 其他 V2.1.1 演示优化点；
 - 明天演示的设备分辨率、浏览器缩放、时长和是否现场调用真实 LLM；
