@@ -1037,3 +1037,224 @@ H7 的 Development Agent 必须在 RESULT 记录根因、修改文件、HTTP 方
 viewer/download hash、照片框几何数据、DPR/视口截图、回归计数和包身份。Documentation Agent 只做
 身份、范围、证据完整性与文档事实核对；独立 Acceptance Agent 必须实际打开 standalone PDF 与
 结果页、执行两个下载，并复核正常链路零 404/405。Product Owner 最后再次进行 T12 视觉确认。
+
+## 20. Product Owner 第五次返工：DOCX→PDF 单一排版链与生成计时修正（2026-09-09）
+
+### 20.1 触发事实、结论与覆盖关系
+
+Product Owner 使用同一次真实生成得到的 DOCX 与 PDF 进行人工对照后确认：DOCX 在 Microsoft Word
+中排版和画面正常，应用生成的 PDF 及结果页 PDF.js 预览彼此一致，但二者相对 DOCX 存在明显的
+字体、换行、间距、照片占位框位置和清晰度差异。进一步核对表明，当前 PDF 并非由最终 DOCX 转换，
+而是 ReportLab 根据 `ResumeDocument` 另行手绘；因此“DOCX 正常、PDF 与预览一致但错误”是两个
+并行排版实现发生漂移，不是 PDF.js 单独渲染错误。
+
+同轮人工体验还确认生成页计时失真：顶部“已用时”持续增长，而正在执行的用户阶段显示 `—`，右侧
+可能仍显示上一阶段的静态耗时；终态前后，四个用户阶段之和也不能解释总耗时。源码核对确认：
+
+1. 输入页粘贴 JD 后自动调用 `/jd/analyze`，点击生成后 `/resume/generate-docx` 又执行一次严格 JD
+   分析；前一次结果没有作为后端可信分析 artifact 复用，形成重复 LLM 调用；
+2. 后端总耗时从 operation 开始计算，包含 `migration_check`、`embedding_ready`、`jd_analysis`、
+   `sql_readback`，但当前四个用户阶段从 `select_experiences` 才开始，存在未显示耗时；
+3. 前端阶段耗时只求和已完成事件的 `elapsed_ms`，未把后端已有的活动阶段
+   `stage_elapsed_ms` 纳入，所以执行中不实时，完成后才跳成最终值；
+4. 右侧允许回看历史阶段本身符合已批准交互，但没有明确区分“当前运行阶段”和“当前查看阶段”，
+   导致历史阶段耗时被误解为当前耗时。
+
+本节形成新的发布阻断和下一候选 **H8**。H7 及其内部 fixture 证据保留为历史记录，但不足以证明
+真实下载 artifact 的 Word/PDF 一致性，H7 不再具备进入独立验收或发布的资格。
+
+本节明确覆盖以下旧口径：
+
+- 覆盖 §19.3、§19.4 中“继续修复独立 PDF Renderer/ReportLab 使其接近 Word”的技术方向；
+- 保留 §15 的“结果页只预览真实 PDF artifact”和 §19.5 的下载协议要求，但 PDF 的来源改为最终
+  DOCX 经固定转换器导出；
+- 保留页面固定布局、依据回看、PreviewAnchor、Word/PDF 双下载和 fail-closed 要求；
+- 本版本仍不实现内容流式写入预览。未来生成中的 HTML 结构化草稿可以替换处理中视图，但生成完成后
+  仍必须以“DOCX→PDF→PDF.js”作为最终预览与交付链；“PDF 来自 DOCX”是稳定产品契约。
+
+### 20.2 文档、转换器与最终视觉真源
+
+V2.1.0 从 H8 起采用以下唯一产品链：
+
+```text
+ResumeDocument
+  → DOCX Builder / pm_template
+  → 已持久化、不可变 DOCX artifact
+  → DocxToPdfConverter
+  → 已持久化、不可变 PDF artifact
+  → PDF.js 预览该 PDF
+  → “下载 PDF”下载同一 PDF
+```
+
+真源边界如下：
+
+- `ResumeDocument` 是结构化内容与事实引用真源；
+- 最终 DOCX artifact 是本次结果的内容、模板和可编辑交付真源；
+- 本版本冻结的 DOCX→PDF 转换器是排版执行器，不得另写第二套模板规则；
+- 转换完成后的 PDF artifact 是结果页视觉预览与 PDF 下载的共同真源；
+- PDF.js 只负责显示该 PDF，不承担修正版式、重新排版或生成另一份 PDF。
+
+`services/pdf_renderer.py`/ReportLab 的简历排版路径必须从产品生成链完全退出。不得把
+`ResumeDocument` 同时送入 DOCX Renderer 和 ReportLab Renderer，不得在转换失败时回退到旧 PDF，
+不得通过 HTML、截图或 Canvas 导出伪装成功。若 ReportLab 在仓库中仍有与简历交付无关的用途，开发
+必须列出引用；否则移除产品依赖、打包项和对应旧渲染测试，保留历史授权记录但不伪称仍在使用。
+
+### 20.3 V2.1.0 本地转换器冻结方案
+
+V2.1.0 是 Windows 本地测试/演示版本，当前唯一转换实现冻结为：
+
+```text
+DocxToPdfConverter
+└── MicrosoftWordComConverter
+```
+
+具体契约：
+
+1. Builder 必须先完整保存并关闭 DOCX，计算 `docx_sha256` 后，转换器只读取这份已持久化的确切
+   字节；允许复制到隔离临时目录供 Word 打开，但复制前后 hash 必须一致；
+2. 使用独立 Word COM 实例，以只读、不可见方式打开 DOCX，通过 Word 原生
+   `ExportAsFixedFormat` 导出标准打印质量 PDF；禁止保存或修改原 DOCX；
+3. 转换进程必须关闭宏、外部链接自动更新和交互弹窗，只接受本产品 Builder 生成的 `.docx`，不得
+   把任意用户上传文件直接交给 Word 自动化；
+4. DOCX→PDF 转换采用单 worker/互斥执行，设置具名超时和确定性清理。超时或异常只能终止本次转换
+   所拥有的 Word 实例/子进程，禁止结束用户已经打开的其他 `WINWORD.EXE`；
+5. PDF 先写入隔离临时文件；验证 `%PDF-` 文件头、非零页数、合理大小和可解析性后，原子移动到
+   最终 artifact 路径，再计算 `pdf_sha256` 并向响应暴露 URL；
+6. 必须记录但不得向普通用户暴露：转换器标识、Word 完整版本/build、OS、模板版本、必需字体清单、
+   `docx_sha256`、`pdf_sha256`、页数、字节数、开始/结束时间和诊断码；
+7. 启动或首次生成前执行转换能力检查：Word COM 可创建、所需字体存在、固定无隐私样例能在超时内
+   导出并被读取。检查失败不阻断 Word 生成，但必须把 PDF 能力标记为不可用；
+8. Word 未安装、字体缺失、COM 启动失败、弹窗/超时、PDF 校验失败时均 fail closed：保留并允许
+   下载已经成功的 DOCX，PDF URL 留空，结果页在固定错误区明确显示 PDF 不可用；严禁 ReportLab、
+   LibreOffice、旧 PDF、空 PDF 或其他转换器静默回退。
+
+Word COM 只批准用于当前交互式 Windows 本地版本，不自动继承为服务器生产方案。上线前须对
+Microsoft 云端转换、自托管商业 DOCX 引擎和 LibreOffice 等候选做真实模板专项比较，再冻结新的
+`DocxToPdfConverter` 实现；服务端不得直接照搬无人值守 Office COM。替换转换器不得改变
+“PDF 由最终 DOCX 转换而来”这一上层契约。
+
+### 20.4 Artifact 身份、依据锚点与下载协议
+
+每次生成成功必须形成同一 revision 下的一对不可变 artifact：
+
+```text
+result_revision_id
+├── DOCX artifact: path + sha256 + size
+└── PDF artifact:  path + sha256 + size + converter fingerprint
+```
+
+- 转换输入必须是响应中“下载 Word”指向的同一 DOCX 字节；预览输入必须是“下载 PDF”指向的同一
+  PDF 字节；任何一处 hash 不同均为阻断失败；
+- 打开结果页、PDF.js 重试、切换依据、下载 Word/PDF 和路由往返均不得重新生成或重新转换；
+- 单条 Fact 重生成属于未来的新 revision，届时必须生成新的 DOCX/PDF 对，不得覆盖旧 artifact；
+- Word 转换完成后，PreviewAnchor 必须从该确切 PDF 的文本层/坐标重新建立并绑定
+  `pdf_sha256 + content_item_id/fact_refs`。禁止继续使用 ReportLab 推算的旧坐标；
+- 中文空格、换行和 PDF text span 可被规范化后匹配，但不得用错误坐标假装命中。某条无法可靠定位时
+  须记录 `anchor_status=unavailable` 并诚实降级为可查看依据、不高亮；H8 正常 fixture 的既定锚点
+  应全部可定位；
+- GET/HEAD/Range、MIME、404/405、原子发布与损坏/缺失失败边界继续执行 §19.5；正常链路中的
+  viewer 字节、下载字节和 `pdf_sha256` 必须完全一致。
+
+### 20.5 单次 JD 分析与性能归因
+
+H8 的普通用户主链必须保持“一次点击后等待结果”，并取消输入页的重复 LLM 分析：
+
+- JD 输入页只做字符数、空值和本地格式检查；普通用户粘贴 JD 时不再自动调用 LLM；
+- 点击“生成岗位简历”后创建唯一 operation，由该 operation 在第一用户阶段执行且只执行一次严格
+  JD 分析；分析结果在同一 operation 后续选材、改写和 Builder 中复用；
+- `/jd/analyze` 可为开发者/API 兼容保留，但普通生成页不得在一次生成前后调用它；若未来恢复预分析，
+  必须先建立后端持久化的 `jd_analysis_id + jd_sha256 + prompt/model fingerprint`，生成端校验后复用，
+  不得直接信任前端提交的分析 JSON，也不得再次调用 LLM；
+- 确定性 stub 和真实日志均须统计每个 operation 的 JD LLM 调用次数。正常生成必须为恰好 1；本地
+  校验失败为 0；重试/新 revision 必须具有新的 operation 身份并单独计数；
+- Fact 召回耗时只计算事实选择相关步骤，禁止把 JD 分析或当前内容改写时间记到“挑选事实”。性能
+  结论必须来自阶段事件，不再根据页面总时长猜测。
+
+### 20.6 用户阶段与后端计时真源
+
+后端必须直接提供稳定的用户阶段投影；前端不得继续用硬编码数组自行拼接内部 stage code 后计算时间。
+本版本冻结为四个覆盖完整 operation 的用户阶段：
+
+| 用户阶段 | 用户文案 | 包含的当前内部工作 |
+|---|---|---|
+| P1 `job_understanding` | 理解目标岗位 | 生成准备、就绪检查、唯一一次 JD 分析、履历读取 |
+| P2 `fact_selection` | 从你的履历中挑选相关事实 | Experience 选择、Fact/证据选择 |
+| P3 `content_drafting` | 生成并润色简历内容 | 基于已选事实的受约束改写 |
+| P4 `artifact_build` | 排版并生成 Word/PDF | ResumeDocument 构建、DOCX 渲染/保存、Word→PDF 转换、响应发布 |
+
+实现可以保留内部技术 stage 用于开发者诊断，但每个内部 stage 必须归属于一个用户阶段。operation
+创建后必须立即开始 P1；昂贵调用之前先发出用户阶段 `STARTED`；P4 发布响应后立即结束 operation。
+终态不得存在无法归属的长时间空洞。
+
+计时规则：
+
+- `operation.elapsed_ms` 是从 operation 创建到终态的服务端单调总时间，是“总用时”唯一真源；
+- 每个用户阶段由后端返回 `status`、`started_at`、`ended_at`、`elapsed_ms`；活动阶段另返回持续增长的
+  `live_elapsed_ms`（或语义等价字段），前端只展示，不用本地时钟重新推算；
+- 用户阶段包含多个内部步骤时，已完成部分与当前活动部分必须连续累计，不得等到整个阶段完成才显示；
+- 可见页面轮询间隔保持约 1 秒，活动阶段与总用时在正常网络下至少每 1.5 秒更新一次；后台标签页
+  可以降频，但恢复可见后下一次轮询必须立即校正；
+- 阶段完成后耗时冻结。终态时四阶段耗时之和与总耗时的差值必须不超过 250ms；超过阈值须把空洞
+  归入真实阶段或明确诊断并使门禁失败，不得仅在前端改数字；
+- P4 必须包含 Word→PDF 的实际转换时间，不能因切换转换技术再次产生不可见等待。
+
+### 20.7 当前阶段、历史回看与时间标签
+
+处理页继续遵守已批准交互：“右侧默认显示当前阶段；跨阶段时切换到新阶段；旧阶段可点击左侧切回”。
+补充以下冻结规则：
+
+1. 新 operation 从 P1 开始；每次后端用户阶段发生变化，右侧默认自动切换到新的活动阶段；
+2. 用户点击已经开始或完成的旧阶段后，右侧保留其完整历史事件和冻结耗时，允许随时回看；
+3. 查看阶段不等于运行阶段。二者不同的时候，右侧必须显示“历史阶段”，并同时提供不抢占内容的
+   “当前正在执行：P<n> <名称> · <实时阶段耗时>”提示；
+4. 顶部统一写“总用时”，右侧统一写“本阶段用时”，不得都使用无主语的秒数；
+5. 用户正在回看历史阶段时，当前阶段继续计时；下一次真正跨阶段仍自动展示新阶段，用户之后仍可
+   再次点回任意已开始阶段；
+6. 不得使用假进度、预估秒数或前端动画代替后端事件。轮询暂时失败时保留最后快照并显示连接状态，
+   不得把旧阶段时间当成仍在增长。
+
+### 20.8 H8 开发验证与独立验收门禁
+
+Development Agent 必须先在 clean 工作树完成以下证据，全部通过后才允许命名 H8-SRC：
+
+1. **真实 artifact 对照**：至少使用 Product Owner 本轮暴露问题的同类型真实生成路径和一个无隐私
+   固定 fixture；保存 Builder 输出 DOCX、应用转换 PDF、独立打开截图/栅格、字体清单、页数和 hash。
+   姓名/联系方式/求职意向、章节顺序、条目、日期、bullet、照片框和换行均以最终 DOCX 在冻结 Word
+   环境中的表现为基准；应用 PDF 必须来自该 DOCX，禁止只比较内部结构对象；
+2. **转换来源负向**：注入 Word 缺失、字体缺失、COM 启动失败、超时、输出空/损坏、hash/path
+   错配，逐项证明 Word 可独立下载、PDF fail closed、无 ReportLab/LibreOffice/旧 artifact 回退；
+3. **同一 artifact**：后端响应、PDF.js 实际请求、独立下载的 PDF hash 三者一致；重复预览/下载
+   不增加转换次数；GET/必要 HEAD/Range 正常，404/405 为 0；
+4. **锚点**：正常 fixture 的全部 `content_item_id/fact_refs` 在 Word 转换后的确切 PDF 上重新定位；
+   点击依据不触发生成或转换。无法定位负向须诚实降级，不得加载旧坐标；
+5. **JD 调用计数**：普通输入→生成完整链中 `/jd/analyze` 前置调用为 0，生成 operation 内严格 JD
+   LLM 调用恰好 1；修改 JD 后新生成仍为新 operation 内恰好 1；
+6. **确定性时间矩阵**：为四阶段注入已知延迟，机器断言活动阶段实时增长、完成后冻结、跨阶段自动
+   切换、历史回看不影响当前计时、所有内部 stage 有归属、终态阶段和与总时长差值 ≤250ms；
+7. **真实时间证据**：在真实模型链记录 operation、四用户阶段、内部步骤、LLM 请求次数、首个可见
+   阶段时间和总时长；明确区分 JD 分析、Fact 选择、内容改写、DOCX 与 PDF 转换，禁止用截图推断；
+8. **回归与包**：完成 H6 runner 的开发侧方案 A 或逐场景方案 B、六项阻断预检、前端 build、真实
+   onedir 重建与包内运行；任何 mandatory 项不得后台未结束、SUSPEND 或移交给验收者代跑。
+
+独立 Acceptance Agent 必须绑定 clean H8-SRC，从已提交 runner 重跑同一转换、协议、锚点、JD 次数、
+计时和 onedir 矩阵；不得参与 H8 实现，不得以开发截图代替实际下载与打开。Product Owner 最终重新
+检查真实 Word/PDF/预览一致性、四阶段理解和实时时间。三方全部通过前，不更新 `CURRENT_STATE.md`、
+根 README、公开 main、tag 或发布声明。
+
+### 20.9 H8 集中任务与交接
+
+| Task | 工作 | 完成标准 |
+|---|---|---|
+| T12-R36 | 固定真实差异证据并撤销 H7 门禁资格 | 真实 DOCX/PDF/预览来源与差异可复核；RESULT 明示 H7 未通过，不再沿用内部 fixture 结论 |
+| T12-R37 | 建立转换器边界并退出 ReportLab 产品链 | `MicrosoftWordComConverter` 读取确切 DOCX；旧简历 PDF Renderer 零调用、零回退 |
+| T12-R38 | 完成 Word→PDF artifact、协议与失败边界 | 原子发布、双 hash、环境 fingerprint、GET/Range、viewer/download 同源及全部负向通过 |
+| T12-R39 | 重建 Word PDF 上的 PreviewAnchor | 锚点绑定 `pdf_sha256 + content_item_id/fact_refs`，正常 fixture 全命中，失败诚实降级 |
+| T12-R40 | 消除重复 JD 分析并建立完整用户阶段投影 | 普通输入页零 LLM 预分析；每 operation 恰好一次 JD 分析；所有内部步骤归入 P1–P4 |
+| T12-R41 | 修正实时计时与历史回看 | 总用时/本阶段用时口径明确，活动时间实时、终态差值达标，跨阶段与历史查看符合 §20.7 |
+| T12-R42 | 完成开发侧专项矩阵、回归和 onedir | §20.8 八组证据全部由开发侧先通过，无待运行/移交/SUSPEND；包内转换能力与源码一致 |
+| T12-R43 | 更新 RESULT 并冻结 H8 | 先形成 clean H8-SRC，再形成只改 RESULT 的 H8-DEV；记录命令、计数、hash、版本、偏差与包身份 |
+
+H8 RESULT 顶部必须提供机器可读门禁摘要，至少包含：候选/父提交、工作树状态、PLAN blob、转换器与
+Word build、模板/字体 fingerprint、DOCX/PDF/viewer/download hash、转换次数、JD LLM 次数、四阶段
+耗时与总和差、全部测试入口/计数/退出码、onedir 身份，以及 `pending/running/suspend = 0`。任何字段
+缺失或与证据不一致，Documentation Agent 不得移动固定 review，也不得向独立验收交接。
