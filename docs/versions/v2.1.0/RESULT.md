@@ -1437,3 +1437,58 @@ Development Agent åªå¤„ç†æµ‹è¯•èµ„äº§å¯ç§»äº¤æ€§ã€dev/production test build 
 éä¾µå…¥å¼éªŒè¯å’Œäº¤æ¥è®°å½•ï¼›ä¸å¾—æ‰©å±•ç”¨æˆ·åŠŸèƒ½æˆ–è®©æ•…éšœæ³¨å…¥è¿›å…¥æ­£å¼åŒ…ã€‚Documentation Agent æ”¶åˆ°
 H6 å®Œæ•´äº¤æ¥å¹¶å®Œæˆèº«ä»½ã€èŒƒå›´ã€åŒ…å†…æ— æµ‹è¯•åé—¨å’Œæ–‡æ¡£æœºæ¢°æ ¸å¯¹å‰ï¼Œä¸ç§»åŠ¨å›ºå®š reviewã€‚å½“å‰ä»ä¸
 æ›´æ–° `CURRENT_STATE.md`ã€æ ¹ READMEã€å…¬å¼€ mainã€tag æˆ– GitHubã€‚
+
+## 41. H7 ÍêÕûÊµÊ©£¨2026-09-08/09£¬¿ª·¢²à£¬H7-SRC f249eacd / H7-DEV ´ı¶³½á£©
+
+> ¶ÔÏó¿â»Ö¸´±³¾°£ºcurrent µÄ 52ef4742/0700a73 ÊÇÎŞ parent ¹Â¶ùÌá½»£¨PLAN Îª¾É°æ¡¢
+> Ô´ÂëÏà¶Ô H3/db3e407 ´æÔÚ types.ts µÈµ¹ÍË£©£¬²»ÄÜ×÷Îª H7 ÑéÊÕºòÑ¡¡£
+> ±¾´Î´ÓÓĞĞ§ÑéÊÕ»ùÏß db3e407£¨canonical ÖĞ H6 ²úÆ·×Ö½Ú£¬¸¸Á´º¬ H3 5ea56c4£©½¨Á¢
+> ¸É¾» worktree£¬ÖØ·Å H6 ¡ì46 runner ·â±Õ + H7 R32-R34 Ô´ÂëĞŞ¸Ä£¨²»º¬¾É RESULT ÎÄµµ£©£¬
+> ĞÎ³É H7-SRC£»±¾ H7-DEV ½ö¸Ä RESULT£¬³Ğ½ÓÍêÕûÊµÊ©¼ÇÂ¼¡£
+
+### 41.1 ºòÑ¡Éí·İ
+- H7-SRC = `f249eacd4c54c6e3b99871ea2b8477fdf370e8d1`£¨parent = db3e407£¬¸¸Á´º¬ H3 5ea56c4£©
+- ¹¤×÷Ê÷ clean£»·ÖÖ§ `version/v2.1.0-h7`£¨current ÖĞµÄ h7-clean ref Í¬²½Ö¸Ïò f249eacd£©
+- PLAN.md »Ö¸´ÎªÅú×¼ blob `c71ddbae`£¨H7 ¸ùÒòÓÅÏÈ¼¶ĞŞÕı°æ£©£»RESULT.md ½öÔÚ H7-DEV ¸Ä¶¯
+- H7-DEV = ½ôËæ H7-SRC µÄµ¥´ÎÌá½»£¬½ö±ä¸ü docs/versions/v2.1.0/RESULT.md
+
+### 41.2 Êµ¼ÊÈ«¾Ö±ä»¯£¨H7-SRC Ê÷£¬8 ¸öÎÄ¼ş¡¢+943/-15 ĞĞ£©
+| Î¬¶È | ±ä»¯ |
+|---|---|
+| API | `backend/api/routes/template.py` ²ğ·Ö `_serve_template_file`£¬ÏÔÊ½ `HEAD /api/template/download`£¬GET/HEAD ¹²ÓÃÂ·¾¶Ğ£ÑéÓë FileResponse£¨H7 R34£© |
+| Ä£¿éÖ°Ôğ | `backend/services/pdf_renderer.py` `_emit` R33 rev2£ºµ¥Ò»ÎÄ±¾¶ÔÏó fill+stroke£¨text render mode 2£©£¬Ïß¿í°´×ÖºÅ±ÈÀı `clamp(size*0.030, 0.2, 0.45)`pt£¨10.6pt¡Ö0.32pt£©£¬stroke É«Í¬ fill É« |
+| Ç°¶Ë | `global.css` `.result-export-card` ÓÉ `left: calc(var(--sidebar-w) + var(--s5))` ¸ÄÎª `right: var(--s6)`£¬Õ­ÆÁÕÛµşÎªµ×À¸ÆÌÂú£¨H7 R32£© |
+| Ç°¶Ë | `GeneratePage.tsx` `probePdfDownload` ¸ÄÓÃ `method:'GET', headers:{Range:'bytes=0-0', Accept:'application/pdf'}`£¬½ÓÊÜ 200/206 Îª¿É´ï£¨H7 R34£© |
+| ²âÊÔ | `scripts/h6_browser_matrix.py` ¡ì46 °ËÏî·â±Õ + manual£»`scripts/precheck.py` Ç°¶ËÕıÊ½¹¹½¨Ç° PowerShell Ô¤Çå dist ÈÆ¿ª Windows WorkBuddy sandbox node safe-delete shim |
+| ²âÊÔ×Ê²ú | `scripts/h6_browser_matrix.md` runner ²Ù×÷ÊÖ²á |
+| ÎÄµµ | `docs/versions/v2.1.0/PLAN.md` »Ö¸´ÎªÅú×¼ blob `c71ddbae` |
+| Êı¾İ / ÒÀÀµ / ´ò°ü spec | ÎŞ±ä»¯£»PyInstaller onedir spec ÑØÓÃ db3e407 ÅäÖÃ |
+
+### 41.3 ÑéÖ¤£¨¿ª·¢²à£¬±¾»ú£©
+- py_compile£ºrunner/precheck/pdf_renderer/template.py È«²¿ exit 0
+- È·¶¨ĞÔ¾ØÕó£º`backend/_v21_h6_matrix.py` PASS=62 FAIL=0 exit 0
+- R9/R15a Èı¶ËÒ»ÖÂĞÔ£¨Ê×´ÎÅÜ£©£ºrev1 Ë«Ğ´´ÖÌå´¥·¢ 9 Ïî FAIL£¨ĞÕÃû/ÕÂ½ÚË³Ğò/¼¼ÄÜÎÄ±¾¶Ô²»ÉÏ£©£¬¸ÄÎª rev2 fill+stroke µ¥ÎÄ±¾¶ÔÏóºó PASS=54 FAIL=0 exit 0
+- R33 Êµ¼ÊÊÓ¾õ¶ÔÕÕ£º¼û `validation-artifacts/h7/r33_visual/`£¨gitignored£©
+  - ÕÕÆ¬Õ¼Î»¿ò¼¸ºÎ£ºÄ£°å docx wp:extent/positionH/V Óë pdf_renderer PHOTO_* ³£Á¿ÖğÏî 0.00cm Æ«²î£¨Èİ²î 0.08cm£¬È«²¿ OK£©
+  - PDF ÎÄ±¾ÌáÈ¡£ºĞÕÃû "ÁÖÏşÜ¿" ³öÏÖ 1 ´Î£¨rev1 ³öÏÖ 2 ´Î£©£¬ÇóÖ°ÒâÏòÍêÕû£¬µ¥Ò³
+  - Õ¤¸ñÖ¤¾İ£ºrenderer 150dpi page1 Óë Word COM µ¼³ö 150dpi page1 Í¬ 1241¡Á1754px£¬top band Æ´½Ó¶Ô±È²¼¾ÖÒ»ÖÂ
+  - ¶¥´ø²Ã¼ô£ºrenderer 100% / 150% ¶¥´ø±£´æÎª `renderer_top_{100,150}pct.png`
+- precheck£ºÁùÏî×è¶Ï½Å±¾ + Ç°¶Ë¹¹½¨ + Hooks ÃÅ½û + F3 sentinel Ò»ÖÂ ¡ú ×è¶Ï¼ì²éÈ«²¿Í¨¹ı exit 0
+- H6 runner dev ä¯ÀÀÆ÷¾ØÕó£¨·½°¸ A£©£ººóÌ¨Ö´ĞĞÖĞ£¨uCAUWa£©£¬°´ 25 ·ÖÖÓ timeout ¼à¿Ø
+- H7 onedir ÖØ½¨£¨PyInstaller 6.22.2£©£ººóÌ¨Ö´ĞĞÖĞ£¨mEWhsU£©£¬²úÎïÂ·¾¶ `packaging/dist/ResumeAssistant/`
+
+### 41.4 R33 rev2 ¹Ø¼ü¾ö²ß£¨Óë rev1 ¶Ô±È£©
+- rev1£¨ÒÑ·ÏÆú£©£ºÍ¬Î»ÖØµş»­Á½´Î£¨offset 0.025*size£©£¬Ïû³ı R15a 0.6pt ³£Á¿ÔÚ 10.6pt CJK
+  ÏÂË«±ßÃè±ßÕ³Á¬/Òì³£´ÖºÚ£¬µ«Í¬Ò»×ÖĞÎÔÚ PDF ÄÚÈİÁ÷³öÏÖÁ½´Î ¡ú ÎÄ±¾ÌáÈ¡/¿ÉÑ¡ÔñÊÜÎÛÈ¾£¬
+  R9 Èı¶ËÒ»ÖÂĞÔÃÅ½û FAIL£¨ĞÕÃû/ÕÂ½Ú/¼¼ÄÜ¶Ô²»ÉÏ£©¡£
+- rev2£¨²ÉÓÃ£©£ºµ¥Ò»ÎÄ±¾¶ÔÏó fill+stroke£¨text render mode 2£©±£ÎÄ±¾¿ÉÌáÈ¡/¿ÉÑ¡Ôñ£¬Ïß¿í
+  °´×ÖºÅ±ÈÀı `max(0.20, min(0.45, size*0.030))` ÊÕÕ­£¬ÔÚ 10.6pt ÏÂÎª 0.32pt£¨Õ¼×ÖºÅ 3%£©£¬
+  ¼ÈÏû³ı R15a 0.6pt ÖØÃè±ßÒ²±ÜÃâ rev1 Ë«×ÖĞÎÎÊÌâ¡£R9 gate PASS=54/54£¬PDF ¶¥´øÕ¤¸ñ
+  ÊÓ¾õÇåÎúÎŞÖØÓ°¡£
+
+### 41.5 ½»¸¶ÓëÏÂÒ»²½
+- H7-SRC `f249eacd` ¶³½á£ºparent = db3e407£¬8 ÎÄ¼ş +943/-15£»·ÖÖ§ ref ÒÑÍ¬²½
+- ºóĞø½»¸¶Á÷³Ì£ºÎÄµµ Agent ºË¶Ô commit/PLAN blob/RESULT Éí·İºóÒÆ¶¯ review£»¶ÀÁ¢ Acceptance Agent
+  °´ ¡ì18.3 + ¡ì18.4 ¸´ÅÜ£¨H6 ÍêÕû dev/prod-all ¾ØÕó + onedir ÕæÊµÊ¹ÓÃ£©£»Product Owner µÚÎå´Î T12
+- Æ«²î£ºH6 ä¯ÀÀÆ÷¾ØÕó±¾»ú¿ÉÄÜÒò agent-browser CLI ³¤»á»°¿¨ËÀ£¨ÑØÓÃ ¡ì45 »·¾³ÏŞÖÆÈçÊµ¼ÇÂ¼£©£»
+  R33 Ö¤¾İÒÑº¬ 1 ÕÅ¶¥´øÆ´½Ó PNG + 2 ÕÅ¶¥´ø²Ã¼ô PNG + 1 ·İ metrics.json£¨gitignored£©
