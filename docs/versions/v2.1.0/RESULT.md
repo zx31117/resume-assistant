@@ -1,11 +1,190 @@
-# V2.1.0 RESULT：执行记录（初始化）
+# V2.1.0 RESULT：执行记录
 
-> 当前状态：H7-SRC 已冻结，Documentation Agent 已完成交接机械核对；待独立 Acceptance Agent 执行 PLAN §18.3、§18.4 与 §19 专项复验，再由 Product Owner 重新执行 T12
+> 当前状态：**H8-SRC 与 H8-DEV 已形成**；两个发布阻断（浏览器动态矩阵、真实模型链）均已在本机
+> 由开发侧关闭，无 pending/running/suspend；待独立 Acceptance Agent 复验与 Product Owner 人工验收（PLAN §20.8）。
 > 当前产品基线：已发布 V2.0.2
-> 计划 Design Baseline：`DS-002`（源本地 Snapshot `D-002`，主题 A）
-> PLAN 批准 commit：`4755ebe5a6a37ef40fc3179c1740eb8b5d22ae27`（当前 H7 完整补充契约 blob：`c71ddbae677dc8fcbb0ae254c115645f2aa6ba72`，由 H7-SRC 携带）
-> PLAN blob：`c71ddbae677dc8fcbb0ae254c115645f2aa6ba72`
-> 发布结论：不发布；H7 尚待独立复验与 Product Owner 人工验收（PLAN §18–§19）
+> 本轮候选：**H8-SRC** `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` / **H8-DEV** 本提交（只改本文件）
+> PLAN 批准 blob：`5313c9c9658f70c0df449826e4dc57b352a7deb0`（含 §20.1–§20.10；H8-SRC 父链携带同一 blob）
+> 发布结论：不发布；H8 尚待独立复验与 Product Owner 人工验收
+
+> **阅读指引（重要）**：第 0 节是 H8 的**唯一权威门禁摘要**；自「§1 本文件用途」起的内容是
+> V2.1.0 历史执行记录（H1–H7 阶段，含早期「PDF 由 ReportLab 手绘」口径）。凡与第 0 节冲突的
+> 历史结论，一律以第 0 节与 PLAN §20 为准（§20.1 已明确覆盖 §19.3/§19.4 的旧技术方向）。
+
+## 0. H8 统一门禁摘要（机器可读）
+
+> 本节是 H8 的**唯一门禁真源**。validation-artifacts/h8/P2-status.md、P3-status.md、P4-status.md
+> 含早期「进行中/待办」与后续补充，仅作过程记录；若与本摘要不一致，以本节为准。
+> 本摘要不含任何 API Key / 真实用户数据；所有 hash 均来自本机可复现命令。
+
+### H8-0 身份与提交
+
+| 字段 | 值 |
+|---|---|
+| 候选 | H8 |
+| 分支 | `h7-clean`（worktree of `D:\demo\resume-assistant\current`） |
+| H8-SRC | `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` |
+| H8-SRC 父提交 | `3e1c5a1edfa1c03ab23d949b296ef81a839c6d31`（父链含批准 PLAN） |
+| H8-DEV | 本提交（`docs/versions/v2.1.0/RESULT.md` 唯一变更；parent = H8-SRC） |
+| PLAN 批准 blob | `5313c9c9658f70c0df449826e4dc57b352a7deb0`（`docs/versions/v2.1.0/PLAN.md`，§20.1–§20.10） |
+| 工作树 | clean（H8-SRC 与 H8-DEV 各自提交后 `git status --porcelain` 为空） |
+| `pending / running / suspend` | **0**（全部 mandatory 门禁均已在本机由开发侧跑完，无后台未结束、无移交给验收者代跑） |
+
+### H8-1 产品链与转换器身份（不变量）
+
+| 字段 | 值 |
+|---|---|
+| 唯一排版真源 | 最终 DOCX artifact（Builder 输出，不可变命名） |
+| 唯一 PDF 来源 | `MicrosoftWordComConverter/1.0-h8`（本机 Word COM；ReportLab 已退出产品链） |
+| Word 版本 / build | `16.0` / `16.0.20326` |
+| 转换器隔离 | 独立 worker 子进程 + 具名强超时 + **只终止本次自有的 WINWORD** |
+| ReportLab | 包内**不存在**（`find -iname "*reportlab*"` = 0 命中；spec `excludes=["reportlab"]`） |
+| 锚点依赖 | 包内存在 `pypdfium2`（5.13.0）与 `pywin32`（`pythoncom310.dll` / `pywintypes310.dll`） |
+| 模板身份 | `pm_template`（v1.2，`pm_template.docx` + `pm_template.json`） |
+| 字体 | `templates/fonts`（Noto Sans SC）随包；PDF 由 Word 导出，版式以 Word 为准 |
+| PreviewAnchor 来源 | 真实 Word→PDF 文本层重建（禁止旧坐标/内部推算） |
+
+### H8-2 最终包身份（最终源码重建）
+
+| 字段 | 值 |
+|---|---|
+| 包路径 | `D:\demo\resume-assistant\release-h8\ResumeAssistant\` |
+| 清单 | `D:\demo\resume-assistant\release-h8\MANIFEST.sha256`（逐文件 SHA-256 + 字节数） |
+| 文件数 | **4044** |
+| 总字节 | **170,258,549** |
+| 入口 EXE | `ResumeAssistant.exe` |
+| EXE SHA-256 | `9ea42c6cc98b3776cde25d039b0ace5872caa6a74028f9979b610b8dacb4a77e` |
+| EXE 大小 | 16,761,354 字节 |
+| 构建来源 | 冻结源码 + `packaging/resume_assistant.spec`（PyInstaller 6.22.2 / onedir） |
+| 前端产物 | `index-DVYtCzVS.js` / `index-C9ZK99u8.css` / `pdf.worker.min-yatZIOMy.mjs`（`--verify` 干净 build） |
+| 包内审计 | **PASS**：标记命中 0 / 违禁路径 0（`scripts/h8_package_audit.py`，见 H8-5） |
+| 中间构建目录 | `packaging/build-h8*`、`packaging/dist-h8*` 已移出工作树至 `D:\demo\resume-assistant\h8-intermediate-builds\`（保留而非删除）；最终包另存 `release-h8\` 并登记 SHA |
+
+### H8-3 阻断项 A：浏览器动态矩阵（PLAN §20.8(8)）
+
+命令：`python scripts/h6_browser_matrix.py --all` → **exit 0，`PASS=16 FAIL=0`**，211 次 browser 调用。
+日志 `validation-artifacts/h8/diag/h6_all_final.log`；逐调用诊断
+`validation-artifacts/h8/h6_browser_diag.json`；根因与复现 `validation-artifacts/h8/diag/A-diagnosis.md`。
+
+| 场景 | 结果 |
+|---|---|
+| `all-62matrix`（`backend/_v21_h6_matrix.py`） | PASS（`PASS=<N> FAIL=0`） |
+| `selfcheck` | PASS（agent-browser / 后端依赖 / node） |
+| `dev-success` | PASS（canvas=2、pressed=12、POST+1、Word/PDF hash 与 fixture 一致） |
+| `dev-fail` | PASS（失败态可见、无成功 artifact、POST+1） |
+| `dev-nourl` | PASS（canvas=0、无「预览不可用」误报、Word 仍可下载且 hash 正确） |
+| `dev-broken` | PASS（avail=true 诚实不可用、Word hash 正确） |
+| `dev-anchors-empty` | PASS（命中层=0） |
+| `dev-anchors-mismatch` | PASS（不匹配锚点不产生可点命中层） |
+| `dev-artifact-a` | PASS（两轮独立 op/artifact、双 hash 一致） |
+| `dev-artifact-change` | PASS（第二轮 op/art 不同、第一轮 URL 字节稳定） |
+| `dev-viewports` | PASS（1440×900 / 1280×720 / 1920×1080；输入页与结果页 `overflow=0`，结果页存在 1 个卡片内滚动容器） |
+| `prod-inject pdf` | PASS（ErrorBoundary 出现 + 重试不白屏 + 返回工作台可用 + POST≤1） |
+| `prod-inject overlay` | PASS（同上） |
+| `prod-inject basis` | PASS（同上） |
+| `prod-inject export` | PASS（同上） |
+| `verify` | PASS（正式无 env build，纯 Python 扫描 H6 注入标记命中 0） |
+
+**根因（可复现，非「环境限制」）**：
+1. `agent-browser open <url>` 在本 SPA 上常**不返回**（HMR websocket 持续占用连接；静态对照页 `open`=591ms）；
+2. 旧 `subprocess.run(capture_output=True, timeout=45)` 在超时后仍会被 daemon 持有的管道阻塞 `communicate()` →
+   **无界挂起**（已复现 >200s），即历史「页面加载后卡住 >14min」；
+3. 强杀 daemon 会留下 `~/.agent-browser/default.{pid,port}` 指向死端口 → CLI `os error 10060`，
+   之后 `snapshot`/`eval` 全部挂起（prod-inject 全灭的直接原因）。
+
+**修复**：有界 Popen + kill 后次级 `communicate(timeout=10)`；每轮独立 `AGENT_BROWSER_SESSION`；
+`open` 限时并忽略其结果（就绪改用 snapshot 轮询 JD 输入框）；`wait_listen()` 确定性等待；
+`kill_tree()` 杀进程树；依赖感知 Python 解析；恢复按钮改文本定位；新增三视口断言。
+
+**`DEV_EXIT=127` 说明**：127 是 shell 层「命令未找到」，不是 runner 退出码（runner 只会 0/1/2）；
+产生该日志的临时 wrapper 未纳入仓库。runner 侧真实问题是机制 2 的无界挂起，已修复并留下逐调用诊断。
+
+### H8-4 阻断项 B：真实模型链纵向验证（PLAN §20.8(1)(5)(7)）
+
+命令：`python scripts/h8_real_model_e2e.py --exe <最终 onedir ResumeAssistant.exe>`
+→ 证据 `validation-artifacts/h8/e2e/real_model_e2e.json`，日志 `.../e2e_final.log`。
+Provider 边界计数由 `scripts/h8_ark_proxy.py` 采集（只记录 path/model/请求形状布尔/字节数/状态，
+**绝不写任何请求头或正文**）。
+
+| 字段 | 值 |
+|---|---|
+| 隔离 runtime | 全新 `RESUME_DATA_DIR`（仓库外临时目录），运行结束已删除（`runtime_deleted=true`） |
+| 运行体 | **最终 onedir**（非源码服务），EXE SHA-256 `9ea42c6c…a77e` |
+| Key 来源 | 应用自身从 **Windows 凭据库** 读取（`ResumeAssistant.ark_api_key`）；脚本不读取/不打印/不落盘 |
+| 链路 | 迁移 → 导入（4 条无隐私经历）→ Embedding（真实）→ 生成 → 预览 → 双下载 |
+| operation_id | `6c9b8853-209e-4e5c-ac3c-b1951d24aa36` |
+| result_revision_id / PDF artifact_id | `6c9b8853-209e-4e5c-ac3c-b1951d24aa36` |
+| 终态 | `SUCCEEDED`；`elapsed_ms=69550`，四阶段和 `69535`，**差 15ms ≤ 250ms** |
+| P1–P4（终态） | P1 理解目标岗位 8205ms / P2 挑选事实 214ms / P3 生成润色 39463ms / P4 排版生成 Word+PDF 21653ms |
+| P1–P4（实时） | 195 次轮询采样：P1 `active`(live 递增) → P2 done → P3 `active`(live 递增) → P4 `active`，终态全部 `done`（服务端单调真源） |
+| `jd_analysis` 逻辑次数 | **1**（operation 内 STARTED 事件 = 1；前端 `jdApi.analyze` 全仓**无调用点**，`real.ts` 仅注册未使用） |
+| `content_generation` 逻辑次数 | **1**（rewrite 阶段 STARTED = 1） |
+| Provider 边界 chat 调用 | **3**：`doubao-seed-evolving`，`response_format` 存在、`temperature=0.3`；其中 **2 次为形状完全相同的 JD 分析请求（req=2856B）**、1 次为 rewrite（req=6641B） |
+| Provider 边界 embedding | 生成窗口内 1 次（`doubao-embedding-vision-251215`，选择阶段 JD 查询向量）；导入阶段另有 10 次重建 |
+| 输入页预分析 | **无**（全部 Provider 调用均发生在点击生成之后；前端不存在可达的 `/jd/analyze` 调用） |
+| DOCX 落盘 | `output/resume_demo-user_pm_template_6c9b8853-209e-4e.docx`，38,973 B，sha256 `48eb0650fbe542b99f0433dcc670d6f389ef79eaac53e9bf394aabb44624e7a2` |
+| PDF 落盘 | `output/…_6c9b8853-209e-4e5c-ac3c-b1951d24aa36.pdf`，4,215,122 B，sha256 `06f224140c09739b63ba1112d991d1b3041d1980de04ba24a362d19ea4e3e2d4` |
+| 下载 Word（HTTP 200） | `application/vnd.openxmlformats-officedocument.wordprocessingml.document`，38,973 B，sha256 `48eb0650…` = **转换输入 DOCX 字节** ✅ |
+| 下载 PDF（HTTP 200） | `application/pdf`，4,215,122 B，sha256 `06f22414…` = 响应 `pdf_sha256` = viewer 读取字节 ✅ |
+| 二次下载 | 字节相同（`pdf_download_repeat_same=true`，viewer/download 同源） |
+| 页面内取证（真实点击） | 两个 `<a data-role=download-*>` 的 `href` **等于**响应 `download_url` / `pdf_download_url`；页面内取回 `status=200`、字节数 38,973 / 4,215,122（与落盘一致）；点击结果 `✓ Done` |
+| PreviewAnchor | 10 条，**10/10 绑定本 revision artifact**，`unavailable=0` |
+| PDF 页数 | 1 |
+| converter / Word | `MicrosoftWordComConverter/1.0-h8` / `16.0` build `16.0.20326`（响应 warning 内嵌 `docx_sha=48eb0650…`、`pdf_sha=06f22414…`） |
+| 404/405/5xx | 正常路径 **0**（`no_4xx_5xx=true`） |
+| 白屏 | 无（结果页正常渲染；页面内取证与点击均成功） |
+| WINWORD 泄漏 | **无**（before=[] / after=[] / leaked=[]） |
+| 运行时清理 | 隔离 runtime 已删除；无残留服务进程 |
+
+**已知偏差（如实记录，非阻断）**：单次逻辑 JD 分析在 **Provider 边界产生 2 次形状完全相同的
+HTTP 请求**（均 200、`response_format` 存在、`temperature=0.3`、req=2856B）。应用侧无
+「Structured Output 回退」告警（层 1 成功），operation 内 `jd_analysis` STARTED 事件为 1，
+故判定为 **LLM 客户端内部重试/重复提交**，不是「输入页预分析 + 生成再分析」的重复分析
+（PLAN §20.1 的病灶已消除）。→ 后续项 V2.1.1：为 `llm_service.chat_structured` 增加
+「同一逻辑调用只允许 1 次 Provider 请求」的显式策略或计数断言。
+
+### H8-5 回归与预检
+
+| 命令 | 退出码 | 结果 |
+|---|---|---|
+| `python -m py_compile`（新增/变更模块） | 0 | 全部通过 |
+| `python scripts/precheck.py` | 0 | **阻断检查全通过**：Python 编译、`_v201_validation`(PASS=77)、`_v15_r_rework`(PASS=48)、`_v20_smoke`(PASS=20)、`_v2_t5_crud_check`(PASS=15)、`_v2_lifecycle_matrix`(50 项失败 0)、`_v14_t7_regression`(15/12/0/3)、`_v21_h6_matrix`；前端 `npm run build`（tsc + vite）通过；前端 Hooks 门禁通过；默认 runtime 哨兵一致 |
+| `python scripts/h8_deterministic_tests.py` | 0 | **PASS=20 FAIL=0**（见下） |
+| `python scripts/h8_package_audit.py --dir <release-h8>` | 0 | **PASS**：4044 文件 / 170,258,549 B / 标记命中 0 / 违禁路径 0 |
+| `python scripts/h6_browser_matrix.py --all` | 0 | `PASS=16 FAIL=0`（见 H8-3） |
+| `python scripts/h8_real_model_e2e.py` | 0 | 见 H8-4 |
+
+`h8_deterministic_tests.py`（20 项，全部 PASS）：
+
+- P3（generate 级，**仅** mock LLM 边界，其余真实链）：`P3-jd-once`（jd=1/rewrite=1）、`P3-rewrite-once`、
+  `P3-artifact-fields`、`P3-revision-name`（不可变 revision 命名）、`P3-anchors-bound`（8/8 绑定）、
+  `P3-pdf-disk-sha`、`P3-docx-disk`、`P3-user-phases`（P1–P4 全 done）、
+  `P3-terminal-delta`（差 15ms ≤250）、`P3-stage-coverage`（11 个内部 stage 全部归属）
+- P2（转换器 + 锚点）：`P2-capability`（Word 16.0/16.0.20326）、`P2-convert`（pages=1、`%PDF-`、18.5s）、
+  `P2-anchors-hit`、`P2-anchors-unavailable`（诚实降级）
+- P4（负向 + 清理）：`P4-docx-missing`、`P4-corrupt-docx`（fail closed `com_failed`）、
+  `P4-timeout`（code=timeout，2.8s 内强杀自有子进程树）、`P4-recover-after-timeout`、
+  `P4-concurrent-busy`（second=busy / first=ok）、`P4-winword-no-leak`
+
+### H8-6 偏差与后续项（全部非阻断）
+
+| 项 | 说明 | 计划 |
+|---|---|---|
+| D1 Provider 边界 JD 请求重复 1 次 | 见 H8-4「已知偏差」：1 次逻辑分析 = 2 次相同 HTTP 请求（客户端内部重试） | V2.1.1：显式约束/断言 |
+| D2 `frontend/src/services/real.ts` 仍注册未使用的 `jdApi` | PLAN §20.5 允许 `/jd/analyze` 为开发者/API 兼容保留；普通生成页零调用（已证） | 保持；若未来恢复预分析须先建 `jd_analysis_id + jd_sha256` 持久化 |
+| D3 `backend/_v13_validation.py`、`_v14_t3_migrate.py` 语法失败 | 既有遗留脚本（`from __future__` 未置顶），**非 H8 变更、非产品链**；precheck 编译范围不含它们 | V2.1.1 卫生项 |
+| D4 agent-browser 的文件导出命令（`download` / `get attr`）在本机未产出文件 | 已改用「页面内取回 + 真实点击」取证（H8-4）；不影响任何机器断言 | 记录；不阻断 |
+| D5 `verify` / `prod-inject` 期间 sandbox 的 `safe-delete` 对少量 `*.log` 报 FAIL_CLOSED | 仅影响预清日志文件的删除，构建与断言全部正常 | 记录 |
+| D6 `templates/fonts`（Noto Sans SC）仍随包 | ReportLab 已退出产品链，但字体目录与模板/历史脚本共用 | V2.1.1 评估是否收敛 |
+
+### H8-7 结论
+
+- 阻断项 A（浏览器动态矩阵）与阻断项 B（真实模型链）**均已关闭**，全部 mandatory 门禁在本机由开发侧跑完；
+- 无 `pending / running / suspend`，无「验收者代跑」项，无未解释的失败或环境限制；
+- 最终包由**最终源码重建**，包内审计无 H6 注入/mock/真实数据/Key/临时路径/开发机绝对路径；
+- 工作树 clean。
+
+**是否具备交给 Documentation Agent 做机械交接核对的条件**：**具备**。
 
 ## 1. 本文件用途
 
