@@ -3,6 +3,20 @@
 对应可运行入口：`scripts/h6_browser_matrix.py`。本文件说明依赖、命令、预期与取证字段，
 供固定 review / 独立验收从 **干净 checkout** 原样重建 §18.3 的 dev 与 production 四区域矩阵。
 
+## 0. 环境契约（H8 阻断项 A 加固后，必读）
+- **后端 Python**：runner 按 `H6_PYTHON` → `sys.executable` → `py -3.x` → PATH 顺序挑选
+  **能 `import fastapi,uvicorn,reportlab,docx`** 的解释器，并把候选与最终选择写入
+  `validation-artifacts/h8/h6_browser_diag.json`。若调用者 PATH 首位 `python` 缺后端依赖，
+  stub 子进程会直接死亡且不报错（旧实现即因此静默失败）。
+- **浏览器会话隔离**：每次运行使用独立 `AGENT_BROWSER_SESSION=h6m-<pid>-<ts>`，避免
+  `~/.agent-browser/default.*` 残留状态（指向已死 daemon 端口 → CLI `os error 10060`，随后
+  `snapshot`/`eval` 全部挂起）。收尾只 `close` 本轮会话，不强杀 daemon。
+- **`open` 不返回是本 SPA 的已知行为**：`agent-browser open <url>` 常不返回（HMR websocket
+  持续占用连接）；runner 对其显式限时并忽略结果，就绪改由 `snapshot` 轮询 **JD 输入框**
+  （`粘贴完整岗位描述`，输入页独有）判定。禁止以「看起来卡住」代替诊断。
+- **逐次诊断**：每次 browser 调用记录 exe/args/cwd/PID/起止时间/dur/exit/stderr，落
+  `validation-artifacts/h8/h6_browser_diag.json`（含 `viewports`、`prod_recovery`、`env`）。
+
 ## 1. 前置与安装（仓库根执行，全部相对路径）
 
 ```bash
@@ -47,6 +61,7 @@ empty 为 0、Word/PDF 下载字节 SHA-256 与响应 pdf_sha256 / fixture 记�
 | dev-broken（pdf_mode=broken） | avail=true（诚实不可用）、非白屏、POST+1 |
 | dev-anchors-empty | canvas≥1、命中层=0、POST+1 |
 | dev-artifact-change（两次生成） | 各自 POST+1；op/art 两次不同；第二次渲染/下载生效 |
+| dev-viewports | 1440×900 / 1280×720 / 1920×1080 三视口下，输入页与结果页各自**页面整体无纵向滚动**（documentElement overflow ≤2px）、非白屏；卡片内可滚动容器数一并记录 |
 
 POST/operation 计数：stub 每次 generate 追加到系统临时目录
 `%TEMP%/v21h6_stub_runtime/stub_posts.log`；每场景恰 +1 行。真实后端幂等另由 onedir
@@ -58,8 +73,10 @@ POST/operation 计数：stub 每次 generate 追加到系统临时目录
 `VITE_H6_INJECT=pdf|overlay|basis|export` 各自 `npm run build`（exit 0）→ stub 同源托管该
 dist → 浏览器完整「初始→生成中→成功」→ 目标区域抛错 → 应用级 ErrorBoundary 出现
 （文案含「应用异常 / 页面渲染时出了点问题 / 重试页面渲染 / 返回生成工作台」）且 body 非空。
-runner 还会继续断言恢复路径：点「重试页面渲染」在持续注入下仍受边界保护不白屏；点「返回生成
-工作台」可离开故障结果页回到生成页；且本 target 生成 POST 增量 ≤1（恢复不新增 operation）。
+runner 还会继续断言恢复路径：点「重试页面渲染」后**不得白屏**（注入持续时边界再次出现，或
+边界安全回落到可用的生成页——两种结果都被接受并记录到 `prod_recovery`）；点「返回生成工作台」
+可离开故障结果页回到生成页；且本 target 生成 POST 增量 ≤1（恢复不新增 operation）。
+恢复按钮一律用 `find text ... click` **文本定位**点击（`@ref` 在重渲染后可能迁移，历史曾误点）。
 
 注入产物仅为测试 build，不进入最终 onedir。正式无 env build（--verify）后由**纯 Python 遍历
 frontend/dist** 检查（不依赖 GNU grep）：H6 注入标记/测试入口命中数为 0，并输出扫描文件数与命中数。

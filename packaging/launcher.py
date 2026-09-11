@@ -140,6 +140,12 @@ def _ensure_stdio(settings) -> None:
 
 
 def main() -> None:
+    # H8 §20.3：隔离子进程转换 worker 重入钩子（冻结态下 docx_to_pdf 以本 exe +
+    # H8_CONV_WORKER=1 重新启动；必须最先处理，不进正常 GUI/服务流程）。
+    if os.environ.get("H8_CONV_WORKER") == "1":
+        from services.docx_to_pdf_worker import main as _worker_main
+        sys.exit(_worker_main())
+
     from core.config import settings  # noqa: E402 (延迟 import，取得统一 runtime root)
 
     _ensure_stdio(settings)

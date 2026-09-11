@@ -15,6 +15,7 @@ import logging
 import os
 import uuid
 from datetime import date
+from pathlib import Path
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -488,7 +489,10 @@ def generate_docx(
         with recording.stage("save_docx", "输出文件保存", ResourceType.LOCAL_FILE):
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_") or "user"
-            file_name = f"resume_{safe_user_id}_{req.template_id}.docx"
+            # H8 §20.3.4 不可变 revision：文件名按 operation 唯一，禁固定命名覆盖/跨轮串场；
+            # 本轮 docx_sha256 与 Word 下载字节一致，后续轮次不覆盖历史 revision。
+            _op_slug = (recording.operation_id or str(uuid.uuid4()))[:16]
+            file_name = f"resume_{safe_user_id}_{req.template_id}_{_op_slug}.docx"
             file_path_abs = os.path.join(OUTPUT_DIR, file_name)
             try:
                 doc.save(file_path_abs)
@@ -505,15 +509,22 @@ def generate_docx(
             pdf_size_bytes: Optional[int] = None
             pdf_anchors: Optional[list[PreviewAnchor]] = None
             try:
-                from services import pdf_renderer  # lazy：reportlab 缺失不阻塞 docx 链路
+                # H8 §20.3：PDF 唯一来源 = 最终 DOCX → 本机 Word COM。
+                # ReportLab/旧 PDF Renderer 已退出产品生成链（零调用、零回退）。
+                from services import docx_to_pdf, pdf_anchors  # lazy：Word COM 缺失不阻塞 docx 链路
                 pdf_artifact_id = recording.operation_id or str(uuid.uuid4())
-                pdf_bytes, pdf_render_warnings, pdf_anchor_dicts = pdf_renderer.render(
-                    resume_doc, req.template_id, str(BACKEND_ROOT),
-                    artifact_id=pdf_artifact_id,
-                    bullet_fact_refs=build_meta.get("bullet_fact_refs") or None,
+                _conv = docx_to_pdf.convert_docx_to_pdf_bytes(file_path_abs, timeout_s=90.0)
+                pdf_bytes = _conv["pdf_bytes"]
+                docx_sha256 = hashlib.sha256(
+                    Path(file_path_abs).read_bytes()).hexdigest()
+                warnings.append(
+                    f"PDF: converter={docx_to_pdf.CONVERTER_ID} "
+                    f"word={_conv['fingerprint']['word'].get('version')}/"
+                    f"{_conv['fingerprint']['word'].get('build')} "
+                    f"docx_sha={docx_sha256[:16]} pdf_sha={_conv['fingerprint']['pdf_sha256'][:16]} "
+                    f"pages={_conv['fingerprint']['pages']} "
+                    f"elapsed={_conv['fingerprint']['elapsed_s']}s"
                 )
-                for _w_pdf in pdf_render_warnings:
-                    warnings.append(f"PDF: {_w_pdf}")
                 pdf_meta = write_pdf_artifact(
                     pdf_bytes, user_id=safe_user_id,
                     template_id=req.template_id, artifact_id=pdf_artifact_id,
@@ -522,9 +533,40 @@ def generate_docx(
                 pdf_download_url = pdf_meta["download_url"]
                 pdf_sha256 = pdf_meta["sha256"]
                 pdf_size_bytes = pdf_meta["size_bytes"]
-                pdf_anchors = [PreviewAnchor(**a) for a in pdf_anchor_dicts]
+                # H8 §20.4：PreviewAnchor 从 Word 转换后的**确切 PDF 文本层**重建，
+                # 绑定本 revision 的 artifact 身份（pdf_sha256 语义由 artifact 字节保证）。
+                # 无法可靠定位的行记 unavailable 并降级（不产生坐标、不高亮）。
+                refs_map: dict[str, list[list[str]]] = dict(
+                    build_meta.get("bullet_fact_refs") or {})
+                rows: list[dict] = []
+                for edu in resume_doc.education:
+                    if getattr(edu, "description", None):
+                        rows.append({"text": edu.description,
+                                     "content_item_id": edu.experience_id or None,
+                                     "bullet_index": 0})
+                for wi, w in enumerate(resume_doc.work):
+                    refs = (refs_map.get(w.experience_id) or []) if w.experience_id else []
+                    for bi, bl in enumerate(w.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": w.experience_id or None,
+                                     "bullet_index": bi,
+                                     "fact_refs": refs[bi] if bi < len(refs) else []})
+                for pi_, pr in enumerate(resume_doc.projects):
+                    refs = (refs_map.get(pr.experience_id) or []) if pr.experience_id else []
+                    for bi, bl in enumerate(pr.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": pr.experience_id or None,
+                                     "bullet_index": bi,
+                                     "fact_refs": refs[bi] if bi < len(refs) else []})
+                _anchors, _unavail = pdf_anchors.build_anchors_from_word_pdf(
+                    pdf_bytes, rows, artifact_id=pdf_artifact_id)
+                pdf_anchors = [PreviewAnchor(**a) for a in _anchors]
+                if _unavail:
+                    warnings.append(
+                        f"PDF: 锚点 unavailable {len(_unavail)} 条（诚实降级，不高亮）: "
+                        + ";".join(u.get("text", "")[:16] for u in _unavail[:3]))
             except Exception as _e_pdf:  # noqa: BLE001 —— 真实失败状态由响应字段 + warning 表达
-                logger.warning("PDF 渲染/保存失败（不影响 DOCX）: %s", _e_pdf)
+                logger.warning("Word→PDF 转换失败（不影响 DOCX）: %s", _e_pdf)
                 warnings.append(f"PDF 生成失败（可下载 Word；PDF 不可用）: {type(_e_pdf).__name__}: {_e_pdf}")
         download_url = f"/api/template/download?path=output/{file_name}"
 

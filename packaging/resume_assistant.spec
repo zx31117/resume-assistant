@@ -16,6 +16,12 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
+import os
+import tempfile as _spec_tmp
+# H8：spec 阶段预置 RESUME_DATA_DIR，避免 PyInstaller hook 在导入分析 backend
+# 模块时因缺 runtime 目录抛异常；仅为构建期环境兜底，不改变产品包行为。
+os.environ.setdefault("RESUME_DATA_DIR", _spec_tmp.mkdtemp(prefix="r8spec_"))
+
 project_root = Path(SPECPATH).resolve().parent
 backend_dir = project_root / "backend"
 packaging_dir = project_root / "packaging"
@@ -45,9 +51,23 @@ datas.append((str(backend_dir / "templates" / "licenses"), "licenses"))
 datas.append((str(backend_dir / "config"), "config"))
 
 # ── AI 栈动态子模块/数据文件（含 cacert 证书、tiktoken bpe 编码） ── #
-# reportlab：R9 PDF 渲染器依赖；其字体/CMap 数据（STSong-Light CID）以 package data
-# 分发，静态分析无法覆盖，需 collect_all 确保 _internal 内具备完整字体数据库。
-for pkg in ("langchain", "langchain_core", "langchain_openai", "openai", "tiktoken", "certifi", "reportlab"):
+# H8 §20.2：ReportLab 已退出正式简历 PDF 产品链（产品运行链零引用，仅历史验证脚本
+# 在源码态使用），故不再随产品包 collect_all。字体/授权材料仍随包（模板与历史脚本共用）。
+for pkg in ("langchain", "langchain_core", "langchain_openai", "openai", "tiktoken", "certifi"):
+    d, b, h = collect_all(pkg)
+    datas += d
+    binaries += b
+    hiddenimports += h
+
+# ── H8：Word→PDF 文本层锚点重建依赖 pypdfium2 ── #
+_d, _b, _h = collect_all("pypdfium2")
+datas += _d
+binaries += _b
+hiddenimports += _h
+
+# ── H8 §20.3：Word COM 转换器（pywin32）──
+# Word 本地 COM 接口、C 扩展与 pythoncom 公寓初始化；onedir 中 DLL 必须随 bin 一并打包。
+for pkg in ("win32com", "pythoncom", "pywintypes"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
@@ -57,9 +77,15 @@ for pkg in ("langchain", "langchain_core", "langchain_openai", "openai", "tiktok
 hiddenimports += collect_submodules("uvicorn")
 
 # ── 后端自身模块（薄 API 路由 + core/database/models/prompts/services） ── #
+# H8 修正：collect_submodules 已足够；PyInstaller 将纯 Python 模块收进 PYZ/EXE，
+# 不需要实体目录，验证一律用 pyi-archive-viewer（P0 pre-mortem 结论）。
+# services.pdf_renderer 属旧 ReportLab 简历渲染器：产品链已退出，故排除出包
+# （历史验证脚本仅在源码态运行，不依赖冻结包）。
 hiddenimports += ["main"]
-for pkg in ("api", "core", "database", "models", "prompts", "services"):
+for pkg in ("api", "core", "database", "models", "prompts"):
     hiddenimports += collect_submodules(pkg)
+services_subs = [s for s in collect_submodules("services") if s != "services.pdf_renderer"]
+hiddenimports += services_subs
 
 a = Analysis(
     [str(packaging_dir / "launcher.py")],
@@ -70,7 +96,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=["reportlab"],
     noarchive=False,
 )
 

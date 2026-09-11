@@ -21,19 +21,40 @@ export interface StageFlowPhase {
 
 export type PhaseStatus = 'pending' | 'active' | 'done' | 'failed'
 
-/** 单个阶段的累计耗时（毫秒）：来自其下所有非 STARTED 事件的 elapsed_ms 求和。 */
+/** H8 §20.6：阶段耗时优先取服务端 user_phases（真源）；无则退回按 codes 从事件聚合。 */
+export function phaseTimeMs(op: OperationDetail | null, key: string): number | null {
+  const up = (op?.user_phases ?? []).find((u) => u.key === key)
+  if (!up) return null
+  return up.status === 'active' ? up.live_elapsed_ms : up.elapsed_ms
+}
+
+/** 单个阶段的累计耗时（毫秒，H8 §20.6.5）：
+ *  - 活动阶段：使用最新 STARTED 事件的 stage_elapsed_ms（后端实时递增，前端不做本地推算）；
+ *  - 已完成部分：返回所有非 STARTED 事件的 elapsed_ms 之和（冻结）；
+ *  - 进行中但有部分已完成：已冻结部分 + 活动 stage live elapsed；
+ *  - 未开始：null。
+ */
 export function phaseElapsedMs(op: OperationDetail | null, codes: string[]): number | null {
   if (!op) return null
   const events = op.stages ?? []
-  let hasAny = false
+  const matching = events.filter((e) => codes.includes(e.stage_code))
+  if (matching.length === 0) return null
   let total = 0
-  for (const ev of events) {
-    if (!codes.includes(ev.stage_code)) continue
-    if (ev.event_type === 'STARTED') continue
-    hasAny = true
-    total += typeof ev.elapsed_ms === 'number' ? ev.elapsed_ms : 0
+  let hasNonStarted = false
+  let latestStartedLive: number | null = null
+  for (const ev of matching) {
+    if (ev.event_type === 'STARTED') {
+      latestStartedLive = typeof ev.stage_elapsed_ms === 'number'
+        ? ev.stage_elapsed_ms
+        : latestStartedLive
+    } else {
+      hasNonStarted = true
+      total += typeof ev.elapsed_ms === 'number' ? ev.elapsed_ms : 0
+    }
   }
-  return hasAny ? total : null
+  if (!hasNonStarted && latestStartedLive != null) return latestStartedLive
+  if (hasNonStarted && latestStartedLive != null) return total + latestStartedLive
+  return hasNonStarted ? total : null
 }
 
 /** 根据 operation 真实事件计算该阶段状态（不提前点亮，不虚构）。 */
@@ -142,7 +163,8 @@ export default function StageFlowList({ phases, op, selectedIdx, onSelect }: Sta
         const selectable = isSelectable(i)
         const checked = selectedIdx === i
         const current = currentRunningIdx === i
-        const elapsed = phaseElapsedMs(op, p.codes)
+        // H8：优先服务端 user_phases 时间真源，退回按事件聚合
+        const elapsed = phaseTimeMs(op, p.key) ?? phaseElapsedMs(op, p.codes)
         const indicatorContent =
           st === 'done' ? '✓' : st === 'failed' ? '!' : current ? i + 1 : i + 1
         return (

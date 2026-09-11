@@ -29,6 +29,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -39,8 +40,58 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
-PY = os.environ.get("H6_PYTHON", sys.executable)
 NPM = os.environ.get("H6_NPM", "npm")
+
+# ── 后端 Python 解析（阻断项 A 修复）──
+# 历史上用 sys.executable，若调用者 PATH 首位 python 缺 fastapi，则 stub 子进程 import 失败，
+# 矩阵必然全挂却只表现为「浏览器卡住」。改为依赖感知选择 + 明确记录，使命令可复跑、失败可诊断。
+_PY_DEPS = ("fastapi", "uvicorn", "reportlab", "docx")
+
+
+def _python_has_deps(prefix: list[str]) -> bool:
+    try:
+        r = subprocess.run([*prefix, "-c", f"import {', '.join(_PY_DEPS)}"],
+                           capture_output=True, timeout=60)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _resolve_python() -> tuple[list[str], list[dict]]:
+    """返回 (命令前缀, 尝试记录)。按 H6_PYTHON → sys.executable → py 启动器 → PATH 顺序选择。"""
+    tried: list[dict] = []
+    cands: list[list[str]] = []
+    env_py = os.environ.get("H6_PYTHON")
+    if env_py:
+        cands.append([env_py])
+    cands.append([sys.executable])
+    for ver in ("-3.10", "-3.11", "-3.12", "-3"):
+        cands.append(["py", ver])
+    for name in ("python", "python3"):
+        w = shutil.which(name)
+        if w:
+            cands.append([w])
+    seen: set[tuple[str, ...]] = set()
+    for c in cands:
+        key = tuple(c)
+        if key in seen:
+            continue
+        seen.add(key)
+        ok = _python_has_deps(c)
+        tried.append({"prefix": c, "has_deps": ok})
+        if ok:
+            return c, tried
+    return [env_py or sys.executable], tried
+
+
+PY_PREFIX, PY_TRIED = _resolve_python()
+PY = PY_PREFIX[-1] if len(PY_PREFIX) == 1 else " ".join(PY_PREFIX)
+BROWSER_DIAG: list[dict] = []
+
+# 阻断项 A：每次运行使用**独立 session 名**，彻底避开 ~/.agent-browser 下上一次运行的
+# 残留状态（default.pid/port 指向已死端口 → CLI 连接超时 os error 10060，且后续
+# snapshot/eval 一并挂起）。根因实测见 validation-artifacts/h8/diag/A-diagnosis.md。
+BROWSER_SESSION = f"h6m-{os.getpid()}-{int(time.time())}"
 RT = Path(tempfile.gettempdir()) / "v21h6_stub_runtime"
 MODE_FILE = RT / "mode.json"
 POST_LOG = RT / "stub_posts.log"
@@ -101,27 +152,149 @@ def resolve_browser() -> str | None:
 
 
 def browser(args: list[str], timeout: int = 45) -> str:
+    """调用 agent-browser，并**逐次记录** exe/参数/cwd/PID/起止时间/退出码/stderr。
+
+    阻断项 A 要求：禁止用「看起来卡住」代替诊断。任何非零退出、超时或 stderr 都落日志。
+    """
     exe = resolve_browser()
     if not exe:
-        log("[warn] agent-browser 不在 PATH")
+        BROWSER_DIAG.append({"args": args, "error": "agent-browser 未解析"})
+        log("[browser-diag] 无法解析 agent-browser 可执行文件")
         return ""
+    env = dict(os.environ)
+    env["AGENT_BROWSER_SESSION"] = BROWSER_SESSION  # 隔离会话：不读/不写 default 残留状态
+    t0 = time.time()
     try:
-        r = subprocess.run([exe, *args], capture_output=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        log(f"[warn] agent-browser {args[0]} 超时（>={timeout}s）")
+        p = subprocess.Popen([exe, *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(ROOT), env=env)
+    except Exception as e:  # spawn 失败（CLI 查找阶段）
+        BROWSER_DIAG.append({"args": args, "error": f"spawn_failed: {e}"})
+        log(f"[browser-diag] spawn_failed args={args} err={e}")
         return ""
-    return dec(r.stdout).strip()
+    pid = p.pid
+    timed_out = False
+    try:
+        out, err = p.communicate(timeout=timeout)
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        p.kill()
+        try:
+            out, err = p.communicate(timeout=10)
+        except Exception:
+            out, err = b"", b""
+        rc, timed_out = None, True
+    dur = int((time.time() - t0) * 1000)
+    so, se = dec(out).strip(), dec(err).strip()
+    entry = {"args": args, "exe": exe, "cwd": str(ROOT), "pid": pid,
+             "start": time.strftime("%H:%M:%S", time.localtime(t0)),
+             "end": time.strftime("%H:%M:%S", time.localtime(time.time())),
+             "dur_ms": dur, "exit": rc, "timed_out": timed_out,
+             "stdout_len": len(so), "stderr": se[:400]}
+    BROWSER_DIAG.append(entry)
+    if timed_out or rc != 0 or se:
+        log(f"[browser-diag] {'TIMEOUT' if timed_out else 'exit=' + str(rc)} "
+            f"args={' '.join(args)[:100]} pid={pid} dur={dur}ms stderr={se[:200]}")
+    return so
 
 
 def kill_browsers() -> None:
+    """强制清理（**仅**作为最后手段）：会留下 stale pid/port，正常路径不要调用。"""
     if os.name == "nt":
-        subprocess.run("taskkill /F /IM agent-browser-win32-x64.exe >nul 2>&1", shell=True)
+        for img in ("agent-browser-win32-x64.exe", "agent-browser.exe"):
+            subprocess.run(["taskkill", "/F", "/IM", img],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def reset_daemon(tag: str = "") -> None:
+    """阻断项 A：为本轮准备一个干净的隔离浏览器会话。
+
+    历史失败链（已在 A-diagnosis.md 记录实测）：
+    1) `open <url>` 在 SPA 上不返回（HMR websocket 持续占用连接）；
+    2) 旧 `browser()` 用 `subprocess.run(timeout=45)`，超时后收尾可被 daemon 持管道阻塞 → 无界挂起；
+    3) 强杀 daemon 会留下 `~/.agent-browser/default.{pid,port}` 指向已死端口 → 下一次 CLI 连接
+       超时（os error 10060），随后 snapshot/eval 一并挂起 → prod-inject 全灭。
+    本实现用**独立 session 名**（BROWSER_SESSION）绕开 (3)，并用有界超时绕开 (1)(2)。
+    """
+    browser(["close"], timeout=15)  # 只关本轮 session，不动其它会话
+    time.sleep(0.5)
+    if tag:
+        log(f"[env] browser session ready ({tag}) session={BROWSER_SESSION}")
+
+
+def kill_tree(p) -> None:
+    """终止进程**树**（阻断项 A：npm/shell=True 只杀 shell 会留下 vite/node 孤儿）。"""
+    if not p:
+        return
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        p.kill()
+        p.wait(timeout=10)
+    except Exception:
+        pass
+
+
+def listener_pids(port: int) -> list[int]:
+    try:
+        r = subprocess.run(["netstat", "-ano"], capture_output=True, timeout=20)
+        txt = dec(r.stdout)
+    except Exception:
+        return []
+    pids: list[int] = []
+    for ln in txt.splitlines():
+        if f":{port} " in ln and "LISTEN" in ln.upper():
+            parts = ln.split()
+            if parts and parts[-1].isdigit():
+                pids.append(int(parts[-1]))
+    return sorted(set(pids))
+
+
+def wait_listen(port: int, timeout: int = 60) -> bool:
+    """确定性等待端口就绪：同时探测 127.0.0.1 / ::1 / localhost（Vite 可能仅绑 IPv6）。"""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        for host in ("127.0.0.1", "::1", "localhost"):
+            try:
+                with socket.create_connection((host, port), timeout=1):
+                    return True
+            except OSError:
+                pass
+        if listener_pids(port):
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def env_meta() -> dict:
+    w = shutil.which("agent-browser")
+    return {
+        "python": PY,
+        "python_candidates": PY_TRIED,
+        "npm": NPM,
+        "npm_resolved": shutil.which(NPM) or os.environ.get("H6_NPM", ""),
+        "browser_which": w,
+        "browser_exe": resolve_browser(),
+        "browser_exe_exists": bool(resolve_browser() and Path(resolve_browser()).exists()),
+        "path": os.environ.get("PATH", ""),
+        "cwd": os.getcwd(),
+    }
+
+
+def log_env_meta() -> dict:
+    meta = env_meta()
+    log(f"[env] python={meta['python']} npm={meta['npm_resolved']}")
+    log(f"[env] browser.which={meta['browser_which']}")
+    log(f"[env] browser.exe={meta['browser_exe']} exists={meta['browser_exe_exists']}")
+    log(f"[env] cwd={meta['cwd']}")
+    return meta
 
 
 def sh_out(cmd: list[str], timeout: int = 120, cwd: Path | None = None,
            env: dict | None = None) -> tuple[int, str]:
     exe = cmd[0]
-    if os.path.sep in exe or exe == "python" or exe.endswith(".exe") or exe == PY:
+    if (os.path.sep in exe or exe.lower() in ("python", "python3", "py")
+            or exe.endswith(".exe") or exe == PY):
         try:
             r = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                cwd=str(cwd) if cwd else None,
@@ -218,10 +391,51 @@ def _warn_violations(warns):
     return n
 
 
+def _eval(js: str):
+    return parse_res(browser(["eval", js]))
+
+
+def _poll_eval(js: str, cond, timeout: float, interval: float = 0.8) -> dict | None:
+    """确定性轮询：反复 eval 直到条件满足或超时。返回最后一次可解析结果。"""
+    t0 = time.time()
+    last = None
+    while time.time() - t0 < timeout:
+        last = _eval(js)
+        if isinstance(last, dict) and cond(last):
+            return last
+        time.sleep(interval)
+    return last if isinstance(last, dict) else None
+
+
+def _wait_snapshot_contains(text: str, timeout: float) -> bool:
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        snap = browser(["snapshot", "-i"], timeout=30)
+        if text in snap:
+            return True
+        time.sleep(0.6)
+    return False
+
+
 def do_generate(label: str, mode: dict, base_url: str, expect: str) -> dict | None:
     """一次完整生成：打开 → 填表 → 生成 → 断言基础态；返回捕获字典。"""
     set_mode(mode)
-    browser(["open", base_url]); time.sleep(4)
+    # 阻断项 A 根因：agent-browser `open <url>` 在本 SPA 上**不会返回**（页面已加载；静态页
+    # 对照实验 open=591ms，SPA 因 Vite HMR websocket 持续占用连接而不返回）。故显式限时并
+    # 忽略其结果；就绪与否由下面的 snapshot 轮询判定（实测 open 后 snapshot/eval 正常）。
+    browser(["open", base_url], timeout=12)
+    # 阻断项 A：用**输入页独有**标志（JD 输入框）判定就绪；「生成岗位简历」在结果页/导航
+    # 也可能出现，用它判定会把结果页误当输入页（历史 dev-viewports 假就绪）。
+    ok_ready = _wait_snapshot_contains("粘贴完整岗位描述", 40)
+    if not ok_ready:
+        # 一次确定性恢复：残留/版本不符 daemon 会让 snapshot 也挂起 → 重置后重开一次
+        log(f"[browser-diag] {label}: 首次就绪失败，重置会话并重试一次")
+        reset_daemon("retry-" + label)
+        browser(["open", base_url], timeout=12)
+        ok_ready = _wait_snapshot_contains("粘贴完整岗位描述", 40)
+    if not ok_ready:
+        dec_fail(label, "页面打开后未出现 JD 输入框（已含一次会话重置重试）")
+        return None
     browser(["eval", _INJECT_JS])
     snap = browser(["snapshot", "-i"])
     mref = re.search(r'button "编辑[^\n]*?ref=([a-z0-9]+)', snap)
@@ -234,7 +448,7 @@ def do_generate(label: str, mode: dict, base_url: str, expect: str) -> dict | No
     jd = re.search(r'textbox "粘贴完整岗位描述[^\n]*?ref=([a-z0-9]+)', snap)
     if jd:
         browser(["fill", f"@{jd.group(1)}", JD])
-    time.sleep(6)
+    time.sleep(1)
     snap = browser(["snapshot", "-i"])
     gb = re.search(r'button "生成岗位简历[^\n]*?ref=([a-z0-9]+)', snap)
     if not gb:
@@ -242,9 +456,14 @@ def do_generate(label: str, mode: dict, base_url: str, expect: str) -> dict | No
         return None
     pre = post_count()
     browser(["click", f"@{gb.group(1)}"])
-    time.sleep(12)
+    # 阻断项 A：确定性等待生成结束（成功=POST 计数 +1；失败=出现失败/重试文案）
+    probe = ("JSON.stringify({n:(window.__h5?.posts??[]).length,"
+             "txt:(document.body.innerText.match(/下载 Word|下载 PDF|重新生成|生成失败|失败/)||['?'])[0]})")
     if expect == "fail":
-        time.sleep(6)
+        _poll_eval(probe, lambda d: ("失败" in (d.get("txt") or "") or "重新生成" in (d.get("txt") or "")), 60)
+    else:
+        _poll_eval(probe, lambda d: int(d.get("n", 0) or 0) >= 1, 90)
+    time.sleep(2)
     cap_raw = browser(["eval", "JSON.stringify({errs:(window.__h5?.errs??[]).length,"
                        "warns:window.__h5?.warns??[],"
                        "hook_warns:window.__h5?.warns?.filter(w=>{const s=String(w).toLowerCase();"
@@ -387,6 +606,78 @@ def check_dev_scene(label: str, mode: dict, expect: str) -> None:
         dec_fail(label, f"未知 expect {expect}")
 
 
+_LAYOUT_PROBE = (
+    "JSON.stringify({vw:window.innerWidth,vh:window.innerHeight,"
+    "docSH:document.documentElement.scrollHeight,bodySH:document.body.scrollHeight,"
+    "overflow:document.documentElement.scrollHeight-window.innerHeight,"
+    "hOverflow:document.documentElement.scrollWidth-window.innerWidth,"
+    "scrollables:(()=>{let n=0;for(const e of document.querySelectorAll('*')){const s=getComputedStyle(e);"
+    "if((s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+1)n++;}return n;})(),"
+    "blank:document.body.innerText.trim().length===0})"
+)
+VIEWPORTS = ((1440, 900), (1280, 720), (1920, 1080))
+
+
+def check_viewports(base_url: str) -> None:
+    """三视口 1440×900 / 1280×720 / 1920×1080：页面整体无滚动、卡片内允许滚动。
+
+    在**输入页**与**结果页**各测一次（共 6 次），断言：
+    - 非白屏；
+    - 页面整体（documentElement）纵向无溢出（overflow ≤ 2px，允许亚像素舍入）；
+    - 内容溢出只允许发生在卡片级可滚动容器内（scrollables 计数仅记录，不冒充通过条件）。
+
+    实现上复用 `do_generate`（含注入、填表、点击、有界轮询与失败重试），避免上一场景停在
+    结果页时把结果页元素误当输入页元素（历史 FAIL：视口检查期间 POST 增量=0）。
+    """
+    results: dict[str, dict] = {}
+    d = do_generate("dev-viewports",
+                    {"delay_ms": 800, "fail_generate": False, "pdf_gen": "good",
+                     "pdf_mode": "good", "anchors": "full", "run_no": 300, "expect": "success"},
+                    base_url, "success")
+    if d is None:
+        return
+    if int(d.get("_post_delta") or 0) != 1:
+        dec_fail("dev-viewports", f"生成 POST 增量异常={d.get('_post_delta')}")
+        return
+    # 结果页：三视口
+    for (w, h) in VIEWPORTS:
+        browser(["set", "viewport", str(w), str(h)], timeout=20)
+        time.sleep(0.6)
+        m = _eval(_LAYOUT_PROBE)
+        results[f"result-{w}x{h}"] = m if isinstance(m, dict) else {"error": str(m)}
+    # 回到输入页：三视口（点击左侧「生成简历」导航）
+    snap = browser(["snapshot", "-i"])
+    nav = re.search(r'link "生成简历[^\n]*?ref=([a-z0-9]+)', snap)
+    if nav:
+        browser(["click", f"@{nav.group(1)}"])
+        time.sleep(1.5)
+    browser(["open", base_url], timeout=12)
+    if not _wait_snapshot_contains("粘贴完整岗位描述", 40):
+        dec_fail("dev-viewports", "未回到输入页")
+        return
+    for (w, h) in VIEWPORTS:
+        browser(["set", "viewport", str(w), str(h)], timeout=20)
+        time.sleep(0.5)
+        m = _eval(_LAYOUT_PROBE)
+        results[f"input-{w}x{h}"] = m if isinstance(m, dict) else {"error": str(m)}
+    EVIDENCE_VIEWPORT.clear()
+    EVIDENCE_VIEWPORT.update(results)
+    bad = {k: v for k, v in results.items()
+           if not isinstance(v, dict) or v.get("blank") or v.get("overflow") is None
+           or int(v.get("overflow") or 0) > 2}
+    if bad:
+        dec_fail("dev-viewports", f"页面整体出现滚动/异常：{json.dumps(bad, ensure_ascii=False)[:400]}")
+        return
+    dec_pass("dev-viewports",
+             "三视口 输入页+结果页 均无整页滚动 & 非白屏 | "
+             + " ".join(f"{k}:ov={v.get('overflow')},card={v.get('scrollables')}"
+                        for k, v in sorted(results.items()))[:300])
+
+
+EVIDENCE_VIEWPORT: dict = {}
+EVIDENCE_RECOVERY: dict = {}
+
+
 def _click_first_evidence_and_assert(label: str, prev_selected: int) -> None:
     """item 4：实际点击首个 aria-pressed 命中元素，断言切换后 selected_count 变化。"""
     snap = browser(["snapshot", "-i"])
@@ -406,10 +697,33 @@ def _click_first_evidence_and_assert(label: str, prev_selected: int) -> None:
 
 
 def run_dev() -> None:
-    stub = run_proc([PY, str(BACKEND / "_v21_h6_stub.py"), "--port", "8000"], ROOT / ".h6_stub.log")
-    dev = run_proc([NPM, "run", "dev", "--", "--port", "5173"], ROOT / ".h6_dev.log")
+    log_env_meta()
+    reset_daemon("dev-start")
+    stub_log = ROOT / ".h6_stub.log"
+    dev_log = ROOT / ".h6_dev.log"
+    stub = run_proc([*PY_PREFIX, str(BACKEND / "_v21_h6_stub.py"), "--port", "8000"], stub_log)
+    # H7 R35 修正：npm run dev 必须在 frontend/ 目录执行（package.json 在 frontend/）；
+    # 缺 cwd 会在仓库根跑 npm → ENOENT package.json → Vite 起不来，dev 场景必挂。
+    dev = run_proc([NPM, "run", "dev", "--", "--port", "5173"], dev_log, cwd=FRONTEND)
     try:
-        time.sleep(7)
+        # 阻断项 A：确定性等待监听（替代固定 sleep 7s），失败即具名 FAIL 并附日志尾部
+        if not wait_listen(8000, 90):
+            tail = ""
+            try:
+                tail = stub_log.read_text(encoding="utf-8", errors="replace")[-400:]
+            except Exception:
+                pass
+            dec_fail("dev-boot", "stub 后端 8000 未监听", tail)
+            return
+        if not wait_listen(5173, 90):
+            tail = ""
+            try:
+                tail = dev_log.read_text(encoding="utf-8", errors="replace")[-400:]
+            except Exception:
+                pass
+            dec_fail("dev-boot", "vite dev 5173 未监听", tail)
+            return
+        log(f"[env] listeners 8000={listener_pids(8000)} 5173={listener_pids(5173)}")
         check_dev_scene("dev-success", {"delay_ms": 1200, "fail_generate": False, "pdf_gen": "good", "pdf_mode": "good", "anchors": "full", "run_no": 100, "expect": "success"}, "success")
         # item 4：dev-success 后实际点击首个 evidence，断言切换且 POST 不增
         _click_first_evidence_and_assert("dev-success-click", 0)
@@ -470,13 +784,21 @@ def run_dev() -> None:
             dec_fail("dev-artifact-change", f"第一轮 URL 字节已变：pdf {pdfA[:16]}->{pdfA_after[:16]} word {wordA[:16]}->{wordA_after[:16]}")
             return
         dec_pass("dev-artifact-change", f"op {opA[:8]}->{opB[:8]} art 不同 两轮 hash OK 第一轮稳定")
+        # H8 用户指令：三视口 1440×900 / 1280×720 / 1920×1080；页面整体无滚动、卡片内允许滚动
+        check_viewports("http://localhost:5173/")
     finally:
-        kill(dev)
-        kill(stub)
-        browser(["close", "--all"])
+        kill_tree(dev)
+        kill_tree(stub)
+        browser(["close"])  # 只关本轮隔离 session（不清扫其它会话）
+        for port in (5173, 8000):
+            for pid in listener_pids(port):
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def run_prod_inject(target: str) -> None:
+    log_env_meta()
+    reset_daemon(f"prod-{target}-start")
     # item 7：显式剥离 VITE_H6_INJECT 避免继承调用者环境（即便 test build 仍走 null）
     env = {k: v for k, v in os.environ.items() if k != "VITE_H6_INJECT"}
     env["VITE_H6_INJECT"] = target
@@ -505,9 +827,11 @@ def run_prod_inject(target: str) -> None:
         dec_fail(f"prod-inject {target}", f"test build 失败（exit={rc}）", tail)
         return
     log(f"[ok ] prod build (VITE_H6_INJECT={target})")
-    stub = run_proc([PY, str(BACKEND / "_v21_h6_stub.py"), "--port", "8000"], ROOT / ".h6_stub.log")
+    stub = run_proc([*PY_PREFIX, str(BACKEND / "_v21_h6_stub.py"), "--port", "8000"], ROOT / ".h6_stub.log")
     try:
-        time.sleep(5)
+        if not wait_listen(8000, 90):
+            dec_fail(f"prod-inject {target}", "stub 后端 8000 未监听")
+            return
         pre = post_count()
         d = do_generate(f"prod-inject-{target}", {"delay_ms": 1200, "fail_generate": False, "pdf_gen": "good", "pdf_mode": "good", "anchors": "full", "run_no": 200, "expect": "success"}, "http://127.0.0.1:8000/", "success")
         if d is None:
@@ -517,28 +841,44 @@ def run_prod_inject(target: str) -> None:
             dec_fail(f"prod-inject {target}",
                      f"EB 或恢复按钮缺失 eb={d.get('eb')} blank={d.get('blank')} retry={d.get('retry')} back={d.get('back')}")
             return
-        # item 6：恢复路径——点「重试页面渲染」持续注入下仍 EB 不白屏；记录恢复前后 op/artifact/hash
-        snap = browser(["snapshot", "-i"])
-        rt = re.search(r'button "重试页面渲染[^\n]*?ref=([a-z0-9]+)', snap)
-        if not rt:
-            dec_fail(f"prod-inject {target}", "「重试页面渲染」按钮 ref 缺失")
+        # 阻断项 A：恢复路径——点「重试页面渲染」持续注入下仍 EB 不白屏；记录恢复前后 op/artifact/hash
+        # 用**文本定位**点击（比 @ref 稳；@ref 在重渲染/视口变化后可能指向迁移的元素）。
+        # 先确认两个按钮都存在，避免把「返回生成工作台」误点（历史 FAIL 根因）。
+        pre_snap = browser(["snapshot", "-i"])
+        if ('重试页面渲染' not in pre_snap) or ('返回生成工作台' not in pre_snap):
+            dec_fail(f"prod-inject {target}", "EB 恢复按钮文本缺失")
             return
-        browser(["click", f"@{rt.group(1)}"])
-        time.sleep(4)
-        d2 = parse_res(browser(["eval", "JSON.stringify({eb:document.body.innerText.includes('应用异常'),blank:document.body.innerText.trim().length===0})"]))
-        if not (isinstance(d2, dict) and d2.get("eb") and not d2.get("blank")):
-            dec_fail(f"prod-inject {target}", "「重试页面渲染」未受 ErrorBoundary 保护")
+        browser(["find", "text", "重试页面渲染", "click"], timeout=30)
+        d2 = _poll_eval(
+            "JSON.stringify({eb:document.body.innerText.includes('应用异常'),"
+            "retry:document.body.innerText.includes('重试页面渲染'),"
+            "input:document.body.innerText.includes('粘贴完整岗位描述'),"
+            "blank:document.body.innerText.trim().length===0})",
+            lambda x: (x.get("eb") and not x.get("blank")) or x.get("input"), 20)
+        # 合法结果：注入持续时重新抛错 → EB 再次出现；或边界恢复后回到可用的生成页。
+        # 二者都不允许白屏，且不允许停留在空白/损坏页。
+        if not (isinstance(d2, dict) and not d2.get("blank")
+                and (d2.get("eb") or d2.get("input"))):
+            dec_fail(f"prod-inject {target}", f"「重试页面渲染」后页面态非法 {d2}")
             return
-        snap = browser(["snapshot", "-i"])
-        bk = re.search(r'button "返回生成工作台[^\n]*?ref=([a-z0-9]+)', snap)
-        if not bk:
-            dec_fail(f"prod-inject {target}", "「返回生成工作台」按钮 ref 缺失")
+        EVIDENCE_RECOVERY[target] = ("eb_again" if d2.get("eb") else "recovered_input_page")
+        # 若已回到生成页，则「返回生成工作台」按钮不复存在 —— 视为恢复路径已完成
+        post_retry = browser(["snapshot", "-i"])
+        if '返回生成工作台' not in post_retry:
+            delta = post_count() - pre
+            if delta <= 1:
+                dec_pass(f"prod-inject {target}",
+                         f"EB+恢复通过（重试后回到生成页），本 target POST+{delta}")
+            else:
+                dec_fail(f"prod-inject {target}", f"恢复产生额外 POST {delta}（>1）")
             return
-        browser(["click", f"@{bk.group(1)}"])
-        time.sleep(4)
-        d3 = parse_res(browser(["eval", "JSON.stringify({input:document.body.innerText.includes('生成岗位简历'),blank:document.body.innerText.trim().length===0})"]))
+        browser(["find", "text", "返回生成工作台", "click"], timeout=30)
+        d3 = _poll_eval(
+            "JSON.stringify({input:document.body.innerText.includes('粘贴完整岗位描述'),"
+            "blank:document.body.innerText.trim().length===0})",
+            lambda x: x.get("input") and not x.get("blank"), 20)
         if not (isinstance(d3, dict) and d3.get("input") and not d3.get("blank")):
-            dec_fail(f"prod-inject {target}", "「返回生成工作台」未离开故障结果页")
+            dec_fail(f"prod-inject {target}", f"「返回生成工作台」未离开故障结果页 {d3}")
             return
         delta = post_count() - pre
         if delta <= 1:
@@ -546,9 +886,11 @@ def run_prod_inject(target: str) -> None:
         else:
             dec_fail(f"prod-inject {target}", f"恢复产生额外 POST {delta}（>1）")
     finally:
-        kill(stub)
-        browser(["close", "--all"])
-        kill_browsers()
+        kill_tree(stub)
+        browser(["close"])  # 只关本轮隔离 session
+        for pid in listener_pids(8000):
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def _safe_rmtree(path: Path) -> tuple[bool, str]:
@@ -633,7 +975,7 @@ def run_selfcheck() -> None:
     if not resolve_browser():
         dec_fail("selfcheck", "agent-browser 不在 PATH")
         ok = False
-    if sh_out([PY, "-c", "import fastapi, uvicorn, reportlab, docx"])[0] != 0:
+    if sh_out([*PY_PREFIX, "-c", "import fastapi, uvicorn, reportlab, docx"])[0] != 0:
         dec_fail("selfcheck", "后端依赖不可导入")
         ok = False
     if sh_out(["node", "--version"])[0] != 0:
@@ -649,7 +991,7 @@ def run_all() -> None:
         dec_fail("all-selfcheck-gate", "selfcheck 已 FAIL，--all 停止后续动态场景")
         return
     try:
-        r = subprocess.run([PY, str(BACKEND / "_v21_h6_matrix.py")], capture_output=True, timeout=300)
+        r = subprocess.run([*PY_PREFIX, str(BACKEND / "_v21_h6_matrix.py")], capture_output=True, timeout=300)
     except subprocess.TimeoutExpired:
         dec_fail("all-62matrix", "timeout>300s")  # item 8：超时具名 FAIL
         return
@@ -702,6 +1044,20 @@ def main(argv: list[str] | None = None) -> int:
     log(f"H6 浏览器矩阵：PASS={PASS} FAIL={len(FAILS)}")
     for f in FAILS:
         log("  - " + f)
+    # 阻断项 A：落盘确定性诊断（exe/args/cwd/PID/起止/exit/stderr），供复现与审查
+    try:
+        diag_dir = ROOT / "validation-artifacts" / "h8"
+        diag_dir.mkdir(parents=True, exist_ok=True)
+        (diag_dir / "h6_browser_diag.json").write_text(
+            json.dumps({"env": env_meta(), "browser_calls": BROWSER_DIAG,
+                        "pass": PASS, "fails": FAILS,
+                        "viewports": EVIDENCE_VIEWPORT,
+                        "prod_recovery": EVIDENCE_RECOVERY,
+                        "browser_session": BROWSER_SESSION},
+                       ensure_ascii=False, indent=2), encoding="utf-8")
+        log(f"[env] diagnostics → {diag_dir / 'h6_browser_diag.json'} ({len(BROWSER_DIAG)} browser calls)")
+    except Exception as e:
+        log(f"[warn] 写诊断 JSON 失败：{e}")
     return 1 if FAILS else 0
 
 

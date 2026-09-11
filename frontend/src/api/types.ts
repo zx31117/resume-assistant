@@ -329,6 +329,7 @@ export interface StageProjection {
   attempt: number
   max_attempts: number
   elapsed_ms: number
+  stage_elapsed_ms?: number // H8 §20.6.5：活动阶段实时 elapsed（服务端真源，前端只展示）
   message: string
   safe_counts: Record<string, number>
   ts: string
@@ -340,8 +341,21 @@ export interface RecentStats {
   max_ms: number | null
 }
 
+export interface UserPhaseProjection {
+  key: string
+  code: string
+  label: string
+  codes: string[]
+  status: 'pending' | 'active' | 'done' | 'failed'
+  started_at: string
+  ended_at: string
+  elapsed_ms: number
+  live_elapsed_ms: number
+}
+
 export interface OperationDetail extends OperationProjection {
   stages: StageProjection[]
+  user_phases?: UserPhaseProjection[]
   recent_stats: Record<string, RecentStats>
 }
 
@@ -394,7 +408,7 @@ export interface DiagnosticsSummary {
   stage_count?: number
   safe_counts: Record<string, number>
   safe_summary?: Record<string, unknown>
-  stages: Array<{ event_type: string; stage_code: string; elapsed_ms: number; event_code: string }>
+  stages: Array<{ event_type: string; stage_code: string; elapsed_ms: number; event_code: string; stage_elapsed_ms?: number }>
 }
 
 export interface DiagnosticsResponse {

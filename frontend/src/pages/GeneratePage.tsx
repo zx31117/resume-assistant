@@ -72,30 +72,32 @@ function toGenError(e: unknown): GenError {
   return { message: String(e) }
 }
 
+// H8 §20.6：4 个覆盖完整 operation 的用户阶段（P1–P4）。
+// 内部技术 stage 必须归属于一个用户阶段，耗时与活动 live elapsed 来自后端 OperationProjection。
 const PROCESS_PHASES: StageFlowPhase[] = [
   {
-    key: 'selection',
-    label: '从你的经历中挑选相关事实',
-    detail: '按目标岗位 JD 决定选取哪些事实与时段',
+    key: 'job_understanding',
+    label: '理解目标岗位',
+    detail: '生成准备、就绪检查、唯一一次 JD 分析、履历读取',
+    codes: ['migration_check', 'embedding_ready', 'jd_analysis', 'sql_readback'],
+  },
+  {
+    key: 'fact_selection',
+    label: '从你的履历中挑选相关事实',
+    detail: 'Experience 选择与 Fact/证据选择',
     codes: ['select_experiences', 'select_evidence'],
   },
   {
-    key: 'rewrite',
-    label: '受约束起草表达',
-    detail: '基于已选事实生成 bullet，保留事实引用',
+    key: 'content_drafting',
+    label: '生成并润色简历内容',
+    detail: '基于已选事实的受约束改写',
     codes: ['content_generation'],
   },
   {
-    key: 'layout',
-    label: '排版装配',
-    detail: '固定结构内做排版与一致性整理',
-    codes: ['resume_build'],
-  },
-  {
-    key: 'docx',
-    label: '完成 DOCX 装配',
-    detail: '确定性 Builder 渲染，可下载',
-    codes: ['render', 'save_docx', 'response_assembly'],
+    key: 'artifact_build',
+    label: '排版并生成 Word/PDF',
+    detail: 'ResumeDocument 构建、DOCX 渲染/保存、Word→PDF 转换、响应发布',
+    codes: ['resume_build', 'render', 'save_docx', 'response_assembly'],
   },
 ]
 
@@ -314,21 +316,31 @@ interface PhaseStreamProps {
   phaseIdx: number
   status: PhaseStatus
   operation: OperationDetail | null
+  /** H8 §20.7.3：查看阶段 ≠ 运行阶段时的当前运行提示（null=无需提示）。 */
+  currentRunningHint?: string | null
+  currentRunningIdx?: number
 }
 
-function PhaseStream({ phase, phaseIdx, status, operation }: PhaseStreamProps) {
+function PhaseStream({ phase, phaseIdx, status, operation, currentRunningHint, currentRunningIdx }: PhaseStreamProps) {
   const events = (operation?.stages ?? []).filter((e) => phase.codes.includes(e.stage_code))
   const elapsed = phaseElapsedMs(operation, phase.codes)
   const tag = status === 'failed' ? '阶段失败' : status === 'active' ? '正在执行' : '阶段明细'
+  const isHistoryView =
+    currentRunningHint != null && currentRunningIdx != null && currentRunningIdx !== phaseIdx
   return (
     <div className="ai-stream" aria-live="polite">
       <div className="ai-stream__head">
-        <span className="ai-stream__tag">{tag}</span>
+        <span className="ai-stream__tag">{isHistoryView ? '历史阶段' : tag}</span>
         <span className="ai-stream__title">
           {phaseIdx + 1}. {phase.label}
         </span>
-        <span className="ai-stream__sub">{elapsed != null ? fmtMs(elapsed) : '—'}</span>
+        <span className="ai-stream__sub">{elapsed != null ? `本阶段用时 ${fmtMs(elapsed)}` : '本阶段用时 —'}</span>
       </div>
+      {isHistoryView && currentRunningHint ? (
+        <div style={{ fontSize: 12, margin: '4px 0 8px', color: 'var(--warn)' }}>
+          {currentRunningHint}
+        </div>
+      ) : null}
       <div className="ai-stream__list" role="log">
         {events.length === 0 ? (
           <div className="ai-stream__empty">
@@ -1143,6 +1155,15 @@ export default function GeneratePage() {
     const viewPhase = PROCESS_PHASES[safeViewIdx]!
     const viewStatus = phaseStatuses[safeViewIdx] ?? 'pending'
     const totalElapsedMs = operation?.elapsed_ms ?? null
+    // H8 §20.7.3：查看≠运行时给出「当前正在执行」提示（服务端 user_phases 实时值）
+    const runningPhaseObj = currentRunningIdx >= 0 ? PROCESS_PHASES[currentRunningIdx] : null
+    const runningUp = runningPhaseObj
+      ? (operation?.user_phases ?? []).find((u) => u.key === runningPhaseObj.key)
+      : null
+    const currentRunningHint =
+      runningUp && currentRunningIdx >= 0 && currentRunningIdx !== safeViewIdx
+        ? `当前正在执行：${runningUp.code} ${runningUp.label} · ${fmtMs(runningUp.status === 'active' ? runningUp.live_elapsed_ms : runningUp.elapsed_ms)}`
+        : null
     return (
       <div
         className="page"
@@ -1162,8 +1183,8 @@ export default function GeneratePage() {
               <p className="process-header__desc">{headerDesc}</p>
             </div>
 
-            <div className="process-elapsed" aria-label="已用时">
-              <span>已用时</span>
+            <div className="process-elapsed" aria-label="总用时">
+              <span>总用时</span>
               <span className="process-elapsed__value">
                 {totalElapsedMs != null ? fmtMs(totalElapsedMs) : '—'}
               </span>
@@ -1226,6 +1247,8 @@ export default function GeneratePage() {
                 phaseIdx={safeViewIdx}
                 status={viewStatus}
                 operation={operation}
+                currentRunningHint={currentRunningHint}
+                currentRunningIdx={currentRunningIdx}
               />
             )}
           </div>
