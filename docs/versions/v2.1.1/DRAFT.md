@@ -2,6 +2,7 @@
 
 > 状态：需求收集中，尚未形成或批准 PLAN
 > 记录日期：2026-09-09
+> 最近更新：2026-09-11；已批准本版本试行计划修订、版本 HISTORY 与文档语义交付审查机制
 > 前置版本：V2.1.0 仍处于 H7 后的开发验证纠偏，尚无通过全部门禁的发布候选
 > 开发授权：无；本文不是 Development Agent 的实施指令
 > Design Baseline：尚未选择；正式 PLAN 只绑定届时最新且经 Product Owner 批准的 Design Snapshot
@@ -112,7 +113,7 @@ IMPLEMENTING
 → DEV_VERIFYING
 → DEV_VERIFIED
 → FROZEN
-→ DOC_ACCEPTED
+→ DOC_ALIGNED
 → INDEPENDENT_ACCEPTED
 → HUMAN_ACCEPTED
 → RELEASED
@@ -122,7 +123,7 @@ IMPLEMENTING
 - `DEV_VERIFYING`：实现已基本完成，但仍有开发侧强制验证未结束；
 - `DEV_VERIFIED`：PLAN 要求的开发侧必做项目全部得到 PASS 终态；
 - `FROZEN`：形成 clean、不可变的源码候选 commit；
-- `DOC_ACCEPTED`：Documentation Agent 确认身份、范围、PLAN blob、交接证据和开发门禁完整；
+- `DOC_ALIGNED`：Documentation Agent 在机械前置检查通过后，对照 PLAN 完成一次完整语义交付审查，确认开发理解、实际交付、范围、技术路线、偏差声明和证据相互一致；
 - `INDEPENDENT_ACCEPTED`：未参与实现、自测或修复的 Acceptance Agent 对同一候选独立通过；
 - `HUMAN_ACCEPTED`：Product Owner 使用同一候选完成人工产品验收；
 - `RELEASED`：文档收口、远端核对和发布完成。
@@ -315,7 +316,9 @@ Challenge 至少记录：原始用户反馈、受影响不变量、最小复现�
 
 #### 3.8.6 原始反馈与闭环追踪
 
-每项人工 Bug/P0/P1 必须建立闭环记录，至少包含：
+P0/P1、技术路线推翻、同类问题重复发生、候选或包身份错误、路径/工作区事故、跨角色职责错误，
+以及能够提炼出跨版本规则的问题，必须建立闭环记录。普通、一次性且已经由测试覆盖的 Bug 不单独
+扩张历史档案。闭环至少包含：
 
 | 字段 | 要求 |
 |---|---|
@@ -340,7 +343,7 @@ Challenge 至少记录：原始用户反馈、受影响不变量、最小复现�
 真实主路径和冻结前 5 分钟反证，并设置硬停止/回退时间。紧急包只能按其真实门禁命名，不得用时间
 压力把 `ASSUMPTION` 改成 `EVIDENCED` 或冒充正式发布候选。
 
-### 3.9 RESULT 当前门禁摘要与文档放行
+### 3.9 开发交付与文档语义审查
 
 V2.1.1 的 RESULT 顶部必须维护唯一的当前门禁摘要，至少包括：
 
@@ -358,17 +361,72 @@ Ready For Review: NO
 Blocking Reason: browser_matrix 尚未完成
 ~~~
 
-历史记录可以继续追加在下方，但不能覆盖顶部当前事实。Documentation Agent 在接收交接时同时核对
-候选身份和开发门禁终态；只要存在强制项未执行、运行中、缺退出码、以环境限制跳过或准备交给
-验收补跑，`Ready For Review` 必须为 `NO`，固定 review 不移动。
+开发 Agent 只有在所有由开发负责的强制 Gate 已得出终态、最终包和候选身份已经冻结、工作区 clean
+时，才可把 `Ready For Review` 改为 `YES`。只要存在未执行、运行中、缺退出码、以环境限制跳过或
+准备交给验收补跑的强制项，状态仍是 `DEV_VERIFYING`，固定 review 不移动，也不得使用“开发完成”
+作为交接标题。
 
-### 3.10 V2.1.1 试行与后续固化
+正式交付必须在 RESULT 提供完整映射表，而不是只列提交和测试总数：
+
+| PLAN ID | 用户要求/产品结果 | 开发理解 | 实际交付 | 可复核证据 | 已知偏差 |
+|---|---|---|---|---|---|
+| `<id>` | `<用户最终看到或依赖的结果>` | `<开发采用的行为解释>` | `<代码/页面/包中的实际状态>` | `<命令、artifact 或截图入口>` | `<无，或明确差异>` |
+
+机器检查只负责在交接前挡住缺 Gate、缺证据、缺文件、身份错误和工作区不 clean，不能取代
+Documentation Agent。Documentation Agent 的核心职责是核对“开发做的是不是用户和 PLAN 要的
+东西”，必须一次性检查：
+
+1. 每项 PLAN 要求是否有实际交付，是否存在遗漏、擅自扩缩范围或用内部指标替代用户结果；
+2. 开发对用户需求、Design Baseline、流程状态和失败边界的理解是否准确；
+3. 实际技术路线是否仍符合当前批准 PLAN，失效旧路线是否已经退出；
+4. RESULT 的完成声明、已知偏差和证据是否一致，是否把未证实内容写成完成；
+5. 候选 commit、最终包、PLAN Revision/blob、分支和 clean 状态是否绑定同一交付对象。
+
+Documentation Agent 接到完整交付后应完成一轮集中审查，不得发现一个问题就立即结束并串行打回。
+本轮审查只能给出以下一种结论：
+
+- `DOC_ALIGNED`：开发理解和实际交付与当前 PLAN 一致，可以进入独立源码验收；
+- `DOC_RETURNED`：PLAN 没变，但开发存在遗漏、理解偏差、错误完成声明或交付缺口；必须一次列出本轮
+  能够发现的完整问题集合；
+- `PLAN_REVISION_REQUIRED`：原 PLAN 的产品目标、技术路线、设计基线或门禁本身必须实质改变，旧
+  候选及受影响证据按修订范围失效。
+
+返工后的 Documentation 复核以打回项及其影响范围为主。若第二次才发现第一次同一审查范围内本应
+发现的问题，记为 Documentation 审查遗漏；若 Development Agent 没有完成已经明确列出的打回项，
+记为 Development 交付缺陷；用户改变目标或证据推翻既有技术路线，记为 Baseline/PLAN 变化。三者
+不得混称为笼统“继续补证”。文档语义审查确认的是需求理解与交付一致性，不替代 Acceptance Agent
+对源码正确性、失败路径和最终包行为的独立证明。
+
+### 3.10 PLAN Revision 与版本 HISTORY
+
+V2.1.1 起，开发轮次与 PLAN Revision 分开：开发漏做现有要求、测试未完成或证据不足，继续执行同一
+PLAN，不产生新 Revision；只有产品范围、技术路线、Design Baseline 或强制验收合同发生实质变化，
+才由 Documentation Agent 形成新的完整 PLAN Revision 并重新提交 Product Owner 批准。
+
+`PLAN.md` 永远只保存一份可独立执行的当前有效合同。新 Revision 必须标明 `Plan Revision` 与
+`Supersedes`，保留仍有效要求，直接移除失效路线，并同步更新任务、风险、Gate 和旧候选/证据失效
+范围；不得继续在文件末尾堆叠“第 N 轮返工补充”。旧 PLAN 全文由已批准 commit/blob 和 Git 历史
+保存。
+
+本版本目录新增 `HISTORY.md`，只记录会影响理解本版本演进的重要事件：P0/P1、技术路线推翻、同类
+问题重复发生、候选或包身份错误、路径/工作区事故、跨角色职责错误，以及能够提炼出跨版本规则的
+问题。每项记录包含触发事实、根因、影响、处置、PLAN/candidate 身份变化和最终去向；不粘贴长日志，
+不记录普通 Bug 流水账，也不作为当前开发合同或当前 Gate 状态真源。
+
+事件的版本事实留在 HISTORY；由此形成且对后续版本持续有效的产品/技术选择写入 `DECISIONS.md`，
+通用协作规则写入 `HUMAN_AI_WORKFLOW.md`。同一事实可以被提炼，但不得把 HISTORY 原文整段复制到
+全局文档。
+
+### 3.11 V2.1.1 试行与后续固化
 
 Product Owner 已于 2026-09-09 批准本节机制从 V2.1.1 起启用。本节当前仍是草稿约束，不单独授权
 修改源码；形成 V2.1.1 正式 PLAN 时，Documentation Agent 必须保留上述原则，并收敛为可执行 Task、
-状态转换、反思/Challenge 记录模板、测试入口和验收表，不再重新讨论是否启用。V2.1.1 完成后复盘
-实际耗时、返工次数、完整构建次数、Challenge 命中和漏测情况；确认有效后，再把稳定规则同步到
-`docs/HUMAN_AI_WORKFLOW.md`，而不是现在直接反向改变 V2.1.0 的既有契约。
+状态转换、反思/Challenge 记录模板、测试入口、开发交付映射和文档语义审查表，不再重新讨论是否
+启用。Product Owner 于 2026-09-11 进一步批准 PLAN Revision、版本 `HISTORY.md`、`DOC_ALIGNED /
+DOC_RETURNED / PLAN_REVISION_REQUIRED` 三结论及一次性集中语义审查；对应跨版本原则已经以
+“V2.1.1 起生效”的方式同步到 `docs/HUMAN_AI_WORKFLOW.md` 和 D-040。V2.1.1 完成后复盘实际耗时、
+返工次数、完整构建次数、Challenge 命中和漏测情况，再根据实证收紧或修订规则；这些规则不反向
+改变 V2.1.0 的既有 PLAN、候选或验收契约。
 
 ## 4. 待继续收集
 

@@ -39,9 +39,12 @@ DECISIONS           影响后续版本的重要决策
 Design Snapshot     用户已批准、不可变的可执行视觉与交互基线
 PLAN                当前版本准备做什么
 RESULT              当前版本实际做了什么及验收结论
+HISTORY             V2.1.1 起记录版本内重要事件、PLAN 修订与候选失效历史
 ~~~
 
-规则：根 README 不属于开发事实真源；PLAN 规定要做什么，RESULT 记录实际做了什么，CURRENT_STATE 只记录已经验收的事实。
+规则：根 README 不属于开发事实真源；PLAN 规定当前有效合同，RESULT 记录实际做了什么和当前验收
+结论，HISTORY 记录重要演进事实，CURRENT_STATE 只记录已经验收的事实。HISTORY 不构成开发指令，
+其中具有跨版本价值的结论再提炼到 DECISIONS 或本工作流。
 
 ## 3. 工作路径与版本身份
 
@@ -82,7 +85,15 @@ RESULT              当前版本实际做了什么及验收结论
 
 ### 3.2 PLAN 冻结、候选和发布身份
 
-用户批准 PLAN 时，文档 Agent 记录版本、PLAN 路径、批准 commit 和 PLAN blob。开发 Agent 与验收 Agent 必须保持该路径、普通文件类型和 blob 不变；需要返工时，由文档 Agent 在原 PLAN 末尾追加返工契约并形成新的批准 commit/blob，原始批准内容不被覆盖。版本目录仍只保留 PLAN 和 RESULT。
+用户批准 PLAN 时，文档 Agent 记录版本、PLAN Revision、路径、批准 commit 和 PLAN blob。开发
+Agent 与验收 Agent 必须保持该身份不变。V2.1.0 及以前版本继续保留当时已经形成的追加式 PLAN
+历史，不追溯改写；V2.1.1 起，开发轮次不自动产生新 PLAN，只有产品范围、技术路线、Design
+Baseline 或强制验收合同实质变化时，才形成新的完整 PLAN Revision。
+
+新 Revision 的 `PLAN.md` 是可独立执行的当前唯一有效合同，必须标明 `Supersedes`，保留仍有效
+要求并移除失效路线，不在末尾堆叠返工章节。旧 PLAN 全文由已批准 commit/blob 和 Git 历史保存，
+修订原因、影响范围以及旧候选/证据失效情况写入同版本 `HISTORY.md`。开发 Agent 不得自行修改
+PLAN 或 HISTORY。
 
 开发 Agent 完成实现和开发侧 RESULT 后提交候选 `H` 并确认 clean，候选即冻结。文档 Agent 从本地 current 获取 `H` 并以不发布的本地候选引用保护它，再把 review detached 到 `H`；验收结论只对 `H` 有效。开发分支之后产生的新 commit 不继承 `H` 的结论。默认在验收结束前不继续修改同一版本；确需并行时必须明确新提交尚未验收，不能移动 review 的 HEAD。
 
@@ -132,7 +143,9 @@ Design Snapshot 表示设计获批，不表示能力已实现。设计稿、正�
 
 ### 回顾或学习开发过程
 
-按版本依次阅读 `PLAN.md → RESULT.md`。PLAN 用于理解当时面对的问题和准备采用的方案，RESULT 用于理解实际结果、偏差、证据和遗留经验。
+V2.1.0 及以前按版本依次阅读 `PLAN.md → RESULT.md`。V2.1.1 起按需读取
+`PLAN.md → HISTORY.md → RESULT.md`：PLAN 是最后生效的合同，HISTORY 解释路线与身份为何变化，
+RESULT 是实际结果和验收结论。只关心当前任务时不默认读取 HISTORY。
 
 ## 5. 文档 Agent 的阅读路径
 
@@ -161,6 +174,12 @@ docs/README
 ~~~
 
 文档 Agent 检查：范围是否完成、偏差是否解释、证据是否充分、结论是否与历史架构冲突。不能从 RESULT 没有提供的信息推断代码事实。
+
+V2.1.1 起，文档交接不是纯机械验签。候选身份、Gate 完整性和 clean 状态先由机器检查过滤；随后
+文档 Agent 对照 PLAN 和开发交付映射，一次性核对开发是否正确理解用户结果、Design Baseline、
+范围、技术路线、失败边界与偏差。结论只能是：`DOC_ALIGNED`（进入独立验收）、`DOC_RETURNED`
+（PLAN 不变，集中列出全部可发现的交付/理解缺口）或 `PLAN_REVISION_REQUIRED`（合同本身必须
+实质改变）。文档语义审查不替代 Acceptance Agent 对源码正确性的独立证明。
 
 ## 6. 开发 Agent 的阅读路径
 
@@ -192,6 +211,11 @@ docs/README
 6. 不更新根 README、docs/README、CURRENT_STATE 或 DECISIONS。
 7. 不操作 canonical 本地 `main`、GitHub remote 或正式 tag，也不通过其他目录绕过固定 workspace 权限。
 
+V2.1.1 起，RESULT 还必须逐项提供 `PLAN ID → 用户要求/产品结果 → 开发理解 → 实际交付 →
+可复核证据 → 已知偏差` 映射。开发负责的强制 Gate 全部 PASS、最终包和候选身份冻结、工作树 clean
+之前，只能标记 `DEV_VERIFYING`，不得以“开发完成”交接；真实阻断标记为 `BLOCKED`，不得把缺失
+验证转交 Acceptance Agent 补跑。
+
 开发 Agent 提交候选 commit、批准 PLAN commit/blob 和 clean 状态后，本轮候选冻结；此后不再修改该候选的 RESULT。验收结论、人工反馈、文档收口和发布状态由文档 Agent 写入。
 
 如果当前 PLAN 包含由文档整理触发的源码同步任务，开发 Agent 还必须全仓库检查旧路径、旧文件名和固定清单数量是否仍被配置、脚本或测试引用；不能只修改文档链接或依赖 `.gitignore` 掩盖残留。
@@ -207,7 +231,10 @@ PLAN 中被标记的 Task
 → 将只读验收报告交给文档 Agent
 ~~~
 
-不在仓库创建独立验收报告，不直接修改 PLAN/RESULT，也不读取无关历史。数据迁移、事实正确性、持久化和安全等高风险变化应在 PLAN 中显式标记。文档 Agent 根据验收报告把结论、绑定 commit 和证据摘要写入同一份 RESULT，版本目录仍只有 PLAN 与 RESULT。
+不在仓库创建独立验收报告，不直接修改 PLAN/RESULT/HISTORY，也不读取无关历史。数据迁移、事实
+正确性、持久化和安全等高风险变化应在 PLAN 中显式标记。文档 Agent 根据验收报告把结论、绑定
+commit 和证据摘要写入同一份 RESULT；V2.1.1 起的版本目录允许 PLAN、RESULT 与 HISTORY，其他
+分项验收报告仍不得成为第四个真源。
 
 若 PLAN 绑定 `DS-xxx`，验收还必须区分三类 Gate：Design Fidelity 检查实现与冻结 HTML 的
 布局、文案、状态、交互和响应式结果；Integration 检查 Mock、Real API、Feature Flag、失败
@@ -309,22 +336,23 @@ PLAN 出现“改为、只允许、不再、统一、替换、废弃、删除、
 5. 人审核 PLAN；文档 Agent 记录批准 commit/blob、Design Baseline 和 manifest hash
 6. 开发 Agent 在 current 核对基线、PLAN 身份和 `DS-xxx`，按实施矩阵实现和测试
 7. Design Agent 可继续演进下一版工作稿，但不改变当前开发目标
-8. 开发 Agent 在 RESULT 记录实施、自测和偏差，提交 clean 候选 H 后冻结
-9. 文档 Agent 从本地 current 接收 H，以本地候选引用保护，并把 review detached 到 H
-10. 如 PLAN 有高风险、设计符合度或阶段审查标记，安排未参与实现、自测或修复的验收 Agent 验收；动态测试在一次性临时副本和隔离 runtime 中执行
-11. 验收 Agent 返回绑定 H 的 Design Fidelity、Integration 和适用源码报告；文档 Agent 将结论写入 RESULT
-12. 人实际使用并验收产品
-13. 未通过：文档 Agent 在 RESULT 标记“需修正”，必要时追加 PLAN 返工契约；只有 P0/P1 设计问题才按新 Snapshot 解冻，开发 Agent 产生新候选
-14. 通过：文档 Agent 将已验收候选纳入 canonical 本地 main，并把 RESULT 标记“已验收”
-15. 文档 Agent 更新 CURRENT_STATE、索引及必要的根 README，确认相对 H 只有授权文档变化，形成最终发布候选 R
-16. 人确认是否发布
-17. 文档 Agent 核对远端 `publish/main`、可快进关系和 tag 不存在，更新公开 main 并创建指向 R 的 annotated tag；异常时停止并报告
-18. 下一版本再次选择当时最新的用户已批准 Design Snapshot，不沿用 Design Agent 当前工作稿
+8. 开发 Agent 在 RESULT 记录实施、自测、交付映射和偏差；开发 Gate 全部 PASS 后提交 clean 候选 H
+9. 文档 Agent 接收 H，先做机器前置过滤，再一次性完成语义交付审查；只有 DOC_ALIGNED 才保护候选并把 review detached 到 H
+10. DOC_RETURNED 时集中返回完整缺口，PLAN 不变；PLAN_REVISION_REQUIRED 时由文档 Agent 形成完整新 Revision、更新 HISTORY 并重新取得用户批准
+11. 如 PLAN 有高风险、设计符合度或阶段审查标记，安排未参与实现、自测或修复的验收 Agent 验收；动态测试在一次性临时副本和隔离 runtime 中执行
+12. 验收 Agent 返回绑定 H 的 Design Fidelity、Integration 和适用源码报告；文档 Agent 将结论写入 RESULT
+13. 人实际使用并验收产品
+14. 未通过：文档 Agent 在 RESULT 标记“需修正”；按原因继续同一 PLAN 或形成新 Revision，重要事件记入 HISTORY；只有 P0/P1 设计问题才按新 Snapshot 解冻
+15. 通过：文档 Agent 将已验收候选纳入 canonical 本地 main，并把 RESULT 标记“已验收”
+16. 文档 Agent 更新 CURRENT_STATE、索引及必要的根 README，确认相对 H 只有授权文档变化，形成最终发布候选 R
+17. 人确认是否发布
+18. 文档 Agent 核对远端 `publish/main`、可快进关系和 tag 不存在，更新公开 main 并创建指向 R 的 annotated tag；异常时停止并报告
+19. 下一版本再次选择当时最新的用户已批准 Design Snapshot，不沿用 Design Agent 当前工作稿
 ~~~
 
-没有界面设计工作的版本可以跳过第 2、3 步及 Design Baseline 字段。返工继续使用同一份
-PLAN/RESULT，不增加交接、评审或状态文档；开发与验收继续复用各自固定独立仓库，不为轮次
-增加工作树、clone 或默认路径。文档 Agent 可以在 canonical 并行讨论下一版本 DRAFT；当前候选
+没有界面设计工作的版本可以跳过第 2、3 步及 Design Baseline 字段。开发与验收继续复用各自固定
+独立仓库，不为轮次增加工作树、clone 或默认路径。V2.1.1 起每个版本至多使用 PLAN、RESULT、
+HISTORY 三份正式版本文档，HISTORY 不是交接或验收报告。文档 Agent 可以在 canonical 并行讨论下一版本 DRAFT；当前候选
 冻结前，开发 Agent 必须同步已批准的文档变化，未批准 DRAFT 和未导入的新设计快照都不构成
 当前版本任务。
 
@@ -334,17 +362,18 @@ RESULT 保持简洁，至少包括：
 
 1. 批准 PLAN commit/blob、对应分支和候选 Git commit；未提交时记录工作区状态，最终验收必须绑定 commit；
 2. 实际完成内容和 PLAN Task 对照；
-3. 计划偏差、原因和遗留问题；
-4. API、数据表/模型、模块职责、配置/依赖的实际变化；无变化的类别写“无”；
-5. 功能验收与结构变更验收，两项分别标记“通过”“失败”“不适用”或“待源码复核”；
-6. 验证表，每项标记“通过”“失败”“未执行”或“待独立验收”，并附简短证据或原因；替换型变更必须包含正向、反向和回归证据；
-7. 高风险或阶段性源码验收结论及对应 commit，如 PLAN 要求；
-8. 人工验收反馈；
-9. 如 PLAN 绑定设计基线：源 Snapshot ID、canonical `DS-xxx`、manifest hash、实现偏差、
+3. V2.1.1 起的逐项交付映射：用户要求/产品结果、开发理解、实际交付、证据和偏差；
+4. 计划偏差、原因和遗留问题；
+5. API、数据表/模型、模块职责、配置/依赖的实际变化；无变化的类别写“无”；
+6. 功能验收与结构变更验收，两项分别标记“通过”“失败”“不适用”或“待源码复核”；
+7. 验证表，每项标记为“通过”“失败”“未执行”或“待独立验收”，并附简短证据或原因；替换型变更必须包含正向、反向和回归证据；
+8. 高风险或阶段性源码验收结论及对应 commit，如 PLAN 要求；
+9. 人工验收反馈；
+10. 如 PLAN 绑定设计基线：源 Snapshot ID、canonical `DS-xxx`、manifest hash、实现偏差、
    Design Fidelity / Integration Gate 及 Preview / Integrated / Active 最终状态；
-9. 文档验收结论；
-10. 建议写入全局文档的已验证事实。
-11. 发布后如发生远端修正或安全处置，在后续 main 上追加“发布后补录”，不移动已经正确发布的旧 tag。
+11. 文档语义审查结论；
+12. 建议写入全局文档的已验证事实；
+13. 发布后如发生远端修正或安全处置，在后续 main 上追加“发布后补录”，不移动已经正确发布的旧 tag。
 
 RESULT 顶部只使用三个状态：`待验收`、`需修正`、`已验收`。
 
@@ -356,5 +385,6 @@ RESULT 顶部只使用三个状态：`待验收`、`需修正`、`已验收`。
 - PLAN 只写相对 CURRENT_STATE 的变化，不重复全部历史；
 - CURRENT_STATE 只保存当前事实，不累积版本流水账；
 - 测试只记录命令、结论和关键数据，不粘贴长日志；
-- 历史细节留在各版本 RESULT，需要时再读取；
+- V2.1.0 及以前的历史细节留在各版本 RESULT；V2.1.1 起的重要过程放入 HISTORY，RESULT 只保留实际结果、当前 Gate 和最终验收结论；
+- HISTORY 默认冷读取：只有追查 PLAN 修订、候选失效、重大事故或跨版本经验时才打开；
 - 根 README 只服务普通 GitHub 用户，不进入开发 Agent 的默认上下文；
