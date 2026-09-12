@@ -3,8 +3,8 @@
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
 > 当前已验收版本：V2.1.0；源码验收对象为 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
-> 当前已发布版本：V2.0.2；V2.1.0 首次 tag 已按 Product Owner 要求撤回，正在修正预检标题并重新执行发布门禁
-> 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；功能验收结论保持通过，重发完成前不写成已发布
+> 当前已发布版本：V2.1.0；重新创建的 annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
+> 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；功能验收、预检标题修正、重新验证与重发均已完成
 > 下一开发草稿：V2.1.1；跨页面工作台状态保持、反思/路线挑战与快速交付工作流已记录但尚未进入正式 PLAN；“生成历史”等后续 V2 能力继续保留在 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md)
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
@@ -184,6 +184,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 已发布；annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./versions/v2.0.1/PLAN.md) | [RESULT](./versions/v2.0.1/RESULT.md) | 已发布；annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | 已发布；annotated tag `v2.0.2` 指向 `78bb909c18ca28e45b54406536aa326887caa1ca` |
-| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./versions/v2.1.0/PLAN.md) | [RESULT](./versions/v2.1.0/RESULT.md) | 功能验收通过；首次 tag 已撤回，修正预检标题后重发 |
+| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./versions/v2.1.0/PLAN.md) | [RESULT](./versions/v2.1.0/RESULT.md) | 已重发；annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd` |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

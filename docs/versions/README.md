@@ -22,11 +22,11 @@
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./v2.0.0/PLAN.md) | [RESULT](./v2.0.0/RESULT.md) | 已发布；T9/T10/T11 通过，annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./v2.0.1/PLAN.md) | [RESULT](./v2.0.1/RESULT.md) | 已发布；独立源码验收与人工验收通过，annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./v2.0.2/PLAN.md) | [RESULT](./v2.0.2/RESULT.md) | 已发布；源码候选 `eb4bd30`，annotated tag `v2.0.2` 指向 `78bb909` |
-| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 功能验收通过；首次 tag 已撤回，修正预检标题后重发 |
+| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 已重发；H8-R2-SRC `f5124c2`，annotated tag `v2.1.0` 指向 `5d72a2e` |
 
 ## 当前活动版本
 
-V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。首次 annotated tag 已因统一预检标题仍硬编码 V2.0.2 而按 Product Owner 要求撤回；当前正在完成版本无关标题修正、重新预检与重发。功能候选和人工验收结论不变，完整历史保存在 [RESULT](./v2.1.0/RESULT.md)。
+V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。首次 annotated tag 因统一预检标题仍硬编码 V2.0.2 而按 Product Owner 要求撤回；标题改为版本无关文本并重新通过本地预检和 GitHub Windows CI 后，annotated tag `v2.1.0` 已重新创建，指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`。功能候选和人工验收结论不变，完整历史保存在 [RESULT](./v2.1.0/RESULT.md)。
 
 ## 当前开发计划
 
