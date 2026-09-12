@@ -648,6 +648,20 @@ JD=1、rewrite=1、Provider chat=2、P1–P4 时间闭合、锚点绑定、Word/
 
 隔离副本和本轮进程已清理完毕；review 验收后仍为 H8-R2-SRC、detached、clean，PLAN blob 不变。
 
+#### 5. 真实模型 E2E 补证 1（2026-09-12）
+
+验收者在候选、PLAN blob、DEV RESULT blob 与包 EXE SHA-256 均未变化的前提下再次检查模型环境。
+通过 Windows 凭据机制取得既有配置后，以不含用户数据的最小请求连续探测两次，模型
+`doubao-seed-evolving` 均返回 `404 ModelNotOpen`。凭据、请求正文和账户信息未进入报告或仓库。
+
+由于模型仍不可用，本次没有启动 `h8_real_model_e2e.py` 或窗口监测器，也没有产生 operation、阶段、
+artifact、下载、锚点、JD/rewrite 次数及完整链零窗口的新证据。首次验收已通过的旧包 worker 6 次
+闪窗、新包同路径 0 次、失败矩阵和结构结论保持有效，但不能替代 mandatory 的完整真实 E2E。
+
+**补证结论：Integration 仍为部分通过，Release Gate 仍未通过，累计结论仍为 FAIL。** 本次没有发现
+新的候选缺陷，不修改 PLAN、不创建新候选；停止重复验收，等待模型授权或兼容的既有运行配置真正
+可用。最小探测成功后，才对同一 H8-R2-SRC 和 `release-h8-r2` 恢复完整 E2E 补证。
+
 ## 1. 本文件用途
 
 本文件从 V2.1.0 立项阶段开始持续记录实际执行、验证证据、计划偏差和验收结论。它不以
