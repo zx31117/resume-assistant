@@ -2,10 +2,10 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V2.0.2；源码验收对象为 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`
-> 当前已发布版本：V2.0.2；发布标识为 annotated tag `v2.0.2`，指向 `78bb909c18ca28e45b54406536aa326887caa1ca`
-> 当前版本档案：[V2.0.2 PLAN](./versions/v2.0.2/PLAN.md) / [RESULT](./versions/v2.0.2/RESULT.md)；开发、独立源码验收、人工确认、文档收口与版本发布均已完成
-> 当前开发计划：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) 已由 Product Owner 批准，[RESULT](./versions/v2.1.0/RESULT.md) 已记录冻结身份；本地 Design Snapshot `D-002` 已原样导入 canonical `DS-002` 并通过 hash 验证，T0 完成；“生成历史”等后续 V2 能力保留在 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md)
+> 当前已验收版本：V2.1.0；源码验收对象为 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
+> 当前已发布版本：V2.0.2；V2.1.0 已获 Product Owner 发布批准，等待最终候选 GitHub Windows CI 通过后创建 annotated tag
+> 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；开发验证、独立验收和 Product Owner 人工验收均已通过
+> 下一开发草稿：V2.1.1；跨页面工作台状态保持、反思/路线挑战与快速交付工作流已记录但尚未进入正式 PLAN；“生成历史”等后续 V2 能力继续保留在 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md)
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -57,9 +57,10 @@ V1 不要求严格一页纸、像素级排版、高性能体验、多用户或�
 PDF → 文本解析 → 经历提取 → Experience / Fact 写入 SQL → SQLite 向量派生
 JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受事实约束的内容生成
 → ResumeBuilder 确定性装配 → ResumeDocument → TemplateRenderer → DOCX
+→ Microsoft Word COM → PDF → PDF.js viewer / Word 与 PDF 下载
 ~~~
 
-V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加三页图形交互及 Windows 便携启动器；V2.0.1 为生成、提取、Experience CRUD、迁移和索引维护增加统一的本地阶段、耗时与脱敏诊断能力；V2.0.2 建立统一 Windows 预检与 CI 基线，退出旧 vectorstore 迁移契约，并将测试数据严格隔离到临时 runtime。当前具体实现能力以 `CURRENT_STATE.md` 为准。
+V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加图形交互及 Windows 便携启动器；V2.0.1 增加统一的本地阶段、耗时与脱敏诊断能力；V2.0.2 建立统一 Windows 预检与 CI 基线并退出旧 vectorstore 迁移契约；V2.1.0 完成用户界面整体重构、服务端四阶段投影和 DOCX→Word→PDF→viewer/download 单一产物链。当前具体实现能力以 `CURRENT_STATE.md` 为准。
 
 ## 4. 事实所有权
 
@@ -183,5 +184,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./versions/v2.0.0/PLAN.md) | [RESULT](./versions/v2.0.0/RESULT.md) | 已发布；annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./versions/v2.0.1/PLAN.md) | [RESULT](./versions/v2.0.1/RESULT.md) | 已发布；annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | 已发布；annotated tag `v2.0.2` 指向 `78bb909c18ca28e45b54406536aa326887caa1ca` |
+| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./versions/v2.1.0/PLAN.md) | [RESULT](./versions/v2.1.0/RESULT.md) | 已验收并获发布批准；等待 GitHub Windows CI 与 annotated tag |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

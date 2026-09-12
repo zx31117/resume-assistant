@@ -1,15 +1,16 @@
 # Resume Assistant
 
-一个本地运行的 AI 简历生成应用：保存用户的完整职业经历，再根据目标岗位 JD 检索相关事实、生成针对性表达，并输出 DOCX 简历。
+一个本地运行的 AI 简历生成应用：保存用户的完整职业经历，再根据目标岗位 JD 检索相关事实、生成针对性表达，并输出可预览、可下载的 Word/PDF 简历。
 
-当前版本为 **V2.0.2**。本版本在 V2.0.1 本地流程诊断能力之上，建立统一 Windows 预检与 CI 工程基线，退出旧 vectorstore 迁移契约，并强化测试 runtime 隔离；产品业务流程与三页图形界面保持不变。
+当前版本为 **V2.1.0**。本版本完成核心用户界面整体重构：从简历上传、经历管理、JD 输入、四阶段生成到结果预览形成统一工作流；最终 DOCX 是排版真源，由 Microsoft Word 转换为 PDF，页面预览与 PDF 下载读取同一文件。
 
 ## 项目能做什么
 
 ```text
 PDF 简历 → 文本解析 → 经历提取 → SQLite Experience / Fact 事实库
 目标 JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受约束改写
-→ ResumeDocument（保留逐 bullet 来源）→ DOCX 模板渲染 → 本地文件
+→ ResumeDocument（保留逐 bullet 来源）→ DOCX 模板渲染
+→ Microsoft Word 转换 PDF → PDF.js 预览 / Word 与 PDF 下载
 ```
 
 核心原则：
@@ -27,29 +28,68 @@ PDF 简历 → 文本解析 → 经历提取 → SQLite Experience / Fact 事实
 - Experience / Fact 的 SQLite 持久化、revision/hash、失效和重建；
 - SQLite BLOB 向量与内存精确检索，无第二持久化后端；
 - JD 七字段分析、两层选材和带逐 bullet `fact_refs` 的受约束内容生成；
-- `ResumeBuilder` 确定性装配与 DOCX 模板渲染；
+- `ResumeBuilder` 确定性装配、DOCX 模板渲染与 Word→PDF 单一排版链；
 - 无需 API Key 的本地 Stub Demo；
 - FastAPI 接口和 Swagger 文档；
 - 仓库外的统一运行数据目录。
-- React + TypeScript + Vite 三页图形界面；
+- React + TypeScript + Vite 用户界面，包括欢迎上传、经历库、生成工作台、四阶段进度和结果页；
 - 连接测试、激活和脱敏状态显示，Windows 长期 Key 存入 Credential Manager；
 - 状态、迁移、Embedding 重建和失败重试的图形维护入口；
 - Windows x64 目录型便携启动器，支持单实例、端口选择、重开和退出释放。
-- 运行活动、分阶段耗时、近期同类耗时对比、脱敏后台日志和诊断摘要；刷新后可从“本地系统”复盘同一后台操作。
+- PDF.js 展示真实生成的 PDF artifact，支持逐条事实依据定位以及 Word/PDF 双下载；
+- 运行活动、服务端四阶段实时耗时、近期同类耗时对比、脱敏后台日志和诊断摘要。
+
+## 技术架构
+
+当前发布版采用本地单用户、前后端同源的分层架构。浏览器界面只负责输入、状态展示、预览和结果下载，职业事实、检索、内容选择、生成与文件渲染统一由后端完成，不在前端建立第二套业务逻辑或数据真源。
+
+```text
+React + TypeScript + Vite
+        │  同源 HTTP API
+        ▼
+FastAPI 路由与请求模型
+        │
+        ▼
+应用服务层
+├─ PDF 解析与经历提取
+├─ Experience / Fact 生命周期管理
+├─ JD 分析与两层事实选择
+├─ 受约束改写与 ResumeBuilder 确定性装配
+├─ DOCX 模板渲染与 Word→PDF 转换
+└─ 配置、迁移、索引维护与操作诊断
+        │
+        ├─ SQLite / SQLAlchemy：Experience、Fact 与 Embedding
+        ├─ 外部 LLM / Embedding Provider：内容理解、改写与向量生成
+        └─ Runtime data root：输出文件、日志、缓存与版本化配置
+```
+
+架构中的关键边界：
+
+- **事实真源**：Experience / Fact 保存在 SQLite；Embedding 是可以从 Fact 重建的派生索引，不能反向覆盖事实。
+- **内容决策**：程序负责流程、约束、来源校验和结构装配，模型只在明确边界内理解或改写内容。
+- **薄前端**：React 页面通过 typed API/状态模型消费后端结果，不直接访问数据库、持有长期 API Key 或实现另一套选材逻辑。
+- **输出同源**：`ResumeBuilder` 生成 `ResumeDocument`，模板 Renderer 生成 DOCX；DOCX 经 Microsoft Word 转为 PDF，PDF.js 预览与 PDF 下载读取同一 artifact。
+- **运行隔离**：数据库、输出、配置、日志和缓存统一位于仓库外的 `RESUME_DATA_DIR`；源码目录不承担运行数据持久化。
+- **凭据边界**：Windows 便携版的长期 API Key 保存在 Credential Manager；浏览器和生成文件不保存密钥。
+- **发行形态**：生产前端由 FastAPI 同源托管，Windows 发行采用 PyInstaller `onedir`，启动器负责 loopback 监听、单实例、端口选择和退出清理。
+- **失败策略**：迁移、索引、模型调用、来源校验或渲染失败必须显式可见；已知失败不降级为伪成功或静默使用过期数据。
+
+这里描述的是当前发布架构。设计理由、历史替代方案和版本级变更记录见 [开发文档入口](docs/README.md)、[架构与产品决策](docs/DECISIONS.md) 和 [当前实现状态](docs/CURRENT_STATE.md)。
 
 ## 快速开始
 
 ### Windows 便携版（推荐）
 
-V2.0.2 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
+V2.1.0 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
 
 1. 双击 `ResumeAssistant.exe`；
 2. 浏览器自动打开本地界面；
-3. 在“本地系统”完成连接测试/激活、数据库迁移和索引维护；
-4. 在“履历库”导入 PDF 或维护 Experience；
-5. 在“生成工作台”输入身份信息和目标 JD，选择模板并下载 DOCX。
+3. 从左下角进入开发者后台，完成连接测试/激活、数据库迁移和索引维护；
+4. 上传已有 PDF 简历，或在“我的经历”中维护 Experience；
+5. 在生成工作台确认身份信息、粘贴目标 JD 并一键生成；
+6. 在结果页核对事实依据，下载 Word 或 PDF。
 
-便携运行不要求安装 Python、Node.js、打开终端、使用 Swagger 或编辑 `.env`。API Key 不写入浏览器长期存储或便携目录；运行数据仍位于 `%LOCALAPPDATA%\ResumeAssistant`。
+便携运行不要求安装 Python、Node.js、打开终端、使用 Swagger 或编辑 `.env`。生成 PDF 与页面预览需要本机安装 Microsoft Word；若转换不可用，系统会明确显示 PDF 不可用且保留 Word 下载，不会回退到另一套近似排版。API Key 不写入浏览器长期存储或便携目录；运行数据仍位于 `%LOCALAPPDATA%\ResumeAssistant`。
 
 ### 从源码运行
 
@@ -129,7 +169,7 @@ python manage.py migrate
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-打开 <http://127.0.0.1:8000/> 即可使用三页图形界面。数据库或索引未就绪时，应用仍允许进入“本地系统”维护页，但会阻断生成。
+打开 <http://127.0.0.1:8000/> 即可使用图形界面。数据库或索引未就绪时，应用仍允许进入开发者后台维护，但会阻断生成。
 
 CLI 维护入口继续保留：
 
@@ -214,13 +254,15 @@ resume-assistant/
 
 ## 当前边界
 
-- V2.0.2 已提供生成工作台、履历库和本地系统三页图形界面及本地操作诊断；当前交互流程仍会在后续版本继续重新设计；
+- V2.1.0 已完成欢迎上传、经历库、JD 输入、四阶段生成和结果预览的整体界面重构；
 - 诊断数据仅用于本地问题定位，按容量和保留期轮转，不是业务事实源、生产 APM 或云端遥测；
 - 面向单用户本地使用，尚未包含登录、多用户和服务器部署；
 - Windows x64 是当前便携发行范围；macOS/Linux 便携、Firefox 发布验收和完整移动端适配尚未覆盖；
-- 不包含 DOCX/PDF 预览、Draft/Revision、差异回退、局部重新生成或手工覆盖选材结果；
+- 当前使用固定模板；不包含 Draft/Revision、差异回退、局部重新生成或手工覆盖选材结果；
+- 工作台状态尚未在跨页面切换后保留，该项已进入 V2.1.1；
 - 不保证简历严格控制在一页，不生成个人总结或自我评价；
 - 固定槽位、事实边界和来源闭环已验收，不代表相关性权重、召回质量、措辞或招聘效果已经优化；
+- 当前用户界面左下角仍保留开发者后台入口，尚未形成面向上线环境的权限隔离；
 - 当前只图形化豆包 / 火山方舟配置，不包含多 Provider、Token/费用统计或质量评测后台；
 - 真实生成依赖外部模型服务，其可用性和费用由对应服务商决定。
 

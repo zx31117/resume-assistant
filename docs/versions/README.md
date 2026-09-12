@@ -22,16 +22,17 @@
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./v2.0.0/PLAN.md) | [RESULT](./v2.0.0/RESULT.md) | 已发布；T9/T10/T11 通过，annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./v2.0.1/PLAN.md) | [RESULT](./v2.0.1/RESULT.md) | 已发布；独立源码验收与人工验收通过，annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./v2.0.2/PLAN.md) | [RESULT](./v2.0.2/RESULT.md) | 已发布；源码候选 `eb4bd30`，annotated tag `v2.0.2` 指向 `78bb909` |
+| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 开发验证、独立验收与 Product Owner 人工验收通过；已批准发布，等待 CI/tag |
 
 ## 当前活动版本
 
-V2.0.2 已完成开发、集中返工、独立源码验收、人工确认、文档收口和公开发布。最终源码验收绑定 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`，功能与结构变更验收均通过、源码阻断项 0；annotated tag `v2.0.2` 指向发布候选 `78bb909c18ca28e45b54406536aa326887caa1ca`。首次候选的打回原因、F1–F4 返工及 F3 哨兵批准口径完整保留在 [RESULT](./v2.0.2/RESULT.md)。项目仍不区分普通用户和开发者界面，V2.1.0 的整体前端重构边界不变。
+V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收，最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。核心用户界面、四阶段真实计时、DOCX→Word→PDF 单一排版链、PDF.js 真实 artifact 预览与 Word/PDF 双下载均已通过；Product Owner 已批准发布，当前等待最终候选 GitHub Windows CI 成功和 annotated tag。完整返工与验收历史保存在 [RESULT](./v2.1.0/RESULT.md)。
 
 ## 当前开发计划
 
 | 版本 | 定位 | 计划 | 结果 | 状态 |
 |---|---|---|---|---|
-| V2.1.0 | 冻结设计快照并完成核心用户界面整体重构 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | PLAN 已批准，`DS-002`、批准 commit/blob 与 T0 已冻结；待开发 |
+| V2.1.1 | 工作台状态保持与快速交付工作流首轮应用 | 草稿分支中 | — | 草稿；尚未形成或批准正式 PLAN |
 
 ## 阶段需求池（非开发指令）
 
