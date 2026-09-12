@@ -1,13 +1,14 @@
 # V2.1.0 RESULT：执行记录
 
-> 当前状态：**H8-R1 独立源码验收通过，但 Product Owner 人工验收打回**。进入 P4 排版阶段后，
-> 最终 onedir 反复短暂弹出 CMD/控制台窗口，属于普通用户核心流程的 P1 可见缺陷；已批准 PLAN §21
-> 的 H8-R2 集中返工。H8-R1 不再具备发布资格，当前等待开发形成新候选；**尚未发布**。
+> 当前状态：**H8-R2 开发侧门禁全部通过（PLAN §21.4 前四条），候选已形成**。H8-R1 因 Product Owner
+> 人工验收打回（P4 排版阶段反复弹出 CMD/控制台窗口）不得发布；H8-R2 集中返工已完成根因定位与修复
+> 并冻结候选 H8-R2-SRC / H8-R2-DEV。等待 Documentation Agent 再交接与独立 Acceptance Agent 独立
+> 验收、Product Owner 人工复核；**尚未发布**。
 > 当前产品基线：已发布 V2.0.2
-> 最近冻结候选：**H8-R1-SRC** `d4ae2fb2f7fe54378d5dcd0a22284db5931aad7f` /
-> **H8-R1-DEV** `0a5bbe53af6b7a491ba4ccfaecb049c84153645c`（已被人工验收打回）；H8-R2 尚未形成
+> 最近冻结候选：**H8-R2-SRC** `（待冻结后回填）` / **H8-R2-DEV** `（待冻结后回填）`
+> （唯一父为 H8-R2-SRC、只改本文件）；H8-R1 候选已被人工验收打回
 > 当前 H8-R2 PLAN 批准 blob：`4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（含 §20–§21；H8-R2 开发基线必须携带该 blob）
-> 发布结论：不发布；H8-R1 人工验收未通过，待 H8-R2 开发、独立验收与人工复核
+> 发布结论：不发布；待 H8-R2 独立验收与人工复核全部通过
 
 > **阅读指引（重要）**：第 0 节是 H8 的权威开发门禁摘要；其后的 H8-8、H8-R1 返工与验收、
 > H8-R1 人工打回记录按时间依次覆盖候选状态。自「§1 本文件用途」起的内容是 V2.1.0 早期历史
@@ -412,6 +413,170 @@ H8-R2 当前状态为**待开发**。根因尚未由开发证据确认，不能�
 提前写成实现事实。开发必须先在旧包绑定闪窗对应的进程、父子关系和生产调用点，再统一修复全部入口，
 并证明正常、失败、超时、并发和恢复路径均为零可见控制台/Word 窗口，同时保持 §20 的转换、artifact、
 计时、JD 次数、失败清理和包身份不变量。
+
+### H8-R2 集中返工记录（2026-09-12，开发侧验证）
+
+> 本节由开发侧在 H8-R2 返工后撰写，绑定 H8-R1 人工打回（PLAN §21）；**为开发侧验证记录，不代表独立
+> 验收通过**，待独立验收者按「待独立验收问题」复验。
+
+#### 0. 完整身份表（H8-R2）
+
+| 项 | 值 |
+|---|---|
+| branch | `version/v2.1.0` |
+| H8-R2-SRC | `（本文件在 H8-R2-DEV 中回填）` |
+| H8-R2-DEV | `（本文件在 H8-R2-DEV 中回填）`（只改本文件，唯一父为 H8-R2-SRC） |
+| PLAN blob | `4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（§20–§21，H8-R2 开发基线） |
+| 工作区 | H8-R2-SRC 与 H8-R2-DEV 提交后均 clean |
+| 变更约束 | H8-R2-SRC..H8-R2-DEV 只能修改 RESULT |
+
+#### 1. 绑定对象与失败
+
+- 绑定打回：H8-R1 Product Owner 人工验收打回（最终 onedir 进入 P4 排版阶段后反复短暂弹出
+  CMD/控制台窗口，P1 可见缺陷）。
+- 本记录为开发侧对 PLAN §21 的完成记录；独立验收与人工复核另行执行。
+
+#### 2. 根因（先定位后修复，未预设假设）
+
+在**未修改的** `release-h8-r1\ResumeAssistant` 上以窗口事件监测器（`scripts/h8_r2_winmon.py`：
+WinEventHook 捕获 create/show/destroy + 10ms 高频 EnumWindows 可见窗口轮询 + 每条事件同步刷新
+进程表，覆盖短寿命窗口）伴随真实模型 onedir E2E 连续监测，捕获：
+
+- **23 次** `tasklist.exe` 的 `PseudoConsoleWindow` 可见窗口事件，全部 `ancestor_is_app=True`
+  （父进程链属于被测 `ResumeAssistant.exe` 进程树），集中在 P4 排版阶段（监测时间窗 span≈182s）。
+- 证据：`validation-artifacts/h8/r2/neg/win_events_old.jsonl`（78 条事件；23 条 tasklist
+  PseudoConsoleWindow 为应用后代）。
+
+**根因结论**：冻结 onedir 入口为 GUI 子系统（无控制台）。生产代码在**无控制台父进程**下启动控制台
+子进程（`tasklist` / `taskkill` / `cmd /c rd`）且未携带 `CREATE_NO_WINDOW` 时，Windows 会为每个
+控制台子进程分配**新的可见控制台窗口**，在 P4（每次 Word 归属识别/清理都会调用 tasklist/taskkill）
+反复闪出。并非单一 subprocess 参数：`docx_to_pdf.py` 与 `docx_to_pdf_worker.py` 中的
+tasklist/taskkill、以及 `cmd /c rd` 二次包装均为同类窗口来源，统一按「全部生产子进程入口携带
+`CREATE_NO_WINDOW`」修复；`cmd /c rd` 直接改为纯 Python `shutil.rmtree`（消除 CMD 二次包装）。
+
+#### 3. 生产子进程入口（全量审计）与修改范围
+
+无 `shell=True`、无 CMD/PowerShell 二次包装（`cmd /c rd` 已删除）；Word COM 仍为本次独立不可见实例，
+只清理本次自有 worker/WINWORD；DOCX→Word COM→PDF 单一链、PDF.js/download 同 artifact、锚点、阶段
+计时、单次 JD 分析与 fail-closed 语义均未改变。
+
+| 入口（生产文件） | 调用 | H8-R2 处置 |
+|---|---|---|
+| `services/docx_to_pdf.py::_kill_tree` | taskkill /F /T（超时终止 worker 树） | `creationflags=_NO_WINDOW` |
+| `services/docx_to_pdf.py::_kill_owned_word` | taskkill /F（按 meta 清理自有 WINWORD） | `creationflags=_NO_WINDOW` |
+| `services/docx_to_pdf.py::_winword_pids` | tasklist（转换前 WINWORD 快照） | `creationflags=_NO_WINDOW` |
+| `services/docx_to_pdf.py::_cleanup_window_winword` | taskkill /F（窗口期清理兜底） | `creationflags=_NO_WINDOW` |
+| `services/docx_to_pdf.py::convert_docx_to_pdf_bytes` | Popen worker（冻结态以本 exe 重入） | 原有 `CREATE_NO_WINDOW` 保持 |
+| `services/docx_to_pdf.py::convert_docx_to_pdf_bytes` finally | `cmd /c rd` 清理临时目录 | 删除，改 `_rmtree_force`（shutil.rmtree，失败记入受控日志不吞） |
+| `services/docx_to_pdf.py::capability_probe._wpids` / 清理 | tasklist / taskkill | 补齐 `creationflags=_NO_WINDOW`（防回归） |
+| `services/docx_to_pdf_worker.py::_winword_pids` | tasklist | `creationflags=_NO_WINDOW` |
+| `services/docx_to_pdf_worker.py::_kill_owned_winword` | taskkill /F | `creationflags=_NO_WINDOW` |
+| `api/routes/template.py::_ensure_template_docx` | check_call 构建模板脚本 | `creationflags=CREATE_NO_WINDOW` |
+
+修改文件：`backend/services/docx_to_pdf.py`、`backend/services/docx_to_pdf_worker.py`、
+`backend/api/routes/template.py`；新增开发/验证脚本 `scripts/h8_r2_winmon.py`（窗口监测器）、
+`scripts/h8_r2_failure_matrix.py`（失败矩阵）、`scripts/h8_r2_selftest.py`、`scripts/h8_r2_diag.py`。
+错误诊断保持：worker stderr/退出码经 meta.json 进入父进程错误结果（`DocxToPdfError` code+detail），
+超时/崩溃/清理失败均不吞（受控日志）；超时、busy、fail-closed、锚点、计时与单次 JD 分析语义不变。
+
+#### 4. 旧包负向（机器证据）
+
+| 项 | 值 |
+|---|---|
+| 被测对象 | 未修改 `release-h8-r1\ResumeAssistant\ResumeAssistant.exe`（sha256 `7790ddf6f2c5…`） |
+| 监测器 | `scripts/h8_r2_winmon.py`（hook + 10ms 轮询 + 同步进程表） |
+| 捕获 | `validation-artifacts/h8/r2/neg/win_events_old.jsonl`：78 条事件 |
+| 应用后代可见窗口 | **23 次** `tasklist.exe` `PseudoConsoleWindow`，全部 `ancestor_is_app=True`（含 pid/ppid/时间戳） |
+| 对应生产调用点 | P4 期间 `_winword_pids` / worker `_winword_pids`（每次 Word 归属识别）；`cmd /c rd` 为同源二次包装 |
+| 结论 | 监测器可稳定复现与人工观察一致的闪窗 → 证明检测能力有效，满足 PLAN §21.4「旧包负向」 |
+
+#### 5. 新包正向（零可见窗口事件）
+
+真实模型 onedir E2E（`scripts/h8_real_model_e2e.py`，最终 `release-h8-r2` 包，真实豆包/火山方舟）
+全程伴随同一监测器：
+
+| 项 | 值 |
+|---|---|
+| 覆盖 | 启动 → 迁移 → 导入 → embedding 重建 → 浏览器 UI 生成 → Word→PDF → 锚点 → 下载 → 退出 |
+| app 祖先可见窗口事件 | **1**（唯一为应用主窗口 `ResumeAssistant.exe/TkTopLevel/「简历助手」`，PLAN §21.3.1 明确不计） |
+| 控制台类/Word 类可见窗口 | **0**（无 `ConsoleWindowClass`/`PseudoConsoleWindow`/`CASCADIA`/conhost/CMD/PowerShell/WINWORD） |
+| E2E 结果 | `SUCCEEDED`；P1–P4 全 `done`（elapsed 94,826ms，四阶段和差 delta=13ms）；`jd_analysis_started_events=1`、`content_generation_started_events=1`；Provider 边界 chat=2；`no_4xx_5xx=true`；Word/PDF 下载=磁盘 artifact、响应 pdf_sha 三方同源；WINWORD 泄漏 0 |
+| 证据 | `validation-artifacts/h8/r2/pos/win_events_new.jsonl`（30 条，app 祖先仅主窗口） |
+
+#### 6. 失败矩阵（五类路径 + 冻结 worker，全零可见窗口）
+
+驱动：`scripts/h8_r2_failure_matrix.py`，以 `pythonw.exe`（GUI 子系统、无控制台，与冻结 onedir 同构）
+执行，任何遗漏隐藏窗口参数的子进程都会因无控制台父进程产生**新可见控制台窗口**并被前后枚举自证捕获；
+外部监测器旁证。证据：`validation-artifacts/h8/r2/failmat/failure_matrix.json`、
+`win_events_fm.jsonl`。
+
+| 场景 | 期望与实测 |
+|---|---|
+| S1 Word/COM 缺失（worker 级 win32com 导入失败） | worker `com_failed` 可诊断 ✓ |
+| S2 损坏 DOCX（父链全量） | 父进程 `DocxToPdfError(code=com_failed)`，DOCX 输入字节 hash 不变（Word 仍可按原合同下载）✓ |
+| S3 超时（有效 DOCX + 极短超时） | `DocxToPdfError(code=timeout)`，taskkill /T 清理 worker 树，WINWORD 泄漏 0 ✓ |
+| S4 并发 busy | 第二路 `busy`，第一路正常完成（`%PDF-` 1 页）✓ |
+| S5 恢复后再生成 | S2 失败后立即成功（`%PDF-`，pages=1）✓ |
+| F1 冻结 exe worker 模式 + 损坏 DOCX | meta `com_failed`，零窗口 ✓ |
+
+外部监测器失败矩阵全程 **0** 控制台/Word 可见窗口事件；矩阵自证 `new_console_or_word_windows=[]`、
+`winword_leaked=[]`。
+
+#### 7. 开发侧门禁（命令、退出码、关键计数）
+
+| 命令 | 退出码 | 关键计数 |
+|---|---|---|
+| `python scripts/h8_r2_winmon.py`（旧包负向伴随 E2E） | 0 | 旧包捕获 23 次 tasklist `PseudoConsoleWindow`（app 后代） |
+| `python scripts/h8_real_model_e2e.py --exe <release-h8-r2>` | 0 | SUCCEEDED；P1–P4 done；jd=1/cg=1、chat=2；artifact 全等；WINWORD 泄漏 0 |
+| `pythonw scripts/h8_r2_failure_matrix.py --exe <release-h8-r2>` | 0 | 6 场景全过；新可见控制台/Word 窗口 0；WINWORD 泄漏 0 |
+| `python scripts/precheck.py` | 0 | 阻断检查全通过（编译/固定矩阵/前端 build/Hooks） |
+| `python scripts/h8_deterministic_tests.py` | 0 | **PASS=22 FAIL=0**（含 P2/P4 失败路径、P3 JD/计时/锚点、P5 计数分离） |
+| `python scripts/h8_package_audit.py --dir <release-h8-r2>` | 0 | PASS：4045 文件 / 170,264,106 B / 标记命中 0 / 违禁路径 0 |
+| `python scripts/h8_r2_pyz_check.py --exe <release-h8-r2>\ResumeAssistant.exe` | 0 | 内嵌 PYZ 3 生产模块递归 code 均含 `CREATE_NO_WINDOW`；`docx_to_pdf` 无 `cmd`/`rd` 常量 |
+
+#### 8. 新包身份
+
+- 包路径：`D:\demo\resume-assistant\release-h8-r2\ResumeAssistant\`（未覆盖 release-h8 / release-h8-r1 / X）
+- 清单：`D:\demo\resume-assistant\release-h8-r2\MANIFEST.sha256`（逐文件 SHA-256 + 字节数，4045 行与包全量核对一致）
+- 文件数：**4045**；总字节：**170,264,106**
+- EXE：`ResumeAssistant.exe`，SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`，16,753,725 字节
+- 前端 bundle：与 `release-h8-r1` 逐文件字节一致（4 个产品文件 SHA-256 全同），含无 `jd/analyze` 调用点、无 H6 注入标记
+- 冻结包内修复验证：以 PyInstaller `ZlibArchiveReader` 解包内嵌 PYZ，递归检查字节码 `co_names`：
+  `services.docx_to_pdf` / `services.docx_to_pdf_worker` / `api.routes.template` 均含
+  `CREATE_NO_WINDOW`（与 `_NO_WINDOW`），且 `docx_to_pdf` 不再含 `cmd`/`rd` 常量（`cmd /c rd` 已移除）
+
+#### 9. 前端字节结论（免跑浏览器矩阵依据）
+
+`release-h8-r1` 与 `release-h8-r2` 两包 `_internal/frontend/dist` 逐文件 SHA-256 比对：**4/4 完全一致**
+（index.html、index-*.js、index-*.css、pdf.worker.min-*.mjs；字节与长度均同；逐文件 hash 差异表
+`validation-artifacts/h8/r2/reg/frontend_hash_diff.txt` 为空）。本轮 H8-R2 未改动任何
+前端产品字节，故按 PLAN §21.4「前端字节完全不变时可用逐文件 hash 证明免跑理由」**免跑** H8-R1 真实
+输入回归与 H6 browser `--all`（二者针对前端行为与契约，未受后端隐藏窗口参数变更影响）。
+
+#### 10. 已知偏差
+
+- `capability_probe` 当前仅被开发侧确定性脚本调用（非产品生成链），本次仍统一补齐隐藏窗口参数以防回归。
+- 上一轮 H8-R2 准备期间误加的 `_worker_stderr_tail` 死代码（读取从未写入的 `worker_stderr.log`）已在
+  冻结前移除；worker 错误诊断仍经 meta.json 进入父进程错误结果。
+- 冻结包 EXE 字节较 H8-R1 变化属预期（后端三个生产模块字节码变更）；文件总数不变（4045）。
+
+#### 11. 待独立验收问题
+
+1. 在隔离副本与隔离 runtime 中以 `scripts/h8_r2_winmon.py` 复现旧包（`release-h8-r1`）闪窗（≥1 次
+   app 后代可见控制台/Word 窗口事件，参照负向 23 次 tasklist `PseudoConsoleWindow`）；
+2. 以同一监测器对 `release-h8-r2` 完整真实生成全程断言 app 后代可见控制台/Word 窗口事件 = 0（仅允许
+   应用主窗口）；
+3. 独立复跑失败矩阵五类路径（COM 缺失/损坏 DOCX/超时/并发 busy/恢复后再生成）与冻结 worker 损坏 DOCX，
+   核对零窗口、错误可诊断、fail closed、DOCX 不变、无 worker/WINWORD 泄漏；
+4. 独立复跑 `precheck.py`、`h8_deterministic_tests.py`（PASS=22）与真实模型 E2E，核对 JD=1/chat=2、
+   P1–P4 终态差、锚点与 §20 不变量；
+5. 独立复核新包身份（4045 文件 / 170,264,106 B / EXE `91e7508336…` / MANIFEST 4045 行）与前端字节
+   逐文件一致结论（4/4）；核对冻结身份结构（H8-R2-SRC / H8-R2-DEV、唯一父、PLAN blob `4fd455c4…`、
+   clean）；
+6. Product Owner 对 `release-h8-r2` 冻结包完成一次真实生成，肉眼确认 P4 全程无闪窗（PLAN §21.4 人工复核）。
+
+**开发侧验证结论：H8-R2 开发侧门禁（PLAN §21.4 前四条）全部通过；本节为开发侧验证记录，不构成独立
+验收通过。**
 
 ## 1. 本文件用途
 

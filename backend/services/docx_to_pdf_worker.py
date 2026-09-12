@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,13 +23,17 @@ CONVERTER_ID = "MicrosoftWordComConverter/1.0-h8"
 WD_EXPORT_FORMAT_PDF = 17
 MSO_AUTOMATION_SECURITY_FORCE_DISABLE = 3
 
+# H8-R2 §21.3：worker 本身由父进程以 CREATE_NO_WINDOW 启动（GUI 冻结 exe 或带标志的
+# python），其内部 tasklist/taskkill 若不带本标志，在无控制台父进程下会为每个控制台
+# 子进程分配新控制台窗口并在 P4 闪出；统一携带 CREATE_NO_WINDOW（不用 shell=True）。
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
 
 def _winword_pids() -> set[int]:
     """当前系统里 WINWORD.EXE 的 PID 集合（用于识别本次 DispatchEx 自建的 Word）。"""
-    import subprocess
     try:
         r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq WINWORD.EXE", "/FO", "CSV"],
-                           capture_output=True, timeout=10)
+                           capture_output=True, timeout=10, creationflags=_NO_WINDOW)
         out = r.stdout.decode("utf-8", errors="replace")
     except Exception:  # noqa: BLE001
         return set()
@@ -46,7 +51,6 @@ def _winword_pids() -> set[int]:
 
 def _kill_owned_winword(pids: list[int]) -> None:
     """只终止本次调用创建并确认归属的 WINWORD（仍以 WINWORD.EXE 存在才杀，防 PID 复用误伤）。"""
-    import subprocess
     import time
     if not pids:
         return
@@ -55,7 +59,8 @@ def _kill_owned_winword(pids: list[int]) -> None:
         if pid in alive:
             try:
                 subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                               capture_output=True, timeout=10)
+                               capture_output=True, timeout=10,
+                               creationflags=_NO_WINDOW)
             except Exception:  # noqa: BLE001
                 pass
             time.sleep(0.2)

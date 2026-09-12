@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 CONVERTER_ID = "MicrosoftWordComConverter/1.0-h8"
 _TIMEOUT_DEFAULT = 90.0
 
+# H8-R2 §21.3：统一隐藏窗口策略。冻结 onedir 为 GUI 子系统（无控制台），若生产子进程
+# （tasklist/taskkill/worker 等）不带 CREATE_NO_WINDOW，会为每个控制台子进程分配新
+# 控制台窗口并在 P4 反复闪出（旧包负向捕获 23 次 tasklist PseudoConsoleWindow）。
+# 所有生产入口统一携带该标志；不用 shell=True / CMD/PowerShell 二次包装。
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
 _lock = threading.Lock()
 
 
@@ -58,7 +64,7 @@ def _kill_tree(pid: int) -> None:
     if os.name != "nt":
         return
     subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
-                   capture_output=True, timeout=15)
+                   capture_output=True, timeout=15, creationflags=_NO_WINDOW)
 
 
 def _kill_owned_word(meta: dict) -> None:
@@ -69,7 +75,7 @@ def _kill_owned_word(meta: dict) -> None:
     for pid in pids:
         try:
             subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                           capture_output=True, timeout=10)
+                           capture_output=True, timeout=10, creationflags=_NO_WINDOW)
         except Exception:  # noqa: BLE001
             pass
 
@@ -78,7 +84,8 @@ def _winword_pids() -> set[int]:
     """当前 WINWORD.EXE PID 集合。"""
     try:
         r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq WINWORD.EXE",
-                            "/FO", "CSV"], capture_output=True, timeout=10)
+                            "/FO", "CSV"], capture_output=True, timeout=10,
+                           creationflags=_NO_WINDOW)
         text = r.stdout.decode("utf-8", errors="replace")
     except Exception:  # noqa: BLE001
         return set()
@@ -109,7 +116,7 @@ def _cleanup_window_winword(before: set[int], *, wait_s: float = 5.0) -> None:
         for pid in owned:
             try:
                 subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                               capture_output=True, timeout=10)
+                               capture_output=True, timeout=10, creationflags=_NO_WINDOW)
             except Exception:  # noqa: BLE001
                 pass
         _t.sleep(0.4)
@@ -117,6 +124,27 @@ def _cleanup_window_winword(before: set[int], *, wait_s: float = 5.0) -> None:
     still = cur - before
     if still:
         logger.warning("Word 清理后仍残留 %s（属本窗口自有，等其自然退出）", sorted(still))
+
+
+def _rmtree_force(path: Path) -> None:
+    """纯 Python 强制删除临时目录（含只读文件），不再经 cmd /c rd 二次包装。
+
+    删除失败不掩盖转换结果，仅记入受控日志（Plan §21.3.5：不吞掉清理失败）。
+    """
+    import shutil as _shutil
+    import stat as _stat
+
+    def _onerror(func, p, exc_info):
+        try:
+            os.chmod(p, _stat.S_IWRITE)
+            func(p)
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        _shutil.rmtree(path, onerror=_onerror)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("转换临时目录清理失败（残留于 %s）: %s", path, e)
 
 
 def convert_docx_to_pdf_bytes(docx_abs: str, *, timeout_s: float = _TIMEOUT_DEFAULT) -> dict:
@@ -212,17 +240,9 @@ def convert_docx_to_pdf_bytes(docx_abs: str, *, timeout_s: float = _TIMEOUT_DEFA
         return {"pdf_bytes": pdf_bytes, "fingerprint": fingerprint}
     finally:
         _lock.release()
-        # 确定性清理：子进程已退出；仅删除本转换的临时目录
-        try:
-            subprocess.run(["cmd", "/c", "rd", "/s", "/q", str(workdir)],
-                           capture_output=True, timeout=15)
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            import shutil
-            shutil.rmtree(workdir, ignore_errors=True)
-        except Exception:  # noqa: BLE001
-            pass
+        # 确定性清理：子进程已退出；仅删除本转换的临时目录。
+        # 纯 Python 删除（_rmtree_force），不再经 cmd /c rd 二次包装（§21.3：不产生 CMD 窗口）。
+        _rmtree_force(workdir)
 
 
 def _read_meta(path: Path) -> dict:
@@ -252,7 +272,8 @@ def capability_probe(*, timeout_s: float = 60.0) -> dict:
     def _wpids() -> set[int]:
         try:
             r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq WINWORD.EXE",
-                                "/FO", "CSV"], capture_output=True, timeout=10)
+                                "/FO", "CSV"], capture_output=True, timeout=10,
+                               creationflags=_NO_WINDOW)
             text = r.stdout.decode("utf-8", errors="replace")
         except Exception:  # noqa: BLE001
             return set()
@@ -292,7 +313,8 @@ def capability_probe(*, timeout_s: float = 60.0) -> dict:
             for pid in owned:
                 try:
                     subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                                   capture_output=True, timeout=10)
+                                   capture_output=True, timeout=10,
+                                   creationflags=_NO_WINDOW)
                 except Exception:  # noqa: BLE001
                     pass
         out.update({"ok": True, "code": "ok", "converter": CONVERTER_ID})

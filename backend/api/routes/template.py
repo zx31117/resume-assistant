@@ -79,7 +79,9 @@ def _ensure_template_docx(template_id: str) -> None:
     build_script = os.path.join(BACKEND_ROOT, "templates", "_build_templates.py")
     if os.path.exists(build_script):
         import subprocess, sys
-        subprocess.check_call([sys.executable, build_script])
+        # H8-R2 §21.3：生产入口统一隐藏窗口策略；不用 shell=True。
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.check_call([sys.executable, build_script], creationflags=flags)
 
 
 # ==================================================================
