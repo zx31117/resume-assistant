@@ -1,19 +1,19 @@
 # V2.1.0 RESULT：执行记录
 
-> 当前状态：**H8-R2 首次独立验收未通过 Release Gate**。独立验收已证明旧包 P4 worker 路径会产生
-> 6 次可见控制台窗口、新包同路径为 0，六组失败矩阵和结构审计均通过；但真实 LLM 返回
-> `404 ModelNotOpen`，导致 mandatory 的完整真实生成 E2E 未执行，不能出具 PASS。候选和包保持冻结，
-> 等待模型运行环境恢复后对同一对象补跑缺失门禁；**尚未发布**。
+> 当前状态：**H8-R2 独立源码验收累计通过**。首次验收已证明旧包 P4 worker 路径会产生 6 次可见
+> 控制台窗口、新包同路径为 0；第二轮补证使用普通 runtime 已配置且可用的真实模型，在完整生成 E2E
+> 中证明应用后代控制台/Word 窗口为 0，§20–§21 的联合门禁全部通过。当前只等待 Product Owner 使用
+> 同一冻结包完成人工肉眼复核；**尚未发布**。
 > 当前产品基线：已发布 V2.0.2
 > 最近冻结候选：**H8-R2-SRC** `f5124c2af448fc6fa50a599187f643e62a814ff8` / **H8-R2-DEV** 本提交
 > （唯一父为 H8-R2-SRC、只改本文件）；H8-R1 候选已被人工验收打回
 > 当前 H8-R2 PLAN 批准 blob：`4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（含 §20–§21；H8-R2 开发基线必须携带该 blob）
-> 发布结论：不发布；待 H8-R2 真实模型 E2E 补证通过及 Product Owner 人工复核
+> 发布结论：不发布；H8-R2 独立验收已通过，待 Product Owner 人工复核
 
 > **阅读指引（重要）**：第 0 节是 H8 的权威开发门禁摘要；其后的 H8-8、H8-R1、H8-R2 记录按
 > 时间依次覆盖候选状态。自「§1 本文件用途」起的内容是 V2.1.0 早期历史执行记录（H1–H7，含
-> 「PDF 由 ReportLab 手绘」旧口径）。技术方向以 PLAN §20–§21 为准，当前状态以 H8-R2 首次独立
-> 验收记录为准。
+> 「PDF 由 ReportLab 手绘」旧口径）。技术方向以 PLAN §20–§21 为准，当前状态以 H8-R2 第二轮真实
+> 模型 E2E 补证后的累计结论为准。
 
 ## 0. H8 统一门禁摘要（机器可读）
 
@@ -661,6 +661,39 @@ artifact、下载、锚点、JD/rewrite 次数及完整链零窗口的新证据�
 **补证结论：Integration 仍为部分通过，Release Gate 仍未通过，累计结论仍为 FAIL。** 本次没有发现
 新的候选缺陷，不修改 PLAN、不创建新候选；停止重复验收，等待模型授权或兼容的既有运行配置真正
 可用。最小探测成功后，才对同一 H8-R2-SRC 和 `release-h8-r2` 恢复完整 E2E 补证。
+
+#### 6. 真实模型 E2E 补证 2 与累计结论（2026-09-12）
+
+本次是首次 H8-R2 独立验收的第二轮单项补证，只补齐此前因默认模型未激活而缺失的完整真实模型
+E2E。候选与发布包身份均未改变：review 仍绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，
+PLAN blob 仍为 `4fd455c4fcc29b0f315f434a919c3da13d8b5f45`，H8-R2-DEV RESULT blob 仍为
+`b1c82ea94dfbb1a7916a42b969611e12bbacdfdb`，发布包 EXE SHA-256 仍为
+`91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。
+
+前一轮 404 的直接原因是隔离 runtime 没有普通用户 runtime 的模型配置，因而回落到未激活的默认模型
+`doubao-seed-evolving`。本轮显式注入普通 runtime 已配置的可用模型
+`deepseek-v4-pro-ga-260813`；最小可用性探测返回 HTTP 200。该操作只修正验收运行环境，没有修改
+候选源码、RESULT 或发布包，也没有记录凭据、请求正文或账户信息。
+
+| 补证项 | 独立验收结果 |
+|---|---|
+| 完整 operation | `SUCCEEDED` |
+| 模型调用 | `jd_analysis STARTED=1`、`content_generation STARTED=1`；Provider chat=2（JD 1 + rewrite 1），均 200、无 SDK 重试 |
+| 阶段计时 | P1–P4 合计 75,988ms，总用时 76,006ms，差 18ms（≤250ms） |
+| 锚点 | 10/10 绑定当前 artifact，unavailable=0 |
+| artifact 与下载 | Word 下载=落盘 DOCX；PDF 下载=viewer=响应 `pdf_sha256` |
+| 协议与前端 | 正常链路无 4xx/5xx；213 次 UI 采样无白屏、无 Hook error |
+| 进程清理 | worker/WINWORD 无泄漏，隔离 runtime 已删除 |
+| 窗口监测 | 31 条事件中仅应用主窗口；应用后代可见控制台/Word 窗口=0 |
+
+结合首次验收已经独立通过的旧包负向、新包 worker 路径、六组失败矩阵、确定性测试、precheck、包审计、
+PYZ 核验及前端 4/4 字节一致，本轮补证将累计结论更新为：**Function、Structure、Design Fidelity、
+Integration 与 Release Gate 全部 PASS，H8-R2 独立验收累计 PASS。** 首次验收及补证 1 的 FAIL 是对应
+当时证据状态的历史记录，不再代表当前候选状态。
+
+当前只剩 PLAN §21.4 规定的 Product Owner 人工复核：使用同一 `release-h8-r2` 冻结包完成一次真实生成，
+肉眼确认 P4 全程无 CMD/控制台/Word 窗口闪现。该人工门禁通过前，不更新 CURRENT_STATE、不发布、不移动
+公开 main 或 tag。验收临时副本与进程已清理，review 保持 H8-R2-SRC、detached、clean，PLAN blob 未变。
 
 ## 1. 本文件用途
 
