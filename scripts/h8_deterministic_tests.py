@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""H8 P2/P3/P4 确定性回归（开发侧单入口，机器断言 + 固定汇总行）。
+"""H8 P2/P3/P4/P5 确定性回归（开发侧单入口，机器断言 + 固定汇总行）。
 
 覆盖（PLAN §20.2–§20.6；用户 H8 指令「三、最终回归」）：
 - P2  DOCX→PDF 转换器与 PreviewAnchor：
@@ -12,6 +12,11 @@
       artifact 身份（pdf_sha256 / artifact_id 绑定）、不可变 revision 命名、
       P1–P4 服务端投影与终态「阶段和 vs 总耗时 ≤250ms」。
 - P4  负向与清理：见 P2 负向 + WINWORD before/after 无新增泄漏。
+- P5  H8-R1（R2）JD 分析计数与 SDK 重试区分：
+      逻辑调用次数（chat_structured 计数）与 Provider HTTP attempt 次数
+      （httpx MockTransport 在 SDK 层计数）分离；成功 200 路径恰 1 次 HTTP attempt
+      （正常 200 不触发重试，修正 H8-4 错误归因）；失败路径 SDK 有限重试可见
+      （attempt>1）但逻辑调用仍为 1，strict 最终抛 LLMOutputInvalidError。
 
 用法：
   python scripts/h8_deterministic_tests.py            # 全部
@@ -160,6 +165,9 @@ def install_mock_llm():
             return schemas.GeneratedResumeContent(experiences=[])
         raise AssertionError(f"mock LLM: unexpected schema {schema}")
 
+    # H8-R1（P5）：在替换前保留真实 chat_structured，供 SDK 层 HTTP attempt 计数
+    # （MockTransport 挂在 build_llm 返回的 ChatOpenAI 上，不经过 mock 的 chat_structured）。
+    llm_service.__real_chat_structured = llm_service.chat_structured
     llm_service.chat_structured = fake
 
 
@@ -371,9 +379,121 @@ def run_p4(p3: dict) -> None:
         bad("P4-winword-no-leak", f"leaked={leaked} before={ww_before} after={after}")
 
 
+# ── P5：JD 分析计数与 SDK 重试区分（H8-R1 / R2） ───────────────
+_VALID_JD_OUT = {
+    "position": "高级后端研发工程师",
+    "industry": "互联网",
+    "required_skills": ["Java", "Spring Boot", "MySQL", "Redis"],
+    "preferred_skills": ["Kafka"],
+    "responsibilities": ["负责电商平台交易链路设计与线上稳定性"],
+    "keywords": ["高并发", "分布式"],
+    "experience_preferences": ["5 年+"],
+}
+
+
+def run_p5() -> None:
+    """P5：逻辑调用 vs Provider HTTP attempt 的分离计数（PLAN §20.5 / T12-R40）。
+
+    边界：`install_mock_llm()` 已替换 chat_structured；本组临时恢复真实
+    chat_structured（验证 SDK 层行为），用 httpx MockTransport 在 SDK 层
+    计数 /chat/completions 请求；结束后恢复 mock，不影响汇总 COUNTS。
+
+    - 成功 200 路径：逻辑=1、HTTP attempt=1（正常 200 不触发重试）；
+    - 失败路径（500）：SDK 有限重试可见（HTTP attempt>1），逻辑仍=1，
+      strict 最终抛 LLMOutputInvalidError —— 重复请求只在失败时由 SDK 重试
+      产生，且与逻辑调用分离计数（修正 H8-4 对成功 200 的错误归因）。
+    """
+    import httpx
+    from langchain_openai import ChatOpenAI
+    from services import jd_analyzer, llm_service
+
+    real_chat_structured = getattr(llm_service, "__real_chat_structured", None)
+    if real_chat_structured is None:
+        raise RuntimeError("install_mock_llm() 未保存真实 chat_structured（P5 前置失败）")
+    mock_chat_structured = llm_service.chat_structured  # 当前为 install_mock_llm 的 mock
+    real_build_llm = llm_service.build_llm
+    HTTP = {"n": 0}
+    LOGICAL = {"n": 0}
+
+    def make_handler(status_code: int):
+        def handler(request):
+            HTTP["n"] += 1
+            if status_code != 200:
+                return httpx.Response(
+                    status_code, json={"error": {"message": "boom", "type": "server_error"}})
+            body = {
+                "id": "chatcmpl-x",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "x",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant",
+                                "content": json.dumps(_VALID_JD_OUT, ensure_ascii=False)},
+                    "finish_reason": "stop",
+                }],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            }
+            return httpx.Response(200, json=body)
+
+        return handler
+
+    def install_transport(status_code: int) -> None:
+        tr = httpx.MockTransport(make_handler(status_code))
+
+        def fake_build(api_key, base_url, model, *, temperature=0.3, timeout=300):
+            return ChatOpenAI(
+                model=model, api_key="test-key", base_url=base_url,
+                temperature=temperature, timeout=timeout,
+                http_client=httpx.Client(transport=tr, timeout=timeout),
+                max_retries=2,
+            )
+
+        llm_service.build_llm = fake_build
+
+    def wrapped(system, user_template, schema, default=None, *, strict=False, **variables):
+        from api import schemas
+        if schema is schemas.JDAnalysisOut:
+            LOGICAL["n"] += 1
+        return real_chat_structured(
+            system, user_template, schema, default=default, strict=strict, **variables)
+
+    llm_service.chat_structured = wrapped
+    try:
+        # ── 成功 200：逻辑 1 + HTTP 1 ──
+        HTTP["n"] = 0
+        LOGICAL["n"] = 0
+        install_transport(200)
+        res = jd_analyzer.analyze_jd(JD, strict=True)
+        if LOGICAL["n"] == 1 and HTTP["n"] == 1 and (res.position or "").strip():
+            ok("P5-http-success-once", f"logical={LOGICAL['n']} http={HTTP['n']} pos={res.position}")
+        else:
+            bad("P5-http-success-once",
+                f"logical={LOGICAL['n']} http={HTTP['n']} pos={(res.position or '')!r}")
+
+        # ── 失败 500：逻辑 1，HTTP attempt>1（SDK 重试），strict 抛错 ──
+        HTTP["n"] = 0
+        LOGICAL["n"] = 0
+        install_transport(500)
+        raised = ""
+        try:
+            jd_analyzer.analyze_jd(JD, strict=True)
+        except Exception as e:  # noqa: BLE001 —— 只取异常类型名作断言
+            raised = type(e).__name__
+        if raised == "LLMOutputInvalidError" and LOGICAL["n"] == 1 and HTTP["n"] > 1:
+            ok("P5-http-failure-retry",
+               f"logical={LOGICAL['n']} http={HTTP['n']} raised={raised}（SDK 有限重试）")
+        else:
+            bad("P5-http-failure-retry",
+                f"logical={LOGICAL['n']} http={HTTP['n']} raised={raised!r}")
+    finally:
+        llm_service.chat_structured = mock_chat_structured
+        llm_service.build_llm = real_build_llm
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--group", choices=("p2", "p3", "p4", "all"), default="all")
+    ap.add_argument("--group", choices=("p2", "p3", "p4", "p5", "all"), default="all")
     args = ap.parse_args()
     print(f"[h8det] RESUME_DATA_DIR={RUNTIME}")
     print(f"[h8det] group={args.group}")
@@ -388,6 +508,8 @@ def main() -> int:
             run_p2(p3)
         if args.group in ("p4", "all"):
             run_p4(p3)
+        if args.group in ("p5", "all"):
+            run_p5()
     finally:
         try:
             db.close()

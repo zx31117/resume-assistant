@@ -16,7 +16,6 @@ import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, fmtMs } from '../hooks/useOperation'
 import type {
   EvidenceFact,
-  JDAnalysis,
   OperationDetail,
   PdfAnchor,
   ResumeDocxGenerateResponse,
@@ -25,9 +24,12 @@ import type {
 
 /**
  * V2.1.0（T5）：生成简历 —— 按 DS-002 基线重构交互，但所有能力保持真实：
- * - 数据全部来自 useServices() 端口：template.list / system.status / jd.analyze / resume.generateDocx；
+ * - 数据全部来自 useServices() 端口：template.list / system.status / resume.generateDocx；
  * - 生成过程进度完全由 operation 轮询事件驱动（useOperation），不虚构百分比或固定时长；
  * - 「生成前检查」只判断前端可真实判定的项：姓名缺失 / 无经历 / JD 过短。
+ * - H8-R1（PLAN §20.5 / T12-R40）：普通输入页零 LLM 预分析 —— 用户粘贴/输入/修改 JD 只做
+ *   本地字符数与格式检查，不调用 services.jd.analyze；唯一一次严格 JD 分析发生在生成 operation
+ *   内（第一用户阶段），其结果由后端在同一 operation 后续选材、改写与 Builder 中复用。
  *
  * 4 个用户语言阶段的点亮规则（真实后端阶段码见 backend/services/resume_generation_service.py，
  * 事件由 backend/core/operations.py 以 STAGE_STARTED/STAGE_COMPLETED.{code} 记录）：
@@ -41,8 +43,6 @@ import type {
 
 /** JD 最短长度：过短时后端 strict JD 分析不可靠，前端阻止生成。 */
 const JD_MIN_CHARS = 60
-/** JD 文本变化后自动分析的防抖间隔。 */
-const JD_ANALYZE_DEBOUNCE_MS = 600
 
 interface Identity {
   name: string
@@ -100,32 +100,6 @@ const PROCESS_PHASES: StageFlowPhase[] = [
     codes: ['resume_build', 'render', 'save_docx', 'response_assembly'],
   },
 ]
-
-/** 单条摘要 chips 区块（JDAnalysis 真实字段驱动；按 DS-002 冻结原型以「标签 · 值」单 chip 形式展示）。 */
-function AnalysisChips({ a }: { a: JDAnalysis }) {
-  const rows: Array<{ label: string; values: string[] }> = []
-  if (a.position) rows.push({ label: '目标岗位', values: [a.position] })
-  if (a.required_skills.length) rows.push({ label: '核心要求', values: a.required_skills })
-  if (a.preferred_skills.length) rows.push({ label: '加分项', values: a.preferred_skills })
-  if (a.experience_preferences.length) rows.push({ label: '经验偏好', values: a.experience_preferences })
-  if (a.keywords.length) rows.push({ label: '关键词', values: a.keywords })
-  if (a.industry) rows.push({ label: '行业', values: [a.industry] })
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
-      {rows.map((r) => (
-        <span
-          className="tag"
-          key={r.label}
-          style={{ height: 'auto', padding: '4px 10px', fontSize: 12, color: 'var(--ink)' }}
-        >
-          <strong style={{ fontWeight: 600 }}>{r.label}</strong>
-          <span style={{ margin: '0 6px', color: 'var(--border-strong)' }}>·</span>
-          {r.values.join(' · ')}
-        </span>
-      ))}
-    </div>
-  )
-}
 
 /** V2.1.0 R16：依据面板 —— 点击 PDF 命中层的锚点后展示其真实 evidence。
  *  数据链路（真实、无编造）：
@@ -471,16 +445,8 @@ export default function GeneratePage() {
   const [identity, setIdentity] = useState<Identity>(EMPTY_IDENTITY)
   const [editingIdentity, setEditingIdentity] = useState(false)
 
-  // —— 目标岗位 JD 与自动分析 ——
+  // —— 目标岗位 JD（仅本地字符数/空值/格式检查；H8-R1 零 LLM 预分析）——
   const [jd, setJd] = useState('')
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analysis, setAnalysis] = useState<JDAnalysis | null>(null)
-  const [analyzedFor, setAnalyzedFor] = useState('')
-  const [analyzeError, setAnalyzeError] = useState<string | null>(null)
-  const analyzedForRef = useRef('')
-  const jdRef = useRef('')
-  const analyzeSeq = useRef(0)
-  const analyzingRef = useRef(false)
 
   // —— 生成运行 ——
   const [view, setView] = useState<'input' | 'processing'>('input')
@@ -560,10 +526,6 @@ export default function GeneratePage() {
     }
   }, [view, result, currentRunningIdx, phaseStatuses, operation, selectedPhaseIdx])
 
-  useEffect(() => {
-    jdRef.current = jd
-  }, [jd])
-
   // —— 元信息加载：固定模板（取后端 is_default 供 generateDocx 使用，无 UI） ——
   const loadMeta = useCallback(async () => {
     try {
@@ -585,51 +547,8 @@ export default function GeneratePage() {
   const factCount = status?.counts?.fact
   const experienceCount = status?.counts?.experience
 
-  // —— JD 自动分析 ——
+  // —— JD 本地检查（H8-R1：零 LLM 预分析；只做字符数/空值/格式判定）——
   const jdTrimmed = jd.trim()
-
-  async function doAnalyze(text: string) {
-    if (analyzingRef.current && analyzedForRef.current === text) return
-    const seq = ++analyzeSeq.current
-    analyzingRef.current = true
-    setAnalyzing(true)
-    setAnalyzeError(null)
-    try {
-      const res = await services.jd.analyze({ jd_text: text })
-      if (analyzeSeq.current !== seq) return
-      if (jdRef.current.trim() !== text) return // JD 又变了：本次结果过期，不落地
-      setAnalysis(res)
-      setAnalyzedFor(text)
-      analyzedForRef.current = text
-    } catch (e) {
-      if (analyzeSeq.current !== seq) return
-      setAnalyzeError(e instanceof ApiError ? e.message : String(e))
-    } finally {
-      if (analyzeSeq.current === seq) {
-        analyzingRef.current = false
-        setAnalyzing(false)
-      }
-    }
-  }
-
-  // JD < 最短长度 → 清空摘要；≥ 最短长度 → 防抖自动分析一次
-  useEffect(() => {
-    if (jdTrimmed.length < JD_MIN_CHARS) {
-      setAnalysis(null)
-      setAnalyzedFor('')
-      analyzedForRef.current = ''
-      return
-    }
-    const timer = window.setTimeout(() => {
-      if (analyzedForRef.current !== jdTrimmed) void doAnalyze(jdTrimmed)
-    }, JD_ANALYZE_DEBOUNCE_MS)
-    return () => window.clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jd])
-
-  // 分析摘要仅在其对应文本与当前 JD 一致时有效；JD 改动后旧摘要视为失效
-  const analysisFresh = analysis !== null && analyzedFor === jdTrimmed
-  const shownAnalysis = analysisFresh ? analysis : null
   const jdTooShort = jdTrimmed.length < JD_MIN_CHARS
 
   // —— 生成前检查（只展示前端可真实判定的项）——
@@ -650,7 +569,6 @@ export default function GeneratePage() {
     if (blocked || generating) return
     const id = newOperationId()
     const seq = ++runSeq.current
-    const targetPosition = (shownAnalysis?.position ?? '').trim()
     setOpId(id)
     setResult(null)
     setGenError(null)
@@ -666,7 +584,8 @@ export default function GeneratePage() {
             phone: identity.phone.trim() || undefined,
             email: identity.email.trim() || undefined,
             location: identity.location.trim() || null,
-            target_position: targetPosition || undefined,
+            // H8-R1：目标岗位只由 operation 内唯一一次 JD 分析产出，前端不再预分析。
+            target_position: undefined,
           },
         },
         id,
@@ -690,7 +609,6 @@ export default function GeneratePage() {
     setGenerating(false)
   }
 
-  const targetLabel = shownAnalysis?.position ?? ''
   const processingFailed =
     genError != null ||
     (operation != null && ['FAILED', 'TIMED_OUT', 'INTERRUPTED'].includes(operation.status))
@@ -700,7 +618,6 @@ export default function GeneratePage() {
 
   // ================= 输入视图（DS-002 冻结原型：gen-topbar / gen-grid > gen-main + gen-rail） =================
   if (view === 'input') {
-    const position = (shownAnalysis?.position ?? '').trim()
     const factChipTone = metaError ? 'warn' : factCount != null ? 'ok' : 'neutral'
     const factChipText = metaError
       ? '状态读取失败'
@@ -730,7 +647,7 @@ export default function GeneratePage() {
           <span style={{ color: 'var(--ink-faint)' }}>生成简历</span>
           <span style={{ color: 'var(--border-strong)' }}>/</span>
           <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
-            目标岗位 · {position || '待分析'}
+            目标岗位 · 生成时识别
           </span>
           <span
             className="tag"
@@ -910,7 +827,6 @@ export default function GeneratePage() {
                   目标岗位与 JD
                   <span style={{ color: 'var(--ink-faint)', fontSize: 12, fontWeight: 400 }}>同屏输入</span>
                 </div>
-                <Badge tone="ok">JD 分析 · Active</Badge>
               </div>
               <div className="field" style={{ marginBottom: 'var(--s3)' }}>
                 <label htmlFor="i-jd" className="field__label">
@@ -920,7 +836,7 @@ export default function GeneratePage() {
                   id="i-jd"
                   value={jd}
                   onChange={(e) => setJd(e.target.value)}
-                  placeholder="将招聘 JD 完整粘贴于此。系统会在右侧实时输出解析过程。"
+                  placeholder="将招聘 JD 完整粘贴于此。生成时由系统完成岗位分析与选材。"
                   style={{ minHeight: 220 }}
                 />
               </div>
@@ -937,37 +853,10 @@ export default function GeneratePage() {
               >
                 <span>
                   {jdTrimmed.length} 字
-                  {jdTooShort ? `（不足 ${JD_MIN_CHARS} 字，暂不分析）` : ''}
+                  {jdTooShort ? `（不足 ${JD_MIN_CHARS} 字，暂不能生成）` : ''}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
-                  {analyzing ? (
-                    <Badge tone="accent">分析中…</Badge>
-                  ) : shownAnalysis ? (
-                    <Badge tone="ok">已分析 · {shownAnalysis.position || '完成'}</Badge>
-                  ) : analysis != null && !analysisFresh ? (
-                    <Badge tone="warn">已修改，需重新分析</Badge>
-                  ) : (
-                    <Badge tone="neutral">{jdTooShort ? '待输入' : '待分析'}</Badge>
-                  )}
-                  {analysis != null && !analysisFresh && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={analyzing || jdTooShort}
-                      onClick={() => void doAnalyze(jdTrimmed)}
-                    >
-                      立即分析
-                    </Button>
-                  )}
-                </div>
+                <span>岗位分析在点击生成后随操作进行</span>
               </div>
-              {analyzeError && <div className="notice notice--danger">{analyzeError}</div>}
-              {analysis != null && !analysisFresh && !analyzing && (
-                <div className="notice notice--warn">
-                  JD 已修改，将自动重新分析（约 {JD_ANALYZE_DEBOUNCE_MS / 1000}s 内触发）。
-                </div>
-              )}
-              {shownAnalysis && <AnalysisChips a={shownAnalysis} />}
             </div>
           </div>
 
@@ -1137,11 +1026,9 @@ export default function GeneratePage() {
   // ================= 处理中 / 结果 / 失败视图 =================
   // 处理视图（DS-002 process-shell 视觉语法：左侧 4 阶段 radio 流程 + 右侧流式/明细/失败）
   if (!result) {
-    const eyebrow = targetLabel
-      ? `${targetLabel} · ${processingFailed ? '生成未完成' : '生成中'}`
-      : processingFailed
-        ? '生成未完成'
-        : '生成中'
+    const eyebrow = processingFailed
+      ? '生成未完成'
+      : '生成中'
     const headerTitle = processingFailed
       ? '简历生成未完成，可恢复或返回修改'
       : '正在为你准备一份可直接投递的简历'
