@@ -1,9 +1,9 @@
 """Pydantic 请求/响应模型（对外契约）。"""
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _coerce_to_list(v: Any) -> list:
@@ -58,6 +58,46 @@ class ExperienceItem(BaseModel):
         return v
 
 
+class ExperienceProvenance(BaseModel):
+    """V2.1.0 D-038：提取条目的来源证据与分类（薄契约，不落库）。
+
+    - classification：direct = 结构字段在原文有直接支撑、无语义扩张，可自动进入
+      「我的经历」；inferred = 存在推断/补全/低置信，必须经用户确认后才写入。
+      缺失/非法一律归 inferred（fail-closed：宁可待确认，不静默直入）。
+    - source_snippets：支撑本条的关键原文原句（会话内「可回查」证据）。
+    长期溯源落库后依赖既有 Fact.source 机制；本结构只存在于 extract 响应与提取器。
+    """
+
+    classification: str = "inferred"
+    source_snippets: List[str] = []
+
+    @field_validator("classification", mode="before")
+    @classmethod
+    def _coerce_classification(cls, v: Any) -> str:
+        if v in ("direct", "inferred"):
+            return v
+        return "inferred"
+
+    @field_validator("source_snippets", mode="before")
+    @classmethod
+    def _coerce_snippets(cls, v: Any) -> list:
+        return _coerce_to_list(v)
+
+    @model_validator(mode="after")
+    def _direct_needs_evidence(self) -> "ExperienceProvenance":
+        # direct 必须带至少一条原文片段证据；没有证据的 direct 降级为 inferred，
+        # 防止 LLM 无依据标 direct 而绕过用户确认。
+        if self.classification == "direct" and not self.source_snippets:
+            self.classification = "inferred"
+        return self
+
+
+class ExtractExperienceItem(ExperienceItem):
+    """extract 响应条目 = ExperienceItem + D-038 来源证据（仅响应，不作为写库请求体）。"""
+
+    provenance: ExperienceProvenance = Field(default_factory=ExperienceProvenance)
+
+
 class ExperienceOut(ExperienceItem):
     id: str
     user_id: Optional[str] = None
@@ -72,7 +112,7 @@ class ExtractRequest(BaseModel):
 
 
 class ExtractResponse(BaseModel):
-    experiences: List[ExperienceItem]
+    experiences: List[ExtractExperienceItem]
 
 
 class JDRequest(BaseModel):
@@ -115,7 +155,7 @@ class JDAnalysisOut(BaseModel):
 class ExperienceExtractionResult(BaseModel):
     """单段简历章节的提取结果包装（用于 chat_structured）。"""
 
-    experiences: List[ExperienceItem] = []
+    experiences: List[ExtractExperienceItem] = []
 
     @field_validator("experiences", mode="before")
     @classmethod
@@ -320,6 +360,74 @@ class RenderStats(BaseModel):
         return all(s.input_items == s.rendered_items for s in self.sections)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# V2.1.0 T6：内容预览 + 逐 bullet 事实依据（薄投影，事实与依据真实可得）
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DocPreviewEntry(BaseModel):
+    """V2.1.0 T6：内容预览条目——来自最终 ResumeDocument 的只读投影。
+
+    - heading / subhead / bullets：完全来自 Builder 装配后的真实字段
+      （work/project：事实字段来自 SQL；bullets 来自受约束改写或 SQL 回退）。
+    - experience_id：仅当该条目对应一次 Experience 装配时给出。
+    - selection_reason：来自第二层事实选材 EvidenceEntry.selection_reason
+      （本次生成真实可得时携带；无值则不返回，不编造）。
+    """
+
+    heading: str = ""
+    subhead: str = ""
+    bullets: List[str] = []
+    experience_id: Optional[str] = None
+    selection_reason: Optional[str] = None
+
+
+class DocPreviewSection(BaseModel):
+    """V2.1.0 T6：内容预览的一个 section。
+
+    section ∈ "personal" | "work" | "project" | "education" | "skills" | "awards"
+    """
+
+    section: str
+    title: str
+    entries: List[DocPreviewEntry] = []
+
+
+class EvidenceFact(BaseModel):
+    """V2.1.0 T6：单条事实的原文（来自 Fact.text 的真实 DB 读取）。
+
+    - reason：当前流水线不记录 per-fact 采用理由；遵循「无法真实获取则
+      留空/不返回，禁止编造」，故默认空字符串。
+    """
+
+    fact_id: str
+    experience_id: Optional[str] = None
+    text: str = ""
+    reason: str = ""
+
+
+class PreviewAnchor(BaseModel):
+    """V2.1.0 R15a：PDF 版式中的可点内容行锚点（浏览器 viewer 命中区）。
+
+    坐标一律 PDF 用户坐标 pt、y 自底部向上（A4 高 842）。
+    - content_item_id：经历类条目取其 experience_id；技能组等无库 id 的
+      内容行用定位 key（如 skills:0）；无对应内容条目时为 None。
+    - bullet_index：该内容条目内的视觉 bullet 行序（0 起）。
+    - fact_refs：该 bullet 的真实 fact 引用（来自 builder bullet_fact_refs，
+      无映射不编造 → 空列表）。
+    """
+
+    artifact_id: str = ""
+    page_index: int = 0
+    x0: float = 0.0
+    y0: float = 0.0
+    x1: float = 0.0
+    y1: float = 0.0
+    content_item_id: Optional[str] = None
+    bullet_index: Optional[int] = None
+    text: str = ""
+    fact_refs: List[str] = []
+
+
 class ResumeDocxGenerateResponse(BaseModel):
     """PLAN §4.3：核心接口成功响应。"""
 
@@ -327,6 +435,19 @@ class ResumeDocxGenerateResponse(BaseModel):
     file_path: str
     file_name: str
     download_url: str
+
+    # V2.1.0 R9：同一生成结果附带的真实 PDF（可选；旧调用方不传/不消费时默认 None）。
+    # PDF 生成失败时两字段留空并写入 warnings，下载由 /api/template/download 返回真实错误状态。
+    pdf_file_name: Optional[str] = None
+    pdf_download_url: Optional[str] = None
+
+    # V2.1.0 R15a：PDF artifact 身份与元数据（不可变 artifact 命名；可选）。
+    # pdf_artifact_id = 本次生成唯一身份（= operation_id）；pdf_anchors 为 PDF 内
+    # 逐 bullet 内容行锚点（PreviewAnchor），viewer 与下载读取同一 artifact。
+    pdf_artifact_id: Optional[str] = None
+    pdf_sha256: Optional[str] = None
+    pdf_size_bytes: Optional[int] = None
+    pdf_anchors: Optional[List[PreviewAnchor]] = None
 
     # V2.0.1：本次操作的统一编号（前端据此轮询 / 复盘，PLAN §3.5）
     operation_id: str = ""
@@ -344,6 +465,12 @@ class ResumeDocxGenerateResponse(BaseModel):
     build_meta: BuildMeta = BuildMeta()
     render_stats: RenderStats = RenderStats()
     template_id: str = ""
+
+    # V2.1.0 T6：内容预览（来自本次真实 ResumeDocument 的只读投影）
+    # + 逐 bullet 事实依据所需的事实原文（按 experience_id 聚合）。
+    # 旧调用方不传/不消费时默认 None；不破坏既有契约。
+    doc_preview: Optional[List[DocPreviewSection]] = None
+    evidence: Optional[Dict[str, List[EvidenceFact]]] = None
 
 
 

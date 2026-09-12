@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import OperationTimeline from '../components/OperationTimeline'
-import { experienceApi, resumeApi } from '../api/endpoints'
+import { experienceApi } from '../api/endpoints'
 import { ApiError, newOperationId } from '../api/client'
 import { useOperation, statusLabel, statusTone, fmtMs } from '../hooks/useOperation'
 import type { ExperienceItem, ExperienceOut, OperationDetail } from '../api/types'
@@ -15,6 +17,88 @@ const EXPERIENCE_TYPES: { value: string; label: string }[] = [
   { value: 'project', label: '项目' },
   { value: 'education', label: '教育' },
 ]
+
+// V2.1.0 DS-002：筛选 tab 只映射后端真实 type 值域（''=全部，tab value 直接匹配 type 字符串）。
+const FILTER_TABS: { value: string; label: string }[] = [
+  { value: '', label: '全部' },
+  ...EXPERIENCE_TYPES,
+]
+
+// V2.1.0 DS-002：列表区布局样式（tab + 搜索的工具条、区域内滚动的单列主列表）。
+// 页面最外层继续走 .page/.page-head/.card 体系；新增的容器以行内样式自绘，不改动 global.css。
+const masterStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  minHeight: 0,
+}
+
+const toolbarStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 'var(--s4)',
+  flexWrap: 'wrap',
+  marginBottom: 'var(--s4)',
+}
+
+const tabsStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--s2)',
+  flexWrap: 'wrap',
+}
+
+const toolbarEndStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--s3)',
+  flexWrap: 'wrap',
+}
+
+const tabBaseStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  height: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: 'var(--ink-soft)',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
+  fontFamily: 'inherit',
+  lineHeight: 1,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  transition:
+    'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+}
+
+// DS-002 被选态：--tint 底 + --primary 文字
+const tabActiveStyle: CSSProperties = {
+  background: 'var(--tint)',
+  color: 'var(--primary)',
+  fontWeight: 600,
+}
+
+const tabCountStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  opacity: 0.8,
+  fontVariantNumeric: 'tabular-nums',
+}
+
+// V2.1.0 T12-R12：列表区内区域滚动（页面顶栏固定，长列表不撑破工作台）。
+// 高度交给 .profile-master-card 的 flex 份额决定（外框由布局分配，不随内容量跳动）。
+const listScrollStyle: CSSProperties = {
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  paddingRight: 'var(--s1)',
+}
 
 function typeLabel(type: string): string {
   return EXPERIENCE_TYPES.find((t) => t.value === type)?.label ?? (type || '未分类')
@@ -34,7 +118,7 @@ function summaryMeta(status?: string): { label: string; tone: 'neutral' | 'ok' |
   }
 }
 
-// V2.0.1：本页发起操作（提取 / 新增 / 更新 / 删除）的实时状态与阶段时间线
+// V2.0.1：本页发起操作（新增 / 更新 / 删除）的实时状态与阶段时间线
 function InlineOperation({ operation }: { operation: OperationDetail | null }) {
   if (!operation) return <Badge tone="neutral">提交中…</Badge>
   return (
@@ -178,6 +262,7 @@ function ExperienceForm({
 }
 
 export default function ProfilePage() {
+  const navigate = useNavigate()
   const [items, setItems] = useState<ExperienceOut[]>([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
@@ -192,21 +277,10 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState<ExperienceOut | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
-  // V2.0.1：单条 CRUD 与提取操作的实时阶段
+  // V2.0.1：单条 CRUD 操作的实时阶段
   const [crudOpId, setCrudOpId] = useState<string | null>(null)
   const [crudActive, setCrudActive] = useState(false)
   const crudOperation = useOperation(crudOpId, crudActive)
-
-  // PDF 导入流程
-  const [importOpen, setImportOpen] = useState(false)
-  const [importStep, setImportStep] = useState<'upload' | 'review'>('upload')
-  const [importText, setImportText] = useState('')
-  const [importExtracting, setImportExtracting] = useState(false)
-  const [importItems, setImportItems] = useState<ExperienceItem[]>([])
-  const [importResults, setImportResults] = useState<{ idx: number; ok: boolean; msg: string }[]>([])
-  const [importSaving, setImportSaving] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -243,6 +317,13 @@ export default function ProfilePage() {
       return a.id.localeCompare(b.id)
     })
   }, [items, search, typeFilter])
+
+  // DS-002 tab 计数：按真实 type 值域统计（与搜索词无关，仅反映当前库规模）
+  const typeCounts = useMemo(() => {
+    const c = new Map<string, number>()
+    for (const it of items) c.set(it.type, (c.get(it.type) ?? 0) + 1)
+    return c
+  }, [items])
 
   function openCreate() {
     setEditingId(null)
@@ -296,184 +377,159 @@ export default function ProfilePage() {
     }
   }
 
-  function resetImport() {
-    setImportStep('upload')
-    setImportText('')
-    setImportItems([])
-    setImportResults([])
-    setImportError(null)
-    setNotice(null)
+  // V2.1.0 T12-R2：「上传 PDF」按钮直接进入新的 /upload 路由视图，
+  // 由 UploadPage 接管真实 4 阶段解析与 D-038 分流（不在本页面重复实现）。
+  function goToUpload() {
+    navigate('/upload')
   }
 
-  async function onPickFile(file: File | undefined) {
-    if (!file) return
-    setImportError(null)
-    try {
-      const res = await resumeApi.uploadPdf(file)
-      setImportText(res.text)
-      setImportStep('upload')
-    } catch (e) {
-      setImportError(e instanceof ApiError ? e.message : String(e))
-    }
-  }
-
-  async function runExtract() {
-    if (!importText.trim()) return
-    const id = newOperationId()
-    setCrudOpId(id)
-    setCrudActive(true)
-    setImportExtracting(true)
-    setImportError(null)
-    try {
-      const res = await experienceApi.extract({ resume_text: importText }, id)
-      if (!res.experiences || res.experiences.length === 0) {
-        setImportError('未能从简历中提取到经历，请确认「本地系统」已配置并测试连接后重试。')
-        setImportStep('upload')
-        return
-      }
-      setImportItems(res.experiences)
-      setImportResults([])
-      setImportStep('review')
-    } catch (e) {
-      setImportError(e instanceof ApiError ? e.message : String(e))
-      setImportStep('upload')
-    } finally {
-      setImportExtracting(false)
-      setCrudActive(false)
-    }
-  }
-
-  function updateImported(idx: number, patch: Partial<ExperienceItem>) {
-    setImportItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)))
-  }
-
-  async function saveAllImported() {
-    setImportSaving(true)
-    setNotice(null)
-    const groupId = newOperationId()
-    const results: { idx: number; ok: boolean; msg: string }[] = []
-    for (let i = 0; i < importItems.length; i++) {
-      try {
-        await experienceApi.create(importItems[i], newOperationId(), groupId)
-        results.push({ idx: i, ok: true, msg: '已保存' })
-      } catch (e) {
-        results.push({ idx: i, ok: false, msg: e instanceof ApiError ? e.message : String(e) })
-      }
-    }
-    setImportResults(results)
-    setImportSaving(false)
-    const okCount = results.filter((r) => r.ok).length
-    const failCount = results.length - okCount
-    setNotice(
-      failCount === 0
-        ? { ok: true, text: `全部 ${okCount} 项已保存。` }
-        : { ok: false, text: `部分完成：成功 ${okCount} 项，失败 ${failCount} 项（未保存项见下）。` },
-    )
-    await load()
+  function clearFilters() {
+    setSearch('')
+    setTypeFilter('')
   }
 
   return (
     <div className="page">
       <PageHeader
-        title="履历库"
-        description="查看并维护你的 Experience（项目 / 工作 / 教育），支持 PDF 导入、逐项检查与增删改。事实层继续由后端 Fact 服务维护。"
-        actions={<Button onClick={openCreate}>新建经历</Button>}
+        title="我的经历"
+        description="长期事实库 · 新事实经确认后写入。本页为「我的经历」主列表；每条的 summary_status 徽章为真实索引状态，事实明细由后端 Fact 服务维护。"
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', flexWrap: 'wrap' }}>
+            <Button onClick={goToUpload}>上传 PDF</Button>
+            <Button variant="ghost" onClick={openCreate}>
+              新增经历
+            </Button>
+          </div>
+        }
       />
 
       {/* ── V2.0.1 本页当前操作 ── */}
       {crudActive && (
-        <Card title="当前操作" subtitle="本页发起操作（提取 / 新增 / 更新 / 删除）的实时阶段与耗时。">
+        <Card
+          className="profile-crud-card"
+          title="当前操作"
+          subtitle="本页发起操作（新增 / 更新 / 删除）的实时阶段与耗时。"
+        >
           <InlineOperation operation={crudOperation} />
         </Card>
       )}
 
-      <Card
-        title="Experience 列表"
-        subtitle="保存后仅展示 Experience 级汇总状态；事实明细不在此页展开。"
-        actions={
-          <Button variant="secondary" onClick={() => { resetImport(); setImportOpen(true) }}>
-            导入 PDF
-          </Button>
-        }
-      >
-        <div className="toolbar">
-          <input
-            className="input input--grow"
-            type="search"
-            placeholder="按标题 / 公司 / 角色 / 描述查找"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: 'auto' }}>
-            <option value="">全部类型</option>
-            {EXPERIENCE_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-          <Button variant="ghost" onClick={load}>
-            刷新
-          </Button>
-        </div>
-
-        {notice && (
-          <div className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}>{notice.text}</div>
-        )}
-
-        {loading ? (
-          <p className="muted">读取中…</p>
-        ) : sorted.length === 0 ? (
-          <div className="empty">
-            <p className="empty__title">{items.length === 0 ? '还没有 Experience' : '没有匹配的经历'}</p>
-            <p className="empty__desc">
-              {items.length === 0
-                ? '点击「新建经历」手动录入，或「导入 PDF」从简历中提取。'
-                : '调整查找关键词或类型筛选项。'}
-            </p>
+      {/* ── V2.1.0 DS-002：我的经历主从视图（信息架构：tab 筛选 + 搜索 + 单列主列表） ── */}
+      <Card className="profile-master-card">
+        <div className="exp-master" style={masterStyle}>
+          <div className="exp-toolbar" style={toolbarStyle}>
+            <div className="exp-tabs" role="tablist" aria-label="按经历类型筛选" style={tabsStyle}>
+              {FILTER_TABS.map((t) => {
+                const active = typeFilter === t.value
+                const count = t.value === '' ? items.length : (typeCounts.get(t.value) ?? 0)
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className="exp-tab"
+                    style={{ ...tabBaseStyle, ...(active ? tabActiveStyle : {}) }}
+                    onClick={() => setTypeFilter(t.value)}
+                  >
+                    {t.label}
+                    <span style={tabCountStyle}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="exp-toolbar__end" style={toolbarEndStyle}>
+              <input
+                className="input"
+                type="search"
+                placeholder="按标题 / 公司 / 角色 / 描述查找"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 'min(300px, 42vw)', minWidth: 200 }}
+              />
+              <Button variant="ghost" onClick={load}>
+                刷新
+              </Button>
+            </div>
           </div>
-        ) : (
-          <ul className="exp-list">
-            {sorted.map((exp) => {
-              const meta = summaryMeta(exp.summary_status)
-              return (
-                <li className="exp-item" key={exp.id}>
-                  <div className="exp-item__head">
-                    <div>
-                      <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
-                      <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
-                      <div className="exp-item__meta">
-                        {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+
+          {notice && (
+            <div
+              className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}
+              style={{ margin: '0 0 var(--s4)' }}
+            >
+              {notice.text}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="muted" style={{ padding: 'var(--s6) 0', textAlign: 'center' }}>
+              读取中…
+            </p>
+          ) : sorted.length === 0 ? (
+            items.length === 0 ? (
+              <div className="empty">
+                <p className="empty__title">还没有任何经历</p>
+                <p className="empty__desc">上传现有简历或新增一段经历，从这里开始构建你的长期事实库。</p>
+                <div style={{ display: 'flex', gap: 'var(--s3)', marginTop: 'var(--s3)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Button onClick={goToUpload}>上传 PDF</Button>
+                  <Button variant="secondary" onClick={openCreate}>
+                    新增经历
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="empty">
+                <p className="empty__title">没有匹配的经历</p>
+                <p className="empty__desc">调整类型 tab 或查找关键词后再试。</p>
+                <Button variant="ghost" onClick={clearFilters} style={{ marginTop: 'var(--s3)' }}>
+                  清除筛选
+                </Button>
+              </div>
+            )
+          ) : (
+            <ul className="exp-list" style={listScrollStyle}>
+              {sorted.map((exp) => {
+                const meta = summaryMeta(exp.summary_status)
+                return (
+                  <li className="exp-item" key={exp.id}>
+                    <div className="exp-item__head">
+                      <div>
+                        <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
+                        <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
+                        <div className="exp-item__meta">
+                          {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <div className="exp-item__actions">
+                        <Badge tone={meta.tone}>{meta.label}</Badge>
+                        {typeof exp.fact_count === 'number' && (
+                          <span className="tag">{exp.fact_count} 事实</span>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
+                          编辑
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
+                          删除
+                        </Button>
                       </div>
                     </div>
-                    <div className="exp-item__actions">
-                      <Badge tone={meta.tone}>{meta.label}</Badge>
-                      {typeof exp.fact_count === 'number' && (
-                        <span className="tag">{exp.fact_count} 事实</span>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
-                        编辑
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
-                        删除
-                      </Button>
-                    </div>
-                  </div>
-                  {exp.description && <p className="exp-item__desc">{exp.description}</p>}
-                  {exp.skills && exp.skills.length > 0 && (
-                    <div className="exp-item__tags">
-                      {exp.skills.map((s) => (
-                        <span className="tag" key={s}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                    {exp.description && <p className="exp-item__desc">{exp.description}</p>}
+                    {exp.skills && exp.skills.length > 0 && (
+                      <div className="exp-item__tags">
+                        {exp.skills.map((s) => (
+                          <span className="tag" key={s}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </Card>
 
       {editing && (
@@ -502,141 +558,6 @@ export default function ProfilePage() {
                 <Button variant="ghost" onClick={() => setDeleting(null)} disabled={deleteBusy}>
                   取消
                 </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {importOpen && (
-        <div className="modal-backdrop" onClick={() => setImportOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="modal__head">
-              <h2 className="modal__title">导入 PDF</h2>
-              <Button variant="ghost" size="sm" onClick={() => setImportOpen(false)}>
-                关闭
-              </Button>
-            </div>
-            <div className="modal__body">
-              <div className="stack">
-                <div className="hstack">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    style={{ display: 'none' }}
-                    onChange={(e) => onPickFile(e.target.files?.[0])}
-                  />
-                  <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-                    选择 PDF 文件
-                  </Button>
-                  <span className="muted">
-                    {importText ? '已解析出文本，可点击「提取经历」。' : '支持 PDF，解析成功后提取为经历。'}
-                  </span>
-                </div>
-
-                {importText && (
-                  <TextArea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder="解析出的简历文本"
-                  />
-                )}
-
-                {importError && <div className="notice notice--danger">{importError}</div>}
-
-                {importStep === 'upload' && (
-                  <div className="stack">
-                    <div className="hstack" style={{ marginTop: 0 }}>
-                      <Button onClick={runExtract} disabled={!importText.trim() || importExtracting}>
-                        {importExtracting ? '提取中…' : '提取经历'}
-                      </Button>
-                    </div>
-                    {importExtracting && <InlineOperation operation={crudOperation} />}
-                  </div>
-                )}
-
-                {importStep === 'review' && (
-                  <div className="stack">
-                    <h3 className="section-label">逐项检查 / 修改后保存（共 {importItems.length} 项）</h3>
-                    {importItems.map((item, idx) => {
-                      const r = importResults.find((x) => x.idx === idx)
-                      return (
-                        <div className="exp-item" key={idx}>
-                          <div className="exp-item__head">
-                            <span className="exp-item__title">
-                              {idx + 1}. {item.title || '（未命名）'}
-                            </span>
-                            {r && (
-                              <Badge tone={r.ok ? 'ok' : 'danger'}>{r.ok ? '已保存' : '失败'}</Badge>
-                            )}
-                          </div>
-                          <div className="form-grid" style={{ marginTop: 'var(--s3)' }}>
-                            <Field label="类型">
-                              <Select value={item.type} onChange={(e) => updateImported(idx, { type: e.target.value })}>
-                                {EXPERIENCE_TYPES.map((t) => (
-                                  <option key={t.value} value={t.value}>
-                                    {t.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            </Field>
-                            <Field label="标题">
-                              <TextInput value={item.title} onChange={(e) => updateImported(idx, { title: e.target.value })} />
-                            </Field>
-                            <Field label="公司 / 组织">
-                              <TextInput value={item.company} onChange={(e) => updateImported(idx, { company: e.target.value })} />
-                            </Field>
-                            <Field label="时间">
-                              <TextInput value={item.time} onChange={(e) => updateImported(idx, { time: e.target.value })} />
-                            </Field>
-                            <Field label="角色">
-                              <TextInput value={item.role} onChange={(e) => updateImported(idx, { role: e.target.value })} />
-                            </Field>
-                            <Field label="技能（逗号分隔）">
-                              <TextInput
-                                value={(item.skills ?? []).join(', ')}
-                                onChange={(e) => updateImported(idx, { skills: splitSkills(e.target.value) })}
-                              />
-                            </Field>
-                          </div>
-                          <div className="stack" style={{ marginTop: 'var(--s4)' }}>
-                            <Field label="职责描述">
-                              <TextArea value={item.description} onChange={(e) => updateImported(idx, { description: e.target.value })} />
-                            </Field>
-                            <Field label="成果（每行一条）">
-                              <TextArea
-                                value={(item.achievements ?? []).join('\n')}
-                                onChange={(e) => updateImported(idx, { achievements: splitAchievements(e.target.value) })}
-                              />
-                            </Field>
-                            {r && !r.ok && <p className="notice notice--danger">{r.msg}</p>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {importItems.length === 0 && (
-                      <div className="empty">
-                        <p className="empty__desc">没有提取到经历，请返回检查简历文本或连接配置。</p>
-                        <Button variant="secondary" onClick={() => { setImportStep('upload'); setImportError(null) }}>
-                          返回重新提取
-                        </Button>
-                      </div>
-                    )}
-                    {importItems.length > 0 && (
-                      <div className="hstack">
-                        <Button onClick={saveAllImported} disabled={importSaving}>
-                          {importSaving ? '保存中…' : '批量保存'}
-                        </Button>
-                        {importResults.length > 0 && (
-                          <Button variant="ghost" onClick={() => { setImportOpen(false); resetImport() }}>
-                            完成
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -1,0 +1,86 @@
+{
+  "_meta": {
+    "fixture_id": "h6-fict-identity-001",
+    "purpose": "operation / artifact 身份样本（全虚构、仅字段契约样例）。",
+    "note": "operation_id 与 artifact_id 均为运行期生成值；此处只给字段形状样例与 op 事件投影。真实响应中的身份由 stub/矩阵按 run_no 动态生成。"
+  },
+  "operation": {
+    "operation_id": "<op_id>",
+    "group_id": null,
+    "operation_type": "generate",
+    "status": "RUNNING",
+    "stage_code": "content_generation",
+    "stage_name": "受约束改写",
+    "resource_type": "LLM",
+    "started_at": "",
+    "last_event_at": "",
+    "ended_at": null,
+    "elapsed_ms": 2000,
+    "stage_elapsed_ms": 1200,
+    "attempt": 1,
+    "max_attempts": 1,
+    "diagnostic_code": "",
+    "safe_counts": {},
+    "safe_summary": {},
+    "stage_count": 3,
+    "unattributed_ms": 0,
+    "stages": [
+      {
+        "seq": 1,
+        "event_type": "STARTED",
+        "stage_code": "select_experiences",
+        "stage_name": "固定槽位选材",
+        "resource_type": "LOCAL_DB",
+        "event_code": "",
+        "attempt": 1,
+        "max_attempts": 1,
+        "elapsed_ms": 0,
+        "message": "",
+        "safe_counts": {},
+        "ts": ""
+      },
+      {
+        "seq": 2,
+        "event_type": "COMPLETED",
+        "stage_code": "select_experiences",
+        "stage_name": "固定槽位选材",
+        "resource_type": "LOCAL_DB",
+        "event_code": "",
+        "attempt": 1,
+        "max_attempts": 1,
+        "elapsed_ms": 800,
+        "message": "",
+        "safe_counts": {},
+        "ts": ""
+      },
+      {
+        "seq": 3,
+        "event_type": "STARTED",
+        "stage_code": "content_generation",
+        "stage_name": "受约束改写",
+        "resource_type": "LLM",
+        "event_code": "",
+        "attempt": 1,
+        "max_attempts": 1,
+        "elapsed_ms": 0,
+        "message": "",
+        "safe_counts": {},
+        "ts": ""
+      }
+    ]
+  },
+  "artifact": {
+    "artifact_id": "artifact_<run_no>_<op8>",
+    "operation_id": "<op_id>",
+    "file_name": "resume_<run_no>.pdf",
+    "sha256": "<hex64>",
+    "size_bytes": 0,
+    "download_url": "/api/template/download?path=output/resume_<run_no>.pdf",
+    "immutable_note": "同一内容两次生成 → artifact_id/file_name 不同；同一 artifact 磁盘字节 SHA-256 稳定"
+  },
+  "identity_rules": {
+    "replace_trigger": "run_no 递增（stub 模式或 CLI 参数）→ 新 artifact_id / file_name",
+    "anchors_bind": "pdf_anchors[].artifact_id 必须 == pdf_artifact_id（不匹配即 fail closed 丢弃）",
+    "post_count": "仅 generate-docx POST 计入；GET operation/detail/count/download 一律不计数"
+  }
+}

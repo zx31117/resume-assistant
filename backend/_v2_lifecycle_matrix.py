@@ -19,6 +19,7 @@ from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parent
 _ENV_KEY = "RESUME_DATA_DIR"
+_UNICODE_NEGATIVE_OUTPUT = "受控负向输出：中文与符号 ❌"
 
 SCRIPTS = (
     ("_v20_smoke", "ra_v20_smoke_"),
@@ -103,7 +104,12 @@ _STUB_KI = "def _stub(state):\n    raise KeyboardInterrupt()\nS._run_tests = _st
 
 _STUB_SE0 = "S._run_tests = lambda state: sys.exit(0)"
 _STUB_SE3 = "S._run_tests = lambda state: sys.exit(3)"
-_STUB_SE_STR = "S._run_tests = lambda state: sys.exit('boom')"
+_STUB_SE_STR = (
+    "def _stub(state):\n"
+    f"    print({_UNICODE_NEGATIVE_OUTPUT!r}, file=sys.stderr)\n"
+    "    sys.exit('boom')\n"
+    "S._run_tests = _stub"
+)
 _STUB_SE_NONE = "S._run_tests = lambda state: sys.exit(None)"
 
 # 注册一个 dispose 必失败的假 engine 后返回 0
@@ -192,6 +198,8 @@ def _build_program(script: str, inject: str | None, call_main: bool) -> str:
 def _run_one(script: str, prefix: str, program: str, runtime: str, tmp_root: str) -> dict:
     env = dict(os.environ)
     env[_ENV_KEY] = runtime
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     # 把脚本 mkdtemp 重定向到受控临时根，便于确定性核算残留
     env["TMP"] = tmp_root
     env["TEMP"] = tmp_root
@@ -202,9 +210,12 @@ def _run_one(script: str, prefix: str, program: str, runtime: str, tmp_root: str
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=180,
     )
-    out = proc.stdout
+    out = proc.stdout or ""
+    err = proc.stderr or ""
     marker = None
     for line in out.splitlines():
         if line.startswith("__MATRIX__|"):
@@ -219,6 +230,8 @@ def _run_one(script: str, prefix: str, program: str, runtime: str, tmp_root: str
         "returncode": proc.returncode,
         "marker": marker,
         "residues": [p.name for p in residues],
+        "stdout": out,
+        "stderr": err,
     }
     return result
 
@@ -261,6 +274,9 @@ def main() -> int:
                 if not _assert_exit(exp_exit, r["returncode"], name):
                     ok = False
                     msgs.append(f"退出码 {r['returncode']}，期望 {exp_exit}")
+                    diagnostic = (r["stderr"] or r["stdout"]).strip()
+                    if diagnostic:
+                        msgs.append("子进程诊断=" + diagnostic[-500:].replace("\n", " / "))
                 if bool(r["residues"]) != exp_residue:
                     ok = False
                     msgs.append(f"残留 {r['residues']}，期望残留={exp_residue}")
@@ -283,6 +299,10 @@ def main() -> int:
                 elif call_main and r["marker"] is None:
                     ok = False
                     msgs.append("未解析到子进程 marker")
+
+                if name == "SystemExit(字符串)" and _UNICODE_NEGATIVE_OUTPUT not in r["stderr"]:
+                    ok = False
+                    msgs.append("UTF-8 负向诊断未保持可读")
 
                 if call_main is False:
                     # 导入边界：额外断言无产品模块副作用
@@ -313,6 +333,8 @@ def main() -> int:
             env["TMP"] = str(base)
             env["TEMP"] = str(base)
             env["TMPDIR"] = str(base)
+            env["PYTHONUTF8"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
             # 清理连续调用（幂等）
             prog_idem = (
                 "import sys\n"
@@ -324,13 +346,24 @@ def main() -> int:
                 "print('__IDEM__|{}|{}|{}'.format(ok1, ok2, st.tmp.exists()))\n"
                 "sys.exit(0 if (ok1 and ok2 and not st.tmp.exists()) else 1)\n"
             )
-            p = subprocess.run([sys.executable, "-c", prog_idem], cwd=str(_BACKEND), env=env, capture_output=True, text=True, timeout=120)
+            p = subprocess.run(
+                [sys.executable, "-c", prog_idem],
+                cwd=str(_BACKEND),
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+            )
+            stdout = p.stdout or ""
+            stderr = p.stderr or ""
             ok = p.returncode == 0
             if ok:
                 print(f"  [PASS] {script} :: 重复 cleanup 幂等")
             else:
                 failed += 1
-                print(f"  [FAIL] {script} :: 重复 cleanup 幂等  rc={p.returncode} out={p.stdout.strip()}")
+                print(f"  [FAIL] {script} :: 重复 cleanup 幂等  rc={p.returncode} out={stdout.strip()} err={stderr.strip()}")
 
             # 文件句柄占用：首次删除失败，释放后重试成功
             prog_occupy = (
@@ -348,13 +381,24 @@ def main() -> int:
                 "print('__OCCUPY__|{}|{}|{}'.format(ok1, ok2, st.tmp.exists()))\n"
                 "sys.exit(0 if (ok2 and not st.tmp.exists()) else 1)\n"
             )
-            p = subprocess.run([sys.executable, "-c", prog_occupy], cwd=str(_BACKEND), env=env, capture_output=True, text=True, timeout=120)
+            p = subprocess.run(
+                [sys.executable, "-c", prog_occupy],
+                cwd=str(_BACKEND),
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+            )
+            stdout = p.stdout or ""
+            stderr = p.stderr or ""
             ok = p.returncode == 0
             if ok:
                 print(f"  [PASS] {script} :: 文件句柄占用释放后重试")
             else:
                 failed += 1
-                print(f"  [FAIL] {script} :: 文件句柄占用释放后重试  rc={p.returncode} out={p.stdout.strip()}")
+                print(f"  [FAIL] {script} :: 文件句柄占用释放后重试  rc={p.returncode} out={stdout.strip()} err={stderr.strip()}")
 
     print("-" * 60)
     print(f"矩阵合计 {total} 项，失败 {failed}")

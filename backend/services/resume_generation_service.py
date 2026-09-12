@@ -10,9 +10,12 @@ V1.5.0 PLAN §2 / §5 / §7 T6：
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import uuid
 from datetime import date
+from pathlib import Path
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -20,7 +23,11 @@ from sqlalchemy.orm import Session
 from api.schemas import (
     BuildCounts,
     BuildMeta,
+    DocPreviewEntry,
+    DocPreviewSection,
+    EvidenceFact,
     JDAnalysisOut,
+    PreviewAnchor,
     RenderStats,
     RequestProfile,
     ResumeDocxGenerateRequest,
@@ -39,7 +46,7 @@ from core.errors import (
 )
 from core.operations import OperationType, Recording, ResourceType, tracker
 from database import models
-from database.models import SchemaVersion
+from database.models import Fact, SchemaVersion
 from database.migrations import (
     SCHEMA_VERSION_FACT_MIGRATION,
     SCHEMA_VERSION_FACT_SCHEMA,
@@ -132,6 +139,208 @@ def _ensure_migrations_applied(db: Session) -> dict:
             details={"missing": missing, "applied": sorted(applied)},
         )
     return {"applied": sorted(applied)}
+
+
+# ── V2.1.0 T6：内容预览 + 逐 bullet 事实依据（只读投影） ──────────────── #
+
+def _build_doc_preview(resume_doc: ResumeDocument) -> list[DocPreviewSection]:
+    """V2.1.0 T6：把最终 ResumeDocument 投影为内容预览 DTO 列表。
+
+    纯只读：不修改 resume_doc；不调 LLM/DB；不编造任何字段。
+    字段全部来自真实 ResumeDocument（profile / work / project / education /
+    skills / awards），空 section 直接不输出。
+
+    V2.1.0 R9：返回章节顺序与 pm_template v1.2 模板章节顺序对齐
+    （personal→education→work→project→skills→awards），保证预览 JSON 与
+    Word/PDF 渲染出的章节顺序一致（PLAN §14.2.A）。
+    """
+    # R9：模板（_build_templates.py）章节顺序映射；未知 section 保持靠后
+    _SECTION_RANK = {
+        "personal": 0, "education": 1, "work": 2,
+        "project": 3, "skills": 4, "awards": 5,
+    }
+    sections: list[DocPreviewSection] = []
+
+    # ── personal：profile 头部（不来自模板） ──
+    profile = resume_doc.profile
+    personal_bullets: list[str] = []
+    if profile.target_position:
+        personal_bullets.append(f"目标岗位：{profile.target_position}")
+    if profile.location:
+        personal_bullets.append(f"所在地：{profile.location}")
+    if profile.summary:
+        personal_bullets.append(f"自我评价：{profile.summary}")
+    contact_subhead = " · ".join(
+        x for x in [profile.phone, profile.email] if x
+    )
+    sections.append(DocPreviewSection(
+        section="personal",
+        title="个人信息",
+        entries=[DocPreviewEntry(
+            heading=profile.name or "（未署名）",
+            subhead=contact_subhead,
+            bullets=personal_bullets,
+        )],
+    ))
+
+    # ── work：工作经历 ──
+    if resume_doc.work:
+        sec = DocPreviewSection(section="work", title="工作经历")
+        for w in resume_doc.work:
+            head = " · ".join(
+                x for x in [w.company, w.role] if x
+            ) or "工作经历"
+            sub_parts: list[str] = []
+            if w.start_time:
+                sub_parts.append(f"{w.start_time} - {w.end_time or '至今'}")
+            elif w.end_time:
+                sub_parts.append(w.end_time)
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=list(w.bullets or []),
+                experience_id=w.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── project：项目经历 ──
+    if resume_doc.projects:
+        sec = DocPreviewSection(section="project", title="项目经历")
+        for p in resume_doc.projects:
+            head = " · ".join(
+                x for x in [p.name, p.role] if x
+            ) or "项目"
+            sub_parts: list[str] = []
+            if p.start_time:
+                sub_parts.append(f"{p.start_time} - {p.end_time or '至今'}")
+            elif p.end_time:
+                sub_parts.append(p.end_time)
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=list(p.bullets or []),
+                experience_id=p.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── education：教育背景（formal + campus） ──
+    if resume_doc.education:
+        sec = DocPreviewSection(section="education", title="教育背景")
+        for e in resume_doc.education:
+            head = " · ".join(
+                x for x in [e.school, e.major] if x
+            ) or "教育"
+            sub_parts: list[str] = []
+            if e.start_time:
+                sub_parts.append(f"{e.start_time} - {e.end_time or '至今'}")
+            elif e.end_time:
+                sub_parts.append(e.end_time)
+            bullets = list(e.bullets or [])
+            if e.description and not bullets:
+                # formal education 通常没有 bullets；将 description 作为单条 bullet
+                # 真实保留事实文本，不杜撰内容。
+                bullets = [e.description]
+            sec.entries.append(DocPreviewEntry(
+                heading=head,
+                subhead=" · ".join(sub_parts),
+                bullets=bullets,
+                experience_id=e.experience_id or None,
+            ))
+        sections.append(sec)
+
+    # ── skills：技能分组 ──
+    if resume_doc.skills:
+        sec = DocPreviewSection(section="skills", title="技能")
+        for g in resume_doc.skills:
+            sec.entries.append(DocPreviewEntry(
+                heading=g.category or "技能",
+                subhead="",
+                bullets=list(g.items or []),
+            ))
+        sections.append(sec)
+
+    # ── awards：获奖 / 证书（扁平字符串） ──
+    if resume_doc.awards:
+        sections.append(DocPreviewSection(
+            section="awards",
+            title="获奖 / 证书",
+            entries=[DocPreviewEntry(heading="", subhead="", bullets=list(resume_doc.awards))],
+        ))
+
+    return sorted(
+        sections,
+        key=lambda s: _SECTION_RANK.get(s.section, len(_SECTION_RANK)),
+    )
+
+
+def _build_evidence_map(
+    db: Session,
+    fact_ids: list[str],
+) -> dict[str, list[EvidenceFact]]:
+    """V2.1.0 T6：按 fact_id 从 Fact 表读取原文，按 experience_id 聚合。
+
+    只读：仅 SELECT；不写库。空入参直接返回空 dict。
+    reason 字段保持空字符串——本流水线不记录 per-fact 采用理由。
+    """
+    if not fact_ids:
+        return {}
+    seen: list[str] = []
+    dedup: dict[str, None] = {}
+    for fid in fact_ids:
+        if fid and fid not in dedup:
+            dedup[fid] = None
+            seen.append(fid)
+    if not seen:
+        return {}
+    rows = db.query(Fact).filter(Fact.fact_id.in_(seen)).all()
+    out: dict[str, list[EvidenceFact]] = {}
+    for f in rows:
+        out.setdefault(f.experience_id or "", []).append(EvidenceFact(
+            fact_id=f.fact_id,
+            experience_id=f.experience_id,
+            text=(f.text or "").strip(),
+            reason="",
+        ))
+    return out
+
+
+# ── V2.1.0 R15a：PDF artifact 身份与不可变落盘 ──────────────────── #
+
+def _safe_artifact_id(artifact_id: str) -> str:
+    """把 artifact 身份收敛为合法文件名字段；异常值一律回退新 UUID。"""
+    if not artifact_id:
+        return str(uuid.uuid4())
+    clean = "".join(ch for ch in artifact_id if ch.isalnum() or ch in "-_")
+    return clean or str(uuid.uuid4())
+
+
+def write_pdf_artifact(pdf_bytes: bytes, user_id: str, template_id: str,
+                       artifact_id: str) -> dict:
+    """把 PDF 字节以不可变 artifact 身份写入 OUTPUT_DIR。
+
+    命名含唯一身份（resume_<user>_<template>_<artifact_id>.pdf），同一 artifact_id
+    只落一个文件、不原地覆盖；再次生成使用新 artifact_id → 新文件。
+    返回 artifact 元数据：artifact_id / file_name / file_path / download_url /
+    sha256（内容 SHA-256）/ size_bytes。
+    """
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    safe_user_id = "".join(c for c in (user_id or "") if c.isalnum() or c in "-_") or "user"
+    artifact_id = _safe_artifact_id(artifact_id)
+    file_name = f"resume_{safe_user_id}_{template_id}_{artifact_id}.pdf"
+    file_path_abs = os.path.join(OUTPUT_DIR, file_name)
+    try:
+        with open(file_path_abs, "wb") as f:
+            f.write(pdf_bytes)
+    except Exception as e:
+        raise FileSaveError(f"PDF artifact 保存失败: {e}", details={"path": file_path_abs}) from e
+    return {
+        "artifact_id": artifact_id,
+        "file_name": file_name,
+        "file_path": f"output/{file_name}",
+        "download_url": f"/api/template/download?path=output/{file_name}",
+        "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
+        "size_bytes": len(pdf_bytes),
+    }
 
 
 def generate_docx(
@@ -280,12 +489,85 @@ def generate_docx(
         with recording.stage("save_docx", "输出文件保存", ResourceType.LOCAL_FILE):
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_") or "user"
-            file_name = f"resume_{safe_user_id}_{req.template_id}.docx"
+            # H8 §20.3.4 不可变 revision：文件名按 operation 唯一，禁固定命名覆盖/跨轮串场；
+            # 本轮 docx_sha256 与 Word 下载字节一致，后续轮次不覆盖历史 revision。
+            _op_slug = (recording.operation_id or str(uuid.uuid4()))[:16]
+            file_name = f"resume_{safe_user_id}_{req.template_id}_{_op_slug}.docx"
             file_path_abs = os.path.join(OUTPUT_DIR, file_name)
             try:
                 doc.save(file_path_abs)
             except Exception as e:
                 raise FileSaveError(f"DOCX 保存失败: {e}", details={"path": file_path_abs}) from e
+            # V2.1.0 R9：同一 resume_doc 产出真实 PDF（同目录）。
+            # V2.1.0 R15a：PDF 按不可变 artifact 身份命名，响应携带 artifact 元数据与 anchors。
+            # PDF 渲染/保存失败不中断 DOCX 主链：响应 pdf_* 字段留空 + warning，
+            # 下载 PDF 时由 download 端点返回真实 4xx/5xx，绝不假装成功。
+            pdf_file_name: Optional[str] = None
+            pdf_download_url: Optional[str] = None
+            pdf_artifact_id: Optional[str] = None
+            pdf_sha256: Optional[str] = None
+            pdf_size_bytes: Optional[int] = None
+            pdf_anchors: Optional[list[PreviewAnchor]] = None
+            try:
+                # H8 §20.3：PDF 唯一来源 = 最终 DOCX → 本机 Word COM。
+                # ReportLab/旧 PDF Renderer 已退出产品生成链（零调用、零回退）。
+                from services import docx_to_pdf, pdf_anchors  # lazy：Word COM 缺失不阻塞 docx 链路
+                pdf_artifact_id = recording.operation_id or str(uuid.uuid4())
+                _conv = docx_to_pdf.convert_docx_to_pdf_bytes(file_path_abs, timeout_s=90.0)
+                pdf_bytes = _conv["pdf_bytes"]
+                docx_sha256 = hashlib.sha256(
+                    Path(file_path_abs).read_bytes()).hexdigest()
+                warnings.append(
+                    f"PDF: converter={docx_to_pdf.CONVERTER_ID} "
+                    f"word={_conv['fingerprint']['word'].get('version')}/"
+                    f"{_conv['fingerprint']['word'].get('build')} "
+                    f"docx_sha={docx_sha256[:16]} pdf_sha={_conv['fingerprint']['pdf_sha256'][:16]} "
+                    f"pages={_conv['fingerprint']['pages']} "
+                    f"elapsed={_conv['fingerprint']['elapsed_s']}s"
+                )
+                pdf_meta = write_pdf_artifact(
+                    pdf_bytes, user_id=safe_user_id,
+                    template_id=req.template_id, artifact_id=pdf_artifact_id,
+                )
+                pdf_file_name = pdf_meta["file_name"]
+                pdf_download_url = pdf_meta["download_url"]
+                pdf_sha256 = pdf_meta["sha256"]
+                pdf_size_bytes = pdf_meta["size_bytes"]
+                # H8 §20.4：PreviewAnchor 从 Word 转换后的**确切 PDF 文本层**重建，
+                # 绑定本 revision 的 artifact 身份（pdf_sha256 语义由 artifact 字节保证）。
+                # 无法可靠定位的行记 unavailable 并降级（不产生坐标、不高亮）。
+                refs_map: dict[str, list[list[str]]] = dict(
+                    build_meta.get("bullet_fact_refs") or {})
+                rows: list[dict] = []
+                for edu in resume_doc.education:
+                    if getattr(edu, "description", None):
+                        rows.append({"text": edu.description,
+                                     "content_item_id": edu.experience_id or None,
+                                     "bullet_index": 0})
+                for wi, w in enumerate(resume_doc.work):
+                    refs = (refs_map.get(w.experience_id) or []) if w.experience_id else []
+                    for bi, bl in enumerate(w.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": w.experience_id or None,
+                                     "bullet_index": bi,
+                                     "fact_refs": refs[bi] if bi < len(refs) else []})
+                for pi_, pr in enumerate(resume_doc.projects):
+                    refs = (refs_map.get(pr.experience_id) or []) if pr.experience_id else []
+                    for bi, bl in enumerate(pr.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": pr.experience_id or None,
+                                     "bullet_index": bi,
+                                     "fact_refs": refs[bi] if bi < len(refs) else []})
+                _anchors, _unavail = pdf_anchors.build_anchors_from_word_pdf(
+                    pdf_bytes, rows, artifact_id=pdf_artifact_id)
+                pdf_anchors = [PreviewAnchor(**a) for a in _anchors]
+                if _unavail:
+                    warnings.append(
+                        f"PDF: 锚点 unavailable {len(_unavail)} 条（诚实降级，不高亮）: "
+                        + ";".join(u.get("text", "")[:16] for u in _unavail[:3]))
+            except Exception as _e_pdf:  # noqa: BLE001 —— 真实失败状态由响应字段 + warning 表达
+                logger.warning("Word→PDF 转换失败（不影响 DOCX）: %s", _e_pdf)
+                warnings.append(f"PDF 生成失败（可下载 Word；PDF 不可用）: {type(_e_pdf).__name__}: {_e_pdf}")
         download_url = f"/api/template/download?path=output/{file_name}"
 
         # ── 11. 组装响应 ───────────────────────────────────────
@@ -307,11 +589,43 @@ def generate_docx(
                 merged = sorted(set(build_meta_obj.ai_unrecognized_experience_ids) | set(cg_unrecognized))
                 build_meta_obj = build_meta_obj.model_copy(update={"ai_unrecognized_experience_ids": merged})
 
+            # V2.1.0 T6：内容预览 + 逐 bullet 事实依据（只读投影，不改 builder/renderer/selection/rewrite）
+            doc_preview = _build_doc_preview(resume_doc)
+            # 取真实 selection_reason（per-experience 来自 EvidenceEntry；evidence_set 在作用域内）
+            selection_reason_by_exp: dict[str, str] = {}
+            if evidence_set is not None:
+                for _entry in evidence_set.entries:
+                    if _entry.selection_reason and _entry.experience_id:
+                        selection_reason_by_exp[_entry.experience_id] = _entry.selection_reason
+            for _sec in doc_preview:
+                for _ent in _sec.entries:
+                    if _ent.experience_id and _ent.experience_id in selection_reason_by_exp:
+                        _ent.selection_reason = selection_reason_by_exp[_ent.experience_id]
+            # 收集 doc_preview 涉及到的全部 experience_id，按 build_meta.fact_refs_per_experience 找 fact_id
+            _exp_ids = {
+                _ent.experience_id
+                for _sec in doc_preview
+                for _ent in _sec.entries
+                if _ent.experience_id
+            }
+            _fact_ids: list[str] = []
+            for _eid in _exp_ids:
+                for _fid in (build_meta.get("fact_refs_per_experience") or {}).get(_eid, []) or []:
+                    if _fid:
+                        _fact_ids.append(_fid)
+            evidence_map = _build_evidence_map(db, _fact_ids)
+
         return ResumeDocxGenerateResponse(
             operation_id=recording.operation_id,
             file_path=f"output/{file_name}",
             file_name=file_name,
             download_url=download_url,
+            pdf_file_name=pdf_file_name,
+            pdf_download_url=pdf_download_url,
+            pdf_artifact_id=pdf_artifact_id,
+            pdf_sha256=pdf_sha256,
+            pdf_size_bytes=pdf_size_bytes,
+            pdf_anchors=pdf_anchors,
             stages=_stages_from_recording(recording),
             matched_experience_ids=matched_ids,
             rendered_experience_ids=rendered_ids,
@@ -322,4 +636,6 @@ def generate_docx(
             build_meta=build_meta_obj,
             render_stats=render_stats,
             template_id=req.template_id,
+            doc_preview=doc_preview,
+            evidence=evidence_map,
         )

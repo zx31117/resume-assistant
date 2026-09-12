@@ -15,4 +15,11 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   reactHooks.configs.flat['recommended-latest'],
+  // V2.1.0 R21：显式声明 React Hooks 两条核心规则，避免随插件推荐集版本漂移。
+  {
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
 )

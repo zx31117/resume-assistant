@@ -1,0 +1,166 @@
+{
+  "_meta": {
+    "fixture_id": "h6-fict-preview-anchors-001",
+    "source": "backend/h6_fixtures/gen_fixtures.py::build_fixture_pdf(artifact_id=ARTIFACT_ID_H6, bullet_fact_refs=resume_doc.json.bullet_fact_refs)",
+    "purpose": "PreviewAnchor 冻结数据集：多 section、含空/非空 fact_refs、page_index 0/1、A4 页内几何",
+    "privacy_check": "全虚构内容，文本均来自 resume_doc.json",
+    "note": "运行态 pdf_artifact_id 由 stub/矩阵替换该 token；坐标由确定性两页 PDF 绘制实测记录。"
+  },
+  "pdf_pages": 2,
+  "artifact_id_token": "ARTIFACT_ID_H6",
+  "anchors": [
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 715.65,
+      "x1": 547.46,
+      "y1": 726.25,
+      "content_item_id": "h6-edu-1",
+      "bullet_index": 0,
+      "text": "主修前端工程、数据结构与算法；参与校园开发者社区维护，组织 3 期入门工作坊，累计服务 120 余人次。",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 698.65,
+      "x1": 104.44,
+      "y1": 709.25,
+      "content_item_id": "h6-edu-1",
+      "bullet_index": 1,
+      "text": "GPA 3.6/4.0",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 627.65,
+      "x1": 556.86,
+      "y1": 655.25,
+      "content_item_id": "h6-work-1",
+      "bullet_index": 0,
+      "text": "负责低代码搭建平台前端核心模块，覆盖页面编辑器、组件树与属性面板，支撑 8 条内部业务线在平台上完成日常页面搭建与发布。",
+      "fact_refs": [
+        "h6f-w1-a",
+        "h6f-w1-b"
+      ]
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 593.65,
+      "x1": 562.78,
+      "y1": 621.25,
+      "content_item_id": "h6-work-1",
+      "bullet_index": 1,
+      "text": "搭建跨端组件库与设计系统基础层，沉淀 26 个基础组件与统一交互规范，推动 5 个前端小组按同一规范迭代，减少重复实现。",
+      "fact_refs": [
+        "h6f-w1-c"
+      ]
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 576.65,
+      "x1": 548.93,
+      "y1": 587.25,
+      "content_item_id": "h6-work-1",
+      "bullet_index": 2,
+      "text": "推进前端性能治理：首屏资源体积下降约 34%，长列表滚动帧率保持稳定，并输出可复用的性能巡检工具。",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 542.65,
+      "x1": 514.43,
+      "y1": 553.25,
+      "content_item_id": "h6-work-2",
+      "bullet_index": 0,
+      "text": "参与公司官网与活动专题页开发，按设计稿完成响应式还原，并处理低端安卓设备兼容与降级策略。",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 525.65,
+      "x1": 419.06,
+      "y1": 536.25,
+      "content_item_id": "h6-work-2",
+      "bullet_index": 1,
+      "text": "维护埋点与统计面板前端，配合数据同学修正 3 处上报口径，提升数据准确性。",
+      "fact_refs": [
+        "h6f-w2-b"
+      ]
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 454.65,
+      "x1": 556.83,
+      "y1": 482.25,
+      "content_item_id": "h6-proj-1",
+      "bullet_index": 0,
+      "text": "设计页面渲染引擎的布局模型与样式序列化，使画布预览与真实发布页保持一致的还原度，降低线上视觉偏差。",
+      "fact_refs": [
+        "h6f-p1-a"
+      ]
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 437.65,
+      "x1": 562.78,
+      "y1": 448.25,
+      "content_item_id": "h6-proj-1",
+      "bullet_index": 1,
+      "text": "实现拖拽生成与撤销重做机制，支持组件间联动配置，将单个页面的平均搭建耗时从约 2 小时降到约 40 分钟。",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 0,
+      "x0": 32.03,
+      "y0": 403.65,
+      "x1": 546.23,
+      "y1": 414.25,
+      "content_item_id": "h6-proj-2",
+      "bullet_index": 0,
+      "text": "负责相册时间轴与自动排版前端，用网格化分镜算法把用户照片按时间与主题聚合成可翻看的纪念册页面。",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 1,
+      "x0": 32.03,
+      "y0": 794.65,
+      "x1": 315.29,
+      "y1": 805.25,
+      "content_item_id": "skills:0",
+      "bullet_index": 0,
+      "text": "前端基础：TypeScript、React、Vite、CSS 布局、性能优化",
+      "fact_refs": []
+    },
+    {
+      "artifact_id": "ARTIFACT_ID_H6",
+      "page_index": 1,
+      "x0": 32.03,
+      "y0": 777.65,
+      "x1": 374.17,
+      "y1": 788.25,
+      "content_item_id": "skills:1",
+      "bullet_index": 1,
+      "text": "工程与协作：组件库设计、低代码引擎、Node.js、Git 工作流、代码评审",
+      "fact_refs": []
+    }
+  ]
+}

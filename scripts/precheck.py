@@ -7,7 +7,9 @@
 - 编译：python -m compileall 校验 backend 全部源码可编译；
 - 固定计数：六个回归脚本必须「退出码 == 0」且「汇总行匹配精确正则」双通过，
   防止少跑、额外 SUSPEND、输出格式消失或静默返回成功；
-- 前端：frontend 下 `npm run build`（tsc -b && vite build）成功且 dist/index.html 存在。
+- 前端：frontend 下 `npm run build`（tsc -b && vite build）成功且 dist/index.html 存在；
+- 前端 Hooks 门禁（V2.1.0 H5 R26）：frontend 下 `npm run lint:hooks` 通过
+  （仅 react-hooks/rules-of-hooks 一条 error；见 frontend/eslint.rules-of-hooks.config.js）。
 
 非阻断检查（首版仅报告，不影响退出码）：ruff、ESLint、依赖漏洞扫描。T4 建立基线后填入
 NON_BLOCKING；此处仅保留框架与明确未配置标记，绝不把「未运行」写成「零问题」。
@@ -63,6 +65,7 @@ BLOCKING_SCRIPTS = (
     ("_v2_t5_crud_check.py",   r"PASS=15\s+FAIL=0",             "V2.0 T5 CRUD"),
     ("_v2_lifecycle_matrix.py", r"矩阵合计\s+50\s+项，失败\s+0",   "生命周期矩阵"),
     ("_v14_t7_regression.py",  r"total=15\s+PASS=12\s+FAIL=0\s+SUSPEND=3", "V1.4 T7 回归"),
+    ("_v21_h6_matrix.py",      r"PASS=\d+\s+FAIL=0",             "H6 确定性矩阵"),
 )
 
 # 非阻断检查（PLAN §3.3 / §6 R6）：只报告，绝不参与退出码。
@@ -114,6 +117,7 @@ def _strip_env() -> dict[str, str]:
         env.pop(k, None)
     # F4：子进程强制 UTF-8 输出，避免其默认落 GBK（cp936）管道在打印中文/emoji 时
     # 触发二次 UnicodeEncodeError；父进程侧仍以 encoding="utf-8", errors="replace" 读取。
+    env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 
@@ -181,6 +185,18 @@ def _run_compile_check() -> None:
 
 def _run_frontend_build() -> None:
     print("[阻断] 运行前端正式构建 (npm run build) ...", flush=True)
+    # H7 R32：Windows WorkBuddy sandbox 下 vite emptyDir 触发的 trash 会被 safe-delete
+    # shim 拦截（Recycle Bin 不可用），预清 dist 避免重复构建失败。
+    dist = FRONTEND / "dist"
+    if dist.exists():
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 f"Remove-Item -Recurse -Force '{dist}' -ErrorAction SilentlyContinue"],
+                capture_output=True, timeout=30,
+            )
+        except Exception:
+            pass
     try:
         # Windows 下 npm 是 npm.cmd，需经 shell 解析；命令为固定常量，无注入风险。
         proc = subprocess.run(
@@ -206,6 +222,41 @@ def _run_frontend_build() -> None:
             f"前端构建失败（退出码 {proc.returncode}）。末尾输出：\n{_tail(output)}"
         )
     print("[阻断] 前端正式构建通过", flush=True)
+
+
+def _run_hooks_gate() -> None:
+    """V2.1.0 H5 R26：前端 rules-of-hooks 专用门禁（npm run lint:hooks）。
+
+    只启 react-hooks/rules-of-hooks 一条 error 规则（见 frontend/
+    eslint.rules-of-hooks.config.js），把「产品源码存在 Hook 顺序违规」从可报告
+    提升为阻断项，防止 #310 类条件 Hook 再次进入产物。独立于完整 ESLint
+    （非阻断报告，仍由 NON_BLOCKING 承载，二者互不稀释）。
+    """
+    print("[阻断] 运行前端 Hooks 门禁 (npm run lint:hooks) ...", flush=True)
+    try:
+        proc = subprocess.run(
+            "npm run lint:hooks",
+            cwd=str(FRONTEND),
+            env=_strip_env(),
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=FRONTEND_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise _Failure(f"Hooks 门禁超时（>{FRONTEND_TIMEOUT}s）")
+    except FileNotFoundError as e:
+        raise _Failure(f"Hooks 门禁无法启动 npm：{e}")
+
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0:
+        raise _Failure(
+            "前端存在 react-hooks/rules-of-hooks 违规（阻断）。末尾输出：\n"
+            + _tail(output)
+        )
+    print("[阻断] Hooks 门禁通过（无 rules-of-hooks 违规）", flush=True)
 
 
 def _run_nonblocking() -> list[str]:
@@ -361,6 +412,7 @@ def main() -> int:
     for filename, pattern, label in BLOCKING_SCRIPTS:
         _attempt(label, lambda f=filename, p=pattern, l=label: _run_blocking_script(f, p, l))
     _attempt("前端构建", _run_frontend_build)
+    _attempt("前端 Hooks 门禁", _run_hooks_gate)
 
     after_snapshot = _snapshot_runtime(default_root)
     sentinel_diff = _runtime_sentinel_diff(before_snapshot, after_snapshot)

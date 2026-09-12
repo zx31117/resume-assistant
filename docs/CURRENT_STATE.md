@@ -1,10 +1,10 @@
 # 当前实现状态
 
 > 文档角色：当前已验收实现事实的唯一真源
-> 已验收版本：V2.0.2
-> 源码验收对象：`eb4bd30a2d4c7aac62865924c7b8eab363d282ee`
-> 发布标识：annotated tag `v2.0.2` → `78bb909c18ca28e45b54406536aa326887caa1ca`
-> 状态日期：2026-09-05
+> 已验收版本：V2.1.0
+> 源码验收对象：H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
+> 发布状态：Product Owner 已批准发布；等待最终候选 GitHub Windows CI 通过后创建 annotated tag `v2.1.0`
+> 状态日期：2026-09-12
 
 ## 1. 当前结论
 
@@ -17,6 +17,8 @@ V2.0.1 为生成、提取、Experience CRUD、迁移、Embedding 重建和失败
 V2.0.1 已完成开发验证、独立源码验收、用户人工验收和文档验收。用户于 2026-09-02 明确确认通过；源码验收绑定上方候选，发布身份绑定 annotated tag。版本范围、测试、证据边界和人工真实生成记录见 [V2.0.1 RESULT](./versions/v2.0.1/RESULT.md)。
 
 V2.0.2 在不改变产品业务流程和界面的前提下完成工程基线收束：Windows 本地与 CI 使用同一预检入口和固定回归计数；测试数据库、输出、日志与缓存强制位于临时 runtime，默认真实 runtime 由 fail-closed 哨兵保护；迁移 API、备份摘要、配置和 Demo 中的旧 vectorstore 活动契约已经退出。版本已完成独立源码验收、人工确认、文档验收和公开发布。详细打回、返工和证据见 [V2.0.2 RESULT](./versions/v2.0.2/RESULT.md)。
+
+V2.1.0 完成核心用户界面整体重构：欢迎页直接承接 PDF 上传，“我的经历”继续维护职业事实；生成工作台把身份与 JD 输入收束为一键生成，处理过程由后端投影为四个覆盖完整 operation 的用户阶段；结果页使用真实 PDF artifact 预览、逐条事实依据和 Word/PDF 双下载。DOCX 是唯一排版真源，PDF 只由本机 Microsoft Word 转换产生，PDF.js viewer 与 PDF 下载读取同一不可变 artifact；转换不可用时 fail closed 并保留 Word 下载。H8-R2 已完成开发验证、独立验收和 Product Owner 人工验收，发布决定已批准；完整历史见 [V2.1.0 RESULT](./versions/v2.1.0/RESULT.md)。
 
 ## 2. 已实现核心流程
 
@@ -46,14 +48,17 @@ POST /api/resume/generate-docx
 
 ~~~text
 启动 Windows 便携应用 → 浏览器打开本地同源页面
-→ 本地系统：连接测试/激活、状态、迁移、重建、重试
-→ 履历库：PDF 上传、经历提取、Experience 查看/新增/编辑/删除
-→ 生成工作台：身份信息、目标 JD、模板、生成状态、warnings、下载 DOCX
+→ 无经历：欢迎页单击或拖放 PDF → 解析、提取、分类确认
+→ 我的经历：Experience 查看/筛选/搜索/新增/编辑/删除
+→ 生成工作台：确认身份信息、输入目标 JD → 一键生成
+→ 四阶段状态：理解岗位 → 选择事实 → 生成润色 → 排版并生成 Word/PDF
+→ 结果页：真实 PDF 预览、事实依据、下载 Word/PDF
+→ 左下角开发者后台：连接配置、状态、迁移、重建、重试与诊断
 ~~~
 
-三个页面只提交请求和展示状态；配置、维护、Experience 事务与 JD → DOCX 仍由后端既有服务完成。数据库或索引未就绪时页面可进入受限维护模式，生成保持阻断。
+用户页面只提交请求和展示后端状态；配置、维护、Experience 事务与 JD → DOCX → PDF 仍由后端服务完成。数据库或索引未就绪时页面可进入受限维护模式，生成保持阻断。
 
-长操作通过统一 `operation_id` 关联后台状态、阶段事件和脱敏日志。浏览器刷新后可在“本地系统”的运行活动中重新选择仍由当前后台进程保存的操作；已知 `operation_id` 的诊断摘要可以从 JSONL 重建。近期阶段统计按操作类型和阶段代码比较既往样本，并排除当前操作自身。
+长操作通过统一 `operation_id` 关联后台状态、阶段事件和脱敏日志。生成 operation 由服务端投影为 P1–P4 四个用户阶段，活动阶段耗时实时增长、完成后冻结；内部技术阶段仍保留给开发者诊断。已知 `operation_id` 的诊断摘要可以从 JSONL 重建。近期阶段统计按操作类型和阶段代码比较既往样本，并排除当前操作自身。
 
 ## 3. 已验收事实与选择边界
 
@@ -79,7 +84,7 @@ POST /api/resume/generate-docx
 | 关系数据库 | SQLite + SQLAlchemy |
 | Runtime data root | `RESUME_DATA_DIR`；Windows 默认 `%LOCALAPPDATA%\ResumeAssistant`，macOS 默认 `~/Library/Application Support/ResumeAssistant`，Linux 默认 `~/.local/share/resume-assistant` |
 | 配置管理 | 单一 resolver；API Key：Windows Credential Manager > env/.env；非密钥：runtime 版本化配置 > env/.env > 内置默认 |
-| 前端 | React + TypeScript + Vite；生产构建由 FastAPI 同源托管并提供 SPA fallback |
+| 前端 | React + TypeScript + Vite；typed service/Real API 消费后端状态；生产构建由 FastAPI 同源托管并提供 SPA fallback；PDF.js 读取真实 PDF artifact |
 | 便携发行 | Windows x64 PyInstaller `onedir`；图形启动器负责启动、重开、单实例、端口选择和退出释放 |
 | 操作诊断 | `core.operations` 是统一操作状态与阶段计时机制；脱敏 JSONL 位于 `<runtime data root>/diagnostics`，最多保留 7 天且受 10 MiB 上限约束 |
 | 事实表 | `users`、`experiences`、`facts` |
@@ -91,7 +96,7 @@ POST /api/resume/generate-docx
 | 迁移安全 | 既有数据库迁移前备份并核对；全新不存在的 SQLite 路径按空库初始化；备份、核对或 cleanup 失败时 fail closed |
 | Profile 持久化 | 未实现；V1 身份字段来自单次请求 |
 | Embedding / LLM | 豆包模型；关键结构化阶段 strict failure |
-| 模板与输出 | 系统内置 DOCX + TemplateSpec JSON；输出位于 `<runtime data root>/output`，可用 `DOCX_OUTPUT_DIR` 覆盖 |
+| 模板与输出 | 当前固定系统 DOCX 模板；DOCX 是排版真源，经隔离的 Microsoft Word COM 转为 PDF；viewer/download 绑定同一 PDF artifact；输出位于 `<runtime data root>/output`，可用 `DOCX_OUTPUT_DIR` 覆盖 |
 | 用户形态 | 本地单用户；服务器化和多用户属于 V3 |
 
 主要契约：
@@ -173,18 +178,21 @@ POST /api/resume/generate-docx
 - V2.0.2 独立源码验收绑定 `eb4bd30a2d4c7aac62865924c7b8eab363d282ee`：六个阻断脚本固定计数为 **77/0、48/0、20/0、15/0、50/0、12/0/3**，默认 runtime 空陷阱仅新增允许的空标准骨架目录且无文件；功能与结构变更验收均通过，源码阻断项 0。
 - V2.0.2 旧迁移契约退出完成：`vectorstore_dir` 活动契约计数为 0，配置与 Stub Demo 不再创建或使用旧 vectorstore 路径；迁移失败继续 fail-closed。集中返工只涉及测试、预检与文档，因此既有便携包和人工界面验收继续适用。
 - V2.0.2 Windows x64 便携包 `ResumeAssistant.exe` 为 15,972,628 字节，SHA-256 `9F39874AEA9FCC59F0AEBC37C8354B33E5B1589BCCA609948B464CB2B4BB8FA7`；包版本 2.0.2，模板按冻结文件打包，无 `__pycache__`、`.pyc` 或开发机私有路径。
+- V2.1.0 独立验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`：确定性矩阵 **22/0**、真实 React 事件回归 **30+7 PASS**、浏览器矩阵 **16/0**、六组 Word COM 失败路径、包审计和真实模型 E2E 均通过；正常 operation 内 JD 分析恰好 1 次，P1–P4 阶段和与总时间差 18ms，锚点 10/10。
+- V2.1.0 的 DOCX、Word→PDF、PDF.js viewer 与双下载同源链已经独立验证；旧包 P4 路径可复现 6 次控制台闪窗，新包 worker、失败矩阵和完整真实生成的应用后代可见控制台/Word 窗口均为 0。Product Owner 于 2026-09-12 使用同一冻结包完成人工验收并明确确认通过。
+- V2.1.0 Windows x64 便携包位于发布档案登记的 `release-h8-r2`：4045 文件 / 170,264,106 字节；`ResumeAssistant.exe` 为 16,753,725 字节，SHA-256 `91E75083367EB028A8E5DDF38C74DA5460DECE72E0A4CAECFCC82BA9B51D68D5`；MANIFEST 4045 行一致，包内无测试注入、Key、开发机绝对路径或 ReportLab 产品链。
 
 ## 8. 已知边界与后续方向
 
 以下不是当前版本缺陷或降级：
 
-1. V2.0.0 达成“已有功能全流程图形化”的首版目标；当前页面与用户理想交互流程仍有差距，具体页面重新设计属于后续版本。
-2. 不包含实际 DOCX/PDF 预览、Draft/Revision、条目锁定、差异/回退、局部重新生成或用户手工覆盖选材结果。
-3. 不保证严格一页纸、像素级排版或跨软件分页一致，也不生成个人总结；相关性权重、措辞和招聘效果没有被宣称为已经优化。
+1. 工作台状态尚未在跨页面切换后保留，刷新或离开生成页会丢失当前前端视图；该项已进入 V2.1.1。
+2. 不包含 Draft/Revision、条目锁定、差异/回退、单个 Fact 重新生成或用户手工覆盖选材结果。
+3. 当前只有固定模板；不保证严格一页纸或跨 Word 版本分页完全一致，也不生成个人总结。自动字体、行距、字距和容量优化属于后续排版能力。
 4. 不包含多 Provider、任意兼容 Endpoint、Token/费用统计、质量评测后台、后台任务、取消或断点恢复。
-5. Windows x64 是本版便携发行范围；Firefox、macOS/Linux 便携和完整移动端适配不属于本版 PASS 条件。
+5. Windows x64 是本版便携发行范围；PDF 生成依赖本机 Microsoft Word。Firefox、macOS/Linux 便携和完整移动端适配不属于本版 PASS 条件。
 6. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、云端同步、生产监控或公网部署；这些仍属于 V3。
-7. V2.0.1 用于暴露耗时与故障位置，不优化外部 LLM/Embedding 响应时间；人工实测的主要等待来自两次 LLM 调用。
-8. 当前诊断界面将在 V2.1.0 整体界面重设计时重新评估展示方式，但整个 V2 阶段的问题定位能力不得无替代地删除。
+7. 当前用户界面左下角保留开发者后台入口，方便本地测试、配置 API Key 和维护；这不是面向上线环境的权限隔离，上线前必须关闭普通导航入口并另行冻结访问控制。
+8. 当前版本保证事实边界、调用次数、计时真实性和输出 artifact 同源，不宣称外部模型响应速度、相关性权重、措辞或招聘效果已经优化。
 
 版本过程和开发经验由 [版本档案](./versions/README.md) 保存，不继续堆入本文。

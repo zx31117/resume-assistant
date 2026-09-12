@@ -96,11 +96,15 @@ def _is_public_info(text: str) -> bool:
 
 
 def _run_git(args, repo_root):
+    # T1：git 输出可能含 UTF-8 中文（路径、提交信息、tag 说明）。默认 locale 编码在
+    # 中文 Windows 为 cp936，裸 text=True 解码会抛 UnicodeDecodeError 并中断发布检查。
+    # 显式按 UTF-8 解码并容错，与生命周期矩阵和统一预检的子进程契约保持一致。
     out = subprocess.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True, text=True, check=True,
+        encoding="utf-8", errors="replace",
     )
-    return out.stdout.strip()
+    return (out.stdout or "").strip()
 
 
 def check_git_tracking(repo_root):

@@ -40,8 +40,19 @@ export interface ExtractRequest {
   resume_text: string
 }
 
+/** V2.1.0 D-038：提取条目的来源证据与分类（仅存在于 extract 响应）。 */
+export interface ExperienceProvenance {
+  /** direct=原文直接支撑可自动入库；inferred=推断/补全需用户确认后写入 */
+  classification: 'direct' | 'inferred'
+  source_snippets: string[]
+}
+
+export interface ExtractExperienceItem extends ExperienceItem {
+  provenance: ExperienceProvenance
+}
+
 export interface ExtractResponse {
-  experiences: ExperienceItem[]
+  experiences: ExtractExperienceItem[]
 }
 
 // ———— JD 分析 ————
@@ -124,6 +135,56 @@ export interface RenderStats {
   capacity_warnings: string[]
 }
 
+// ———— V2.1.0 R15a/R16：PDF artifact 元数据与逐 bullet 锚点 ————
+
+/** V2.1.0 R15a：PDF 版式中的可点内容行锚点（backend/api/schemas.py PreviewAnchor）。
+ *  - 坐标一律 PDF 用户坐标 pt、y 自底部向上（A4 高 842）；x0<x1、y0<y1；
+ *  - page_index 从 0 起（与 pdf.js pageIndex 一致）；pdf.js 渲染时经
+ *    page.getViewport().convertToViewportPoint 换算为屏幕坐标（y 翻转为自顶向下）；
+ *  - content_item_id：经历类条目为其 experience_id；技能组等无库 id 的内容行用
+ *    定位 key（如 skills:0）；无对应条目时为 null；
+ *  - fact_refs：该 bullet 的真实 fact 引用（无映射不编造 → 空列表）。 */
+export interface PdfAnchor {
+  artifact_id: string
+  page_index: number
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  content_item_id?: string | null
+  bullet_index?: number | null
+  text: string
+  fact_refs?: string[]
+}
+
+// ———— V2.1.0 T6：内容预览 + 逐 bullet 事实依据 ————
+
+/** V2.1.0 T6：内容预览条目（来自最终 ResumeDocument 的只读投影）。 */
+export interface DocPreviewEntry {
+  heading: string
+  subhead?: string
+  bullets: string[]
+  experience_id?: string | null
+  /** 真实 EvidenceEntry.selection_reason；无值时为 null/undefined，不编造。 */
+  selection_reason?: string | null
+}
+
+/** V2.1.0 T6：内容预览的一个 section（personal/work/project/education/skills/awards）。 */
+export interface DocPreviewSection {
+  section: string
+  title: string
+  entries: DocPreviewEntry[]
+}
+
+/** V2.1.0 T6：单条事实原文（来自 Fact.text 的真实 DB 读取）。
+ *  - reason：本流水线不记录 per-fact 采用理由，留空，不编造。 */
+export interface EvidenceFact {
+  fact_id: string
+  experience_id?: string | null
+  text: string
+  reason?: string
+}
+
 export interface ResumeDocxGenerateResponse {
   ok: true
   file_path: string
@@ -140,6 +201,18 @@ export interface ResumeDocxGenerateResponse {
   build_meta: BuildMeta
   render_stats: RenderStats
   template_id: string
+  // V2.1.0 T6：内容预览 + 逐 bullet 事实依据（老契约不消费时为 null）
+  doc_preview?: DocPreviewSection[] | null
+  evidence?: Record<string, EvidenceFact[]> | null
+  // V2.1.0 T12-R11：真实 PDF 下载链（application/pdf）；未生成或生成失败时为 undefined。
+  // 不造假：缺值时前端按钮必须真实地呈现「无 PDF」状态而不是改后缀 / 打印对话 / 占位提示。
+  pdf_file_name?: string
+  pdf_download_url?: string
+  // V2.1.0 R15a：PDF artifact 身份与元数据（viewer 与「下载 PDF」读取同一 artifact）。
+  pdf_artifact_id?: string
+  pdf_sha256?: string
+  pdf_size_bytes?: number
+  pdf_anchors?: PdfAnchor[] | null
 }
 
 // ———— 模板（GET /api/template/list） ————
@@ -256,6 +329,7 @@ export interface StageProjection {
   attempt: number
   max_attempts: number
   elapsed_ms: number
+  stage_elapsed_ms?: number // H8 §20.6.5：活动阶段实时 elapsed（服务端真源，前端只展示）
   message: string
   safe_counts: Record<string, number>
   ts: string
@@ -267,8 +341,21 @@ export interface RecentStats {
   max_ms: number | null
 }
 
+export interface UserPhaseProjection {
+  key: string
+  code: string
+  label: string
+  codes: string[]
+  status: 'pending' | 'active' | 'done' | 'failed'
+  started_at: string
+  ended_at: string
+  elapsed_ms: number
+  live_elapsed_ms: number
+}
+
 export interface OperationDetail extends OperationProjection {
   stages: StageProjection[]
+  user_phases?: UserPhaseProjection[]
   recent_stats: Record<string, RecentStats>
 }
 
@@ -321,7 +408,7 @@ export interface DiagnosticsSummary {
   stage_count?: number
   safe_counts: Record<string, number>
   safe_summary?: Record<string, unknown>
-  stages: Array<{ event_type: string; stage_code: string; elapsed_ms: number; event_code: string }>
+  stages: Array<{ event_type: string; stage_code: string; elapsed_ms: number; event_code: string; stage_elapsed_ms?: number }>
 }
 
 export interface DiagnosticsResponse {

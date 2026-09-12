@@ -85,6 +85,72 @@ _MAX_SIZE_BYTES = 10 * 1024 * 1024
 # 最近操作 API 上限（PLAN §3.4）
 _MAX_RECENT = 200
 
+# ── H8 §20.6：用户阶段（P1–P4）服务端投影真源 ───────────────── #
+# 内部技术 stage 全部归属一个用户阶段；状态/耗时由后端根据同一 operation 的
+# 阶段事件推导，前端只展示。P4 包含 Word→PDF 实际转换时间。
+USER_PHASE_SPEC: list[dict[str, Any]] = [
+    {"key": "job_understanding", "label": "理解目标岗位", "code": "P1",
+     "codes": ["migration_check", "embedding_ready", "jd_analysis", "sql_readback"]},
+    {"key": "fact_selection", "label": "从你的履历中挑选相关事实", "code": "P2",
+     "codes": ["select_experiences", "select_evidence"]},
+    {"key": "content_drafting", "label": "生成并润色简历内容", "code": "P3",
+     "codes": ["content_generation"]},
+    {"key": "artifact_build", "label": "排版并生成 Word/PDF", "code": "P4",
+     "codes": ["resume_build", "render", "save_docx", "response_assembly"]},
+]
+
+
+def project_user_phases(stages: list[dict[str, Any]], op_status: str = "") -> list[dict[str, Any]]:
+    """从阶段事件投影 P1–P4（服务端真源；前端只展示）。
+
+    每条 {key, code, label, codes, status: pending|active|done|failed,
+           started_at, ended_at, elapsed_ms, live_elapsed_ms}。
+    - active：阶段内存在 STARTED 且尚未全部 COMPLETED；
+    - done：阶段内全部 codes 已 COMPLETED；
+    - elapsed_ms：已结束事件的 elapsed 之和（冻结部分）；
+    - live_elapsed_ms：活动阶段的实时单调耗时（= 冻结部分 + 活动 stage live）。
+    """
+    out: list[dict[str, Any]] = []
+    for spec in USER_PHASE_SPEC:
+        codes = set(spec["codes"])
+        matched = [e for e in stages if e.get("stage_code") in codes]
+        started = [e for e in matched if e.get("event_type") == "STARTED"]
+        completed = [e for e in matched if e.get("event_type") == "COMPLETED"]
+        failed = [e for e in matched if e.get("event_type") in ("FAILED", "ROLLED_BACK")]
+        done = all(any(e["stage_code"] == c and e["event_type"] == "COMPLETED"
+                       for e in matched) for c in spec["codes"])
+        failed_ev = any(e.get("event_type") in ("FAILED", "ROLLED_BACK") for e in matched)
+        active = bool(started) and not done and not failed_ev
+        status = "done" if done else ("failed" if failed_ev else ("active" if active else "pending"))
+        frozen = sum(int(e.get("elapsed_ms") or 0) for e in matched
+                     if e.get("event_type") != "STARTED")
+        live: int | None = None
+        if active:
+            # 活动阶段实时 = 已完成冻结部分 + 最新活动 stage 的服务端实时 stage_elapsed_ms
+            cand = [e for e in started if e.get("stage_elapsed_ms") is not None]
+            if cand:
+                newest = max(cand, key=lambda e: e.get("seq", 0))
+                live = frozen + int(newest["stage_elapsed_ms"])
+            else:
+                live = frozen
+        elif matched and not done and op_status in (
+                "SUCCEEDED", "FAILED", "TIMED_OUT", "INTERRUPTED"):
+            # 异常中断但阶段未完成：以已完成之和为准，不再增长
+            live = frozen
+        ts_started = started[0].get("ts", "") if started else ""
+        ts_ended = ""
+        if done or failed:
+            ends = [e.get("ts", "") for e in completed + failed]
+            ts_ended = max(ends) if ends else ts_started
+        out.append({
+            "key": spec["key"], "code": spec["code"], "label": spec["label"],
+            "codes": spec["codes"], "status": status,
+            "started_at": ts_started, "ended_at": ts_ended,
+            "elapsed_ms": frozen,
+            "live_elapsed_ms": live if live is not None else frozen,
+        })
+    return out
+
 
 def _utcnow_iso() -> str:
     return _dt.datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
@@ -288,8 +354,13 @@ class OperationRecord:
             }
 
     def stage_projection(self) -> list[dict[str, Any]]:
-        """完整阶段列表投影（按顺序）。"""
+        """完整阶段列表投影（按顺序）。H8：事件携带 seq 与 stage_elapsed_ms
+        （活动阶段的 STARTED 事件带服务端单调实时值，其余为 0/终态）。"""
         with self._lock:
+            now = time.perf_counter()
+            live_now: int | None = None
+            if self._stage_start_perf is not None:
+                live_now = max(0, int((now - self._stage_start_perf) * 1000))
             return [
                 {
                     "seq": s.seq,
@@ -301,6 +372,10 @@ class OperationRecord:
                     "attempt": s.attempt,
                     "max_attempts": s.max_attempts,
                     "elapsed_ms": s.elapsed_ms,
+                    "stage_elapsed_ms": (live_now if (
+                        s.event_type == StageEventType.STARTED
+                        and s.stage_code == self._stage_code
+                        and live_now is not None) else 0),
                     "message": s.message,
                     "safe_counts": dict(s.safe_counts),
                     "ts": s.ts,
@@ -815,6 +890,9 @@ class OperationTracker:
             return None
         proj = rec.projection()
         proj["stages"] = rec.stage_projection()
+        # H8 §20.6：用户阶段 P1–P4 服务端投影（时间/状态真源）
+        proj["user_phases"] = project_user_phases(
+            proj["stages"], op_status=proj.get("status", ""))
         # R5：近期同类耗时对比（按 operation_type + stage_code，排除本次自身）
         recent: dict[str, dict[str, Any]] = {}
         seen: set[str] = set()

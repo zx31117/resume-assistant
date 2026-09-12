@@ -1,0 +1,2302 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="A">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light" />
+<title>简历助手 · 本地预览版</title>
+<style>
+/* =========================================================================
+   简历助手 · 本地预览版
+   - A：克制的职业工作台（暖灰画布 + 深松绿 + 极少量暖铜，研究推荐起点）
+   - B：暖纸编辑室（暖白纸张 + 编辑感 + 铜红细节）
+   - C：高对比智能控制台（深色工作面 + 高对比状态 + 系统感）
+   主题切换器属于评审工具层，不出现在最终用户导航。
+   ========================================================================= */
+
+/* ---------- Reset ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{font-size:15px;-webkit-text-size-adjust:100%}
+body{font-family:var(--font-sans);color:var(--ink);background:var(--canvas);line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4,h5,h6,p,ul,ol,dl,figure,blockquote{margin:0}
+ul,ol{padding-left:1.2em}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+input,textarea,select{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+img,svg{display:block;max-width:100%}
+hr{border:0;border-top:1px solid var(--border);margin:var(--space-5) 0}
+
+/* ---------- Base Tokens ---------- */
+:root{
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:40px;--space-8:56px;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+  --sidebar-w:208px;--content-max:1240px;--content-narrow:920px;--content-result:1400px;
+  --font-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI","Helvetica Neue",system-ui,sans-serif;
+  --font-serif:"Source Han Serif SC","Noto Serif CJK SC","Songti SC","STSong","SimSun",serif;
+  --font-mono:"SF Mono","Menlo","Consolas","Roboto Mono",monospace;
+  --heading-font:var(--font-sans);
+  --shadow-sm:0 1px 2px rgba(20,28,24,.06),0 1px 1px rgba(20,28,24,.04);
+  --shadow-md:0 6px 18px rgba(20,28,24,.08),0 2px 4px rgba(20,28,24,.04);
+  --shadow-lg:0 16px 40px rgba(20,28,24,.14),0 4px 8px rgba(20,28,24,.06);
+  --transition:160ms cubic-bezier(.2,.8,.2,1);
+}
+[data-theme="A"],:root{
+  --canvas:#F7F7F5;--surface:#FFFFFF;--surface-2:#F2F3F1;
+  --border:#D0D5D2;--border-strong:#8A918D;
+  --ink:#202124;--ink-2:#3C3D3F;--secondary:#5F6368;--secondary-2:#80858B;
+  --primary:#1F5C4B;--primary-hover:#184A3D;--primary-contrast:#FFFFFF;
+  --tint:#E7F2EE;--tint-2:#D9ECE5;--accent:#C46A3D;
+  --success:#1B6B4A;--warn:#7A4B00;--error:#B42318;--info:#1D4ED8;
+  --focus:#2F7E68;
+  --paper:#FFFFFF;--paper-ink:#1A1B1E;--paper-border:#D9D6CD;--paper-rule:#ECEAE2;
+}
+[data-theme="B"]{
+  --canvas:#F8F2E5;--surface:#FBF7EE;--surface-2:#F2E9D7;
+  --border:#E4D9C2;--border-strong:#B8A878;
+  --ink:#262220;--ink-2:#463C32;--secondary:#6C5F4D;--secondary-2:#8E7E68;
+  --primary:#A63A22;--primary-hover:#8E2E1A;--primary-contrast:#FBF7EE;
+  --tint:#F1E3D2;--tint-2:#E7D2B8;--accent:#8E5A1B;
+  --success:#2F6B3E;--warn:#8A5A14;--error:#B2372A;--info:#1F4A8A;
+  --focus:#A63A22;
+  --paper:#FFFEFA;--paper-ink:#262220;--paper-border:#D9CDB1;--paper-rule:#E9DEC4;
+}
+[data-theme="C"]{
+  --canvas:#0E1116;--surface:#161A21;--surface-2:#1E242D;--raised:#222932;
+  --border:#2A313B;--border-strong:#3B4452;
+  --ink:#E7EAF0;--ink-2:#C7CDD6;--secondary:#98A1B3;--secondary-2:#6B7385;
+  --primary:#4FB39A;--primary-hover:#5FC7AC;--primary-contrast:#06120E;
+  --tint:#1A2D2A;--tint-2:#223E3A;--accent:#C9A227;
+  --success:#4CC38A;--warn:#E0A458;--error:#FF7A6B;--info:#5CB8FF;
+  --focus:#7FD3B2;
+  --paper:#F2F1ED;--paper-ink:#161A1F;--paper-border:#4A5460;--paper-rule:#3B4452;
+}
+
+/* [hidden] 必须无条件生效：防止任何 display:flex/grid/block 覆盖它导致“串页” */
+[hidden]{display:none!important}
+
+/* ---------- Layout ---------- */
+body{min-height:100vh;display:grid;grid-template-columns:var(--sidebar-w) 1fr;grid-template-rows:1fr auto}
+.app-sidebar{grid-row:1;grid-column:1;background:var(--surface);border-right:1px solid var(--border);padding:var(--space-5) var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);position:sticky;top:0;height:100vh;overflow:auto}
+.app-brand{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-2) var(--space-4)}
+.app-brand .logo{width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--primary-contrast);display:grid;place-items:center;font-weight:600;font-size:14px}
+[data-theme="B"] .app-brand .logo{background:var(--ink);color:var(--primary-contrast)}
+[data-theme="C"] .app-brand .logo{background:var(--primary);color:var(--primary-contrast)}
+.app-brand .name{font-weight:600;letter-spacing:.2px}
+.app-brand .sub{font-size:11px;color:var(--secondary);margin-top:2px}
+.app-nav{display:flex;flex-direction:column;gap:2px;margin-top:var(--space-3)}
+.app-nav .nav-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);color:var(--ink-2);font-weight:500;cursor:pointer;text-align:left}
+.app-nav .nav-item:hover{background:var(--surface-2)}
+.app-nav .nav-item[aria-current="page"]{background:var(--tint);color:var(--ink)}
+[data-theme="C"] .app-nav .nav-item[aria-current="page"]{background:var(--tint-2);color:var(--ink)}
+.app-nav .nav-item svg{width:16px;height:16px;opacity:.7}
+.app-nav .nav-item .count{margin-left:auto;font-size:12px;background:var(--surface-2);color:var(--secondary);border-radius:999px;padding:1px 8px}
+.app-nav .separator{height:1px;background:var(--border);margin:var(--space-3) var(--space-3)}
+.app-sidebar .footnote{margin-top:auto;font-size:11px;color:var(--secondary);padding:var(--space-3) var(--space-3) 0;line-height:1.6}
+.app-sidebar .footnote a{color:var(--secondary);border-bottom:1px dashed var(--border-strong);cursor:pointer}
+.app-sidebar .footnote .dev-link{display:block;margin-top:var(--space-2);font-size:11px;color:var(--secondary-2);opacity:.7;cursor:pointer}
+.app-sidebar .footnote .dev-link:hover{opacity:1;color:var(--secondary)}
+.app-main{grid-row:1;grid-column:2;min-width:0;display:flex;flex-direction:column}
+.app-shell{width:100%;max-width:var(--content-max);margin:0 auto;padding:var(--space-6) var(--space-6) var(--space-8)}
+.app-shell.narrow{max-width:var(--content-narrow)}
+.app-shell.wide{max-width:var(--content-result)}
+
+/* Skip link */
+.skip{position:absolute;left:-9999px;top:auto}
+.skip:focus{left:var(--space-4);top:var(--space-4);background:var(--ink);color:var(--primary-contrast);padding:var(--space-2) var(--space-3);border-radius:6px;z-index:100}
+
+/* Page header */
+.page-header{margin-bottom:var(--space-5)}
+.page-header .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary);margin-bottom:var(--space-2)}
+.page-header h1{font-family:var(--heading-font);font-size:24px;font-weight:600;letter-spacing:.2px}
+.page-header .desc{color:var(--secondary);margin-top:var(--space-2);max-width:64ch;font-size:14px}
+.page-header.with-tasks{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--space-4);flex-wrap:wrap}
+.page-header .task-meta{font-size:12px;color:var(--secondary);display:flex;gap:var(--space-3);align-items:center}
+.page-header .task-meta .pill{padding:2px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border)}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:var(--space-2);padding:0 var(--space-4);height:44px;border-radius:var(--radius-sm);border:1px solid transparent;font-weight:500;transition:background var(--transition),color var(--transition),border-color var(--transition),transform var(--transition);white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.55;cursor:not-allowed;pointer-events:none}
+.btn-primary{background:var(--primary);color:var(--primary-contrast)}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:var(--surface);color:var(--ink);border-color:var(--border-strong)}
+.btn-secondary:hover{background:var(--surface-2)}
+.btn-ghost{background:transparent;color:var(--ink-2)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-danger{background:var(--error);color:#fff}
+.btn-danger:hover{filter:brightness(.96)}
+.btn-large{height:48px;padding:0 var(--space-5);font-size:15px}
+.btn svg{width:16px;height:16px}
+
+/* ---------- Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm)}
+.card-padded{padding:var(--space-5)}
+.card-section{padding:var(--space-4) var(--space-5);border-top:1px solid var(--border)}
+.card-section:first-child{border-top:0;border-top-left-radius:var(--radius-md);border-top-right-radius:var(--radius-md)}
+.card-section:last-child{border-bottom-left-radius:var(--radius-md);border-bottom-right-radius:var(--radius-md)}
+.card-title{font-weight:600;margin-bottom:var(--space-2)}
+.card-title .meta{color:var(--secondary);font-weight:400;font-size:13px;margin-left:var(--space-2)}
+
+/* ---------- Form ---------- */
+.field{display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.field label{font-size:13px;color:var(--ink-2);font-weight:500}
+.field .hint{font-size:12px;color:var(--secondary)}
+.input,.textarea,.select{width:100%;padding:0 var(--space-3);height:44px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--ink);transition:border-color var(--transition),box-shadow var(--transition)}
+.textarea{height:auto;padding:var(--space-3);min-height:220px;line-height:1.7;resize:vertical}
+.input:hover,.textarea:hover,.select:hover{border-color:var(--ink-2)}
+.input:focus,.textarea:focus,.select:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in oklab,var(--focus) 18%,transparent)}
+.select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--secondary) 50%),linear-gradient(135deg,var(--secondary) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:32px}
+
+/* ---------- Chips / Status ---------- */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--ink-2)}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip-status-blocked{background:color-mix(in oklab,var(--error) 12%,var(--surface));color:var(--error);border-color:color-mix(in oklab,var(--error) 35%,transparent)}
+.chip-status-confirm{background:color-mix(in oklab,var(--warn) 14%,var(--surface));color:var(--warn);border-color:color-mix(in oklab,var(--warn) 35%,transparent)}
+.chip-status-degradable{background:color-mix(in oklab,var(--info) 12%,var(--surface));color:var(--info);border-color:color-mix(in oklab,var(--info) 30%,transparent)}
+.chip-status-suggest{background:color-mix(in oklab,var(--success) 12%,var(--surface));color:var(--success);border-color:color-mix(in oklab,var(--success) 30%,transparent)}
+.chip-status-ok{background:var(--tint);color:var(--success);border-color:color-mix(in oklab,var(--success) 30%,transparent)}
+.chip-design-only{background:var(--surface-2);color:var(--secondary);border-color:var(--border);font-style:normal}
+.chip-preview{background:var(--tint);color:var(--primary);border-color:color-mix(in oklab,var(--primary) 30%,transparent)}
+.chip-active{background:color-mix(in oklab,var(--success) 14%,var(--surface));color:var(--success);border-color:color-mix(in oklab,var(--success) 30%,transparent)}
+
+/* ---------- Welcome ---------- */
+.welcome-hero{text-align:left;padding:var(--space-7) 0 var(--space-5);max-width:680px}
+.welcome-hero .eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);margin-bottom:var(--space-3);font-weight:600}
+.welcome-hero h1{font-family:var(--heading-font);font-size:34px;line-height:1.25;font-weight:600;letter-spacing:.2px}
+.welcome-hero .lead{color:var(--secondary);margin-top:var(--space-3);font-size:16px;max-width:60ch}
+.welcome-paths{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-top:var(--space-6)}
+.path-card{padding:var(--space-5);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:var(--space-3);transition:transform var(--transition),box-shadow var(--transition),border-color var(--transition);cursor:pointer}
+.path-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.path-card .icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--tint);color:var(--primary)}
+.path-card h3{font-size:17px;font-weight:600}
+.path-card p{color:var(--secondary);font-size:13px;flex:1}
+.path-card .cta{color:var(--primary);font-weight:500;font-size:13px;display:inline-flex;align-items:center;gap:4px}
+.path-card .badge-row{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.welcome-principles{margin-top:var(--space-7);display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-5);border-top:1px solid var(--border);padding-top:var(--space-5)}
+.principle h4{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.principle p{color:var(--secondary);font-size:13px}
+
+/* ---------- Upload ---------- */
+.dropzone{border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);background:var(--surface-2);padding:var(--space-7);text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-3);transition:border-color var(--transition),background var(--transition);cursor:pointer}
+.dropzone:hover{border-color:var(--primary);background:var(--tint)}
+.dropzone .icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border)}
+.dropzone h3{font-size:16px;font-weight:600}
+.dropzone p{color:var(--secondary);font-size:13px}
+.dropzone input[type=file]{display:none}
+.parse-stages{display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-4)}
+.parse-stage{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface)}
+.parse-stage .indicator{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--border-strong);color:var(--secondary);font-size:11px;background:var(--surface);flex:none}
+.parse-stage.done .indicator{background:var(--primary);color:var(--primary-contrast);border-color:var(--primary)}
+.parse-stage.active .indicator{background:var(--surface);color:var(--primary);border-color:var(--primary)}
+.parse-stage .body{flex:1}
+.parse-stage .body .label{font-weight:500}
+.parse-stage .body .detail{font-size:12px;color:var(--secondary)}
+.parse-stage .elapsed{margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--secondary)}
+
+.parse-error{padding:var(--space-4);border-radius:var(--radius-md);border:1px solid color-mix(in oklab,var(--error) 30%,transparent);background:color-mix(in oklab,var(--error) 8%,var(--surface));display:flex;flex-direction:column;gap:var(--space-2)}
+.parse-error .title{display:flex;align-items:center;gap:var(--space-2);color:var(--error);font-weight:600}
+.parse-error .actions{display:flex;gap:var(--space-2);margin-top:var(--space-2)}
+
+.extraction-group{margin-top:var(--space-5)}
+.extraction-group .group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)}
+.extraction-group h3{font-size:13px;font-weight:600;color:var(--secondary);letter-spacing:.04em;text-transform:uppercase}
+.extraction-group .group-body{display:flex;flex-direction:column;gap:var(--space-3)}
+.extracted-row{display:grid;grid-template-columns:24px 1fr auto;gap:var(--space-3);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);align-items:start}
+.extracted-row.flagged{border-color:color-mix(in oklab,var(--warn) 35%,transparent)}
+.extracted-row input[type=checkbox]{margin-top:3px;width:16px;height:16px;accent-color:var(--primary)}
+.extracted-row .body .head{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-1)}
+.extracted-row .body .head .title{font-weight:600}
+.extracted-row .body .summary{color:var(--secondary);font-size:13px;margin-top:4px}
+.extracted-row .body .flags{display:flex;gap:var(--space-2);margin-top:var(--space-2);flex-wrap:wrap}
+.extracted-row .body .meta{color:var(--secondary-2);font-size:12px;margin-top:6px}
+.extracted-row .actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.extracted-row .actions .row-btn{font-size:12px;color:var(--secondary);padding:4px 8px;border-radius:6px}
+.extracted-row .actions .row-btn:hover{background:var(--surface-2);color:var(--ink)}
+.extracted-row .actions .row-btn.warn{color:var(--warn)}
+.extracted-row .actions .row-btn.muted{color:var(--secondary-2)}
+
+.conflict-resolver{padding:var(--space-3);background:color-mix(in oklab,var(--warn) 8%,var(--surface));border-radius:var(--radius-sm);margin-top:var(--space-2);display:flex;flex-direction:column;gap:var(--space-2)}
+.conflict-resolver .title{font-size:13px;font-weight:600;color:var(--warn)}
+.conflict-resolver .actions{display:flex;gap:var(--space-2);flex-wrap:wrap}
+
+/* ---------- Generate ---------- */
+.identity-card .row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)}
+.identity-card .row-top .badge-row{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.gen-main .jd-card .jd-actions{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;margin-top:var(--space-2);font-size:12px;color:var(--secondary);flex-wrap:wrap;gap:var(--space-2)}
+.gen-main .jd-card .analyzed{display:flex;flex-wrap:wrap;gap:var(--space-2);flex:0 0 auto;margin-top:var(--space-2)}
+.jd-card .analyzed .chip{font-size:12px}
+.missing-summary{margin-top:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2);padding:var(--space-4)}
+.missing-summary h4{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:var(--space-3)}
+.missing-row{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-2) 0;border-top:1px dashed var(--border)}
+.missing-row:first-of-type{border-top:0;padding-top:0}
+.missing-row .body{flex:1;font-size:13px}
+.missing-row .body .title{font-weight:500}
+.missing-row .body .desc{color:var(--secondary);font-size:12px;margin-top:2px}
+.missing-row .action{margin-left:auto}
+.generate-cta-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-5);flex-wrap:wrap}
+.generate-cta-row .left{font-size:12px;color:var(--secondary);max-width:48ch}
+.generate-cta-row .right{display:flex;gap:var(--space-2)}
+
+/* 生成页：两栏撑满布局（顶部状态条 + 底部状态条，借鉴控制台风格） */
+.gen-view{padding:0!important;max-width:none;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;height:calc(100vh - 0px);position:relative}
+/* 生成页锁整页滚轮：body 由 JS 加 .lock-scroll 禁滚，gen-view 内部 flex 撑满不自滚 */
+html.lock-scroll,html.lock-scroll body{overflow:hidden;height:100vh}
+.gen-topbar{flex:0 0 auto;position:sticky;top:0;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin:var(--space-3) var(--space-3) 0;padding:var(--space-2) var(--space-4);display:flex;align-items:center;gap:var(--space-3);box-shadow:var(--shadow-sm);font-size:13px}
+.gen-topbar .crumb{color:var(--secondary)}
+.gen-topbar .sep{color:var(--border-strong)}
+.gen-topbar .ctx{font-weight:600;color:var(--ink)}
+.gen-topbar .tools{margin-left:auto;display:flex;gap:var(--space-2);align-items:center}
+.gen-topbar .tool{font-size:12px;color:var(--secondary);display:flex;align-items:center;gap:var(--space-1);padding:2px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border)}
+.gen-topbar .tool .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--secondary-2)}
+.gen-topbar .tool-active{background:var(--tint);color:var(--primary);border-color:color-mix(in oklab,var(--primary) 30%,transparent)}
+.gen-topbar .tool-active .dot{background:var(--primary)}
+.gen-topbar .tool-warn{background:color-mix(in oklab,var(--warn) 8%,var(--surface));color:var(--warn);border-color:color-mix(in oklab,var(--warn) 30%,transparent)}
+.gen-topbar .tool-warn .dot{background:var(--warn)}
+.gen-banner{flex:0 0 auto;margin:0;padding:var(--space-2) var(--space-3);background:color-mix(in oklab,var(--info) 6%,var(--surface));border:1px solid color-mix(in oklab,var(--info) 22%,transparent);border-radius:var(--radius-md);display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--ink-2);line-height:1.5}
+.gen-banner .icn{color:var(--info);flex-shrink:0}
+.gen-banner b{color:var(--ink)}
+.gen-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:var(--space-4);align-items:stretch;margin:var(--space-3);padding:0}
+.gen-main{display:flex;flex-direction:column;gap:var(--space-3);min-width:0;min-height:0}
+.gen-main .identity-card{flex:0 0 auto}
+.gen-main .jd-card{display:flex;flex-direction:column;flex:1;min-height:0}
+.gen-main .jd-card .card-padded{display:flex;flex-direction:column;flex:1;min-height:0;padding:var(--space-4)}
+.gen-main .jd-card .card-padded > .row-top{flex:0 0 auto;margin-bottom:var(--space-2)}
+.gen-main .jd-field{display:flex;flex-direction:column;flex:1 1 0;min-height:160px;margin:0}
+.gen-main .jd-field label{flex:0 0 auto;margin-bottom:var(--space-1);font-size:13px;color:var(--ink-2)}
+#i-jd{flex:1;min-height:200px;max-height:none;height:auto;resize:vertical}
+.gen-rail{display:flex;flex-direction:column;gap:var(--space-3);min-width:0;min-height:0}
+.gen-rail .row-between{align-items:center}
+.gen-cta{display:flex;flex-direction:column}
+.gen-stream .stream-lines{display:flex;flex-direction:column;gap:var(--space-2);min-height:60px;max-height:none;overflow:visible}
+.gen-stream .line{opacity:0;transform:translateY(4px);transition:opacity .25s ease,transform .25s ease;color:var(--ink-2);font-size:13px;line-height:1.6;white-space:pre-wrap}
+.gen-stream .line.in{opacity:1;transform:none}
+.gen-stream .line .role{color:var(--secondary);font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
+.gen-stream .line .cursor{display:inline-block;width:6px;height:12px;background:var(--primary);vertical-align:-1px;margin-left:2px;animation:blink 1s steps(1) infinite}
+.gen-statusbar{flex:0 0 auto;margin:var(--space-3);display:flex;align-items:center;gap:var(--space-3);font-size:12px;color:var(--secondary);padding:var(--space-2) var(--space-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md)}
+.gen-statusbar .left{display:flex;align-items:center;gap:var(--space-2)}
+.gen-statusbar .ok{color:var(--success);display:flex;align-items:center;gap:6px}
+.gen-statusbar .right{margin-left:auto;display:flex;align-items:center;gap:var(--space-3)}
+.gen-statusbar .ver{font-family:var(--font-mono)}
+
+/* ===== 全站统一控制台式顶部条（AppTopbar 范式，与生成页一致） ===== */
+.app-topbar{flex:0 0 auto;position:sticky;top:0;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin:0 0 var(--space-3);padding:var(--space-2) var(--space-4);display:flex;align-items:center;gap:var(--space-3);box-shadow:var(--shadow-sm);font-size:13px}
+.app-topbar .crumb{color:var(--secondary)}
+.app-topbar .sep{color:var(--border-strong)}
+.app-topbar .ctx{font-weight:600;color:var(--ink)}
+.app-topbar .tools{margin-left:auto;display:flex;gap:var(--space-2);align-items:center}
+.app-topbar .tool{font-size:12px;color:var(--secondary);display:flex;align-items:center;gap:var(--space-1);padding:2px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border)}
+.app-topbar .tool .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--secondary-2)}
+.app-topbar .tool-active{background:var(--tint);color:var(--primary);border-color:color-mix(in oklab,var(--primary) 30%,transparent)}
+.app-topbar .tool-active .dot{background:var(--primary)}
+.app-topbar .tool-warn{background:color-mix(in oklab,var(--warn) 8%,var(--surface));color:var(--warn);border-color:color-mix(in oklab,var(--warn) 30%,transparent)}
+.app-topbar .tool-warn .dot{background:var(--warn)}
+.app-topbar .btn-ghost{height:28px;padding:0 10px;font-size:12px}
+@media (max-width:1180px){
+  .gen-grid{grid-template-columns:1fr}
+  .gen-view{max-width:var(--content-max)}
+}
+@media (max-height:760px){
+  #i-jd{min-height:140px}
+  .gen-grid{gap:var(--space-3)}
+}
+
+/* Processing */
+.process-shell{padding:var(--space-7) 0;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-5);max-width:var(--content-narrow);margin:0 auto}
+.process-header h1{font-family:var(--heading-font);font-size:24px;font-weight:600}
+.process-header .desc{color:var(--secondary);margin-top:var(--space-2);font-size:14px}
+.process-elapsed{font-family:var(--font-mono);font-size:13px;color:var(--secondary)}
+.process-stages{display:flex;flex-direction:column;gap:var(--space-2);width:100%}
+.process-stage{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:var(--space-3);padding:var(--space-3);border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface)}
+.process-stage.done{border-color:color-mix(in oklab,var(--success) 30%,transparent)}
+.process-stage.active{border-color:var(--primary);background:var(--tint)}
+.process-stage .indicator{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--border-strong);color:var(--secondary);background:var(--surface);font-size:11px}
+.process-stage.done .indicator{background:var(--success);color:#fff;border-color:var(--success)}
+.process-stage.active .indicator{background:var(--primary);color:var(--primary-contrast);border-color:var(--primary)}
+.process-stage.pending .indicator{background:var(--surface);color:var(--secondary-2)}
+.process-stage .body .label{font-weight:500}
+.process-stage .body .detail{color:var(--secondary);font-size:12px;margin-top:2px}
+.process-stage .elapsed{font-family:var(--font-mono);font-size:12px;color:var(--secondary)}
+.process-foot{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:var(--space-4);font-size:12px;color:var(--secondary);flex-wrap:wrap;gap:var(--space-2)}
+.process-foot .left{display:flex;gap:var(--space-3);flex-wrap:wrap;align-items:center}
+
+.process-error{padding:var(--space-5);border-radius:var(--radius-md);border:1px solid color-mix(in oklab,var(--error) 30%,transparent);background:color-mix(in oklab,var(--error) 6%,var(--surface));display:flex;flex-direction:column;gap:var(--space-3)}
+.process-error .head{display:flex;gap:var(--space-2);align-items:center;color:var(--error);font-weight:600}
+.process-error .diag{font-family:var(--font-mono);font-size:12px;color:var(--secondary)}
+.process-error .actions{display:flex;gap:var(--space-2);flex-wrap:wrap}
+
+/* 处理中：左侧主流程，右侧 AI 解析过程流式输出 */
+.process-shell{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--space-5);align-items:flex-start;padding-top:var(--space-4)}
+.process-main{display:flex;flex-direction:column;gap:var(--space-5);min-width:0}
+.process-side{position:sticky;top:var(--space-5)}
+.ai-stream{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:13px;line-height:1.7;height:max(360px,calc(100vh - 220px));overflow:auto;box-shadow:var(--shadow-sm)}
+.ai-stream-head{display:flex;align-items:center;gap:var(--space-2);padding-bottom:var(--space-2);border-bottom:1px dashed var(--border);margin-bottom:var(--space-3)}
+.ai-stream-tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary);background:var(--surface-2);border:1px solid var(--border);padding:1px 6px;border-radius:4px}
+.ai-stream-title{font-size:13px;font-weight:600;color:var(--ink)}
+.ai-stream-list .line{opacity:0;transform:translateY(4px);transition:opacity .25s ease,transform .25s ease;color:var(--ink-2);margin-bottom:var(--s2);white-space:pre-wrap}
+.ai-stream-list .line.in{opacity:1;transform:none}
+.ai-stream-list .line .role{color:var(--secondary);font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
+.ai-stream-list .line .cursor{display:inline-block;width:6px;height:12px;background:var(--primary);vertical-align:-1px;margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (max-width:1080px){.process-shell{grid-template-columns:1fr}.process-side{position:static;order:2}}
+@media (max-height:760px){.process-shell{padding-top:0}}
+
+/* 上传：左侧准备区，右侧 AI 解析过程流 */
+.upload-shell{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--space-5);align-items:start;padding-top:var(--space-3)}
+.upload-main{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.upload-side{position:sticky;top:var(--space-4)}
+@media (max-width:1080px){.upload-shell{grid-template-columns:1fr}.upload-side{position:static;order:2}}
+
+/* 简历预览：不截断、按内容自然撑高、尽量占满视口 */
+.preview-scroll{max-height:none;overflow:visible;padding:0;flex:1;min-height:0;display:flex;justify-content:center;align-items:flex-start}
+.paper{min-height:calc(100vh - 220px);display:flex;flex-direction:column}
+.paper section{flex:0 0 auto}
+.paper ul.bullets{flex:0 0 auto}
+/* 纸张缩放适配：内容超高时整页压缩进视口，消除滚动 */
+.paper-fit .paper{width:760px;max-width:92%;transform-origin:top center}
+
+/* Result */
+.result-shell{display:grid;grid-template-columns:1fr 360px;align-items:start;gap:var(--space-5)}
+.result-shell .preview-col{min-width:0}
+.result-shell .aside-col{position:sticky;top:var(--space-5);display:flex;flex-direction:column;gap:var(--space-3)}
+@media (max-width:1080px){.result-shell{grid-template-columns:1fr}.result-shell .aside-col{position:static}}
+
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:var(--radius-md);border:1px solid var(--paper-border);box-shadow:var(--shadow-md);padding:var(--space-7) var(--space-7);max-width:780px;line-height:1.65;font-family:var(--font-sans)}
+.paper-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-4);border-bottom:1px solid var(--paper-rule);padding-bottom:var(--space-3);margin-bottom:var(--space-3)}
+.paper-head .name{font-size:22px;font-weight:600;letter-spacing:.5px}
+.paper-head .meta{color:var(--secondary);font-size:13px;margin-top:4px;text-align:right;line-height:1.7}
+.paper-head .name-block{flex:1}
+.paper section{margin-top:var(--space-4)}
+.paper section h2{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--secondary);border-bottom:1px solid var(--paper-rule);padding-bottom:4px;margin-bottom:var(--space-2)}
+.paper .exp-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);flex-wrap:wrap}
+.paper .exp-head .title{font-weight:600}
+.paper .exp-head .org{color:var(--secondary);font-weight:500}
+.paper .exp-head .period{color:var(--secondary);font-size:13px;font-variant-numeric:tabular-nums}
+.paper ul.bullets{margin-top:6px}
+.paper ul.bullets li{position:relative;padding:4px 0 4px 18px}
+.paper ul.bullets li::before{content:"•";position:absolute;left:4px;color:var(--secondary)}
+.paper ul.bullets li.is-selected{background:color-mix(in oklab,var(--primary) 8%,transparent);border-radius:4px;cursor:pointer;outline:1px dashed color-mix(in oklab,var(--primary) 40%,transparent);outline-offset:-1px}
+.paper ul.bullets li:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.paper ul.bullets.is-selected-group{background:color-mix(in oklab,var(--primary) 5%,transparent);border-radius:6px;padding:4px 8px}
+.paper .exp-head{cursor:pointer;transition:background .15s ease}
+.paper .exp-head:hover{background:color-mix(in oklab,var(--primary) 4%,transparent)}
+.paper .exp-head.is-selected-exp{outline:1.5px dashed color-mix(in oklab,var(--primary) 45%,transparent);outline-offset:6px;background:color-mix(in oklab,var(--primary) 4%,transparent);border-radius:6px}
+.paper ul.bullets li{cursor:pointer}
+
+.aside-tabs{display:flex;gap:var(--space-1);background:var(--surface-2);padding:4px;border-radius:var(--radius-sm)}
+.aside-tabs .tab{flex:1;text-align:center;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--secondary);font-weight:500;cursor:pointer}
+.aside-tabs .tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+.aside-panel{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);min-height:420px;position:relative;flex:1}
+.aside-panel .aside-empty{color:var(--secondary);font-size:13px;padding:var(--space-4);text-align:center;border:1px dashed var(--border);border-radius:var(--radius-sm)}
+.aside-panel .basis-block{padding:var(--space-3);background:var(--surface-2);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px}
+.aside-panel .basis-block .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary);font-weight:600}
+.aside-panel .basis-block .value{font-size:13px;line-height:1.6}
+.aside-panel .basis-block .value.muted{color:var(--secondary)}
+.aside-panel .intent-row{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.aside-panel .intent-row .btn{height:32px;font-size:12px;padding:0 12px}
+.aside-panel .intent-input{width:100%;padding:var(--space-3);border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);min-height:84px;line-height:1.5}
+/* 让依据 / 修改 两 tab 内容叠在同一区域，切 tab 不跳尺寸 */
+.aside-panel > [data-aside]{position:absolute;left:var(--space-4);right:var(--space-4);top:var(--space-4);bottom:var(--space-4);overflow:auto;display:flex;flex-direction:column;gap:var(--space-3)}
+.export-actions{display:flex;flex-direction:column;gap:var(--space-3)}
+.export-actions .docx-note{font-size:12px;color:var(--secondary)}
+
+/* Experience */
+.exp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);flex-wrap:wrap}
+.exp-toolbar .filters{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.exp-toolbar .search{position:relative}
+.exp-toolbar .search input{padding-left:32px;height:32px;width:200px}
+.exp-toolbar .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--secondary);width:14px;height:14px}
+.exp-empty{padding:var(--space-7);text-align:center;border:1px dashed var(--border-strong);border-radius:var(--radius-md);background:var(--surface-2)}
+.rec-list{display:flex;flex-direction:column;gap:var(--space-3)}
+.rec-item{border-left:3px solid var(--primary)}
+.exp-empty h3{font-size:16px;font-weight:600;margin-bottom:var(--space-2)}
+.exp-empty p{color:var(--secondary);font-size:13px;margin-bottom:var(--space-4)}
+/* 主从版式 */
+.exp-layout{display:grid;grid-template-columns:360px minmax(0,1fr);gap:var(--space-4);align-items:start;min-height:0}
+.exp-master{display:flex;flex-direction:column;min-height:0;min-width:0}
+.exp-detail{display:flex;flex-direction:column;min-height:0;min-width:0}
+.exp-detail .detail-placeholder{border:1px dashed var(--border-strong);border-radius:var(--radius-md);background:var(--surface-2);color:var(--secondary);font-size:13px;padding:var(--space-6);text-align:center}
+.exp-detail-card{height:100%}
+.exp-detail-meta{color:var(--secondary-2);font-size:12px;font-variant-numeric:tabular-nums;margin:6px 0 10px}
+.exp-detail-block{margin-top:var(--space-3)}
+.exp-detail-block .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary);font-weight:600;margin-bottom:6px}
+.exp-detail-block .value{font-size:13.5px;line-height:1.7;color:var(--ink-2);background:var(--surface-2);border-radius:var(--radius-sm);padding:var(--space-3)}
+.exp-detail-block .fact-list{list-style:disc;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13.5px;line-height:1.6;background:var(--surface-2);border-radius:var(--radius-sm);padding-top:var(--space-2);padding-bottom:var(--space-2)}
+.exp-detail-note{margin-top:var(--space-3);font-size:12.5px;color:var(--warn);background:color-mix(in oklab,var(--warn) 7%,var(--surface));border:1px solid color-mix(in oklab,var(--warn) 25%,transparent);border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3)}
+@media (max-width:980px){.exp-layout{grid-template-columns:1fr}.exp-detail{order:2}}
+.exp-list{display:flex;flex-direction:column;gap:var(--space-2)}
+.exp-item{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2);padding:var(--space-3) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);align-items:start;transition:border-color var(--transition);cursor:pointer;position:relative}
+.exp-item:hover{border-color:var(--border-strong)}
+.exp-item.is-selected{border-color:var(--primary);box-shadow:inset 3px 0 0 var(--primary)}
+.exp-item.is-selected::after{content:"›";position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--primary);font-weight:600}
+.exp-item .type-tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--secondary);border:1px solid var(--border);white-space:nowrap;align-self:start}
+.exp-item .body .head{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;margin-bottom:2px}
+.exp-item .body .head .title{font-weight:600}
+.exp-item .body .head .org{color:var(--secondary)}
+.exp-item .body .head .period{color:var(--secondary-2);font-size:12px;font-variant-numeric:tabular-nums}
+.exp-item .summary{color:var(--ink-2);font-size:12.5px;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.exp-item .body .summary{color:var(--ink-2);font-size:13px;margin-top:4px}
+.exp-item .body .flags{display:flex;gap:var(--space-2);margin-top:var(--space-2);flex-wrap:wrap}
+.exp-item .body .facts{color:var(--secondary);font-size:12px;margin-top:var(--space-2)}
+.exp-item .body .facts ul{margin-top:2px}
+.exp-item .body .facts li{list-style:disc inside;font-size:12px;color:var(--secondary-2)}
+.exp-item .actions{display:flex;gap:6px;align-items:flex-start}
+.exp-item .actions .icon-btn{width:32px;height:32px;border-radius:6px;display:grid;place-items:center;color:var(--secondary)}
+.exp-item .actions .icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.exp-item.dimmed{opacity:.55}
+.exp-item.dimmed .body .summary{color:var(--secondary)}
+
+/* Privacy */
+.privacy-section{margin-bottom:var(--space-6)}
+.privacy-section h2{font-family:var(--heading-font);font-size:18px;font-weight:600;margin-bottom:var(--space-3)}
+.privacy-section .lead{color:var(--secondary);margin-bottom:var(--space-4);max-width:64ch;font-size:14px}
+.privacy-list{display:grid;gap:var(--space-3)}
+.privacy-row{padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
+.privacy-row .title{font-weight:600;margin-bottom:4px}
+.privacy-row .desc{color:var(--secondary);font-size:13px}
+.reliability-layers{display:grid;grid-template-columns:1fr;gap:var(--space-3);margin-top:var(--space-4)}
+.reliability-layer{padding:var(--space-4);border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-2)}
+.reliability-layer .head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
+.reliability-layer .head .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface);color:var(--secondary);border:1px solid var(--border-strong);font-weight:600;letter-spacing:.05em}
+.reliability-layer .head .layer-title{font-weight:600}
+.reliability-layer .items{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--space-2)}
+.reliability-layer .items .chip{font-size:12px}
+.privacy-danger{padding:var(--space-4);border-radius:var(--radius-md);border:1px solid color-mix(in oklab,var(--error) 30%,transparent);background:color-mix(in oklab,var(--error) 6%,var(--surface));display:flex;gap:var(--space-3);align-items:center;justify-content:space-between;flex-wrap:wrap}
+.privacy-danger .left .title{font-weight:600;color:var(--error)}
+.privacy-danger .left .desc{font-size:12px;color:var(--secondary);margin-top:2px;max-width:48ch}
+
+/* Dev console */
+.dev-banner{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:color-mix(in oklab,var(--warn) 8%,var(--surface));border:1px solid color-mix(in oklab,var(--warn) 30%,transparent);font-size:13px;color:var(--ink-2);display:flex;gap:var(--space-3);align-items:center;margin-bottom:var(--space-4)}
+.dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+@media (max-width:960px){.dev-grid{grid-template-columns:1fr}}
+.dev-card{padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
+.dev-card h3{font-size:13px;font-weight:600;color:var(--secondary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:var(--space-3)}
+.dev-row{display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-top:1px dashed var(--border);font-size:13px}
+.dev-row:first-of-type{border-top:0}
+.dev-row .key{color:var(--secondary)}
+.dev-row .val{font-family:var(--font-mono);font-size:12px}
+.dev-row .val.ok{color:var(--success)}
+.dev-row .val.warn{color:var(--warn)}
+.dev-log{font-family:var(--font-mono);font-size:12px;background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-3);line-height:1.6;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:var(--ink-2)}
+
+/* Toast */
+.toast-zone{position:fixed;right:var(--space-4);bottom:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);z-index:80;pointer-events:none}
+.toast{padding:var(--space-3) var(--space-4);background:var(--ink);color:var(--primary-contrast);border-radius:var(--radius-md);box-shadow:var(--shadow-md);font-size:13px;animation:toast-in .2s ease;pointer-events:auto;max-width:360px}
+.toast.error{background:var(--error);color:#fff}
+.toast.success{background:var(--success);color:#fff}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Dialog */
+dialog{border:0;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:0;max-width:520px;width:calc(100% - 32px);color:var(--ink);background:var(--surface)}
+dialog::backdrop{background:rgba(20,22,30,.45)}
+[data-theme="C"] dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog .dialog-head{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+dialog .dialog-head h2{font-size:15px;font-weight:600}
+dialog .dialog-body{padding:var(--space-5)}
+dialog .dialog-foot{padding:var(--space-3) var(--space-5);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:var(--space-2);background:var(--surface-2);border-bottom-left-radius:var(--radius-lg);border-bottom-right-radius:var(--radius-lg)}
+.dialog-close{color:var(--secondary);width:28px;height:28px;border-radius:6px;display:grid;place-items:center}
+.dialog-close:hover{background:var(--surface-2);color:var(--ink)}
+
+/* Stage subtitle utility */
+.subtitle{color:var(--secondary);font-size:13px;margin-top:-2px}
+
+/* Empty aside */
+.aside-empty-row{padding:var(--space-3);border:1px dashed var(--border);border-radius:var(--radius-sm);color:var(--secondary);font-size:13px;text-align:center}
+
+/* Modal/list rows scroll */
+.list-rows{display:flex;flex-direction:column;gap:var(--space-3)}
+
+/* Tabs row */
+.tabs-row{display:flex;gap:var(--space-1);border-bottom:1px solid var(--border);margin-bottom:var(--space-4)}
+.tabs-row .tab{padding:var(--space-2) var(--space-3);font-size:13px;color:var(--secondary);font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs-row .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--primary)}
+
+/* Form inline */
+.inline-form{display:flex;gap:var(--space-2);align-items:center}
+.inline-form .input{height:32px}
+
+/* Helper utilities */
+.mt-2{margin-top:var(--space-2)}.mt-3{margin-top:var(--space-3)}.mt-4{margin-top:var(--space-4)}.mt-5{margin-top:var(--space-5)}
+.mb-2{margin-bottom:var(--space-2)}.mb-3{margin-bottom:var(--space-3)}.mb-4{margin-bottom:var(--space-4)}
+.gap-2{gap:var(--space-2)}.gap-3{gap:var(--space-3)}.gap-4{gap:var(--space-4)}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3)}
+.row-end{display:flex;justify-content:flex-end;gap:var(--space-2);align-items:center}
+.flex{display:flex}.flex-col{flex-direction:column}
+.text-mono{font-family:var(--font-mono);font-size:12px}
+.text-secondary{color:var(--secondary)}.text-muted{color:var(--secondary-2)}
+.hidden{display:none!important}
+
+/* ---------- 低滚动原则（v0.4）：关键信息默认可见，滚动收敛到局部区域 ---------- */
+.id-summary{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;font-size:14px;line-height:1.6;color:var(--secondary)}
+.id-summary .val{font-weight:600;color:var(--ink)}
+.id-summary .sep{color:var(--border-strong)}
+.id-summary .empty{color:var(--secondary-2);font-weight:400}
+.id-summary .missing-hint{color:var(--warn);font-weight:600;margin-left:var(--space-2);font-size:12px}
+.id-editor{border-top:1px dashed var(--border);margin-top:var(--space-3);padding-top:var(--space-4)}
+.result-shell{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--space-4);flex:1;min-height:0;align-items:start}
+.preview-col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.preview-scroll{padding:2px;flex:1;min-height:0;display:flex;justify-content:center;align-items:flex-start}
+.paper{width:100%;max-width:720px;background:var(--paper);color:var(--paper-ink);border:1px solid var(--paper-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:28px 40px;display:flex;flex-direction:column;gap:12px;font-family:'Source Han Serif SC','Songti SC','Noto Serif CJK SC',serif;font-size:13px;line-height:1.55;min-height:calc(100vh - 180px)}
+.paper section{display:flex;flex-direction:column;gap:4px}
+.paper section h2{font-size:12.5px;font-weight:600;border-bottom:1px solid var(--paper-rule);padding-bottom:3px;margin-bottom:3px;letter-spacing:.04em}
+.paper .exp-head{font-size:13px}
+.paper ul.bullets{list-style:disc;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.paper ul.bullets li{cursor:pointer;border-radius:4px;padding:1px 4px;margin-left:-4px;transition:background var(--transition)}
+.paper ul.bullets li:hover{background:color-mix(in oklab,var(--primary) 4%,transparent)}
+.exp-scroll{max-height:calc(100vh - 246px);overflow:auto;padding-right:var(--space-1)}
+.precheck-ready{display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--success)}
+
+/* Responsive: collapse sidebar */
+@media (max-width:900px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+  .app-sidebar{position:relative;height:auto;flex-direction:row;align-items:center;padding:var(--space-3) var(--space-4);overflow:auto}
+  .app-brand{padding:0 var(--space-2) 0 0;border-right:1px solid var(--border);margin-right:var(--space-3)}
+  .app-nav{flex-direction:row;gap:var(--space-1);margin-top:0;flex:1}
+  .app-nav .nav-item{padding:var(--space-2) var(--space-3)}
+  .app-nav .separator{display:none}
+  .app-sidebar .footnote{margin-top:0;padding:0 0 0 var(--space-3);border-left:1px solid var(--border)}
+  .app-shell{padding:var(--space-5) var(--space-4) var(--space-7)}
+  .welcome-paths,.welcome-principles,.dev-grid,.field-row{grid-template-columns:1fr}
+  .paper{padding:var(--space-5) var(--space-5)}
+}
+@media (max-width:520px){
+  .paper-head{flex-direction:column;align-items:flex-start}
+  .paper-head .meta{text-align:left}
+  .welcome-hero h1{font-size:26px}
+}
+
+/* 高度适配：主流程关键操作无需滚动即可触达（整页滚轮为大忌） */
+@media (max-height:800px){
+  .app-shell{padding-top:var(--space-4);padding-bottom:var(--space-6)}
+  .page-header{margin-bottom:var(--space-4)}
+  .welcome-hero{padding:var(--space-4) 0 var(--space-3)}
+  .welcome-paths{margin-top:var(--space-4);gap:var(--space-4)}
+  .welcome-principles{margin-top:var(--space-5);padding-top:var(--space-4)}
+  .card-padded{padding:var(--space-4)}
+  .field{margin-bottom:var(--space-3)}
+  #i-jd{min-height:180px}
+  .generate-cta-row{margin-top:var(--space-4)}
+}
+@media (max-height:660px){
+  #i-jd{min-height:128px}
+  .welcome-hero h1{font-size:28px;line-height:1.3}
+  .welcome-hero .lead{margin-top:var(--space-2)}
+  .welcome-principles{gap:var(--space-4)}
+  .missing-summary{margin-top:var(--space-3);padding:var(--space-3)}
+  .process-shell{padding-top:var(--space-5)}
+}
+
+/* Focus styles */
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body data-view="welcome">
+
+<a class="skip" href="#main">跳转到主要内容</a>
+
+<!-- ===== Sidebar ===== -->
+<aside class="app-sidebar" aria-label="主导航">
+  <div class="app-brand">
+    <div class="logo" aria-hidden="true">简</div>
+    <div>
+      <div class="name">简历助手</div>
+      <div class="sub">本地预览版</div>
+    </div>
+  </div>
+  <nav class="app-nav" id="primary-nav">
+    <button class="nav-item" data-nav="generate" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
+      生成简历
+    </button>
+    <button class="nav-item" data-nav="experience">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8M8 17h5"/></svg>
+      我的经历
+      <span class="count" data-bind="memory-count">0</span>
+    </button>
+    <div class="separator"></div>
+    <button class="nav-item" data-nav="privacy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2 4 5v6c0 5 3.5 9.4 8 11 4.5-1.6 8-6 8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>
+      个人与隐私
+    </button>
+  </nav>
+  <div class="footnote">
+    <button class="dev-link" data-nav="records" style="border:0;background:none;padding:0;text-align:left;font:inherit;cursor:pointer;color:var(--secondary);font-size:11px">简历记录 ›（预览）</button>
+    <button class="dev-link" data-nav="dev" style="border:0;background:none;padding:0;text-align:left;font:inherit;cursor:pointer">开发者后台 ›</button>
+  </div>
+</aside>
+
+<!-- ===== Main ===== -->
+<main id="main" class="app-main">
+
+  <!-- Welcome / cold start -->
+  <section data-view="welcome" class="app-shell narrow" aria-labelledby="welcome-h1">
+    <div class="welcome-hero">
+      <div class="eyebrow">简历助手 · 本地预览版</div>
+      <h1 id="welcome-h1">按岗位，一键生成可投递简历</h1>
+      <p class="lead">提供真实经历和目标岗位，系统完成选材、表达与排版。你只需确认事实并对结果提出修改。</p>
+    </div>
+    <div class="welcome-paths">
+      <div class="path-card" data-action="start-upload">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <div class="badge-row"><span class="chip chip-active"><span class="dot"></span>Active · PDF 解析</span></div>
+        <h3>我有一份现有简历</h3>
+        <p>上传 PDF，本机解析与提取。你只需确认事实、修正错误或暂不使用某段经历，再进入生成。</p>
+        <span class="cta">开始上传 →</span>
+      </div>
+      <div class="path-card" data-action="start-chat">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="badge-row"><span class="chip chip-preview"><span class="dot"></span>即将上线</span></div>
+        <h3>我还没有简历</h3>
+        <p>通过几次简短问答，把你零散的经历整理成形。该功能即将上线。</p>
+        <span class="cta">进入演示 →</span>
+      </div>
+    </div>
+    <div class="welcome-principles">
+      <div class="principle">
+        <h4>事实来自你</h4>
+        <p>学校、公司、时间、结果只来源于你上传或确认的内容。生成结果可逐条回查所依据的事实。</p>
+      </div>
+      <div class="principle">
+        <h4>按岗位选材与表达</h4>
+        <p>系统依据目标岗位决定选什么、怎么写，不让你先成为简历专家，也不把模板与字号当作主流程。</p>
+      </div>
+      <div class="principle">
+        <h4>失败可见、输入可保留</h4>
+        <p>材料不足、事实冲突或关键模型失败会被告知，且你已填入的身份信息与 JD 不会被悄悄丢弃。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Upload -->
+  <section data-view="upload" class="app-shell" aria-labelledby="upload-h1" hidden>
+    <div class="app-topbar" role="region" aria-label="上传现有简历">
+      <span class="crumb">第 1 步 · 准备经历</span>
+      <span class="sep">/</span>
+      <span class="ctx">上传现有简历</span>
+      <span class="sep">·</span>
+      <span class="tool tool-active"><span class="dot"></span>本机解析</span>
+      <span class="tool"><span class="dot"></span>不保留中间文件副本</span>
+      <span class="tools">
+        <span class="tool">解析与提取只使用你配置的本地模型</span>
+      </span>
+    </div>
+
+    <!-- State: idle -->
+    <div data-state="idle">
+      <div class="upload-shell">
+        <div class="upload-main">
+          <label class="dropzone" id="dropzone">
+            <input type="file" accept="application/pdf,.pdf" id="file-input"/>
+            <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg></div>
+            <h3>选择 PDF 或拖入此区域</h3>
+            <p>仅支持文本型 PDF（≤ 8 MB），文件仅在本机解析。</p>
+            <span class="btn btn-secondary">选择文件</span>
+          </label>
+          <div class="mt-3 row-between" style="align-items:flex-start">
+            <p class="text-secondary" style="font-size:12px">当前环境无法选择本地文件时，可用下方入口载入示例简历，体验完整流程。</p>
+            <button class="btn btn-ghost" data-action="upload-demo" style="height:32px;padding:0 var(--space-3);flex-shrink:0">没有现成 PDF？用示例简历继续 ›</button>
+          </div>
+        </div>
+        <aside class="upload-side">
+          <div class="ai-stream" aria-live="polite">
+            <div class="ai-stream-head">
+              <span class="ai-stream-tag">AI 处理中</span>
+              <span class="ai-stream-title">AI 解析过程</span>
+            </div>
+            <div class="ai-stream-hint">选择或载入一份 PDF 后，这里会流式展示解析过程（读取 → 文本层 → 结构化 → 提取 → 分组）。</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- State: parsing -->
+    <div data-state="parsing" hidden>
+      <div class="upload-shell">
+        <div class="upload-main">
+          <div class="card card-padded">
+            <div class="row-between mb-3">
+              <div>
+                <div class="card-title">正在解析 <span class="meta" data-bind="file-name">林澈-示例简历.pdf</span></div>
+                <div class="text-secondary" style="font-size:13px" data-bind="parsing-subtitle">已读取 3 / 12 页 · 识别中</div>
+              </div>
+              <div class="text-mono" data-bind="parsing-elapsed">00:04</div>
+            </div>
+            <div class="parse-stages" data-bind="parse-stages"></div>
+          </div>
+        </div>
+        <aside class="upload-side">
+          <div class="ai-stream" aria-live="polite">
+            <div class="ai-stream-head">
+              <span class="ai-stream-tag">AI 处理中</span>
+              <span class="ai-stream-title">AI 解析过程</span>
+              <span class="text-mono" data-bind="upload-ai-elapsed" style="font-size:11px">0s</span>
+            </div>
+            <div class="ai-stream-list" id="upload-ai-stream-list"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- State: error -->
+    <div data-state="error" hidden>
+      <div class="parse-error">
+        <div class="title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          解析失败：检测到扫描型 PDF（无可解析文本层）
+        </div>
+        <div class="text-secondary" style="font-size:13px">诊断编号 <span class="text-mono">RA-260906-EXP-0042</span> · 当前无法对扫描图像进行 OCR 提取。</div>
+        <div class="actions">
+          <button class="btn btn-secondary" data-action="upload-retry">重试</button>
+          <button class="btn btn-secondary" data-action="start-chat">改为手工补充</button>
+          <button class="btn btn-ghost" data-action="upload-help">查看支持的格式</button>
+        </div>
+      </div>
+      <p class="text-secondary mt-3" style="font-size:13px">支持格式：文本型 PDF。不支持：扫描型 PDF、需要密码的 PDF、单页超过 4 MB 的 PDF。</p>
+    </div>
+
+    <!-- State: confirm -->
+    <div data-state="confirm" hidden>
+      <div class="row-between mb-4">
+        <div>
+          <div class="card-title">检查提取结果 <span class="meta">来自 PDF · 共 <span data-bind="extract-total">0</span> 条候选</span></div>
+          <div class="text-secondary" style="font-size:13px" data-bind="extract-summary">—</div>
+        </div>
+        <div class="row-end">
+          <button class="btn btn-ghost" data-action="upload-retry">重新解析</button>
+          <button class="btn btn-primary" data-action="upload-save">确认并保存到我的经历</button>
+        </div>
+      </div>
+
+      <div class="extraction-group" data-group="education">
+        <div class="group-head"><h3>教育背景</h3><span class="text-muted" style="font-size:12px">1 条</span></div>
+        <div class="group-body" data-bind="extraction-education"></div>
+      </div>
+      <div class="extraction-group" data-group="experience">
+        <div class="group-head"><h3>实习经历</h3><span class="text-muted" style="font-size:12px">1 条</span></div>
+        <div class="group-body" data-bind="extraction-experience"></div>
+      </div>
+      <div class="extraction-group" data-group="project">
+        <div class="group-head"><h3>项目经历</h3><span class="text-muted" style="font-size:12px">2 条</span></div>
+        <div class="group-body" data-bind="extraction-project"></div>
+      </div>
+      <div class="extraction-group" data-group="activity">
+        <div class="group-head"><h3>校园与活动</h3><span class="text-muted" style="font-size:12px">1 条</span></div>
+        <div class="group-body" data-bind="extraction-activity"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Generate -->
+  <section data-view="generate" class="app-shell gen-view" aria-labelledby="generate-h1" hidden>
+    <div class="gen-topbar" role="region" aria-label="当前任务上下文">
+      <span class="crumb">生成简历</span>
+      <span class="sep">/</span>
+      <span class="ctx">目标岗位 · 后端开发实习生</span>
+      <span class="sep">·</span>
+      <span class="tool" id="gen-ready-tool"><span class="dot" data-bind="gen-ready-dot"></span><span data-bind="gen-ready-count">0</span> 条事实已就绪</span>
+      <span class="tool"><span class="dot" style="background:var(--success)"></span>输入保留中</span>
+      <span class="tools">
+        <span class="tool" data-action="go-experience" style="cursor:pointer">查看我的经历</span>
+        <span class="tool">实时预览</span>
+      </span>
+    </div>
+
+    <div class="gen-grid">
+      <div class="gen-main">
+        <div class="card identity-card card-padded">
+          <div class="row-top">
+            <div class="card-title">身份摘要 <span class="meta">默认可见 · 点击编辑</span></div>
+            <div class="badge-row">
+              <span class="chip chip-preview"><span class="dot"></span>本次生成使用</span>
+            </div>
+          </div>
+          <div class="id-summary" id="id-summary" role="status">
+            <span data-bind="id-name">—</span><span class="sep">·</span>
+            <span data-bind="id-phone">—</span><span class="sep">·</span>
+            <span data-bind="id-email">—</span><span class="sep">·</span>
+            <span data-bind="id-loc">—</span>
+            <span class="missing-hint" data-bind="id-missing-hint" hidden>姓名未填写</span>
+            <button type="button" class="btn btn-ghost" data-action="toggle-identity" style="height:30px;padding:0 10px;margin-left:var(--space-2)">编辑</button>
+          </div>
+          <div class="id-editor" data-bind="id-editor" hidden>
+            <div class="field-row">
+              <div class="field">
+                <label for="i-name">姓名 <span aria-hidden="true" style="color:var(--error)">*</span></label>
+                <input class="input" id="i-name" type="text" placeholder="例如：林澈" />
+                <div class="hint">必填。仅用于本次生成；身份信息自动带入为后续版本功能。</div>
+              </div>
+              <div class="field">
+                <label for="i-phone">联系电话</label>
+                <input class="input" id="i-phone" type="tel" placeholder="选填" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="i-email">电子邮箱</label>
+                <input class="input" id="i-email" type="email" placeholder="选填" />
+              </div>
+              <div class="field">
+                <label for="i-location">所在地</label>
+                <input class="input" id="i-location" type="text" placeholder="例如：深圳" />
+              </div>
+            </div>
+            <div class="row-end" style="margin-top:var(--space-2)">
+              <button type="button" class="btn btn-secondary" data-action="toggle-identity" style="height:36px;padding:0 var(--space-3)">完成</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card jd-card card-padded">
+          <div class="row-top">
+            <div class="card-title">目标岗位与 JD <span class="meta">同屏输入</span></div>
+            <div class="badge-row">
+              <span class="chip chip-active"><span class="dot"></span>JD 分析 · Active</span>
+            </div>
+          </div>
+          <div class="jd-field">
+            <label for="i-jd">粘贴完整岗位描述</label>
+            <textarea class="textarea" id="i-jd" placeholder="将招聘 JD 完整粘贴于此。系统会在右侧实时输出解析过程。"></textarea>
+          </div>
+          <div class="jd-actions">
+            <span data-bind="jd-meta">尚未粘贴 JD</span>
+            <div class="row-end">
+              <span class="chip" data-bind="jd-status-chip">待输入</span>
+            </div>
+          </div>
+          <div class="analyzed" data-bind="jd-analyzed" hidden>
+            <span class="chip"><strong>目标岗位</strong> · 后端开发实习生</span>
+            <span class="chip"><strong>核心要求</strong> · Java / Spring Boot · MySQL · 索引与 SQL 调优</span>
+            <span class="chip"><strong>实习节奏</strong> · 每周 ≥ 4 天 · 实习 3 个月以上</span>
+            <span class="chip"><strong>加分项</strong> · 微服务 / 消息队列 / 单元测试</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="gen-rail" aria-label="JD 解析与生成">
+        <div class="card card-padded gen-stream" id="jd-stream-panel" hidden>
+          <div class="row-between">
+            <div class="card-title" style="display:flex;align-items:center;gap:var(--space-2)"><span>AI · JD 解析过程</span><span class="chip chip-preview">自动分析</span></div>
+            <span class="text-mono" style="font-size:11px" data-bind="jd-stream-elapsed">0s</span>
+          </div>
+          <div class="stream-lines mt-3" id="jd-stream-list" aria-live="polite"></div>
+        </div>
+
+        <div class="missing-summary" id="missing-panel" style="margin-top:0">
+          <h4>生成前检查</h4>
+          <div data-bind="missing-rows"></div>
+        </div>
+
+        <div class="gen-banner">
+          <svg class="icn" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><b>系统会基于你已确认的事实与本岗位 JD 完成选材、表达与排版。</b>生成中保留输入与状态；失败时返回修改不会丢失任何字段。</div>
+        </div>
+
+        <div class="card card-padded gen-cta">
+          <div class="precheck-ready" data-bind="precheck-note" hidden style="margin-bottom:var(--space-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> 事实与输入已就绪，可直接生成</div>
+          <button class="btn btn-primary btn-large" data-action="generate-go" id="btn-generate" style="width:100%">生成岗位简历</button>
+          <div class="row-between mt-3">
+            <span style="font-size:12px;color:var(--secondary)">生成中保留输入与状态</span>
+            <button class="btn btn-ghost" data-action="go-experience" style="height:32px;padding:0 10px">查看我的经历</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="gen-statusbar" role="contentinfo">
+      <span class="left">
+        <span class="ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> 由本地算力保障</span>
+        <span>·</span>
+        <span>服务：Ark-Base（可配置）· 模型：doubao-seed-2-1-pro · Embedding：doubao-embedding-vision</span>
+      </span>
+      <span class="right">
+        <span>运行链路 V2.0.1 · Active</span>
+        <span class="ver">预览版</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- Processing -->
+  <section data-view="processing" class="app-shell" aria-labelledby="process-h1" hidden>
+    <div class="process-shell">
+      <div class="process-main">
+        <div class="process-header">
+          <div class="eyebrow">后端开发实习生 · 生成中</div>
+          <h1 id="process-h1">正在为你准备一份可直接投递的简历</h1>
+          <p class="desc">系统按真实阶段推进，输入已保留，不会被静默丢弃。</p>
+        </div>
+
+        <div class="card card-padded" style="background:var(--surface-2);border-color:var(--border);box-shadow:none;width:100%">
+          <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--secondary)">已提交输入 · 保留中</div>
+          <div class="mt-2" style="font-size:13px;line-height:1.7;color:var(--ink-2)" data-bind="process-sub">—</div>
+        </div>
+
+        <div class="row-between" style="width:100%">
+          <span class="text-secondary" style="font-size:13px">已用时</span>
+          <span class="process-elapsed" data-bind="process-elapsed">00:00</span>
+        </div>
+
+        <div class="process-stages" data-bind="process-stages">
+          <div class="process-stage pending" data-stage="select">
+            <span class="indicator">1</span>
+            <div class="body"><div class="label">从你的经历中挑选相关事实</div><div class="detail">按目标岗位 JD 决定选取哪些事实与时段</div></div>
+            <span class="elapsed"></span>
+          </div>
+          <div class="process-stage pending" data-stage="rewrite">
+            <span class="indicator">2</span>
+            <div class="body"><div class="label">受约束起草表达</div><div class="detail">基于已选事实生成 bullet，保留事实引用</div></div>
+            <span class="elapsed"></span>
+          </div>
+          <div class="process-stage pending" data-stage="layout">
+            <span class="indicator">3</span>
+            <div class="body"><div class="label">排版装配</div><div class="detail">固定结构内做排版与一致性整理</div></div>
+            <span class="elapsed"></span>
+          </div>
+          <div class="process-stage pending" data-stage="package">
+            <span class="indicator">4</span>
+            <div class="body"><div class="label">完成 DOCX 装配</div><div class="detail">确定性 Builder 渲染，可下载</div></div>
+            <span class="elapsed"></span>
+          </div>
+        </div>
+
+        <div class="process-foot">
+          <div class="left">
+            <span class="chip chip-status-ok"><span class="dot"></span>输入已保留</span>
+            <span>进度会随服务端更新，可随时查看</span>
+          </div>
+          <div class="row-end">
+            <button class="btn btn-ghost" data-action="process-back">返回修改输入</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="process-side">
+        <div class="ai-stream" id="ai-stream" aria-live="polite">
+          <div class="ai-stream-head">
+            <span class="ai-stream-tag">AI 处理中</span>
+            <span class="ai-stream-title">AI 解析过程</span>
+          </div>
+          <div class="ai-stream-list" id="ai-stream-list"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section data-view="result" class="app-shell wide" aria-label="简历预览" hidden>
+    <div class="result-shell">
+      <div class="preview-col">
+        <div class="muted" style="font-size:13px;margin-bottom:var(--space-3);display:flex;gap:var(--space-2);flex-wrap:wrap">
+          <span data-bind="result-summary">—</span>
+          <span class="chip chip-active"><span class="dot"></span>事实可回查</span>
+          <span class="chip chip-preview"><span class="dot"></span>实时预览</span>
+        </div>
+        <div class="preview-scroll">
+        <article class="paper" aria-label="简历预览">
+          <div class="paper-head">
+            <div class="name-block">
+              <div class="name" data-bind="paper-name">林澈</div>
+              <div class="text-secondary" style="font-size:13px" data-bind="paper-contact">139-0000-0000 · linche@example.com · 深圳</div>
+            </div>
+            <div class="meta">
+              <div data-bind="paper-target">目标岗位：后端开发实习生</div>
+              <div data-bind="paper-time">示例生成于 2026-09-06</div>
+            </div>
+          </div>
+
+          <section>
+            <h2>教育背景</h2>
+            <div class="exp-head">
+              <span><span class="title">蓝港示范大学</span> <span class="org">软件工程 · 本科</span></span>
+              <span class="period">2022.09 – 2026.06（预计）</span>
+            </div>
+            <div class="text-secondary" style="font-size:13px">核心课程：数据结构、操作系统、计算机网络、数据库系统、软件工程；GPA 3.6 / 4.0</div>
+          </section>
+
+          <section>
+            <h2>实习经历</h2>
+            <div class="exp-head" data-group="internship">
+              <span><span class="title">青屿科技（示例）</span> <span class="org">后端开发实习生</span></span>
+              <span class="period">2025.06 – 2025.09</span>
+            </div>
+            <ul class="bullets" data-bind="bullets-internship" data-group="internship"></ul>
+          </section>
+
+          <section>
+            <h2>项目经历</h2>
+            <div class="exp-head" data-group="project1">
+              <span><span class="title">校园二手交易平台</span> <span class="org">个人项目 · Node.js + MySQL</span></span>
+              <span class="period">2024.10 – 2025.02</span>
+            </div>
+            <ul class="bullets" data-bind="bullets-project1" data-group="project1"></ul>
+
+            <div class="exp-head mt-3" data-group="project2">
+              <span><span class="title">社团活动报名小程序</span> <span class="org">团队项目 · Python + FastAPI</span></span>
+              <span class="period">2025.03 – 2025.07</span>
+            </div>
+            <ul class="bullets" data-bind="bullets-project2" data-group="project2"></ul>
+          </section>
+
+          <section>
+            <h2>技能</h2>
+            <div class="text-secondary" style="font-size:13px">编程语言：Java、Python、TypeScript / JavaScript · 后端：Spring Boot、FastAPI、Express · 数据：MySQL、Redis、SQL 调优、索引设计 · 工程：Git、单元测试、接口评审、Linux 命令行</div>
+          </section>
+
+          <section>
+            <h2>自我评价</h2>
+            <div class="text-secondary" style="font-size:13px">注重性能与可靠性；能以工程规范推进目标；善于把模糊需求拆解为可验证的小任务；习惯以「可复现的事实」与「可量化的结果」描述自己的贡献。</div>
+          </section>
+        </article>
+        </div>
+      </div>
+
+      <aside class="aside-col" aria-label="修改 / 依据 / 导出">
+        <div class="row-between">
+          <div class="badge-row">
+            <span class="chip chip-preview"><span class="dot"></span>实时预览</span>
+          </div>
+        </div>
+        <div class="aside-tabs" role="tablist" style="margin-top:var(--space-2)">
+          <div class="tab" role="tab" aria-selected="false" data-tab="basis">依据</div>
+          <div class="tab" role="tab" aria-selected="true" data-tab="modify">修改</div>
+        </div>
+        <div class="card aside-panel">
+          <div data-aside="basis">
+            <div class="basis-block" data-bind="aside-suggest-block" style="margin-bottom:var(--space-3)">
+              <div class="label">全文建议</div>
+              <div class="value muted" data-bind="aside-suggest-text"></div>
+            </div>
+            <div data-aside-basis-detail hidden>
+              <div class="basis-block">
+                <div class="label">原文（来自我的经历）</div>
+                <div class="value" data-bind="basis-original">—</div>
+              </div>
+              <div class="basis-block">
+                <div class="label">采用原因</div>
+                <div class="value" data-bind="basis-reason">—</div>
+              </div>
+              <div class="basis-block">
+                <div class="label">对应经历条目</div>
+                <div class="value" data-bind="basis-source">—</div>
+              </div>
+              <div class="basis-block" data-bind="basis-unused-block" hidden>
+                <div class="label">本次未采用</div>
+                <div class="value muted" data-bind="basis-unused">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div data-aside="modify">
+            <div class="basis-block">
+              <div class="label">意图级修改 <span class="chip chip-preview" style="margin-left:6px"><span class="dot"></span>即将上线</span></div>
+              <div class="value muted">例如：更突出项目 / 更技术 / 更简洁 / 强调某项真实成果</div>
+            </div>
+            <textarea class="intent-input mt-2" placeholder="描述你希望调整的方向">把第二条 bullet 调整得更强调后端与性能数字。</textarea>
+            <div class="intent-row mt-2">
+              <button class="btn btn-secondary" data-intent="project">更突出项目</button>
+              <button class="btn btn-secondary" data-intent="tech">更技术</button>
+              <button class="btn btn-secondary" data-intent="concise">更简洁</button>
+              <button class="btn btn-secondary" data-intent="metric">强调真实成果</button>
+            </div>
+            <div class="basis-block mt-3">
+              <div class="label">当前简历作用范围</div>
+              <div class="value muted">仅修改此份简历；不会改动「我的经历」或长期事实。修订历史与回退为后续版本功能。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="aside-export card card-padded">
+          <div class="basis-block" style="margin-bottom:var(--space-3)">
+            <div class="label">导出</div>
+            <div class="value muted">下载为后续版本能力；当前可先复制简历全文。</div>
+          </div>
+          <div class="export-actions">
+            <button class="btn btn-primary" data-action="export-docx" style="width:100%">下载 DOCX</button>
+            <button class="btn btn-secondary mt-2" data-action="export-text" style="width:100%">复制简历全文</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Experience -->
+  <section data-view="experience" class="app-shell" aria-labelledby="exp-h1" hidden>
+    <div class="app-topbar" role="region" aria-label="我的经历">
+      <span class="crumb">我的经历</span>
+      <span class="sep">/</span>
+      <span class="ctx">长期事实库</span>
+      <span class="sep">·</span>
+      <span class="tool tool-active"><span class="dot"></span><span data-bind="memory-count">0</span> 条已确认</span>
+      <span class="tool"><span class="dot"></span>新事实经确认后写入</span>
+      <span class="tools">
+        <button class="btn btn-primary" data-action="exp-add" style="height:30px;padding:0 14px">+ 新增经历</button>
+      </span>
+    </div>
+
+    <div class="exp-layout">
+      <div class="exp-master">
+        <div class="exp-toolbar">
+          <div class="filters">
+            <div class="tabs-row" style="border:0;margin:0" id="exp-filter">
+              <div class="tab" aria-selected="true" data-filter="all">全部</div>
+              <div class="tab" data-filter="education">教育</div>
+              <div class="tab" data-filter="internship">实习</div>
+              <div class="tab" data-filter="project">项目</div>
+              <div class="tab" data-filter="activity">活动</div>
+              <div class="tab" data-filter="skill">技能</div>
+              <div class="tab" data-filter="deferred">暂不使用</div>
+            </div>
+          </div>
+          <div class="row-end">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="input" id="exp-search" placeholder="按标题或内容搜索" />
+            </div>
+          </div>
+        </div>
+        <div class="exp-scroll" data-bind="experience-list"></div>
+      </div>
+      <div class="exp-detail" data-bind="experience-detail"></div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section data-view="privacy" class="app-shell narrow" aria-labelledby="privacy-h1" hidden>
+    <div class="app-topbar" role="region" aria-label="个人与隐私">
+      <span class="crumb">个人与隐私</span>
+      <span class="sep">/</span>
+      <span class="ctx">数据边界、可见性与你的权利</span>
+      <span class="sep">·</span>
+      <span class="tool tool-active"><span class="dot"></span>数据仅存本机</span>
+      <span class="tool"><span class="dot"></span>本地模型解析（可配置）</span>
+    </div>
+
+    <div class="privacy-section">
+      <h2>数据保存在哪里</h2>
+      <p class="lead">姓名、电话、邮箱、所在地、经历条目和生成结果保存在你本机应用数据目录，不上传云端；完成任务所需的文本会发送给你配置的本地模型服务（在你配置的 Provider 中处理）。</p>
+      <div class="privacy-list">
+        <div class="privacy-row"><div class="title">本机保存</div><div class="desc">应用数据目录（数据库、索引、运行活动） · 仅本机访问</div></div>
+        <div class="privacy-row"><div class="title">第三方模型（按你的配置）</div><div class="desc">完成任务所需文本会发送到你配置的 Provider；配置详见开发者后台</div></div>
+        <div class="privacy-row"><div class="title">公网服务 / 账号</div><div class="desc">当前版本无账号体系，暂不涉及。</div></div>
+      </div>
+    </div>
+
+    <div class="privacy-section">
+      <h2>你能看到的可靠性分三层</h2>
+      <p class="lead">可靠感来自输入不丢失、错误可恢复、事实可核对和作用范围明确；不来自虚构百分比或 AI 思考文案。</p>
+      <div class="reliability-layers">
+        <div class="reliability-layer">
+          <div class="head"><span class="badge">第 1 层</span><span class="layer-title">默认用户可见</span></div>
+          <div class="items">
+            <span class="chip">当前真实阶段</span>
+            <span class="chip">已耗时</span>
+            <span class="chip">输入是否保留</span>
+            <span class="chip">材料缺口与下一步</span>
+          </div>
+        </div>
+        <div class="reliability-layer">
+          <div class="head"><span class="badge">第 2 层</span><span class="layer-title">按需展开</span></div>
+          <div class="items">
+            <span class="chip">某条 bullet 的原文事实</span>
+            <span class="chip">采用原因</span>
+            <span class="chip">未采用说明</span>
+            <span class="chip">作用范围</span>
+          </div>
+        </div>
+        <div class="reliability-layer">
+          <div class="head"><span class="badge">第 3 层</span><span class="layer-title">隐藏开发者后台</span></div>
+          <div class="items">
+            <span class="chip">Provider / 模型</span>
+            <span class="chip">HTTP 状态</span>
+            <span class="chip">内部 ID / revision</span>
+            <span class="chip">脱敏诊断与日志</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy-section">
+      <h2>缺���信息如何处理</h2>
+      <p class="lead">我们不会因为某项缺失就拒绝完成你的任务，但也绝不替你编造事实。</p>
+      <div class="privacy-list">
+        <div class="privacy-row"><div class="title">阻断 · 仅在无法正确完成任务时停下</div><div class="desc">例如：姓名为空且无法继续；当前数据库或索引未就绪</div></div>
+        <div class="privacy-row"><div class="title">需确认 · 仅处理冲突项</div><div class="desc">日期冲突、角色归属冲突等只标记冲突项，不打断本次生成</div></div>
+        <div class="privacy-row"><div class="title">可降级 · 局部材料不确定</div><div class="desc">排除该项继续生成并在依据中说明</div></div>
+        <div class="privacy-row"><div class="title">质量建议 · 先生成再补充</div><div class="desc">已有真实可用事实时先生成，再建议补充真实结果或上下文</div></div>
+      </div>
+    </div>
+
+    <div class="privacy-section">
+      <h2>当前环境数据</h2>
+      <p class="lead">以下操作仅作用于当前演示环境，可随时重置。正式版本无需此入口。</p>
+      <div class="privacy-danger">
+        <div class="left">
+          <div class="title">清除本机演示数据</div>
+          <div class="desc">清空当前演示环境中的经历、身份与生成记录，回到首次进入状态。</div>
+        </div>
+        <div class="row-end">
+          <button class="btn btn-danger" data-action="privacy-clear">重置当前数据</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Resume records (preview of a future feature) -->
+  <section data-view="records" class="app-shell" aria-labelledby="records-h1" hidden>
+    <div class="app-topbar" role="region" aria-label="简历记录">
+      <span class="crumb">简历记录</span>
+      <span class="sep">/</span>
+      <span class="ctx">你生成过的岗位简历</span>
+      <span class="sep">·</span>
+      <span class="tool tool-active"><span class="dot"></span>本机保存</span>
+      <span class="tool"><span class="dot"></span>后续版本功能</span>
+      <span class="tools">
+        <button class="btn btn-primary" data-action="go-generate" style="height:30px;padding:0 14px">生成新简历</button>
+      </span>
+    </div>
+
+    <div class="records-body" data-bind="records-root"></div>
+  </section>
+
+  <!-- Dev console (hidden) -->
+  <section data-view="dev" class="app-shell" aria-labelledby="dev-h1" hidden>
+    <div class="page-header">
+      <div class="eyebrow">开发者后台</div>
+      <h1 id="dev-h1">本机系统状态、Provider 配置与诊断</h1>
+      <p class="desc">本页为预览工具的隐藏入口，普通用户导航中不出现。</p>
+    </div>
+
+    <div class="dev-banner">
+      <span class="chip chip-preview"><span class="dot"></span>预览工具</span>
+      <span>本页所显示的 Provider、运行活动与日志均来自设计稿，不会触发真实后端调用。</span>
+    </div>
+
+    <div class="dev-grid">
+      <div class="dev-card">
+        <h3>Provider 配置</h3>
+        <div class="dev-row"><span class="key">Provider</span><span class="val">示例方舟（Mock）</span></div>
+        <div class="dev-row"><span class="key">Base URL</span><span class="val">https://ark.cn-beijing.volces.com/api/v3</span></div>
+        <div class="dev-row"><span class="key">Model</span><span class="val">doubao-seed-1-6-250615</span></div>
+        <div class="dev-row"><span class="key">API Key</span><span class="val">sk-********************</span></div>
+        <div class="dev-row"><span class="key">连接测试</span><span class="val ok">通过 · 2026-09-06 12:31</span></div>
+        <div class="mt-3 row-end">
+          <button class="btn btn-secondary" data-action="dev-test">再次测试连接</button>
+          <button class="btn btn-ghost" data-action="dev-rotate">轮换 Key</button>
+        </div>
+      </div>
+
+      <div class="dev-card">
+        <h3>数据库与索引</h3>
+        <div class="dev-row"><span class="key">数据库</span><span class="val ok">就绪 · v2.0.2 schema</span></div>
+        <div class="dev-row"><span class="key">Experience</span><span class="val ok">12 条</span></div>
+        <div class="dev-row"><span class="key">Fact</span><span class="val ok">46 条</span></div>
+        <div class="dev-row"><span class="key">Embedding</span><span class="val warn">需重建（示例状态）</span></div>
+        <div class="mt-3 row-end">
+          <button class="btn btn-secondary" data-action="dev-rebuild">重建索引</button>
+        </div>
+      </div>
+
+      <div class="dev-card">
+        <h3>最近运行活动</h3>
+        <div class="dev-log" id="dev-log">[2026-09-06 12:42:18] op#218 select   done   1.42s  candidates=12
+[2026-09-06 12:42:18] op#218 rewrite  done   2.05s  bullets=8  refs=14
+[2026-09-06 12:42:18] op#218 layout   done   0.62s  docx=ok
+[2026-09-06 12:31:09] config.test connection ok 86ms
+[2026-09-06 12:30:51] index.rebuild scheduled</div>
+      </div>
+
+      <div class="dev-card">
+        <h3>诊断</h3>
+        <div class="dev-row"><span class="key">最近诊断编号</span><span class="val">RA-260906-EXP-0042</span></div>
+        <div class="dev-row"><span class="key">失败模式</span><span class="val warn">扫描型 PDF · 无文本层</span></div>
+        <div class="dev-row"><span class="key">恢复动作</span><span class="val">更换文件 / 手工补充</span></div>
+        <div class="mt-3 row-end">
+          <button class="btn btn-secondary" data-action="dev-copy">复制诊断信息</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast-zone" id="toast-zone" aria-live="polite"></div>
+
+<dialog id="dlg-confirm">
+  <div class="dialog-head">
+    <h2 id="dlg-confirm-title">确认</h2>
+    <button class="dialog-close" data-dialog-close="dlg-confirm" aria-label="关闭">×</button>
+  </div>
+  <div class="dialog-body">
+    <p id="dlg-confirm-body">确认要执行此操作吗？</p>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" data-dialog-close="dlg-confirm">取消</button>
+    <button class="btn btn-primary" id="dlg-confirm-ok">确认</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-edit">
+  <div class="dialog-head">
+    <h2 id="dlg-edit-title">编辑经历</h2>
+    <button class="dialog-close" data-dialog-close="dlg-edit" aria-label="关闭">×</button>
+  </div>
+  <div class="dialog-body" id="dlg-edit-body">
+    <!-- dynamic form -->
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" data-dialog-close="dlg-edit">取消</button>
+    <button class="btn btn-primary" id="dlg-edit-ok">保存</button>
+  </div>
+</dialog>
+
+<script>
+/* ===========================================================================
+   状态、场景与交互
+   =========================================================================== */
+(function(){
+  'use strict';
+
+  /* ---------- 通用 ---------- */
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const escapeHtml = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmtSec = ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+  const showToast = (msg, kind='')=>{const t=document.createElement('div');t.className='toast'+(kind?' '+kind:'');t.textContent=msg;$('#toast-zone').appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},2400)};
+
+  /* ---------- 虚构 persona 与 fixture ---------- */
+  const PERSONA = {
+    name:'林澈', phone:'139-0000-0000', email:'linche@example.com', location:'深圳',
+    target:'后端开发实习生',
+  };
+  const JD = `澄川科技 · 后端开发实习生（示例 JD）
+
+岗位职责：
+1. 参与订单、用户、库存等核心模块的后端开发（Java / Spring Boot）；
+2. 编写接口评审与单元测试，配合前端完成联调；
+3. 进行 MySQL 索引设计与 SQL 调优，处理慢查询；
+4. 协助排查线上问题，参与 Code Review。
+
+任职要求：
+1. 本科及以上在校生，计算机相关专业；
+2. 熟悉 Java 基础，掌握 Spring Boot / MyBatis / MySQL；
+3. 了解 Redis、消息队列（如 Kafka / RocketMQ）加分；
+4. 每周可实习 4 天以上，实习期 3 个月以上；
+5. 有实际项目或实习经验，能讲清楚结果与自己的贡献。`;
+
+  const MEMORY_SEED = [
+    {id:'m-edu', type:'education', title:'蓝港示范大学', org:'软件工程 · 本科', period:'2022.09 – 2026.06', summary:'核心课程：数据结构、操作系统、计算机网络、数据库系统、软件工程；GPA 3.6 / 4.0（示例）', status:'confirmed', adopted:true, facts:['主修软件工程','GPA 3.6/4.0']},
+    {id:'m-int', type:'internship', title:'青屿科技（示例）', org:'后端开发实习生', period:'2025.06 – 2025.09', summary:'参与订单查询与 API 评审；优化 P95 延迟；编写团队首版编码规范（示例）', status:'confirmed', adopted:true, facts:['优化 P95 850ms → 320ms（基于 4 万条样本的本地压测）','参与 12 项 API 改动评审，覆盖用户/订单/库存三域','编写团队首版 Java 编码规范与接口评审 checklist']},
+    {id:'m-p1', type:'project', title:'校园二手交易平台', org:'个人项目 · Node.js + MySQL', period:'2024.10 – 2025.02', summary:'设计并实现用户、商品、订单三张核心表，使用 Redis 缓存商品详情（示例）', status:'confirmed', adopted:true, facts:['接口幂等键 + 限流：重复下单率 2.1% → 0.3%','Redis 缓存商品详情，命中率 78%','60 个单元测试覆盖订单状态机，覆盖率 86%']},
+    {id:'m-p2', type:'project', title:'社团活动报名小程序', org:'团队项目 · Python + FastAPI', period:'2025.03 – 2025.07', summary:'负责报名接口与签到核销逻辑；峰值 180 QPS；协同 4 名同学（示例）', status:'needsReview', adopted:true, facts:['报名接口 + 签到核销','峰值并发 180 QPS','被 8 个学生社团采用'], note:'与「青屿科技实习」时间存在重叠（2025.06 – 2025.07），需确认'},
+    {id:'m-act', type:'activity', title:'校园歌手大赛组织者', org:'校学生会活动部', period:'2023.10 – 2023.12', summary:'统筹 60+ 人报名、彩排与现场（示例）', status:'confirmed', adopted:false, facts:['组织 60+ 人报名','独立完成彩排与现场']},
+    {id:'m-skill', type:'skill', title:'后端基础', org:'', period:'', summary:'Java / Python / TypeScript · Spring Boot / FastAPI / Express · MySQL / Redis / SQL 调优（示例）', status:'confirmed', adopted:true, facts:['掌握 Java / Python / TypeScript','MySQL 索引设计与 SQL 调优']},
+  ];
+
+  const EXTRACTED = [
+    {id:'e-edu', group:'education', title:'蓝港示范大学', org:'软件工程 · 本科', period:'2022.09 – 2026.06', summary:'主修软件工程；GPA 3.6 / 4.0', adopted:true, status:'confirmed', flag:null, facts:['���修软件工程','GPA 3.6/4.0']},
+    {id:'e-int', group:'experience', title:'青屿科技（示例）', org:'后端开发实习生', period:'2025.06 – 2025.09', summary:'参与订单查询与 API 评审；优化 P95 延迟', adopted:true, status:'confirmed', flag:null, facts:['优化 P95 850ms → 320ms','参与 12 项 API 改动评审']},
+    {id:'e-p1', group:'project', title:'校园二手交易平台', org:'个人项目 · Node.js + MySQL', period:'2024.10 – 2025.02', summary:'接口幂等 + 限流；Redis 缓存商品详情', adopted:true, status:'confirmed', flag:'suggest', flagText:'材料建议：缺少可量化结果', facts:['重复下单率 2.1% → 0.3%','Redis 缓存命中率 78%']},
+    {id:'e-p2', group:'project', title:'社团活动报名小程序', org:'团队项目 · Python + FastAPI', period:'2025.03 – 2025.07', summary:'报名接口 + 签到核销；峰值 180 QPS', adopted:true, status:'needsReview', flag:'confirm', flagText:'日期冲突：与实习时段重叠', facts:['峰值并发 180 QPS','被 8 个学生社团采用'], conflictNote:'与「青屿科技实习」2025.06–2025.09 时间存在重叠'},
+    {id:'e-act', group:'activity', title:'校园歌手大赛组织者', org:'校学生会活动部', period:'2023.10 – 2023.12', summary:'统筹报名、彩排与现场', adopted:false, status:'confirmed', flag:'defer', flagText:'暂不使用：与目标岗位相关度较低', facts:['组织 60+ 人报名']},
+    {id:'e-p1b', group:'project', title:'课程设计 · 简易 HTTP 服务器', org:'课程设计 · C', period:'2023.11 – 2023.12', summary:'基于 epoll 实现 HTTP/1.1 服务器', adopted:true, status:'confirmed', flag:null, facts:['基于 epoll 实现高并发连接']},
+  ];
+
+  /* ---------- 简历预览 bullets（与 MEMORY_SEED 对应） ---------- */
+  const BULLETS = {
+    internship:[
+      {id:'b1',text:'设计并实现订单查询接口，将 P95 延迟从 850ms 优化到 320ms（基于 4 万条样本的本地压测）', source:{orig:'青屿科技实习 · 性能优化记录',reason:'岗位要求 MySQL 调优 + 可量化结果',refId:'m-int'}},
+      {id:'b2',text:'参与评审 12 项 API 改动，覆盖用户、订单、库存三个域；其中 1 项重构上线后线上错误率下降 42%', source:{orig:'青屿科技实习 · API 评审记录',reason:'体现接口质量意识与协作',refId:'m-int'}},
+      {id:'b3',text:'编写团队首版 Java 编码规范与接口评审 checklist，被 3 位新成员采用', source:{orig:'青屿科技实习 · 团队规范',reason:'团队贡献，可作为加分项',refId:'m-int'}},
+    ],
+    project1:[
+      {id:'b4',text:'设计并实现用户、商品、订单三张核心表，使用 Redis 缓存商品详情，命中率达 78%', source:{orig:'校园二手交易平台 · 缓存策略',reason:'与岗位要求的 MySQL/Redis 一致',refId:'m-p1'}},
+      {id:'b5',text:'引入接口幂等键与限流，重复下单率从 2.1% 降至 0.3%', source:{orig:'校园二手交易平台 · 限流设计',reason:'体现稳定性与可量化结果',refId:'m-p1'}},
+      {id:'b6',text:'编写 60 个单元测试覆盖订单状态机，覆盖率 86%', source:{orig:'校园二手交易平台 · 测试记录',reason:'体现工程习惯',refId:'m-p1'}},
+    ],
+    project2:[
+      {id:'b7',text:'负责报名接口与签到核销逻辑（Python + FastAPI），峰值并发 180 QPS', source:{orig:'社团活动报名小程序 · 接口设计',reason:'体现后端接口与性能经验',refId:'m-p2'}},
+      {id:'b8',text:'协同 4 名同学完成前后端联调与上线，被 8 个学生社团采用', source:{orig:'社团活动报名小程序 · 协作记录',reason:'体现协作与交付能力',refId:'m-p2'}},
+    ],
+  };
+
+  /* ---------- 全局状态 ---------- */
+  const state = {
+    theme: 'A',
+    route: 'welcome',
+    memory: [],
+    identity: {...PERSONA},
+    jd: JD,
+    upload: { state:'idle' },
+    process: { startedAt:0, idx:0, intervalId:null, failed:false },
+    selectedBullet: null,
+    asideTab:'modify',
+    filter:'all',
+    search:'',
+    records: [],
+  };
+  function clone(o){return JSON.parse(JSON.stringify(o))}
+
+  /* ---------- 视图切换 ---------- */
+  function showRoute(name){
+    /* 没有可用于生成的经历时，「生成简历」呈现冷启动欢迎（真实产品空态），不展示空表单 */
+    if(name==='generate' && memoryReadyCount()===0){ name = 'welcome'; }
+    state.route = name;
+    document.body.dataset.view = name;
+    /* 生成页锁整页滚动（其余页面恢复正常滚动） */
+    document.documentElement.classList.toggle('lock-scroll', name==='generate' || name==='processing' || name==='result');
+    updateMemoryBadges();
+    $$('section[data-view]').forEach(s=>{ s.hidden = s.dataset.view !== name; });
+    $$('.app-nav .nav-item').forEach(n=>{ n.setAttribute('aria-current', n.dataset.nav===name?'page':'false'); });
+    const map = {welcome:'欢迎',generate:'生成简历',experience:'我的经历',privacy:'个人与隐私',records:'简历记录',upload:'上传',processing:'生成中',result:'结果',dev:'开发者后台'};
+    document.title = '简历助手 · '+(map[name]||'本地预览');
+    if(name==='experience') renderExperience();
+    if(name==='generate'){ syncIdentity(); updateGenerate(); }
+    if(name==='result') renderResult();
+    if(name==='upload') renderUpload();
+    if(name==='records') renderRecords();
+    if(name==='dev') {/* no-op */}
+  }
+
+  /* ---------- 主题（当前基线 A；保留 URL ?theme= 便于截图与复核） ---------- */
+  function setTheme(t){
+    state.theme = t;
+    document.documentElement.dataset.theme = t;
+  }
+
+  /* ---------- 身份输入同步 ---------- */
+  function syncIdentity(){
+    const ed = $('[data-bind="id-editor"]'); if(ed) ed.hidden = true;
+    $('#i-name').value = state.identity.name||'';
+    $('#i-phone').value = state.identity.phone||'';
+    $('#i-email').value = state.identity.email||'';
+    $('#i-location').value = state.identity.location||'';
+    $('#i-jd').value = state.jd || '';
+    updateGenerate();
+  }
+  function bindIdentity(){
+    ['i-name','i-phone','i-email','i-location'].forEach(id=>{
+      $('#'+id).addEventListener('input', e=>{ state.identity[id.replace('i-','').replace('-','')] = e.target.value; updateGenerate(); });
+    });
+    $('#i-jd').addEventListener('input', e=>{ state.jd = e.target.value; updateGenerate(); });
+  }
+  function memoryReadyCount(){
+    return state.memory.filter(m=>m.adopted && m.status!=='needsReview').length;
+  }
+  function updateMemoryBadges(){
+    $$('[data-bind="memory-count"]').forEach(el=>{ el.textContent = state.memory.length; });
+    const g = $('[data-bind="gen-ready-count"]'); if(g) g.textContent = memoryReadyCount();
+    const tool = $('#gen-ready-tool');
+    if(tool){
+      const n = memoryReadyCount();
+      tool.classList.toggle('tool-active', n >= 1);
+      tool.classList.toggle('tool-warn', n === 0);
+    }
+  }
+  function updateIdentitySummary(){
+    const id = state.identity || {};
+    const set = (k, v) => { const el = $('[data-bind="id-'+k+'"]'); if(el) el.textContent = v; };
+    const missName = !(id.name||'').trim();
+    set('name', id.name || '—');
+    const nameEl = $('[data-bind="id-name"]');
+    if(nameEl){
+      nameEl.classList.toggle('val', !!id.name);
+      nameEl.classList.toggle('empty', !id.name);
+    }
+    set('phone', id.phone || '—');
+    set('email', id.email || '—');
+    set('loc', id.location || '—');
+    const hint = $('[data-bind="id-missing-hint"]');
+    if(hint){ hint.hidden = !missName; }
+  }
+  /* JD 解析：流式输出（类似深度思考），粘贴或改写 JD 后防抖触发 */
+  let jdParseTimer = null;
+  let jdParseTick = null;
+  let jdParsedSig = '';
+  const JD_STREAM = [
+    '读取 JD 全文：岗位是后端开发实习生，方向偏向 Java 服务端…',
+    '核心要求拆解：Java / Spring Boot / MyBatis / MySQL · 索引与 SQL 调优…',
+    '节奏与加分项：每周 ≥ 4 天 / 实习 3 个月以上 · 微服务·消息队列·单元测试…',
+    '与你经历的相关度预扫描：实习与项目中有可直接命中的性能与数据库事实…',
+    '摘要就绪：目标岗位、核心要求、加分项已整理到下方，可直接核对。',
+  ];
+  function jdStreamReset(){
+    if(jdParseTimer) clearTimeout(jdParseTimer);
+    if(jdParseTick) clearInterval(jdParseTick);
+    const panel = $('#jd-stream-panel');
+    if(panel){ panel.hidden = true; const list = $('#jd-stream-list'); if(list) list.innerHTML = ''; }
+  }
+  function jdStreamLine(text, speed=11){
+    return new Promise((resolve)=>{
+      const list = $('#jd-stream-list');
+      if(!list){ return resolve(); }
+      const line = document.createElement('div'); line.className='line';
+      const role = document.createElement('span'); role.className='role'; role.textContent='思考';
+      const ts = document.createElement('span');
+      const cur = document.createElement('span'); cur.className='cursor';
+      line.appendChild(role); line.appendChild(ts); line.appendChild(cur);
+      list.appendChild(line);
+      requestAnimationFrame(()=>{ line.classList.add('in'); const p=list.closest('.gen-stream'); if(p){ p.scrollTop=p.scrollHeight; } });
+      let i = 0;
+      (function tick(){
+        ts.textContent = text.slice(0, i);
+        i++;
+        if(i <= text.length){ setTimeout(tick, speed); }
+        else { cur.remove(); resolve(); }
+      })();
+    });
+  }
+  async function runJdParse(){
+    const panel = $('#jd-stream-panel');
+    const st = $('[data-bind="jd-status-chip"]');
+    const an = $('[data-bind="jd-analyzed"]');
+    const start = Date.now();
+    if(panel){ panel.hidden = false; const list=$('#jd-stream-list'); if(list) list.innerHTML=''; }
+    if(st){ st.textContent='后台解析中…'; st.className='chip chip-status-confirm'; }
+    if(an) an.hidden = true;
+    if(jdParseTick) clearInterval(jdParseTick);
+    jdParseTick = setInterval(()=>{ const el=$('[data-bind="jd-stream-elapsed"]'); if(el) el.textContent=((Date.now()-start)/1000).toFixed(1)+'s'; }, 200);
+    for(const t of JD_STREAM){ await jdStreamLine(t); }
+    jdParsedSig = state.jd;
+    if(jdParseTick){ clearInterval(jdParseTick); jdParseTick=null; }
+    const el=$('[data-bind="jd-stream-elapsed"]'); if(el) el.textContent='完成';
+    if(st){ st.textContent='已理解岗位要求'; st.className='chip chip-status-ok'; }
+    if(an) an.hidden = false;
+    if(panel){ setTimeout(()=>{ panel.hidden = true; }, 1500); }
+  }
+  function scheduleJdParse(){
+    if(jdParseTimer) clearTimeout(jdParseTimer);
+    jdParseTimer = setTimeout(()=>{ jdParseTimer=null; if((state.jd||'').length>=60 && state.jd !== jdParsedSig){ runJdParse(); } }, 650);
+  }
+
+  function updateGenerate(){
+    updateIdentitySummary();
+    updateMemoryBadges();
+    /* JD 状态 */
+    const len = (state.jd||'').length;
+    const jdStatus = $('[data-bind="jd-status-chip"]');
+    const jdMeta = $('[data-bind="jd-meta"]');
+    const analyzed = $('[data-bind="jd-analyzed"]');
+    if(len===0){ jdStatus.textContent='待输入'; jdStatus.className='chip'; jdMeta.textContent='尚未粘贴 JD'; analyzed.hidden=true; jdParsedSig=''; jdStreamReset(); }
+    else if(len<60){ jdStatus.textContent='过短，可能无法生成'; jdStatus.className='chip chip-status-blocked'; jdMeta.textContent='已粘贴 '+len+' 字 · 请粘贴完整 JD'; analyzed.hidden=true; jdParsedSig=''; jdStreamReset(); }
+    else { jdMeta.textContent='已粘贴 '+len+' 字'; jdStatus.textContent='待生成时统一解析'; jdStatus.className='chip chip-status-confirm'; analyzed.hidden=false; }
+    /* 生成前检查：只展示需要当前处理的项（阻断 / 需确认）；其余信息移至结果期 */
+    const rows = [];
+    const miss = (tone,title,desc)=>{ rows.push(`<div class="missing-row"><div class="body"><div class="title">${escapeHtml(title)}</div><div class="desc">${escapeHtml(desc)}</div></div><div class="action"><span class="chip chip-status-${tone}"><span class="dot"></span>${({blocked:'阻断',confirm:'需确认'})[tone]||tone}</span></div></div>`); };
+    if(!(state.identity.name||'').trim()){ miss('blocked','姓名必填','请确认已填入姓名后再继续。'); }
+    const noFacts = memoryReadyCount()===0;
+    if(noFacts){ miss('blocked','还没有可用于生成的经历','请先在「我的经历」中确认至少一段经历，或上传 PDF 提取后确认。'); }
+    state.memory.filter(m=>m.status==='needsReview'&&m.note).forEach(m=>{ miss('confirm','「'+(m.title||'（未命名）')+'」'+m.note,'只处理这一处冲突：选择正确时间，或把该条标记为本次暂不使用；不会影响其他事实。'); });
+    const panel = $('#missing-panel');
+    const note = $('[data-bind="precheck-note"]');
+    if(rows.length){ panel.hidden = false; note.hidden = true; $('[data-bind="missing-rows"]').innerHTML = rows.join(''); }
+    else { panel.hidden = true; note.hidden = false; $('[data-bind="missing-rows"]').innerHTML = ''; }
+    /* 阻断检查 */
+    const blocking = !(state.identity.name||'').trim() || len<60 || noFacts;
+    $('#btn-generate').setAttribute('aria-disabled', blocking?'true':'false');
+    $('#btn-generate').disabled = blocking;
+  }
+
+  /* ---------- 上传 ---------- */
+  const parseStages = [
+    {label:'读取文件元数据',detail:'文件名 / 大小 / 页数', dur:600},
+    {label:'抽取文本层',detail:'逐页识别文本块', dur:900},
+    {label:'结构化识别',detail:'段落 / 标题 / 时间', dur:1100},
+    {label:'提取经历候选',detail:'学校 / 实习 / 项目 / 活动', dur:1200},
+    {label:'分组与冲突检查',detail:'时间重叠 / 必填缺失', dur:600},
+  ];
+  function renderUpload(){
+    const root = $('section[data-view="upload"]');
+    $$('[data-state]', root).forEach(el=>{ el.hidden = el.dataset.state !== state.upload.state; });
+    if(state.upload.state==='parsing') startParse();
+    if(state.upload.state==='confirm') renderExtraction();
+  }
+  /* 解析完成 → 静默并入「我的经历」（不逐条确认；内容以系统推断为准，可在经历库后续纠正） */
+  function importExtractedAuto(){
+    state.memory = clone(EXTRACTED).map(e=>({
+      id:e.id,
+      type:e.group==='experience'?'internship':e.group,
+      title:e.title, org:e.org, period:e.period, summary:e.summary,
+      status:'confirmed', adopted:true,
+      facts:e.facts.slice(),
+      note:undefined,
+    }));
+    state.identity = {...PERSONA};
+    state.upload.state = 'idle';
+    showRoute('generate');
+  }
+  function startParse(){
+    const list = $('[data-bind="parse-stages"]');
+    list.innerHTML = parseStages.map((s,i)=>`<div class="parse-stage" data-stage-idx="${i}"><span class="indicator">${i+1}</span><div class="body"><div class="label">${s.label}</div><div class="detail">${s.detail}</div></div><span class="elapsed"></span></div>`).join('');
+    streamReset('upload-ai-stream-list');
+    const elT = $('[data-bind="upload-ai-elapsed"]'); if(elT) elT.textContent='0s';
+    const upT0 = Date.now();
+    let upTick = setInterval(()=>{ const el=$('[data-bind="upload-ai-elapsed"]'); if(el) el.textContent = ((Date.now()-upT0)/1000).toFixed(1)+'s'; }, 200);
+    streamRun(STREAM_SCRIPT.upload, ()=>{ clearInterval(upTick); const el=$('[data-bind="upload-ai-elapsed"]'); if(el) el.textContent='完成'; }, 'upload-ai-stream-list');
+    let i=0; const t0=Date.now();
+    const tick = ()=>{
+      const elapsed = fmtSec(Date.now()-t0);
+      $('[data-bind="parsing-elapsed"]').textContent = elapsed;
+      const cur = list.children[i]; if(cur){ cur.classList.add('active'); const el=cur.querySelector('.elapsed'); if(el) el.textContent = '处理中…'; }
+      if(i>0){ const prev=list.children[i-1]; prev.classList.remove('active'); prev.classList.add('done'); const pe=prev.querySelector('.indicator'); if(pe) pe.textContent='✓'; const pre=prev.querySelector('.elapsed'); if(pre) pre.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s'; }
+      if(i>=parseStages.length){ clearInterval(iv); const last=list.children[i-1]; last.classList.remove('active'); last.classList.add('done'); const pe=last.querySelector('.indicator'); if(pe) pe.textContent='✓'; setTimeout(importExtractedAuto, 400); return; }
+      i++;
+    };
+    tick();
+    const iv = setInterval(tick, 600);
+  }
+  function renderExtraction(){
+    const groups = {education:0,experience:0,project:0,activity:0,skill:0};
+    EXTRACTED.forEach(e=>{ groups[e.group]=(groups[e.group]||0)+1 });
+    Object.entries(groups).forEach(([g,n])=>{ if(n>0){ const gh=document.querySelector(`.extraction-group[data-group="${g}"] .group-head .text-muted`); if(gh) gh.textContent=n+' 条'; } });
+    const total=$('[data-bind="extract-total"]');
+    if(total) total.textContent = EXTRACTED.length;
+    const sum=$('[data-bind="extract-summary"]');
+    if(sum){ const adopted=EXTRACTED.filter(e=>e.adopted).length; const deferred=EXTRACTED.length-adopted; const conflicts=EXTRACTED.filter(e=>e.flag==='confirm').length;
+      sum.textContent = `保留 ${adopted} 条；暂不使用 ${deferred} 条${conflicts?`；${conflicts} 处日期冲突需要你确认`:''}。`; }
+    $$('[data-bind="extraction-education"], [data-bind="extraction-experience"], [data-bind="extraction-project"], [data-bind="extraction-activity"]').forEach(el=>el.innerHTML='');
+    EXTRACTED.forEach(e=>{
+      const target = $(`[data-bind="extraction-${e.group}"]`);
+      if(!target) return;
+      const row = document.createElement('div');
+      row.className = 'extracted-row'+(e.flag==='confirm'?' flagged':'');
+      row.dataset.id = e.id;
+      row.innerHTML = `
+        <input type="checkbox" ${e.adopted?'checked':''} data-flag="toggle" aria-label="确认 ${escapeHtml(e.title)}"/>
+        <div class="body">
+          <div class="head"><span class="title">${escapeHtml(e.title)}</span><span class="text-secondary" style="font-size:12px">${escapeHtml(e.org)}</span></div>
+          <div class="summary">${escapeHtml(e.summary)}</div>
+          <div class="flags">
+            ${e.flag==='confirm'?'<span class="chip chip-status-confirm"><span class="dot"></span>需确认 · '+e.flagText+'</span>':''}
+            ${e.flag==='suggest'?'<span class="chip chip-status-suggest"><span class="dot"></span>质量建议 · '+e.flagText+'</span>':''}
+            ${e.flag==='defer'?'<span class="chip chip-status-degradable"><span class="dot"></span>暂不使用 · '+e.flagText+'</span>':''}
+          </div>
+          ${e.flag==='confirm'?`<div class="conflict-resolver"><div class="title">时间冲突：${e.conflictNote}</div><div class="actions"><button class="btn btn-secondary" data-resolve="keep">保留系统推断</button><button class="btn btn-ghost" data-resolve="defer">标记为暂不使用</button></div></div>`:''}
+          <div class="meta">来自 PDF · 共 ${e.facts.length} 条事实</div>
+        </div>
+        <div class="actions">
+          <button class="row-btn" data-act="view">查看事实</button>
+          <button class="row-btn" data-act="defer">${e.adopted?'标记暂不使用':'恢复使用'}</button>
+        </div>`;
+      target.appendChild(row);
+    });
+  }
+
+  /* ---------- 生成中 ---------- */
+  /* AI 解析过程流式输出（演示：随阶段推进逐条「打字」推入） */
+  const STREAM_SCRIPT = {
+    generate: [
+      ['思考','正在理解目标岗位「{target}」：JD 里要的是 Java / Spring Boot / MySQL 这类后端能力…'],
+      ['思考','核对「我的经历」：{n} 条已确认事实里，哪些与本岗位直接相关…'],
+      ['思考','第一层挑选：匹配到实习中的接口性能优化、API 评审与团队规范…'],
+      ['思考','第二层核验：为每条拟采用的表述绑定原始事实，防止数字或角色失真…'],
+      ['思考','起草初稿：只把有依据的内容写成 bullet，控制在一页内的密度…'],
+      ['思考','边界检查：日期、指标、职责归属逐条过一遍，冲突处标出留给你决定…'],
+      ['思考','装配版式：教育 / 实习 / 项目 / 技能按顺序填好…'],
+      ['思考','初稿完成：你可以在结果页逐条回查依据，或提出修改方向…'],
+    ],
+    upload: [
+      ['解析','读取文件：正在识别文件名、大小与页数…'],
+      ['解析','抽取文本层：把每一页的文字块还原成可检索内容…'],
+      ['解析','结构化识别：正在区分教育、实习、项目、活动段落与时间…'],
+      ['解析','提取到候选经历：教育 1 · 实习 1 · 项目 3 · 活动 1…'],
+      ['解析','检查冲突与缺项：日期重叠与必填缺失已标出，其余按系统推断保留…'],
+    ],
+  };
+  function fillScriptVars(script){
+    const n = memoryReadyCount();
+    const target = (state.identity && state.identity.target) || '目标岗位';
+    return script.map(([role,text])=>[role, text.replace(/\{n\}/g, String(n)).replace(/\{target\}/g, target)]);
+  }
+  function streamReset(listId){
+    const list = listId ? document.getElementById(listId) : ($('[data-bind="ai-stream-list"]') || document.getElementById('ai-stream-list'));
+    if(list) list.innerHTML = '';
+  }
+  /* 把一条内容用打字效果推入流；返回 Promise 在打字完成后 resolve */
+  function streamPush(text, role='思考', speed=12, listId){
+    return new Promise((resolve)=>{
+      const list = listId ? document.getElementById(listId) : document.getElementById('ai-stream-list');
+      if(!list){ return resolve(); }
+      const line = document.createElement('div');
+      line.className = 'line';
+      const roleSpan = document.createElement('span');
+      roleSpan.className = 'role';
+      roleSpan.textContent = role;
+      const cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      line.appendChild(roleSpan);
+      const textSpan = document.createElement('span');
+      line.appendChild(textSpan);
+      line.appendChild(cursor);
+      list.appendChild(line);
+      requestAnimationFrame(()=>{ line.classList.add('in'); list.scrollTop = list.scrollHeight; });
+      let i = 0;
+      const tick = () => {
+        if(i <= text.length){
+          textSpan.textContent = text.slice(0, i);
+          list.scrollTop = list.scrollHeight;
+          i++;
+          if(i <= text.length){ setTimeout(tick, speed); } else { cursor.remove(); resolve(); }
+        }
+      };
+      tick();
+    });
+  }
+  function streamRun(script, onAllDone, listId){
+    let i = 0;
+    const next = () => {
+      if(i >= script.length){ onAllDone && onAllDone(); return; }
+      streamPush(script[i][1], script[i][0], 12, listId).then(()=>{ i++; next(); });
+    };
+    next();
+  }
+
+  function startProcessing(){
+    state.process = { startedAt:Date.now(), idx:0, intervalId:null, failed:false };
+    const sub = $('[data-bind="process-sub"]');
+    if(sub){ const id=state.identity||{}; const contact=[id.phone,id.email,id.location].filter(Boolean).join(' · '); const jdClip=(state.jd||'').replace(/\s+/g,' ').slice(0,72); sub.innerHTML = '身份：'+escapeHtml([id.name,contact].filter(Boolean).join(' · ')||'（未填写）')+'<br/>目标 JD：'+escapeHtml(jdClip)+(state.jd&&state.jd.length>72?'…':'')+' · <span class="text-secondary">输入在失败或返回修改后均保留</span>'; }
+    streamReset();
+    showRoute('processing');
+    const stages = $$('.process-stage');
+    stages.forEach(s=>{ s.classList.remove('done','active','pending'); s.classList.add('pending'); s.querySelector('.indicator').textContent = stages.indexOf(s)+1; s.querySelector('.elapsed').textContent=''; });
+    const script = fillScriptVars(STREAM_SCRIPT.generate || []);
+    let scriptStarted = false;
+    const t0=Date.now();
+    const advance = ()=>{
+      const elapsed = fmtSec(Date.now()-t0);
+      $('[data-bind="process-elapsed"]').textContent = elapsed;
+      const i = state.process.idx;
+      if(!scriptStarted && script.length){ streamRun(script); scriptStarted = true; }
+      if(i>=stages.length){
+        clearInterval(state.process.intervalId);
+        if(Math.random()<0.78){ addResumeRecord(); setTimeout(()=>showRoute('result'), 400); }
+        else { triggerProcessFailure(); }
+        return;
+      }
+      stages.forEach((s,idx)=>{
+        if(idx<i){ s.classList.remove('active','pending'); s.classList.add('done'); s.querySelector('.indicator').textContent='✓'; s.querySelector('.elapsed').textContent= ((Date.now()-t0)/1000).toFixed(1)+'s'; }
+        else if(idx===i){ s.classList.remove('pending','done'); s.classList.add('active'); }
+        else { s.classList.remove('active','done'); s.classList.add('pending'); }
+      });
+      state.process.idx++;
+    };
+    advance();
+    state.process.intervalId = setInterval(advance, 900);
+  }
+  function triggerProcessFailure(){
+    state.process.failed = true;
+    /* 复用 processing view，叠加失败块 */
+    const stageWrap = $('[data-bind="process-stages"]');
+    const fail = document.createElement('div');
+    fail.className='process-error mt-4';
+    fail.id='process-failure';
+    fail.innerHTML = `
+      <div class="head">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        生成未完成 · 模型服务暂时无响应
+      </div>
+      <div class="diag">你的 JD 与已确认经历都已保留。诊断编号 <span class="text-mono">RA-260906-GEN-0117</span> · 已自动重试 1 次仍失败（技术详情见开发者后台）</div>
+      <div class="actions">
+        <button class="btn btn-primary" data-action="process-retry">重新生成</button>
+        <button class="btn btn-secondary" data-action="process-back">返回修改输入</button>
+      </div>`;
+    stageWrap.parentNode.insertBefore(fail, stageWrap.nextSibling);
+  }
+  function clearFailureBlock(){ const f=$('#process-failure'); if(f) f.remove(); }
+
+  /* ---------- 结果 ---------- */
+  function renderResult(){
+    clearSelection();
+    $('[data-bind="paper-name"]').textContent = state.identity.name || '（未填写）';
+    $('[data-bind="paper-contact"]').textContent = [state.identity.phone, state.identity.email, state.identity.location].filter(Boolean).join(' · ') || '示例联系信息';
+    $('[data-bind="paper-target"]').textContent = '目标岗位：'+(state.identity.target || '后端开发实习生');
+    $('[data-bind="paper-time"]').textContent = '示例生成于 2026-09-06';
+    const sum = $('[data-bind="result-summary"]');
+    if(sum){ const ready=memoryReadyCount(); const deferred=state.memory.filter(m=>!m.adopted).length; sum.textContent = '基于 '+ready+' 条已确认事实生成'+(deferred?(' · '+deferred+' 条未采用（依据中说明）'):''); }
+    const sug = [];
+    state.memory.filter(m=>m.adopted && m.type==='project').forEach(m=>{ sug.push('「'+m.title+'」可补充压测并发或真实指标数据。'); });
+    state.memory.filter(m=>!m.adopted).forEach(m=>{ sug.push('「'+(m.title||'（未命名）')+'」本次未采用，仍保留在你的「我的经历」中。'); });
+    const sb=$('[data-bind="aside-suggest-block"]'); const st=$('[data-bind="aside-suggest-text"]');
+    if(sb&&st){ sb.hidden=false; st.textContent = sug.length? ('生成后建议：'+sug.join(' ')) : '完整建议将根据你的经历在生成后整理；未选用项会在「依据」中说明。'; }
+    renderBullets('bullets-internship', BULLETS.internship);
+    renderBullets('bullets-project1', BULLETS.project1);
+    renderBullets('bullets-project2', BULLETS.project2);
+    bindResultSelection();
+    selectAsideTab(state.asideTab);
+    setTimeout(()=>fitPaper(), 200);
+  }
+  /* 纸张适配：视口放不下时整页等比缩放，避免任何滚动 */
+  function fitPaper(){
+    const sec = $('section[data-view="result"]');
+    const paper = sec ? sec.querySelector('.paper') : null;
+    if(!paper) return;
+    const shell = paper.closest('.result-shell');
+    if(shell) shell.classList.add('paper-fit');
+    const pad = 24;
+    const availW = (paper.parentElement ? paper.parentElement.clientWidth : window.innerWidth) - pad;
+    const availH = Math.max(120, window.innerHeight - paper.getBoundingClientRect().top - pad);
+    const naturalW = paper.scrollWidth;
+    const naturalH = paper.scrollHeight;
+    const scale = Math.min(1, availW / naturalW, availH / naturalH);
+    paper.dataset.fit = 'w='+availW+' h='+availH+' nH='+naturalH+' s='+scale.toFixed(3);
+    if(scale < 1 && scale > 0.3){ paper.style.transform = 'scale('+scale.toFixed(3)+')'; paper.style.marginBottom = (naturalH*(1-scale)+8)+'px'; }
+    else { paper.style.transform = ''; paper.style.marginBottom = ''; }
+  }
+  function renderBullets(target, list){
+    const ul = $('[data-bind="'+target+'"]');
+    ul.innerHTML = list.map(b=>`<li tabindex="0" data-bullet="${b.id}" role="button" aria-pressed="false">${escapeHtml(b.text)}</li>`).join('');
+    ul.querySelectorAll('li').forEach(li=>{
+      li.addEventListener('click', ()=>selectBullet(li.dataset.bullet));
+      li.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectBullet(li.dataset.bullet); } });
+    });
+  }
+  /* 选中状态可在 bullet（fact）或整段经验之间切换；再次点击同一项取消 */
+  function clearSelection(){
+    state.selectedBullet = null;
+    state.selectedGroup = null;
+    $$('.paper ul.bullets li').forEach(li=>{ li.classList.remove('is-selected'); li.setAttribute('aria-pressed','false'); });
+    $$('.paper .exp-head').forEach(eh=>{ eh.classList.remove('is-selected-exp'); });
+    $$('.paper ul.bullets').forEach(u=>{ u.classList.remove('is-selected-group'); });
+    const sb = $('[data-bind="aside-suggest-block"]'); if(sb) sb.hidden = false;
+    const det = $('[data-aside-basis-detail]'); if(det) det.hidden = true;
+  }
+  function showBasisSingle(b){
+    state.asideTab='basis'; selectAsideTab('basis');
+    const sb = $('[data-bind="aside-suggest-block"]'); if(sb) sb.hidden = true;
+    $('[data-aside-basis-detail]').hidden = false;
+    $('[data-bind="basis-original"]').textContent = b.source.orig;
+    $('[data-bind="basis-reason"]').textContent = b.source.reason;
+    $('[data-bind="basis-source"]').textContent = '来自「'+escapeHtml(b.source.refId)+'」';
+    const unused = $('[data-bind="basis-unused-block"]');
+    if(b.source.refId==='m-int'||b.source.refId==='m-p1'||b.source.refId==='m-p2'){ unused.hidden=false; $('[data-bind="basis-unused"]').textContent='校园歌手大赛组织者：与后端岗位相关度较低，本简历未采用；该经历保留在你的「我的经历」中。'; }
+    else { unused.hidden=true; }
+  }
+  function showBasisGroup(group){
+    const list = BULLETS[group] || [];
+    const orig = list.map(b=>b.source.orig).join('\n');
+    const reasons = [...new Set(list.map(b=>b.source.reason))];
+    const refIds = [...new Set(list.map(b=>b.source.refId))];
+    state.asideTab='basis'; selectAsideTab('basis');
+    const sb = $('[data-bind="aside-suggest-block"]'); if(sb) sb.hidden = true;
+    $('[data-aside-basis-detail]').hidden = false;
+    $('[data-bind="basis-original"]').textContent = orig;
+    $('[data-bind="basis-reason"]').textContent = reasons.join(' / ');
+    $('[data-bind="basis-source"]').textContent = '来自「'+escapeHtml(refIds.join(' + '))+'」';
+    $('[data-bind="basis-unused-block"]').hidden = true;
+  }
+  function selectBullet(id){
+    if(state.selectedBullet === id){ clearSelection(); return; }
+    clearSelection();
+    state.selectedBullet = id;
+    const all = [...BULLETS.internship, ...BULLETS.project1, ...BULLETS.project2];
+    const b = all.find(x=>x.id===id);
+    if(!b) return;
+    $$('.paper ul.bullets li').forEach(li=>{
+      const on = li.dataset.bullet===id;
+      li.classList.toggle('is-selected', on);
+      li.setAttribute('aria-pressed', on?'true':'false');
+    });
+    showBasisSingle(b);
+  }
+  function selectGroup(group){
+    if(state.selectedGroup === group){ clearSelection(); return; }
+    clearSelection();
+    state.selectedGroup = group;
+    const ul = $('[data-bind="bullets-'+group+'"]');
+    const eh = document.querySelector('.paper .exp-head[data-group="'+group+'"]');
+    if(ul){ ul.classList.add('is-selected-group'); ul.querySelectorAll('li').forEach(li=>li.setAttribute('aria-pressed','true')); }
+    if(eh){ eh.classList.add('is-selected-exp'); }
+    showBasisGroup(group);
+  }
+  function bindResultSelection(){
+    document.querySelectorAll('.paper .exp-head[data-group]').forEach(eh=>{
+      eh.style.cursor='pointer';
+      eh.addEventListener('click', ()=>selectGroup(eh.dataset.group));
+      eh.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectGroup(eh.dataset.group); } });
+    });
+  }
+  function selectAsideTab(name){
+    state.asideTab = name;
+    $$('.aside-tabs .tab').forEach(t=>{ t.setAttribute('aria-selected', t.dataset.tab===name?'true':'false'); });
+    $$('[data-aside]').forEach(p=>{ p.hidden = p.dataset.aside !== name; });
+  }
+
+  /* ---------- 我的经历 ---------- */
+  /* ---------- 简历记录（预览功能：生成成功后自动登记） ---------- */
+  function addResumeRecord(){
+    const id = 'rec-'+Date.now().toString(36);
+    const rec = {
+      id,
+      target: state.identity.target || '未命名岗位',
+      created: Date.now(),
+      factsUsed: memoryReadyCount(),
+      status: 'draft',
+    };
+    state.records.unshift(rec);
+    updateMemoryBadges();
+  }
+  function renderRecords(){
+    const root = $('[data-bind="records-root"]');
+    if(!root) return;
+    if(state.records.length===0){
+      root.innerHTML = `<div class="exp-empty"><h3>还没有保存的简历</h3><p>你生成的简历会自动出现在这里，方便随时找回同一份初稿。</p><div class="row-end" style="justify-content:center"><button class="btn btn-primary" data-action="go-generate">生成第一份简历</button></div></div>`;
+      return;
+    }
+    const fmt = (t)=>{ const d=new Date(t); const p=(n)=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); };
+    root.innerHTML = `<div class="rec-list">${state.records.map(r=>`
+      <div class="card card-padded rec-item" data-id="${r.id}">
+        <div class="row-between">
+          <div>
+            <div class="card-title" style="margin-bottom:2px">${escapeHtml(r.target)}</div>
+            <div class="text-secondary" style="font-size:12px">生成于 ${fmt(r.created)} · 基于 ${r.factsUsed} 条已确认事实</div>
+          </div>
+          <div class="badge-row">
+            <span class="chip chip-preview"><span class="dot"></span>初稿</span>
+            <button class="btn btn-ghost" data-action="rec-open" data-id="${r.id}" style="height:30px;padding:0 12px">查看</button>
+            <button class="btn btn-ghost" data-action="export-text" style="height:30px;padding:0 12px">复制全文</button>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+  function typeName(t){ return ({education:'教育',internship:'实习',project:'项目',activity:'活动',skill:'技能'})[t]||t; }
+  function statusOf(m){ return m.status==='needsReview'?{tone:'confirm',txt:'需确认'}:(!m.adopted?{tone:'degradable',txt:'暂不使用'}:{tone:'ok',txt:'已确认'}); }
+  function selectExp(id){
+    state.selectedExp = id;
+    const list = $('[data-bind="experience-list"]');
+    if(list) list.querySelectorAll('.exp-item').forEach(el=>{ el.classList.toggle('is-selected', el.dataset.id===id); });
+    renderExpDetail();
+  }
+  function renderExperience(){
+    updateMemoryBadges();
+    const list = $('[data-bind="experience-list"]');
+    const filt = state.filter;
+    const q = state.search.trim().toLowerCase();
+    const items = state.memory.filter(m=>{
+      if(filt==='deferred') return !m.adopted;
+      if(m.type!==filt && filt!=='all') return false;
+      if(q && !(m.title+' '+m.org+' '+m.summary).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    if(state.memory.length===0){
+      list.innerHTML = `<div class="exp-empty"><h3>还没有任何经历</h3><p>上传现有简历或新增一段经历，从这里开始构建你的事实库。</p><div class="row-end" style="justify-content:center"><button class="btn btn-secondary" data-action="start-upload">上传 PDF</button><button class="btn btn-primary" data-action="exp-add">新增经历</button></div></div>`;
+      renderExpDetail(null);
+      return;
+    }
+    if(items.length===0){
+      list.innerHTML = `<div class="exp-empty"><h3>没有匹配的经历</h3><p>尝试清除筛选条件或更换关键词。</p></div>`;
+      renderExpDetail(null);
+      return;
+    }
+    list.innerHTML = `<div class="exp-list">${items.map(m=>{
+      const st = statusOf(m);
+      return `<div class="exp-item ${state.selectedExp===m.id?'is-selected':''} ${m.adopted?'':'dimmed'}" data-id="${m.id}" role="button" tabindex="0" aria-pressed="${state.selectedExp===m.id?'true':'false'}">
+        <div class="type-tag">${typeName(m.type)}</div>
+        <div class="body">
+          <div class="head"><span class="title">${escapeHtml(m.title)}</span>${m.period?`<span class="period">${escapeHtml(m.period)}</span>`:''}</div>
+          <div class="summary">${escapeHtml(m.summary||'')}</div>
+          <div class="flags"><span class="chip chip-status-${st.tone}"><span class="dot"></span>${st.txt}</span>${!m.adopted?'<span class="chip chip-status-degradable"><span class="dot"></span>本次不参与生成</span>':''}</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+    list.querySelectorAll('.exp-item').forEach(el=>{
+      el.addEventListener('click', ()=>selectExp(el.dataset.id));
+      el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectExp(el.dataset.id); } });
+    });
+    if(!state.selectedExp || !state.memory.some(m=>m.id===state.selectedExp)){
+      const first = items[0];
+      if(first) state.selectedExp = first.id;
+    }
+    renderExpDetail();
+  }
+  function renderExpDetail(){
+    const root = $('[data-bind="experience-detail"]');
+    if(!root) return;
+    const m = state.selectedExp ? state.memory.find(x=>x.id===state.selectedExp) : null;
+    if(!m){
+      root.innerHTML = `<div class="detail-placeholder">从左侧选择一条经历，查看完整事实与操作。</div>`;
+      return;
+    }
+    const st = statusOf(m);
+    root.innerHTML = `<div class="card card-padded exp-detail-card">
+      <div class="row-between" style="align-items:flex-start;gap:var(--space-3)">
+        <div>
+          <div class="type-tag" style="margin-bottom:8px">${typeName(m.type)}</div>
+          <h3 style="margin:0 0 2px;font-size:18px;font-weight:600">${escapeHtml(m.title)}</h3>
+          ${m.org?`<div class="text-secondary" style="font-size:13px">${escapeHtml(m.org)}</div>`:''}
+        </div>
+        <span class="chip chip-status-${st.tone}"><span class="dot"></span>${st.txt}</span>
+      </div>
+      ${m.period?`<div class="exp-detail-meta">${escapeHtml(m.period)}</div>`:''}
+      ${m.summary?`<div class="exp-detail-block"><div class="label">摘要</div><div class="value">${escapeHtml(m.summary)}</div></div>`:''}
+      ${m.note?`<div class="exp-detail-block"><div class="label">待确认</div><div class="value" style="color:var(--warn)">${escapeHtml(m.note)}</div></div>`:''}
+      <div class="exp-detail-block"><div class="label">已记录事实</div><ul class="fact-list">${(m.facts||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')||'<li style="color:var(--secondary-2)">（暂无事实）</li>'}</ul></div>
+      ${!m.adopted?'<div class="exp-detail-note">该条当前标记为「暂不使用」，不会参与本次简历生成；可随时恢复。</div>':''}
+      <div class="row-end" style="margin-top:var(--space-3);border-top:1px solid var(--border);padding-top:var(--space-3)">
+        <button class="btn btn-secondary" data-action="exp-toggle" data-id="${m.id}">${m.adopted?'标记暂不使用':'恢复使用'}</button>
+        <button class="btn btn-secondary" data-action="exp-edit" data-id="${m.id}">编辑</button>
+        <button class="btn btn-danger" data-action="exp-delete" data-id="${m.id}">删除</button>
+      </div>
+    </div>`;
+    const markSel = ()=>{
+      const list = $('[data-bind="experience-list"]');
+      if(list) list.querySelectorAll('.exp-item').forEach(el=>{ el.classList.toggle('is-selected', el.dataset.id===m.id); });
+    };
+    root.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click', markSel));
+  }
+  function openEditDialog(id){
+    const m = id ? state.memory.find(x=>x.id===id) : {id:'m-'+Math.random().toString(36).slice(2,7), type:'project', title:'', org:'', period:'', summary:'', status:'confirmed', adopted:true, facts:['']};
+    const isNew = !id;
+    $('#dlg-edit-title').textContent = isNew?'新增经历':'编辑「'+m.title+'」';
+    $('#dlg-edit-body').innerHTML = `
+      <div class="field"><label>类型</label>
+        <select class="select" id="ed-type">
+          ${['education','internship','project','activity','skill'].map(t=>`<option value="${t}" ${m.type===t?'selected':''}>${({education:'教育',internship:'实习',project:'项目',activity:'活动',skill:'技能'})[t]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>标题</label><input class="input" id="ed-title" value="${escapeHtml(m.title||'')}"/></div>
+        <div class="field"><label>组织 / 角色</label><input class="input" id="ed-org" value="${escapeHtml(m.org||'')}"/></div>
+      </div>
+      <div class="field"><label>时间</label><input class="input" id="ed-period" placeholder="例如：2024.10 – 2025.02" value="${escapeHtml(m.period||'')}"/></div>
+      <div class="field"><label>一句话摘要</label><textarea class="textarea" style="min-height:84px" id="ed-summary">${escapeHtml(m.summary||'')}</textarea></div>
+      <div class="field"><label>事实（每行一条）</label><textarea class="textarea" style="min-height:96px" id="ed-facts">${(m.facts||[]).join('\n')}</textarea></div>`;
+    const dlg = $('#dlg-edit');
+    dlg.returnValue = '';
+    $('#dlg-edit-ok').onclick = ()=>{
+      const next = {
+        id: m.id,
+        type: $('#ed-type').value,
+        org: $('#ed-org').value.trim(),
+        title: $('#ed-title').value.trim() || '（未命名）',
+        period: $('#ed-period').value.trim(),
+        summary: $('#ed-summary').value.trim(),
+        status:'confirmed', adopted:true,
+        facts: $('#ed-facts').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      };
+      if(isNew) state.memory.unshift(next); else { const idx=state.memory.findIndex(x=>x.id===m.id); state.memory[idx]=next; }
+      dlg.close('ok');
+      renderExperience();
+      showToast(isNew?'已新增经历':'已保存','success');
+    };
+    dlg.showModal();
+  }
+  function confirmDelete(id){
+    const m = state.memory.find(x=>x.id===id); if(!m) return;
+    $('#dlg-confirm-title').textContent = '删除经历';
+    $('#dlg-confirm-body').innerHTML = `确认从「我的经历」中删除 <strong>${escapeHtml(m.title)}</strong> 及其关联事实吗？此操作不可撤销。`;
+    const dlg = $('#dlg-confirm');
+    dlg.returnValue='';
+    $('#dlg-confirm-ok').onclick = ()=>{ state.memory = state.memory.filter(x=>x.id!==id); dlg.close('ok'); renderExperience(); showToast('已删除'); };
+    dlg.showModal();
+  }
+
+  /* ---------- 场景切换（仅保留给 URL 深度链接 / 截图复现，无界面入口） ---------- */
+  const seedMemory = ()=>{ if(state.memory.length===0) state.memory = clone(MEMORY_SEED); };
+  const SCENARIOS = {
+    'welcome': ()=>{ showRoute('welcome'); },
+    'upload-idle': ()=>{ state.upload.state='idle'; showRoute('upload'); },
+    'upload-parsing': ()=>{ state.upload.state='parsing'; showRoute('upload'); },
+    'upload-confirm': ()=>{ state.upload.state='confirm'; showRoute('upload'); },
+    'upload-error': ()=>{ state.upload.state='error'; showRoute('upload'); },
+    'chat-empty': ()=>{ showRoute('chat-empty'); renderChat(); },
+    'generate-ready': ()=>{ seedMemory(); state.identity={...PERSONA}; state.jd=JD; showRoute('generate'); },
+    'generate-blocked': ()=>{ seedMemory(); state.identity={...PERSONA, name:''}; state.jd=JD; showRoute('generate'); },
+    'generate-conflict': ()=>{ seedMemory(); state.identity={...PERSONA}; state.jd='招聘要求：3 年以上 Go 后端经验，能独立负责微服务架构（与你当前经历明显不符）'; showRoute('generate'); },
+    'processing': ()=>{ startProcessing(); },
+    'result': ()=>{ seedMemory(); showRoute('result'); },
+    'result-fail': ()=>{ seedMemory(); showRoute('processing'); clearFailureBlock(); startProcessing(); setTimeout(triggerProcessFailure, 900); },
+    'experience': ()=>{ seedMemory(); showRoute('experience'); },
+    'records-empty': ()=>{ state.records=[]; showRoute('records'); },
+    'records-list': ()=>{ seedMemory(); state.records=[{id:'rec-x',target:'后端开发实习生',created:Date.parse('2026-09-06T15:20:00'),factsUsed:6,status:'draft'},{id:'rec-y',target:'Java 后端开发',created:Date.parse('2026-09-05T10:05:00'),factsUsed:5,status:'draft'}]; showRoute('records'); },
+    'experience-empty': ()=>{ state.memory=[]; showRoute('experience'); },
+    'privacy': ()=>{ showRoute('privacy'); },
+    'dev': ()=>{ showRoute('dev'); },
+  };
+
+  /* ---------- 对话补充（预留功能） ---------- */
+  function renderChat(){
+    /* 对话补充为预留功能：欢迎页同时呈现对话路径占位 */
+    const tpl = `
+      <section data-view="chat-empty" class="app-shell narrow" aria-labelledby="chat-h1">
+        <div class="page-header">
+          <div class="eyebrow">第 1 步 · 准备经历</div>
+          <h1 id="chat-h1">通过对话补充经历</h1>
+          <p class="desc">结构化补充教育、实习、项目与技能。仅围绕当前任务追问，每段事实需经你确认后才会写入「我的经历」。</p>
+        </div>
+        <div class="row-between mb-3">
+          <div class="badge-row">
+            <span class="chip chip-preview"><span class="dot"></span>即将上线</span>
+          </div>
+          <button class="btn btn-ghost" data-action="back-welcome">返回冷启动</button>
+        </div>
+        <div class="card card-padded">
+          <div class="card-title">接下来我会问你</div>
+          <ol class="mt-3" style="padding-left:1.2em;color:var(--ink-2);font-size:14px;line-height:1.9">
+            <li>最近一段经历或项目：做了什么、结果是什么。</li>
+            <li>学校里一门印象最深的课程与作业。</li>
+            <li>掌握的工具与语言；可量化的部分优先。</li>
+            <li>你正在找的岗位类型与地点。</li>
+          </ol>
+          <div class="mt-4 row-end">
+            <button class="btn btn-secondary" data-action="back-welcome">先不上传了</button>
+            <button class="btn btn-primary" data-action="start-upload">改回上传 PDF</button>
+          </div>
+          <p class="text-muted mt-4" style="font-size:12px">当真实对话补充接通后，本页会被实际对话流替代。</p>
+        </div>
+      </section>`;
+    const existing = $('[data-view="chat-empty"]');
+    if(existing){ existing.outerHTML = tpl; }
+    else { $('main').insertAdjacentHTML('beforeend', tpl); }
+    showRoute('chat-empty');
+  }
+
+  /* ---------- 事件委托 ---------- */
+  function bindActions(){
+    document.addEventListener('click', e=>{
+      const t = e.target.closest('[data-action]');
+      if(t){
+        const a = t.dataset.action;
+        switch(a){
+          case 'start-upload': state.upload.state='idle'; showRoute('upload'); break;
+          case 'start-chat': renderChat(); break;
+          case 'upload-demo': state.upload.state='parsing'; renderUpload(); showToast('已载入示例简历「林澈-示例简历.pdf」','success'); break;
+          case 'back-welcome': showRoute('welcome'); break;
+          case 'toggle-identity': { const ed=$('[data-bind="id-editor"]'); if(ed){ ed.hidden = !ed.hidden; if(!ed.hidden){ const f=$('#i-name'); if(f) f.focus(); } } break; }
+          case 'upload-retry': state.upload.state='idle'; renderUpload(); break;
+          case 'upload-save': state.memory = clone(EXTRACTED).map(e=>({id:e.id,type:e.group==='experience'?'internship':e.group,title:e.title,org:e.org,period:e.period,summary:e.summary,status:e.status==='needsReview'?'needsReview':'confirmed',adopted:e.adopted,facts:e.facts,note:e.flag==='confirm'?e.conflictNote:undefined})); state.identity={...PERSONA}; showRoute('generate'); showToast('已保存到我的经历','success'); break;
+          case 'generate-go': if(!$('#btn-generate').disabled) startProcessing(); break;
+          case 'process-back': clearFailureBlock(); showRoute('generate'); break;
+          case 'process-retry': clearFailureBlock(); startProcessing(); break;
+          case 'go-experience': showRoute('experience'); break;
+          case 'go-generate': showRoute('generate'); break;
+          case 'rec-open': { const r = state.records.find(x=>x.id===t.dataset.id); if(r){ showRoute('result'); showToast('已打开「'+r.target+'」的最近一次初稿','success'); } break; }
+          case 'exp-add': openEditDialog(null); break;
+          case 'exp-edit': openEditDialog(t.dataset.id); break;
+          case 'exp-delete': confirmDelete(t.dataset.id); break;
+          case 'exp-toggle':{ const m=state.memory.find(x=>x.id===t.dataset.id); if(m){ m.adopted=!m.adopted; renderExperience(); } break; }
+          case 'export-docx': showToast('下载为后续版本能力，暂未生成文件','info'); break;
+          case 'export-text': { const text = collectResumeText(); navigator.clipboard?.writeText(text).then(()=>showToast('已复制简历全文','success')).catch(()=>showToast('复制失败，请手动选中')); break; }
+          case 'privacy-clear': openConfirm('重置当前数据','将清空当前演示环境中的经历、身份与生成记录，回到首次进入状态。',()=>{ state.memory=[]; state.records=[]; state.identity={...PERSONA}; state.jd=JD; showRoute('welcome'); showToast('已重置为初始状态','success'); }); break;
+          case 'dev-test': showToast('连接正常'); break;
+          case 'dev-rotate': showToast('已重新生成访问标识'); break;
+          case 'dev-rebuild': showToast('索引重建任务已开始'); break;
+          case 'dev-copy': { const txt = '诊断 RA-260906-EXP-0042 · 扫描型 PDF 无文本层 · 恢复：更换文件/手工补充'; navigator.clipboard?.writeText(txt).then(()=>showToast('已复制诊断信息','success')); break; }
+          case 'upload-help': showToast('支持：文本型 PDF · 不支持：扫描型 PDF / 加密 PDF'); break;
+        }
+        return;
+      }
+      /* nav */
+      const nav = e.target.closest('[data-nav]');
+      if(nav){ const map = {generate:'generate',experience:'experience',privacy:'privacy',records:'records',dev:'dev'}; if(state.route==='processing'){ showToast('生成进行中，请等待完成或返回修改'); return; } showRoute(map[nav.dataset.nav]); return; }
+      /* aside tab */
+      const tab = e.target.closest('.aside-tabs .tab');
+      if(tab){ selectAsideTab(tab.dataset.tab); return; }
+      /* intent */
+      const intent = e.target.closest('[data-intent]');
+      if(intent){ showToast('已记录你的修改方向，将应用到后续修订','success'); return; }
+      /* dialog close */
+      const dc = e.target.closest('[data-dialog-close]');
+      if(dc){ const d=$('#'+dc.dataset.dialogClose); if(d) d.close(); return; }
+      /* exp filter */
+      const f = e.target.closest('#exp-filter .tab');
+      if(f){ state.filter = f.dataset.filter; $$('#exp-filter .tab').forEach(x=>x.setAttribute('aria-selected', x===f?'true':'false')); renderExperience(); return; }
+      /* 提取确认：冲突解决 */
+      const rs = e.target.closest('[data-resolve]');
+      if(rs){
+        const row = rs.closest('.extracted-row');
+        const item = row && EXTRACTED.find(x=>x.id===row.dataset.id);
+        if(item){
+          if(rs.dataset.resolve==='keep'){ item.status='confirmed'; item.flag=null; item.flagText=null; item.conflictNote=null; showToast('已保留系统推断，本条无需再确认'); }
+          else { item.adopted=false; item.status='confirmed'; item.flag='defer'; item.flagText='暂不使用：与目标岗位相关度较低'; item.conflictNote=null; showToast('已标记为本次暂不使用，不会删除原文内容'); }
+          renderExtraction();
+        }
+        return;
+      }
+      /* 提取确认：行内查看 / 暂不使用切换 */
+      const act = e.target.closest('.extracted-row .actions [data-act]');
+      if(act){
+        const row = act.closest('.extracted-row');
+        const item = row && EXTRACTED.find(x=>x.id===row.dataset.id);
+        if(item){
+          if(act.dataset.act==='defer'){ item.adopted=!item.adopted; item.status='confirmed'; if(item.adopted && item.flag==='defer'){ item.flag=null; item.flagText=null; } if(!item.adopted){ item.flag='defer'; item.flagText='暂不使用：与目标岗位相关度较低'; } renderExtraction(); showToast(item.adopted?'已恢复使用':'已标记为本次暂不使用','success'); }
+          else { showToast('「'+item.title+'」包含 '+item.facts.length+' 条已提取事实'); }
+        }
+        return;
+      }
+    });
+    document.addEventListener('input', e=>{
+      if(e.target.id==='exp-search'){ state.search=e.target.value; renderExperience(); }
+    });
+    document.addEventListener('change', e=>{
+      const cb = e.target.closest('.extracted-row input[type=checkbox]');
+      if(cb){
+        const row = cb.closest('.extracted-row');
+        const item = row && EXTRACTED.find(x=>x.id===row.dataset.id);
+        if(item){
+          item.adopted = cb.checked;
+          item.status = 'confirmed';
+          if(item.adopted && (item.flag==='defer')){ item.flag=null; item.flagText=null; }
+          if(!item.adopted){ item.flag='defer'; item.flagText='暂不使用：与目标岗位相关度较低'; item.conflictNote=null; }
+          renderExtraction();
+        }
+        return;
+      }
+    });
+    /* dropzone */
+    $('#dropzone').addEventListener('click', ()=>$('#file-input').click());
+    $('#file-input').addEventListener('change', ()=>{ if($('#file-input').files?.length){ state.upload.state='parsing'; renderUpload(); } });
+  }
+  function openConfirm(title, body, onOk){
+    $('#dlg-confirm-title').textContent = title;
+    $('#dlg-confirm-body').innerHTML = body;
+    const dlg = $('#dlg-confirm'); dlg.returnValue='';
+    $('#dlg-confirm-ok').onclick = ()=>{ dlg.close('ok'); onOk?.(); };
+    dlg.showModal();
+  }
+  function collectResumeText(){
+    return [
+      $('[data-bind="paper-name"]').textContent,
+      $('[data-bind="paper-contact"]').textContent,
+      $('[data-bind="paper-target"]').textContent,
+      '',
+      '— 教育背景 —', '蓝港示范大学 · 软件工程 · 本科 · 2022.09 – 2026.06',
+      '',
+      '— 实习经历 —', '青屿科技（示例）· 后端开发实习生 · 2025.06 – 2025.09',
+      ...[...$$('[data-bind="bullets-internship"] li')].map(li=>'· '+li.textContent),
+      '',
+      '— 项目经历 —', '校园二手交易平台 · 2024.10 – 2025.02',
+      ...[...$$('[data-bind="bullets-project1"] li')].map(li=>'· '+li.textContent),
+      '',
+      '社团活动报名小程序 · 2025.03 – 2025.07',
+      ...[...$$('[data-bind="bullets-project2"] li')].map(li=>'· '+li.textContent),
+    ].join('\n');
+  }
+
+  /* ---------- URL 深度链接（无界面评审工具；默认不启用） ---------- */
+  function applyUrlState(){
+    const u = new URL(location.href);
+    const t = u.searchParams.get('theme'); if(t && ['A','B','C'].includes(t)) setTheme(t); else setTheme('A');
+    const sc = u.searchParams.get('sc'); if(sc && SCENARIOS[sc]){ SCENARIOS[sc](); return true; }
+    return false;
+  }
+
+  /* ---------- 初始化：默认按真实产品状态进入 ---------- */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    bindActions();
+    bindIdentity();
+    const deepLinked = applyUrlState();
+    if(!deepLinked){
+      /* 没有任何可用于生成的经历 → 冷启动欢迎；否则进入生成简历 */
+      showRoute(memoryReadyCount()===0 ? 'welcome' : 'generate');
+    }
+    let rz; window.addEventListener('resize', ()=>{ if(rz) clearTimeout(rz); rz=setTimeout(()=>{ if(document.body.dataset.view==='result') fitPaper(); }, 120); });
+  });
+})();
+</script>
+</body>
+</html>
