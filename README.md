@@ -76,6 +76,43 @@ FastAPI 路由与请求模型
 
 这里描述的是当前发布架构。设计理由、历史替代方案和版本级变更记录见 [开发文档入口](docs/README.md)、[架构与产品决策](docs/DECISIONS.md) 和 [当前实现状态](docs/CURRENT_STATE.md)。
 
+## 技术架构
+
+当前发布版采用本地单用户、前后端同源的分层架构。浏览器界面只负责输入、状态展示和结果下载，职业事实、检索、内容选择、生成与文件渲染统一由后端完成，不在前端建立第二套业务逻辑或数据真源。
+
+```text
+React + TypeScript + Vite
+        │  同源 HTTP API
+        ▼
+FastAPI 路由与请求模型
+        │
+        ▼
+应用服务层
+├─ PDF 解析与经历提取
+├─ Experience / Fact 生命周期管理
+├─ JD 分析与两层事实选择
+├─ 受约束改写与 ResumeBuilder 确定性装配
+├─ DOCX 模板渲染
+└─ 配置、迁移、索引维护与操作诊断
+        │
+        ├─ SQLite / SQLAlchemy：Experience、Fact、Embedding 与操作记录
+        ├─ 外部 LLM / Embedding Provider：内容理解、改写与向量生成
+        └─ Runtime data root：输出文件、日志、缓存与版本化配置
+```
+
+架构中的关键边界：
+
+- **事实真源**：Experience / Fact 保存在 SQLite；Embedding 是可以从 Fact 重建的派生索引，不能反向覆盖事实。
+- **内容决策**：程序负责流程、约束、来源校验和结构装配，模型只在明确边界内理解或改写内容。
+- **薄前端**：React 页面通过 typed API/状态模型消费后端结果，不直接访问数据库、持有长期 API Key 或实现另一套选材逻辑。
+- **输出分层**：`ResumeBuilder` 生成与版式无关的 `ResumeDocument`，模板 Renderer 负责把它渲染为最终文件；模板不参与事实选择。
+- **运行隔离**：数据库、输出、配置、日志和缓存统一位于仓库外的 `RESUME_DATA_DIR`；源码目录不承担运行数据持久化。
+- **凭据边界**：Windows 便携版的长期 API Key 保存在 Credential Manager；浏览器和生成文件不保存密钥。
+- **发行形态**：生产前端由 FastAPI 同源托管，Windows 发行采用 PyInstaller `onedir`，启动器负责 loopback 监听、单实例、端口选择和退出清理。
+- **失败策略**：迁移、索引、模型调用、来源校验或渲染失败必须显式可见；已知失败不降级为伪成功或静默使用过期数据。
+
+这里描述的是当前已发布架构。各项设计理由、历史替代方案和版本级变更记录见 [开发文档入口](docs/README.md)、[架构与产品决策](docs/DECISIONS.md) 和 [当前实现状态](docs/CURRENT_STATE.md)。
+
 ## 快速开始
 
 ### Windows 便携版（推荐）
