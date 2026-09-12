@@ -1,17 +1,19 @@
 # V2.1.0 RESULT：执行记录
 
-> 当前状态：**开发侧返工完成（H8-R1）**；H8-SRC 独立验收失败（H8-8）已绑定修正：普通输入页零
-> LLM 预分析、生成 operation 内 JD 分析恰好一次、真实事件回归覆盖、ReportLab 依赖按 PLAN §20.2
-> 收口。H8-R1-SRC 与开发交接提交（H8-R1-DEV）已经形成，开发侧 Gate 全部通过；当前等待
-> Documentation Agent 重新交接及独立 Acceptance；**尚未独立验收，不发布**。
+> 当前状态：**H8-R1 独立源码验收通过**；普通输入页零 LLM 预分析、生成 operation 内 JD 分析
+> 恰好一次、真实事件回归、DOCX→Word COM→PDF→viewer/download 同源链和 ReportLab 产品链退出均
+> 已由独立 Acceptance Agent 复验，Function、Structure、Design Fidelity、Integration 与 Release Gate
+> 全部通过，阻断项为 0。当前等待 Product Owner 使用同一冻结包完成人工产品验收；**尚未发布**。
 > 当前产品基线：已发布 V2.0.2
-> 本轮候选：**H8-R1-SRC** 源码修正候选 / **H8-R1-DEV** 本提交（只改本文件）
+> 本轮候选：**H8-R1-SRC** `d4ae2fb2f7fe54378d5dcd0a22284db5931aad7f` /
+> **H8-R1-DEV** `0a5bbe53af6b7a491ba4ccfaecb049c84153645c`（只改本文件）
 > PLAN 批准 blob：`5313c9c9658f70c0df449826e4dc57b352a7deb0`（含 §20.1–§20.10；H8-R1-SRC 父链携带同一 blob）
-> 发布结论：不发布；H8-R1 待独立验收
+> 发布结论：不发布；H8-R1 独立源码验收已通过，待人工产品验收与版本文档收口
 
-> **阅读指引（重要）**：第 0 节是 H8 的**唯一权威门禁摘要**；自「§1 本文件用途」起的内容是
-> V2.1.0 历史执行记录（H1–H7 阶段，含早期「PDF 由 ReportLab 手绘」口径）。凡与第 0 节冲突的
-> 历史结论，一律以第 0 节与 PLAN §20 为准（§20.1 已明确覆盖 §19.3/§19.4 的旧技术方向）。
+> **阅读指引（重要）**：第 0 节是 H8 的权威开发门禁摘要；其后的 H8-8 与 H8-R1 记录依次覆盖
+> H8 的验收结论、返工事实和最新独立验收结论。自「§1 本文件用途」起的内容是 V2.1.0 早期历史
+> 执行记录（H1–H7，含「PDF 由 ReportLab 手绘」旧口径）。技术方向以 PLAN §20 为准，当前候选
+> 状态以 H8-R1 独立验收记录为准。
 
 ## 0. H8 统一门禁摘要（机器可读）
 
@@ -27,7 +29,7 @@
 | 分支 | `h7-clean`（worktree of `D:\demo\resume-assistant\current`） |
 | H8-SRC | `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` |
 | H8-SRC 父提交 | `3e1c5a1edfa1c03ab23d949b296ef81a839c6d31`（父链含批准 PLAN） |
-| H8-DEV | 本提交（`docs/versions/v2.1.0/RESULT.md` 唯一变更；parent = H8-SRC） |
+| H8-DEV | `870cb746b5a33f438b09f2af56766234b67714b1`（`docs/versions/v2.1.0/RESULT.md` 唯一变更；parent = H8-SRC） |
 | PLAN 批准 blob | `5313c9c9658f70c0df449826e4dc57b352a7deb0`（`docs/versions/v2.1.0/PLAN.md`，§20.1–§20.10） |
 | 工作树 | clean（H8-SRC 与 H8-DEV 各自提交后 `git status --porcelain` 为空） |
 | `pending / running / suspend` | **0**（全部 mandatory 门禁均已在本机由开发侧跑完，无后台未结束、无移交给验收者代跑） |
@@ -236,7 +238,7 @@ fail closed、Word 进程清理、PreviewAnchor 降级、四阶段归属及终�
 | branch | `version/v2.1.0` |
 | H8-R1-SRC | `d4ae2fb2f7fe54378d5dcd0a22284db5931aad7f` |
 | H8-R1-SRC parent | `19ac25edd789b7706be5bba53b73a880d7050a1c` |
-| H8-R1-DEV | 本提交（只改本文件） |
+| H8-R1-DEV | `0a5bbe53af6b7a491ba4ccfaecb049c84153645c`（只改本文件） |
 | PLAN blob | `5313c9c9658f70c0df449826e4dc57b352a7deb0` |
 | 工作区 | H8-R1-SRC 与 H8-R1-DEV 提交后均 clean |
 | 变更约束 | H8-R1-SRC..H8-R1-DEV 只能修改 RESULT |
@@ -343,6 +345,59 @@ fail closed、Word 进程清理、PreviewAnchor 降级、四阶段归属及终�
 6. 独立核对冻结身份（H8-R1-SRC / H8-R1-DEV 结构、父提交、PLAN blob、clean）。
 
 **开发侧验证结论：R1/R2/R3/R4 已完成，开发侧门禁全绿；本节为开发侧验证记录，不构成独立验收通过。**
+
+### H8-R1 独立源码验收（2026-09-12）
+
+#### 1. 绑定身份与独立性
+
+- 验收者声明未参与 H8-R1-SRC 的实现、自测、源码修复或 RESULT 编写，也未参与上一轮 H8 实现；
+- 验收绑定 H8-R1-SRC `d4ae2fb2f7fe54378d5dcd0a22284db5931aad7f`；验收前后固定
+  `<review-workspace>` 均为该 commit、detached、clean，PLAN blob 均为
+  `5313c9c9658f70c0df449826e4dc57b352a7deb0`；
+- H8-R1-DEV `0a5bbe53af6b7a491ba4ccfaecb049c84153645c` 的唯一父提交为 H8-R1-SRC，二者之间
+  只修改本 RESULT；H8-R1 RESULT blob 为 `b9f352c5ccfc211b6301351084126d09f0475d69`；
+- 动态验证在一次性隔离副本与隔离 runtime 中执行，未修改 review 候选内容。
+
+#### 2. 独立复跑结果
+
+| 验收项 | 独立结果 |
+|---|---|
+| `scripts/h8_deterministic_tests.py` | `PASS=22 / FAIL=0`；成功 200 为 logical=1/http=1，失败重试仍为 logical=1 |
+| `scripts/h8_r3_browser.py --all` | H8-R1 dev+prod 正向 30 项通过，旧 H8-SRC 负向 7 项通过 |
+| `scripts/h6_browser_matrix.py --all` | `PASS=16 / FAIL=0`，含 211 次 browser call |
+| `scripts/precheck.py` | 阻断项 0；编译、固定矩阵、前端 build、Hooks 门禁和 runtime 哨兵通过 |
+| `scripts/h8_package_audit.py` | PASS；包内测试标记、违禁路径、ReportLab 与旧 renderer 命中均为 0 |
+| `scripts/h8_real_model_e2e.py` | 最终 onedir 真实模型链通过；无额外请求、4xx/5xx、白屏或 WINWORD 泄漏 |
+
+#### 3. 决定性结论
+
+- 旧 H8-SRC `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` 在 7 类真实 React 输入场景中均可
+  重现点击前预分析；H8-R1-SRC 在同类 dev/prod 场景中点击前 `/api/jd/analyze=0`、`/generate=0`、
+  Provider chat=0，且不创建 JD operation；
+- 点击生成后 operation 只增加 1 个，`jd_analysis` 逻辑调用和正常 200 下 JD Provider 请求均恰好
+  1 次；rewrite 单独 1 次。SDK 重试仅发生在失败响应中，没有再次混同为业务调用；
+- 正式产品链唯一 PDF 来源为 `MicrosoftWordComConverter/1.0-h8`。DOCX 是排版真源，PDF.js viewer、
+  PDF 下载与响应 `pdf_sha256` 指向同一 artifact；Word COM 缺失、损坏、超时和并发场景均 fail closed，
+  不回退 ReportLab、LibreOffice 或旧手绘 PDF；
+- 三个桌面视口均无整页滚动，结果页只有 1 个卡内滚动容器；ErrorBoundary 的 pdf、overlay、basis、
+  export 四区域及恢复路径通过；下载协议、MIME、Range、404/405 正反向与双下载字节一致性通过；
+- 最终包身份与开发交接一致：4045 文件、170,263,739 字节，`ResumeAssistant.exe` 为 16,753,358
+  字节，SHA-256 为 `7790ddf6f2c5a4967391752823489358169aada07ef2f4870ee6e44e52c21500`。
+
+#### 4. 偏差、覆盖与结论
+
+非阻断偏差共三项：浏览器回归末尾重建当前 dist 时受到本机 Node safe-delete shim 影响，验收者在隔离
+副本清理 dist 后重建恢复；浏览器工具的 download 命令未产生本地文件，但实际下载字节已通过 HTTP
+GET 独立核对；ReportLab 继续作为测试/fixture 依赖保留，不进入产品链和最终包。三项均不改变上述
+验收结论。强制 Gate、真实 E2E、包审计和身份核对没有未覆盖项。
+
+验收完成后，一次性隔离副本已删除全部文件，只遗留一个被进程当前目录锁定的空目录壳；本轮启动的
+onedir、provider、uvicorn 与 vite 进程均已退出。review 保持 H8-R1-SRC、detached、clean，PLAN blob
+不变。
+
+**独立结论：Function 通过；Structure 通过；Design Fidelity 通过；Integration 通过；Release Gate
+通过。阻断项 0，最终结论 PASS。V2.1.0 仍须由 Product Owner 对同一冻结包完成人工产品验收，之后
+才能进入最终文档收口与发布批准。**
 
 ## 1. 本文件用途
 
