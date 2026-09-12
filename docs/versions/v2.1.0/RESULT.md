@@ -1,11 +1,11 @@
 # V2.1.0 RESULT：执行记录
 
-> 当前状态：**H8-SRC 与 H8-DEV 已形成**；两个发布阻断（浏览器动态矩阵、真实模型链）均已在本机
-> 由开发侧关闭，无 pending/running/suspend；待独立 Acceptance Agent 复验与 Product Owner 人工验收（PLAN §20.8）。
+> 当前状态：**需修正**；H8-SRC 的独立验收已失败，普通输入页仍会触发 JD LLM 预分析，违反
+> PLAN §20.5。H8 不再具备进入人工验收或发布的条件，须形成新的 clean 修正候选并重新独立验收。
 > 当前产品基线：已发布 V2.0.2
 > 本轮候选：**H8-SRC** `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` / **H8-DEV** 本提交（只改本文件）
 > PLAN 批准 blob：`5313c9c9658f70c0df449826e4dc57b352a7deb0`（含 §20.1–§20.10；H8-SRC 父链携带同一 blob）
-> 发布结论：不发布；H8 尚待独立复验与 Product Owner 人工验收
+> 发布结论：不发布；H8 独立验收失败
 
 > **阅读指引（重要）**：第 0 节是 H8 的**唯一权威门禁摘要**；自「§1 本文件用途」起的内容是
 > V2.1.0 历史执行记录（H1–H7 阶段，含早期「PDF 由 ReportLab 手绘」口径）。凡与第 0 节冲突的
@@ -185,6 +185,42 @@ HTTP 请求**（均 200、`response_format` 存在、`temperature=0.3`、req=285
 - 工作树 clean。
 
 **是否具备交给 Documentation Agent 做机械交接核对的条件**：**具备**。
+
+### H8-8 独立验收结论（2026-09-12，FAIL）
+
+> 执行角色：Acceptance Agent；未参与 H8 实现、自测、修复或 RESULT 编写
+> 绑定对象：H8-SRC `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966`
+> 开发交接对象：H8-DEV `870cb746b5a33f438b09f2af56766234b67714b1`
+> 验收环境：固定 `<review-workspace>` detached 到 H8-SRC；动态验证在一次性隔离副本与 runtime 中执行
+
+身份核对通过：验收前后 review 均保持 H8-SRC、detached、clean，PLAN blob 均为
+`5313c9c9658f70c0df449826e4dc57b352a7deb0`；H8-DEV 的唯一父提交为 H8-SRC，且二者之间只修改
+本 RESULT。最终包机械身份与 H8-2 一致：4044 文件、170,258,549 字节，EXE SHA-256 为
+`9ea42c6cc98b3776cde25d039b0ace5872caa6a74028f9979b610b8dacb4a77e`。
+
+独立复跑结果：`h8_deterministic_tests.py` 为 `PASS=20 FAIL=0`，`precheck.py` 阻断项 0，前端
+build、包审计和隔离 onedir 启动通过。DOCX→Word→PDF 单一排版链、artifact/hash 同源、转换失败
+fail closed、Word 进程清理、PreviewAnchor 降级、四阶段归属及终态差值 `10ms ≤ 250ms` 均通过。
+
+阻断项：
+
+1. 普通输入页仍存在 600ms 防抖 JD 分析调用。验收者在真实 onedir 中用可触发 React `onChange`
+   的原生 setter + `input` 事件验证，未点击生成即出现 Provider 请求；开发 E2E 使用的浏览器 `fill`
+   未触发该路径，因此“输入页预分析为 0”的开发结论无效。
+2. H8-4 中“2 次相同 JD Provider HTTP 请求是客户端内部重试”的归因不成立。独立负向证明 SDK
+   重试只在失败时出现；成功 200 场景的两次相同请求来自输入页预分析与生成 operation 内分析两条
+   业务路径。真实主链因此违反 PLAN §20.5 与 T12-R40。
+
+非阻断偏差：源码依赖仍列出 `reportlab==4.2.2`，而 H8-1 声明其已经退出产品链与最终包；修正候选
+应按 PLAN §20.2 明确剩余非产品用途引用，或移除不再需要的源码依赖。
+
+本轮未独立复跑 `h6_browser_matrix.py --all`、真实模型 E2E、三视口与 ErrorBoundary，故这些开发侧
+结论不继承为独立验收通过；修正候选必须重新执行适用开发门禁并由独立验收者复验。验收隔离副本
+内容已经清理，只遗留一个被进程 CWD 锁定的空目录；review 验收后仍为 H8-SRC、detached、clean。
+
+**五维结论：**Function 失败；Structure 通过；Design Fidelity 未覆盖；Integration 的 DOCX/PDF
+与计时部分通过、JD 调用契约失败；Release Gate 失败。最终结论：**FAIL，需修正后形成新候选并重新
+独立验收。**
 
 ## 1. 本文件用途
 
