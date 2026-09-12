@@ -1,4 +1,4 @@
-"""V2.0.2 统一预检入口（Windows 本地与 GitHub CI 共用同一逻辑）。
+"""Resume Assistant 统一预检入口（Windows 本地与 GitHub CI 共用同一逻辑）。
 
 用途：把「Python 编译」「六个零密钥回归脚本」「前端正式构建」三类阻断检查收敛到一处，
 由本地开发与 GitHub workflow 调用同一份代码，避免两边检查逻辑漂移。
@@ -389,7 +389,7 @@ def _runtime_sentinel_diff(before: dict, after: dict) -> list[str]:
 def main() -> int:
     _force_utf8_stdio()
     print("=" * 68, flush=True)
-    print("V2.0.2 统一预检（本地与 GitHub 共用入口）", flush=True)
+    print("Resume Assistant 统一预检（本地与 GitHub 共用入口）", flush=True)
     print("=" * 68, flush=True)
 
     failures: list[str] = []
