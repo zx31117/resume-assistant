@@ -2,7 +2,7 @@
 
 > 状态：需求收集中，尚未形成或批准 PLAN
 > 记录日期：2026-09-09
-> 最近更新：2026-09-11；已批准本版本试行计划修订、版本 HISTORY 与文档语义交付审查机制
+> 最近更新：2026-09-12；已批准本版本试行计划修订、版本 HISTORY 与 RESULT 语义交付审查机制
 > 前置版本：V2.1.0 仍处于 H7 后的开发验证纠偏，尚无通过全部门禁的发布候选
 > 开发授权：无；本文不是 Development Agent 的实施指令
 > Design Baseline：尚未选择；正式 PLAN 只绑定届时最新且经 Product Owner 批准的 Design Snapshot
@@ -123,7 +123,9 @@ IMPLEMENTING
 - `DEV_VERIFYING`：实现已基本完成，但仍有开发侧强制验证未结束；
 - `DEV_VERIFIED`：PLAN 要求的开发侧必做项目全部得到 PASS 终态；
 - `FROZEN`：形成 clean、不可变的源码候选 commit；
-- `DOC_ALIGNED`：Documentation Agent 在机械前置检查通过后，对照 PLAN 完成一次完整语义交付审查，确认开发理解、实际交付、范围、技术路线、偏差声明和证据相互一致；
+- `DOC_ALIGNED`：Documentation Agent 在机械前置检查通过后，只依据 PLAN、RESULT、机械身份和
+  证据入口完成 RESULT 语义交付审查，确认开发在 RESULT 中声明的理解、交付、范围、技术路线、
+  偏差和开发证据摘要相互一致；它只表示可以进入独立验收，不表示实现已经被证明正确；
 - `INDEPENDENT_ACCEPTED`：未参与实现、自测或修复的 Acceptance Agent 对同一候选独立通过；
 - `HUMAN_ACCEPTED`：Product Owner 使用同一候选完成人工产品验收；
 - `RELEASED`：文档收口、远端核对和发布完成。
@@ -343,7 +345,18 @@ P0/P1、技术路线推翻、同类问题重复发生、候选或包身份错误
 真实主路径和冻结前 5 分钟反证，并设置硬停止/回退时间。紧急包只能按其真实门禁命名，不得用时间
 压力把 `ASSUMPTION` 改成 `EVIDENCED` 或冒充正式发布候选。
 
-### 3.9 开发交付与文档语义审查
+### 3.9 开发交付与 RESULT 语义审查
+
+#### 3.9.1 开发前冻结 RESULT Delivery Contract
+
+V2.1.1 正式 PLAN 必须在 Product Owner 批准、Development Agent 开始实现之前，包含一份本版本
+`RESULT Delivery Contract`。它至少列出：本版本全部 PLAN ID、每项用户结果、开发必须解释的理解
+要点、强制开发 Gate、证据摘要字段、候选与最终包身份字段、已知偏差格式，以及“待独立验收问题”
+模板。Documentation Agent 后续只能依据这份合同检查 RESULT，不得在开发声称完成后临时增加交付
+栏目或把新的源码验收发现倒推成开发原本应写的文档要求。若新增要求会改变强制交付合同，按 PLAN
+Revision 处理。
+
+#### 3.9.2 RESULT 当前门禁摘要与交付映射
 
 V2.1.1 的 RESULT 顶部必须维护唯一的当前门禁摘要，至少包括：
 
@@ -372,21 +385,35 @@ Blocking Reason: browser_matrix 尚未完成
 |---|---|---|---|---|---|
 | `<id>` | `<用户最终看到或依赖的结果>` | `<开发采用的行为解释>` | `<代码/页面/包中的实际状态>` | `<命令、artifact 或截图入口>` | `<无，或明确差异>` |
 
-机器检查只负责在交接前挡住缺 Gate、缺证据、缺文件、身份错误和工作区不 clean，不能取代
-Documentation Agent。Documentation Agent 的核心职责是核对“开发做的是不是用户和 PLAN 要的
-东西”，必须一次性检查：
+RESULT 还必须单列“待独立验收问题”，记录哪些完成声明需要验收 Agent 从源码、失败路径、原始运行
+证据或最终包中确认。这里记录的是独立真实性问题，不得把开发尚未执行的强制自测、构建、包验证或
+缺失的开发证据转交验收补跑。
 
-1. 每项 PLAN 要求是否有实际交付，是否存在遗漏、擅自扩缩范围或用内部指标替代用户结果；
-2. 开发对用户需求、Design Baseline、流程状态和失败边界的理解是否准确；
-3. 实际技术路线是否仍符合当前批准 PLAN，失效旧路线是否已经退出；
-4. RESULT 的完成声明、已知偏差和证据是否一致，是否把未证实内容写成完成；
+| 验收问题 ID | PLAN ID | 待核实声明 | 为什么必须独立核实 | 建议检查对象 |
+|---|---|---|---|---|
+| `A-xx` | `<id>` | `<开发已经声明但尚未独立证明的事实>` | `<需要源码/失败路径/最终包的原因>` | `<源码、测试、artifact 或运行场景>` |
+
+#### 3.9.3 Documentation RESULT 语义审查
+
+机器检查只负责在交接前挡住缺 Gate、缺证据、缺文件、身份错误和工作区不 clean，不能取代
+Documentation Agent。Documentation Agent 只依据 PLAN、RESULT、机械身份和证据入口，核对“开发
+在 RESULT 中声明做的东西是不是用户和 PLAN 要的东西”，必须一次性检查：
+
+1. 每项 PLAN 要求是否在 RESULT 中有对应交付声明，是否存在缺项、擅自扩缩范围或用内部指标替代用户结果；
+2. RESULT 表达的开发理解是否符合用户需求、Design Baseline、流程状态和失败边界；
+3. RESULT 声明的技术路线是否符合当前批准 PLAN，是否已经声明并提供旧路线退出的开发证据入口；
+4. RESULT 的完成声明、已知偏差和开发证据摘要是否内部一致，是否把明确未执行的内容写成完成；
 5. 候选 commit、最终包、PLAN Revision/blob、分支和 clean 状态是否绑定同一交付对象。
+
+Documentation Agent 不读取源码、测试实现或原始运行日志来判断上述声明是否真实，也不从 RESULT
+没有提供的信息推断代码事实。开发本应填写的映射、强制自测或证据缺失时，结论为
+`DOC_RETURNED`；RESULT 完整但仍需验证的源码与运行事实，进入“待独立验收问题”。
 
 Documentation Agent 接到完整交付后应完成一轮集中审查，不得发现一个问题就立即结束并串行打回。
 本轮审查只能给出以下一种结论：
 
-- `DOC_ALIGNED`：开发理解和实际交付与当前 PLAN 一致，可以进入独立源码验收；
-- `DOC_RETURNED`：PLAN 没变，但开发存在遗漏、理解偏差、错误完成声明或交付缺口；必须一次列出本轮
+- `DOC_ALIGNED`：RESULT 完整且其中声明的开发理解与当前 PLAN 一致，可以进入独立源码验收；这不表示实现已经被证明正确；
+- `DOC_RETURNED`：PLAN 没变，但 RESULT 存在缺项、理解偏差、内部矛盾、明确错误完成声明或开发交付缺口；必须一次列出本轮
   能够发现的完整问题集合；
 - `PLAN_REVISION_REQUIRED`：原 PLAN 的产品目标、技术路线、设计基线或门禁本身必须实质改变，旧
   候选及受影响证据按修订范围失效。
@@ -394,8 +421,8 @@ Documentation Agent 接到完整交付后应完成一轮集中审查，不得发
 返工后的 Documentation 复核以打回项及其影响范围为主。若第二次才发现第一次同一审查范围内本应
 发现的问题，记为 Documentation 审查遗漏；若 Development Agent 没有完成已经明确列出的打回项，
 记为 Development 交付缺陷；用户改变目标或证据推翻既有技术路线，记为 Baseline/PLAN 变化。三者
-不得混称为笼统“继续补证”。文档语义审查确认的是需求理解与交付一致性，不替代 Acceptance Agent
-对源码正确性、失败路径和最终包行为的独立证明。
+不得混称为笼统“继续补证”。RESULT 语义审查确认的是交付文档完整性与开发声明的需求理解，不替代
+Acceptance Agent 对源码正确性、失败路径和最终包行为的独立证明。
 
 ### 3.10 PLAN Revision 与版本 HISTORY
 
@@ -421,12 +448,17 @@ PLAN，不产生新 Revision；只有产品范围、技术路线、Design Baseli
 
 Product Owner 已于 2026-09-09 批准本节机制从 V2.1.1 起启用。本节当前仍是草稿约束，不单独授权
 修改源码；形成 V2.1.1 正式 PLAN 时，Documentation Agent 必须保留上述原则，并收敛为可执行 Task、
-状态转换、反思/Challenge 记录模板、测试入口、开发交付映射和文档语义审查表，不再重新讨论是否
+状态转换、反思/Challenge 记录模板、测试入口、开发交付映射、待独立验收问题和 RESULT 语义审查表，
+不再重新讨论是否
 启用。Product Owner 于 2026-09-11 进一步批准 PLAN Revision、版本 `HISTORY.md`、`DOC_ALIGNED /
 DOC_RETURNED / PLAN_REVISION_REQUIRED` 三结论及一次性集中语义审查；对应跨版本原则已经以
 “V2.1.1 起生效”的方式同步到 `docs/HUMAN_AI_WORKFLOW.md` 和 D-040。V2.1.1 完成后复盘实际耗时、
 返工次数、完整构建次数、Challenge 命中和漏测情况，再根据实证收紧或修订规则；这些规则不反向
 改变 V2.1.0 的既有 PLAN、候选或验收契约。
+
+Product Owner 于 2026-09-12 进一步澄清：Documentation Agent 的交接判断必须以 RESULT 为主体；
+源码、测试实现、原始运行日志和最终包行为由 Acceptance Agent 核验。该澄清已同步到 D-040、
+`docs/HUMAN_AI_WORKFLOW.md` 和本版本 HISTORY，正式 PLAN 必须按此边界落地。
 
 ## 4. 待继续收集
 
