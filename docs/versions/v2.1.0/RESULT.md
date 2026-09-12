@@ -5,7 +5,7 @@
 > 并冻结候选 H8-R2-SRC / H8-R2-DEV。等待 Documentation Agent 再交接与独立 Acceptance Agent 独立
 > 验收、Product Owner 人工复核；**尚未发布**。
 > 当前产品基线：已发布 V2.0.2
-> 最近冻结候选：**H8-R2-SRC** `（待冻结后回填）` / **H8-R2-DEV** `（待冻结后回填）`
+> 最近冻结候选：**H8-R2-SRC** `f5124c2af448fc6fa50a599187f643e62a814ff8` / **H8-R2-DEV** 本提交
 > （唯一父为 H8-R2-SRC、只改本文件）；H8-R1 候选已被人工验收打回
 > 当前 H8-R2 PLAN 批准 blob：`4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（含 §20–§21；H8-R2 开发基线必须携带该 blob）
 > 发布结论：不发布；待 H8-R2 独立验收与人工复核全部通过
@@ -13,7 +13,8 @@
 > **阅读指引（重要）**：第 0 节是 H8 的权威开发门禁摘要；其后的 H8-8、H8-R1 返工与验收、
 > H8-R1 人工打回记录按时间依次覆盖候选状态。自「§1 本文件用途」起的内容是 V2.1.0 早期历史
 > 执行记录（H1–H7，含「PDF 由 ReportLab 手绘」旧口径）。技术方向以 PLAN §20–§21 为准，
-> 当前状态以 H8-R1 人工打回与 H8-R2 批准记录为准。
+> 当前状态以 H8-R2 开发交接记录为准；H8-R2 已完成开发侧验证，等待 Documentation Agent 交接、
+> 独立验收和 Product Owner 人工复核。
 
 ## 0. H8 统一门禁摘要（机器可读）
 
@@ -424,8 +425,9 @@ H8-R2 当前状态为**待开发**。根因尚未由开发证据确认，不能�
 | 项 | 值 |
 |---|---|
 | branch | `version/v2.1.0` |
-| H8-R2-SRC | `（本文件在 H8-R2-DEV 中回填）` |
-| H8-R2-DEV | `（本文件在 H8-R2-DEV 中回填）`（只改本文件，唯一父为 H8-R2-SRC） |
+| H8-R2-SRC | `f5124c2af448fc6fa50a599187f643e62a814ff8` |
+| H8-R2-SRC parent | `05140dc1e65f84d6d4af9985f04c079d13061a81` |
+| H8-R2-DEV | 本提交（只改本文件，唯一父为 H8-R2-SRC） |
 | PLAN blob | `4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（§20–§21，H8-R2 开发基线） |
 | 工作区 | H8-R2-SRC 与 H8-R2-DEV 提交后均 clean |
 | 变更约束 | H8-R2-SRC..H8-R2-DEV 只能修改 RESULT |
@@ -473,9 +475,18 @@ tasklist/taskkill、以及 `cmd /c rd` 二次包装均为同类窗口来源，�
 | `services/docx_to_pdf_worker.py::_kill_owned_winword` | taskkill /F | `creationflags=_NO_WINDOW` |
 | `api/routes/template.py::_ensure_template_docx` | check_call 构建模板脚本 | `creationflags=CREATE_NO_WINDOW` |
 
-修改文件：`backend/services/docx_to_pdf.py`、`backend/services/docx_to_pdf_worker.py`、
-`backend/api/routes/template.py`；新增开发/验证脚本 `scripts/h8_r2_winmon.py`（窗口监测器）、
-`scripts/h8_r2_failure_matrix.py`（失败矩阵）、`scripts/h8_r2_selftest.py`、`scripts/h8_r2_diag.py`。
+H8-R2-SRC 相对父提交（`05140dc1…`）修改 **9 个文件，+1123/-28**：
+
+- `backend/api/routes/template.py`
+- `backend/services/docx_to_pdf.py`
+- `backend/services/docx_to_pdf_worker.py`
+- `docs/versions/v2.1.0/RESULT.md`
+- `scripts/h8_r2_diag.py`（新增）
+- `scripts/h8_r2_failure_matrix.py`（新增，失败矩阵）
+- `scripts/h8_r2_pyz_check.py`（新增，冻结包 PYZ 字节码核验）
+- `scripts/h8_r2_selftest.py`（新增）
+- `scripts/h8_r2_winmon.py`（新增，窗口监测器）
+
 错误诊断保持：worker stderr/退出码经 meta.json 进入父进程错误结果（`DocxToPdfError` code+detail），
 超时/崩溃/清理失败均不吞（受控日志）；超时、busy、fail-closed、锚点、计时与单次 JD 分析语义不变。
 
@@ -572,8 +583,11 @@ tasklist/taskkill、以及 `cmd /c rd` 二次包装均为同类窗口来源，�
    P1–P4 终态差、锚点与 §20 不变量；
 5. 独立复核新包身份（4045 文件 / 170,264,106 B / EXE `91e7508336…` / MANIFEST 4045 行）与前端字节
    逐文件一致结论（4/4）；核对冻结身份结构（H8-R2-SRC / H8-R2-DEV、唯一父、PLAN blob `4fd455c4…`、
-   clean）；
-6. Product Owner 对 `release-h8-r2` 冻结包完成一次真实生成，肉眼确认 P4 全程无闪窗（PLAN §21.4 人工复核）。
+   clean）。
+
+#### 12. 独立验收后的 Product Owner 人工复核
+
+- 使用 `release-h8-r2` 冻结包完成一次真实生成，肉眼确认 P4 全程无闪窗（PLAN §21.4 人工复核）。
 
 **开发侧验证结论：H8-R2 开发侧门禁（PLAN §21.4 前四条）全部通过；本节为开发侧验证记录，不构成独立
 验收通过。**
