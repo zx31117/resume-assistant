@@ -3,7 +3,7 @@
 > 文档角色：当前已验收实现事实的唯一真源
 > 已验收版本：V2.1.0
 > 源码验收对象：H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
-> 发布状态：Product Owner 已批准发布；等待最终候选 GitHub Windows CI 通过后创建 annotated tag `v2.1.0`
+> 发布标识：annotated tag `v2.1.0` → `8c7bae3746083962b5896519c7f78c82ddaa6548`
 > 状态日期：2026-09-12
 
 ## 1. 当前结论
@@ -18,7 +18,7 @@ V2.0.1 已完成开发验证、独立源码验收、用户人工验收和文档�
 
 V2.0.2 在不改变产品业务流程和界面的前提下完成工程基线收束：Windows 本地与 CI 使用同一预检入口和固定回归计数；测试数据库、输出、日志与缓存强制位于临时 runtime，默认真实 runtime 由 fail-closed 哨兵保护；迁移 API、备份摘要、配置和 Demo 中的旧 vectorstore 活动契约已经退出。版本已完成独立源码验收、人工确认、文档验收和公开发布。详细打回、返工和证据见 [V2.0.2 RESULT](./versions/v2.0.2/RESULT.md)。
 
-V2.1.0 完成核心用户界面整体重构：欢迎页直接承接 PDF 上传，“我的经历”继续维护职业事实；生成工作台把身份与 JD 输入收束为一键生成，处理过程由后端投影为四个覆盖完整 operation 的用户阶段；结果页使用真实 PDF artifact 预览、逐条事实依据和 Word/PDF 双下载。DOCX 是唯一排版真源，PDF 只由本机 Microsoft Word 转换产生，PDF.js viewer 与 PDF 下载读取同一不可变 artifact；转换不可用时 fail closed 并保留 Word 下载。H8-R2 已完成开发验证、独立验收和 Product Owner 人工验收，发布决定已批准；完整历史见 [V2.1.0 RESULT](./versions/v2.1.0/RESULT.md)。
+V2.1.0 完成核心用户界面整体重构：欢迎页直接承接 PDF 上传，“我的经历”继续维护职业事实；生成工作台把身份与 JD 输入收束为一键生成，处理过程由后端投影为四个覆盖完整 operation 的用户阶段；结果页使用真实 PDF artifact 预览、逐条事实依据和 Word/PDF 双下载。DOCX 是唯一排版真源，PDF 只由本机 Microsoft Word 转换产生，PDF.js viewer 与 PDF 下载读取同一不可变 artifact；转换不可用时 fail closed 并保留 Word 下载。H8-R2 已完成开发验证、独立验收和 Product Owner 人工验收，最终候选 GitHub Windows CI 成功，annotated tag `v2.1.0` 已公开发布；完整历史见 [V2.1.0 RESULT](./versions/v2.1.0/RESULT.md)。
 
 ## 2. 已实现核心流程
 

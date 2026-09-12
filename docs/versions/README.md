@@ -22,11 +22,11 @@
 | V2.0.0 | 本地全流程图形交互首版 | [PLAN](./v2.0.0/PLAN.md) | [RESULT](./v2.0.0/RESULT.md) | 已发布；T9/T10/T11 通过，annotated tag `v2.0.0` |
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./v2.0.1/PLAN.md) | [RESULT](./v2.0.1/RESULT.md) | 已发布；独立源码验收与人工验收通过，annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./v2.0.2/PLAN.md) | [RESULT](./v2.0.2/RESULT.md) | 已发布；源码候选 `eb4bd30`，annotated tag `v2.0.2` 指向 `78bb909` |
-| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 开发验证、独立验收与 Product Owner 人工验收通过；已批准发布，等待 CI/tag |
+| V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 已发布；H8-R2-SRC `f5124c2`，annotated tag `v2.1.0` 指向 `8c7bae3` |
 
 ## 当前活动版本
 
-V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收，最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。核心用户界面、四阶段真实计时、DOCX→Word→PDF 单一排版链、PDF.js 真实 artifact 预览与 Word/PDF 双下载均已通过；Product Owner 已批准发布，当前等待最终候选 GitHub Windows CI 成功和 annotated tag。完整返工与验收历史保存在 [RESULT](./v2.1.0/RESULT.md)。
+V2.1.0 已完成开发验证、独立验收、Product Owner 人工验收、最终候选 GitHub Windows CI 和公开发布。最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`，annotated tag `v2.1.0` 指向 `8c7bae3746083962b5896519c7f78c82ddaa6548`。核心用户界面、四阶段真实计时、DOCX→Word→PDF 单一排版链、PDF.js 真实 artifact 预览与 Word/PDF 双下载均已通过。完整返工与验收历史保存在 [RESULT](./v2.1.0/RESULT.md)。
 
 ## 当前开发计划
 

@@ -3,12 +3,13 @@
 > 当前状态：**H8-R2 独立源码验收与 Product Owner 人工验收均已通过**。首次验收已证明旧包 P4
 > worker 路径会产生 6 次可见控制台窗口、新包同路径为 0；第二轮补证又在完整真实模型 E2E 中证明
 > 应用后代控制台/Word 窗口为 0。Product Owner 已使用同一冻结包完成人工复核并明确确认通过。
-> Product Owner 已批准发布 V2.1.0；当前正在执行最终发布收口，**尚未创建 tag 或完成公开发布**。
+> **V2.1.0 已公开发布**。开发验证、独立验收、Product Owner 人工验收和最终候选 GitHub Windows CI
+> 均已通过；annotated tag `v2.1.0` 已创建并推送。
 > 当前产品基线：已发布 V2.0.2
 > 最近冻结候选：**H8-R2-SRC** `f5124c2af448fc6fa50a599187f643e62a814ff8` / **H8-R2-DEV** 本提交
 > （唯一父为 H8-R2-SRC、只改本文件）；H8-R1 候选已被人工验收打回
 > 当前 H8-R2 PLAN 批准 blob：`4fd455c4fcc29b0f315f434a919c3da13d8b5f45`（含 §20–§21；H8-R2 开发基线必须携带该 blob）
-> 发布结论：Product Owner 已批准；待最终候选 GitHub Windows CI 成功后创建 annotated tag 并完成公开发布
+> 发布标识：annotated tag `v2.1.0` → `8c7bae3746083962b5896519c7f78c82ddaa6548`
 
 > **阅读指引（重要）**：第 0 节是 H8 的权威开发门禁摘要；其后的 H8-8、H8-R1、H8-R2 记录按
 > 时间依次覆盖候选状态。自「§1 本文件用途」起的内容是 V2.1.0 早期历史执行记录（H1–H7，含
@@ -718,6 +719,19 @@ canonical 的 `frontend/node_modules` 缺少 `tsc`/`eslint` 而失败；按锁�
 源码和锁文件均未因此改变。ruff、pip-audit、完整 ESLint 与 npm audit 继续按既有约定作为报告项，不冒充
 阻断项通过。预检标题仍显示历史文字“V2.0.2 统一预检”，仅为脚本显示文本；为保持已验收 H8-R2-SRC
 产品/测试字节不变，本次发布不修改该脚本，后续版本再统一更新。
+
+#### 9. 最终发布记录（2026-09-12）
+
+- 发布 PR：[Release V2.1.0 #1](https://github.com/zx31117/resume-assistant/pull/1)；
+- PR head：`4c4530cf6889644a5635b1c0eb144cb80cfc6ff8`（发布文档候选，祖先包含 H8-R2-SRC）；
+- GitHub Windows CI：run `34693911219`，绑定上述 head，结论 `success`；
+- main 合并提交：`8c7bae3746083962b5896519c7f78c82ddaa6548`；
+- 发布标识：annotated tag `v2.1.0`，指向上述 main 合并提交，已推送至 GitHub；
+- 发布包：继续使用已验收的 `release-h8-r2`，EXE SHA-256
+  `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。
+
+V2.1.0 至此完成开发、开发侧验证、独立验收、Product Owner 人工验收、发布批准、远端 CI、文档收口和
+公开发布。后续新增需求与缺陷进入 V2.1.1，不再改写本版本冻结源码、包或 tag。
 
 ## 1. 本文件用途
 
