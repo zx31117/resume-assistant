@@ -1,11 +1,13 @@
 # V2.1.0 RESULT：执行记录
 
-> 当前状态：**需修正**；H8-SRC 的独立验收已失败，普通输入页仍会触发 JD LLM 预分析，违反
-> PLAN §20.5。H8 不再具备进入人工验收或发布的条件，须形成新的 clean 修正候选并重新独立验收。
+> 当前状态：**开发侧返工完成（H8-R1）**；H8-SRC 独立验收失败（H8-8）已绑定修正：普通输入页零
+> LLM 预分析、生成 operation 内 JD 分析恰好一次、真实事件回归覆盖、ReportLab 依赖按 PLAN §20.2
+> 收口。H8-R1-SRC 与开发交接提交（H8-R1-DEV）已经形成，开发侧 Gate 全部通过；当前等待
+> Documentation Agent 重新交接及独立 Acceptance；**尚未独立验收，不发布**。
 > 当前产品基线：已发布 V2.0.2
-> 本轮候选：**H8-SRC** `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966` / **H8-DEV** 本提交（只改本文件）
-> PLAN 批准 blob：`5313c9c9658f70c0df449826e4dc57b352a7deb0`（含 §20.1–§20.10；H8-SRC 父链携带同一 blob）
-> 发布结论：不发布；H8 独立验收失败
+> 本轮候选：**H8-R1-SRC** 源码修正候选 / **H8-R1-DEV** 本提交（只改本文件）
+> PLAN 批准 blob：`5313c9c9658f70c0df449826e4dc57b352a7deb0`（含 §20.1–§20.10；H8-R1-SRC 父链携带同一 blob）
+> 发布结论：不发布；H8-R1 待独立验收
 
 > **阅读指引（重要）**：第 0 节是 H8 的**唯一权威门禁摘要**；自「§1 本文件用途」起的内容是
 > V2.1.0 历史执行记录（H1–H7 阶段，含早期「PDF 由 ReportLab 手绘」口径）。凡与第 0 节冲突的
@@ -221,6 +223,126 @@ fail closed、Word 进程清理、PreviewAnchor 降级、四阶段归属及终�
 **五维结论：**Function 失败；Structure 通过；Design Fidelity 未覆盖；Integration 的 DOCX/PDF
 与计时部分通过、JD 调用契约失败；Release Gate 失败。最终结论：**FAIL，需修正后形成新候选并重新
 独立验收。**
+
+### H8-R1 集中返工记录（2026-09-12，开发侧验证）
+
+> 本节由开发侧在 H8-R1 返工后撰写，绑定 H8-8 验收失败；**为开发侧验证记录，不代表独立验收通过**，
+> 待独立验收者按「待独立验收问题」复验。
+
+#### 0. 完整身份表（H8-R1）
+
+| 项 | 值 |
+|---|---|
+| branch | `version/v2.1.0` |
+| H8-R1-SRC | `d4ae2fb2f7fe54378d5dcd0a22284db5931aad7f` |
+| H8-R1-SRC parent | `19ac25edd789b7706be5bba53b73a880d7050a1c` |
+| H8-R1-DEV | 本提交（只改本文件） |
+| PLAN blob | `5313c9c9658f70c0df449826e4dc57b352a7deb0` |
+| 工作区 | H8-R1-SRC 与 H8-R1-DEV 提交后均 clean |
+| 变更约束 | H8-R1-SRC..H8-R1-DEV 只能修改 RESULT |
+
+#### 1. 绑定对象与失败
+
+- 绑定失败：H8-8 独立验收 **FAIL**（H8-SRC `a5aa05745ec348dcaa213b4110e7e6f9f0e6e966`）。
+- 失败点 1：普通输入页在 JD 达到条件后经 600ms 防抖自动调用 `services.jd.analyze`，未点击生成即产生 Provider 请求，违反 PLAN §20.5 与 T12-R40。
+- 失败点 2：H8-4 把成功 200 下两次相同的 JD HTTP 请求归因为 SDK 重试；独立负向证明正常 200 不触发重试，两次请求实际来自输入页预分析 + 生成 operation 内正式分析两条业务路径。
+
+#### 2. 根因
+
+1. **测试事件不等价于真实 React 输入**：开发 E2E 使用浏览器 `fill` 设置 `<textarea>` 值，未触发 React `onChange`，故 600ms 防抖预分析路径未被覆盖（漏测）。
+2. **在未验证 SDK 重试条件前错误归因**：未做「成功 200 不重试 / 失败才重试」的边界验证，直接把两个相同成功请求归为 SDK 重试。
+
+#### 3. 修改文件与实际行为
+
+| 文件 | 修改内容 | 实际行为 |
+|---|---|---|
+| `frontend/src/pages/GeneratePage.tsx` | 移除 JD 分析 effect / 600ms 防抖 timer / `analyzing`、`analysis`、`analyzedFor`、`analyzeError` 等状态与依赖 UI；JD 仅保留本地字符数/空值/格式检查；`generateDocx` 不再传前端预分析得到的 `target_position` | 普通输入页零 LLM 预分析：点击「生成岗位简历」前 `/jd/analyze` 请求数 = 0、Provider chat 请求数 = 0、不创建任何 JD 分析 operation |
+| `scripts/h8_deterministic_tests.py` | 新增 P5 组 | 分离「逻辑调用次数」与「Provider HTTP attempt 次数」：成功 200 路径逻辑=1、HTTP attempt=1（正常 200 不重试）；失败 500 路径逻辑=1、HTTP attempt>1（SDK 有限重试），strict 最终抛 `LLMOutputInvalidError` |
+| `scripts/h8_r3_browser.py`（新增） | 真实 React 输入事件回归 | 原生 value setter + input/change、键盘逐字、粘贴、达 60 字等 >600ms、修改已满足长度 JD、点击前等待数秒、点击后完整 operation；覆盖 dev 与正式 production bundle；旧候选（H8-SRC）负向复现预分析 |
+
+后端不变量（未改动、已核实）：`backend/services/resume_generation_service.py` 的生成 operation 内 `jd_analysis` stage 恰好调用一次 `jd_analyzer.analyze_jd(..., strict=True)`；后续选材（select_experiences / select_evidence）、改写（content_generation）与 Builder（resume_build）复用同一分析结果；`rewrite` 的 Provider 请求与 JD 分析分别计数，不混写。`/api/jd/analyze` 路由（`backend/api/routes/jd.py`）按 PLAN §20.5 保留供开发者/API 兼容，普通生成页面不再调用（前端正式 bundle 中 `jd/analyze` 仅存在于 API client 注册，无调用点）。
+
+#### 4. 旧 H8-SRC 可重复失败证据（机器断言）
+
+`scripts/h8_r3_browser.py` 负向阶段在临时 worktree 构建 H8-SRC（`a5aa057…`）前端并复用当前后端，用真实事件复现：
+
+| 场景 | 观测 |
+|---|---|
+| native setter + input/change | `/api/jd/analyze=1`，Provider-jd=1 |
+| 键盘逐字输入 | `/api/jd/analyze=1`，Provider-jd=1 |
+| 粘贴完整 JD | `/api/jd/analyze=1`，Provider-jd=1 |
+| JD 达 60 字 + 等 >600ms | `/api/jd/analyze=1`，Provider-jd=1 |
+| 修改已满足长度的 JD | `/api/jd/analyze=2`，Provider-jd=2 |
+| 输入后点击生成前等数秒 | `/api/jd/analyze=1`，Provider-jd=1 |
+| 点击生成前（s7 pre-click） | `/api/jd/analyze=1`，Provider-jd=1 |
+
+结论：旧候选在真实 React 事件语义下必然复现输入页预分析（点击前 `/jd/analyze>0`），证明 H8-8 失败可重复。
+
+#### 5. 修正后计数（真实事件语义，dev 与 prod 一致）
+
+点击生成前（7 场景全部）：
+
+- `/jd/analyze` 请求数 = **0**；
+- `/generate` 请求数 = **0**；
+- Provider chat 请求增量 = **0**（含 JD 与 rewrite 分离计数均 0）。
+
+点击生成后（完整 operation，dev/prod 各 1）：
+
+- operation 数量增量 = **+1**；
+- operation 内 `jd_analysis` 逻辑分析 = **1**（`jd_stage_started=1`）；
+- 正常 200 路径 JD Provider HTTP 请求 = **1**（`jd_provider_http=1`）；
+- `rewrite` Provider 请求 = **1**（`rewrite_provider_http=1`，单独计数，不与 JD 混写）；
+- 页面无 Hook warning、无 uncaught error、无白屏（`console_errs=[]`、`hook_warns=[]`、`blank=false`）；
+- operation 终态 `SUCCEEDED`。
+
+真实模型 E2E（最终 onedir 包）进一步验证：`jd_analysis_started_events=1`、`content_generation_started_events=1`、Provider 边界 chat=2（JD 分析 2856B ×1 + rewrite 6641B ×1）、`no_4xx_5xx=true`、WINWORD 泄漏 0、下载/落盘/viewer 字节 hash 同源。
+
+#### 6. ReportLab 处置（PLAN §20.2 全仓审计结论）
+
+保留依赖（方案二：存在合法非简历产品用途），证明如下：
+
+- 非产品用途（保留 `reportlab==4.2.2` 的调用点全部位于测试/验证基建，不进产品链）：`backend/_v21_h6_matrix.py`、`backend/_v21_h6_stub.py`、`backend/h6_fixtures/gen_fixtures.py`（确定性 fixture PDF 生成）、`backend/_v21_r9_preview_pdf.py`、`backend/_v21_r17_failures.py`、`backend/_v21_r17a_licensing.py`、`backend/services/pdf_renderer.py`（旧渲染器，spec 已 exclude）、`scripts/h6_browser_matrix.py`（依赖探测 `_PY_DEPS`）。
+- 简历 PDF 产品链零 ReportLab 调用：正式服务链唯一 PDF 来源为 `MicrosoftWordComConverter/1.0-h8`；`backend/services/docx_to_pdf.py` 明确禁止回退 ReportLab/LibreOffice/旧 PDF；`resume_generation_service.py` 中旧 PDF Renderer 零调用、零回退。
+- Word COM 失败时零 ReportLab 回退：fail closed（PDF URL 留空、结果页显示不可用、Word 仍可下载），P2/P4 负向断言覆盖。
+- 最终包仍不包含 ReportLab：`packaging/resume_assistant.spec` `excludes=["reportlab"]`；包内 `reportlab` 命中 = **0**。
+- DOCX→PDF→PDF.js/download 单一链不变：最终包前端 bundle、PDF.js viewer 与下载 URL 同源。
+
+#### 7. 开发侧门禁（命令、退出码、关键计数）
+
+| 命令 | 退出码 | 关键计数 |
+|---|---|---|
+| `python scripts/precheck.py` | 0 | 阻断检查全通过：Python 编译、7 个回归脚本固定计数、`npm run build`、Hooks 门禁 |
+| `python scripts/h8_deterministic_tests.py` | 0 | **PASS=22 FAIL=0**（含新增 P5 两项） |
+| `python scripts/h6_browser_matrix.py --all` | 0 | **PASS=16 FAIL=0**（62 项矩阵 + dev 六场景 + 三视口 + prod 四区域 + verify） |
+| `python scripts/h8_r3_browser.py` | 0 | **PASS=37 FAIL=0**（dev 15 + prod 15 + 旧候选负向 7） |
+| `python scripts/h8_real_model_e2e.py --exe <release-h8-r1>` | 0 | 真实模型链：jd=1/rewrite=1、chat=2、双下载 hash 同源、`no_4xx_5xx=true`、WINWORD 泄漏 0 |
+| `python scripts/h8_package_audit.py --dir <release-h8-r1>` | 0 | **PASS**：4045 文件 / 170,263,739 B / 标记命中 0 / 违禁路径 0 |
+
+#### 8. 新包身份
+
+- 包路径：`D:\demo\resume-assistant\release-h8-r1\ResumeAssistant\`（未覆盖 release-h8 与 X）
+- 清单：`D:\demo\resume-assistant\release-h8-r1\MANIFEST.sha256`（逐文件 SHA-256 + 字节数，4045 行与包全量核对一致）
+- 文件数：**4045**
+- 总字节：**170,263,739**
+- EXE：`ResumeAssistant.exe`，SHA-256 `7790ddf6f2c5a4967391752823489358169aada07ef2f4870ee6e44e52c21500`，16,753,358 字节
+- 前端 bundle：`index-j4eLhL0o.js`（与当前 `frontend/dist` 同 hash），含 R1 修正文案、无 `jd/analyze` 调用点、无 H6 注入标记
+
+#### 9. 已知偏差
+
+- 输入页 JD 仅本地字符数/空值/格式检查，不展示「目标岗位识别结果」预览（属 R1 有意移除，见 PLAN §20.5）。
+- ReportLab 依赖按 §6 保留，属测试/验证基建非产品用途；若后续希望彻底移除，需同时重构 `_v21_*` 验证脚本与 `h6_fixtures` 的 fixture 生成方式。
+- R3 粘贴场景在部分环境剪贴板权限受限时回退为 `DataTransfer` 构造真实 paste 事件（仍真实触发 React `onChange`，与 fill 无关）。
+
+#### 10. 待独立验收问题
+
+1. 独立复跑 `scripts/h8_r3_browser.py`（真实事件回归：dev + 正式 production bundle + 旧候选负向），确认点击前 `/jd/analyze=0`、Provider chat=0；
+2. 独立复跑 `scripts/h8_deterministic_tests.py`（PASS=22，含 P5 计数分离）；
+3. 独立复跑 `scripts/h6_browser_matrix.py --all` 与三视口、ErrorBoundary；
+4. 独立复跑真实模型 E2E（最终 onedir），核对 jd 逻辑=1 / Provider=1、rewrite 单独计数；
+5. 独立复核新包身份（4045 文件 / 170,263,739 B / EXE `7790ddf6…`）、包内零 ReportLab、零测试注入与开发机路径；
+6. 独立核对冻结身份（H8-R1-SRC / H8-R1-DEV 结构、父提交、PLAN blob、clean）。
+
+**开发侧验证结论：R1/R2/R3/R4 已完成，开发侧门禁全绿；本节为开发侧验证记录，不构成独立验收通过。**
 
 ## 1. 本文件用途
 
