@@ -132,3 +132,22 @@
   准备；本次范围冻结本身仍不构成产品源码开发授权。
 - 全局提炼：形成正式 PLAN 时，将“目标导向冻结＋路线可挑战＋目标变化须批准”提炼到
   `docs/HUMAN_AI_WORKFLOW.md`，PLAN 仅引用并定义本版具体 Challenge 决策点。
+
+## VH-006 Design 与开发前技术证据并行，产品实施分两批授权
+
+- 日期：2026-09-13
+- 阶段：V2.2.0 PLAN 准备
+- 触发事实：D-003 设计工作稿已经形成多状态与多视口阶段性证据，但最终 Design Snapshot 尚未冻结；
+  同时，性能基线、SSE 恢复、真实流式边界、经历并发 2、字段断点和任务容量均不依赖最终视觉布局。
+  Product Owner 要求先推进不相干工作，待设计完成后再进行设计相关的第二批开发。
+- Product Owner 决定：
+  1. Design 轨与开发前技术证据轨并行；后者由 Development Evidence Agent 执行，不属于独立验收；
+  2. 技术证据轨不得修改正式产品候选、冻结候选或写发布结论；
+  3. 证据完成后可以先形成只授权设计无关工作的完整 PLAN Revision 1；未获批准前仍无产品源码
+     开发授权；
+  4. Design Snapshot 获批后形成完整 Revision 2 并取代 Revision 1，绑定 `DS-xxx` 后授权设计相关
+     实现与最终集成；这两批是预先批准的依赖拆分，不记为返工轮次；
+  5. 两批产品源码仍由同一 Development Integrator 负责；Acceptance Agent 只在冻结候选后启动。
+- 固定开发基线：正式 tag `v2.1.0`，commit `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`。
+- 全局提炼：分批 PLAN、Design Gate 与角色边界已同步至 `docs/HUMAN_AI_WORKFLOW.md`，长期选择登记为
+  `D-041`。

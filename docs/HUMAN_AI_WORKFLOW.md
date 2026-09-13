@@ -104,6 +104,14 @@ RESULT 栏目；新发现且会改变强制交付内容的要求按 PLAN Revisio
 修订原因、影响范围以及旧候选/证据失效情况写入同版本 `HISTORY.md`。开发 Agent 不得自行修改
 PLAN 或 HISTORY。
 
+对于目标范围已经冻结、设计依赖可以明确隔离的界面版本，Product Owner 可以批准**计划内分批
+授权**：首个完整 PLAN Revision 只授权设计无关的后端、数据、协议、性能或测试工作，并逐项列出
+允许范围、禁止范围和 Design Gate；未批准的 Design 工作稿不得成为隐含实现输入。Design Snapshot
+获批后，由 Documentation Agent 形成一个完整的新 PLAN Revision，`Supersedes` 前版并绑定
+`DS-xxx`，再授权设计相关实现与最终集成。任一时刻仍只有一份当前有效 PLAN；预先声明的第二批不是
+返工轮次。两批源码由同一 Development Integrator 负责，Acceptance Agent 仍只在冻结候选形成后
+进入，不承担开发前技术证据任务。
+
 开发 Agent 完成实现和开发侧 RESULT 后提交候选 `H` 并确认 clean，候选即冻结。文档 Agent 先完成
 机器前置检查和 RESULT 语义交付审查；只有结论为 `DOC_ALIGNED`，才从本地 current 获取 `H`、以不
 发布的本地候选引用保护它，并把 review detached 到 `H`。验收结论只对 `H` 有效。开发分支之后
@@ -126,9 +134,10 @@ Design Agent 可以持续修改 `<design-workspace>/current/`，但 Development 
 → docs/design/baselines/V2.1.0/DS-002
 ~~~
 
-映射不修改原快照；PLAN 必须同时记录源 Snapshot ID、canonical Baseline ID、入口文件、
-manifest SHA-256、批准人、设计现实基线和导入后的文件清单。Documentation Agent 只在编写
-正式 PLAN 时导入当时选中的最新批准快照，并验证每个文件 hash；DRAFT 阶段不提前复制。
+映射不修改原快照；绑定设计的 PLAN Revision 必须同时记录源 Snapshot ID、canonical Baseline ID、
+入口文件、manifest SHA-256、批准人、设计现实基线和导入后的文件清单。Documentation Agent 只在
+编写该 Revision 时导入当时选中的最新批准快照，并验证每个文件 hash；DRAFT 阶段以及只授权设计
+无关工作的早期 Revision 不提前复制，也不得以 `current/` 代替冻结基线。
 
 PLAN 批准后，Development Agent 在该小版本内只认导入的 `DS-xxx` 和 PLAN 实施矩阵，不跟随
 Design Agent 后续工作稿或新快照。普通视觉、非阻塞交互和文案变化进入下个版本；只有影响
@@ -173,9 +182,10 @@ docs/README
 → 必要时读取 DECISIONS 或更早版本 RESULT
 ~~~
 
-默认不读取全部历史文档。界面版本的 PLAN 必须把选中的本地 Design Snapshot 映射为 canonical
-`DS-xxx`、完成 hash 校验，并用实施矩阵明确哪些页面/状态接 Real API、哪些是 Preview、哪些
-隐藏或不实施；不得把整份设计快照自动解释成开发范围。
+默认不读取全部历史文档。授权设计相关实现的 PLAN Revision 必须把选中的本地 Design Snapshot
+映射为 canonical `DS-xxx`、完成 hash 校验，并用实施矩阵明确哪些页面/状态接 Real API、哪些是
+Preview、哪些隐藏或不实施；不得把整份设计快照自动解释成开发范围。若采用计划内分批授权，早期
+Revision 必须明确标记 Design Gate，且不能授权任何需要猜测该快照的可见实现。
 
 ### 验收版本文档
 
