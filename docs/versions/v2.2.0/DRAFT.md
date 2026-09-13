@@ -774,6 +774,56 @@ Product Owner 于 2026-09-12 进一步澄清：Documentation Agent 的交接判�
 6. 固定模板 HTML 过程预览的 Design Snapshot，以及生成中和最终 PDF 切换时的布局稳定性；
 7. 临时任务冻结 schema 的容量估算、物理上限和不会误删活动任务/最终 artifact 的清理实现。
 
+### 4.6 技术证据轨收口（2026-09-13）
+
+本节只记录开发前证据，不授权产品源码开发，也不把候选参数提前写成已批准合同。证据来自正式
+`v2.1.0` 发布基线的隔离运行，原始入口位于
+`validation-artifacts/v2.2-preplan/`：
+
+- `deepseek-v4-pro-ga-260813` 对 `reasoning_effort=minimal` 的行为稳定，3/3 Fact 输出通过
+  typed parse，并保持 `experience_id / fact_id` 绑定；`reasoning_effort=low` 在本次探针中未按预期
+  关闭 reasoning，不能作为冻结参数；
+- “单次复杂结构化流同时携带 Fact 与 reason”只有 1/3 能稳定绑定 reason，且不能满足“Fact 整条出现、
+  旁侧理由逐字输出”的交互语义，因此该路线已被证据否定；
+- 可行路线为“紧凑 JD 结构化 → 本地召回与 JD 阶段重叠 → 按经历两阶段”：每个经历先返回不含
+  reason 的结构化 `headline + body`，完整校验后整条进入预览，再以单独普通文本流输出绑定该
+  `fact_id` 的 reason；reason 流失败时保留已完成 Fact，并以完整 reason 事件补偿或显示明确失败；
+- 上述紧凑路线按点击生成计时，包含 JD 分析与首个 Fact，3/3 为 12.26 / 12.86 / 13.02 秒；当前
+  V2.1.0 同步路线首个 Fact 为 50.57～114.24 秒，不能达到 15 秒目标。3 次样本证明路线可行但余量
+  只有约 2 秒，最终集成仍须重新执行同口径门禁；
+- V2.1.0 基线：典型 cold `n=5, median=89.49s, max=111.21s`，典型 warm
+  `n=4, median=84.48s, max=105.78s`；长样例 cold `n=4, median=94.32s, max=122.82s`，
+  warm `n=3, median=97.92s, max=125.24s`。短样例 cold 4/4、warm 3/3 均在
+  `TemplateRenderer.render` 触发 `TemplateError`，因此短样例当前只形成正确性阻断，不能伪造成功
+  耗时或纳入成功中位数；
+- 经历级最大并发 2 的 Provider 对照明显快于串行，且本轮绑定与顺序检查通过；并发 3 未验证，也不在
+  V2.2.0 范围；
+- 权威快照、SSE `seq` 去重/缺口重取、刷新恢复与旧 revision fence 已形成确定性最小纵切；联系方式
+  能进入 ResumeDocument、DOCX 与 PDF，教育字段仍存在 `（本科）（）` 断点，后者必须作为开发任务
+  修复；
+- 长任务状态峰值实测约 26.9 KiB，活动/取消中任务、当前页面引用对象以及已发布 revision/artifact
+  的保护测试为 0 违规。测量支持为状态与事件设置 256 KiB 级硬上限，但 artifact 文件正文必须与状态
+  字节分开计算。
+
+据此，正式 PLAN 的参数冻结必须消除以下歧义：
+
+1. 逻辑 LLM 调用预算写成 `1 + 2N`（一次 JD，N 次 Fact，N 次 reason），Embedding 调用与缓存命中
+   单独计数，不能把 Embedding 隐藏在该公式里；
+2. retry 必须同时写明“最多几次重试”和“最多几个 HTTP attempt”，不能只写“上限 2”；
+3. Token 上限分别冻结 JD、Fact、reason 的单次 attempt 与整个任务总预算；不能把“每经历 800”同时
+   当成 Fact、reason 和重试后的总量；
+4. 页面离开只触发状态保存/断开 SSE，不触发任务或 artifact 删除。清理只在启动、任务终态和容量阈值
+   扫描执行；`RUNNING / CANCELLING`、当前任务、已发布 ResumeRevision 引用的 DOCX/PDF 永不因临时
+   状态清理被删除；
+5. 一次本地 profile 只允许一个前台活动任务；“最多 20 条”只用于终态/孤立临时记录的容量保护，不能
+   被实现成 20 个可同时运行的生成任务；
+6. 真实性能统计使用固定样本、`n >= 3`、中位数和最大值，不在小样本上报告 P95；人民币单价在当前
+   证据不可得时，以逻辑调用、HTTP attempt、prompt/completion token 作为本版本可执行成本门禁，并
+   在 RESULT 如实标注人民币成本不可得。
+
+以上路线结论属于证据驱动的技术收口；15 秒、总耗时降低 25%、具体 Token/容量/保留数字仍须由
+Product Owner 随 PLAN Revision 1 一次批准。
+
 ## 5. 范围冻结后的 PLAN 准备动作
 
 当前不再把已确认事项继续列为开放需求。Product Owner 于 2026-09-13 批准把 PLAN 准备拆成可并行
