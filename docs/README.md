@@ -5,7 +5,7 @@
 > 当前已验收版本：V2.1.0；源码验收对象为 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
 > 当前已发布版本：V2.1.0；重新创建的 annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；功能验收、预检标题修正、重新验证与重发均已完成
-> 下一开发草稿：V2.2.0；任务连续性、四阶段渐进输出、按经历并行生成、性能优化及新交付工作流已记录但尚未进入正式 PLAN；V2.1.1 仅保留给必要紧急修复
+> 下一开发版本：V2.2.0；设计无关的 PLAN Revision 1 已形成并等待 Product Owner 批准，Design Snapshot 获批后再形成 Revision 2；V2.1.1 仅保留给必要紧急修复
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。

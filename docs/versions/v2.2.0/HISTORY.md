@@ -175,3 +175,19 @@
   触发点和单活动任务约束分别冻结。
 - 当前状态：技术证据轨完成；候选性能、Token/调用、容量与保留参数等待 Product Owner 一次批准。
   该事件不构成产品源码开发或验收完成。
+
+## VH-008 参数边界获批，反思机制迁入全局
+
+- 日期：2026-09-13
+- 阶段：V2.2.0 PLAN Revision 1 准备
+- Product Owner 决定：批准 VH-007 的两阶段路线、15 秒首 Fact、同样例总耗时中位数降低 25%、
+  经历并发 2、调用/重试、Token 总预算、任务容量与保留边界；紧凑 JD 的 1024 completion tokens 是
+  默认值，允许开发在 512～2048 内用证据调整，不是不可变常量。
+- 边界澄清：原始 JD 输入与结构化 JD 输出是两种容量；不得因输出上限静默截断用户 JD。允许区间内
+  调参不产生 PLAN Revision，但超出区间、降低性能目标、增加逻辑调用或任务总预算必须发起
+  Architecture Challenge。
+- 全局迁移：DRAFT §3.8 的长期反思规则已经提炼到 `docs/HUMAN_AI_WORKFLOW.md` §3.4，并登记
+  `DECISIONS.md` D-042；开发不需要读取 DRAFT 才能获得 Pre-mortem、Architecture Check、
+  Falsification Check、证据等级和 `CHALLENGE_OPEN` 规则。
+- 下一步：形成只授权设计无关实现的完整 PLAN Revision 1；Design Snapshot 获批后再由 Revision 2
+  取代，导入设计并授权可见布局与最终集成。

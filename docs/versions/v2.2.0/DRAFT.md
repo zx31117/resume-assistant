@@ -821,8 +821,28 @@ Product Owner 于 2026-09-12 进一步澄清：Documentation Agent 的交接判�
    证据不可得时，以逻辑调用、HTTP attempt、prompt/completion token 作为本版本可执行成本门禁，并
    在 RESULT 如实标注人民币成本不可得。
 
-以上路线结论属于证据驱动的技术收口；15 秒、总耗时降低 25%、具体 Token/容量/保留数字仍须由
-Product Owner 随 PLAN Revision 1 一次批准。
+以上路线结论属于证据驱动的技术收口。Product Owner 于 2026-09-13 批准按以下边界形成 PLAN
+Revision 1：
+
+- 模型与协议默认值为 `deepseek-v4-pro-ga-260813`、Ark 北京、`temperature=0`、
+  `response_format=json_object`、`reasoning_effort=minimal`；按经历两阶段，最大并发 2；
+- 紧凑 JD 结构化输出默认上限 1024 completion tokens，开发可在 512～2048 范围内依据边界样例调整；
+  原始 JD 输入容量单独定义，禁止静默截断。超出区间或改变用户输入边界必须先发起 Challenge；
+- 允许区间内的最终参数必须同时通过结构完整、首 Fact 15 秒、总耗时、调用次数和任务 16k completion
+  token 总预算，并在 RESULT 记录，不为普通调参形成 PLAN Revision；
+- 正常 LLM 逻辑调用为 `1 + 2N`，Embedding 单列；单逻辑调用最多重试 2 次，即最多 3 个 HTTP
+  attempt。JD、Fact、reason 的单 attempt 上限分别定义并受任务总预算约束；
+- 代表性固定样例以点击生成计时，真实状态不晚于 1 秒、首个完整 Fact 的 `n >= 3` 中位数与最大值
+  均不晚于 15 秒；同样例总耗时中位数相对 V2.1.0 至少降低 25%；短样例先修复 TemplateError；
+- 每任务状态与事件/快照分别以 256 KiB 为硬上限，一次本地 profile 只允许一个前台活动任务；最多
+  保留 20 条终态/孤立临时记录，artifact 正文之外的临时状态总量上限为 16 MiB；
+- 未提交草稿及 `FAILED/CANCELLED` 状态保留 24 小时，成功工作台状态保留到开始新任务，已发布简历
+  保留到用户主动删除；页面离开不触发删除，清理只在启动、任务终态和容量阈值扫描执行；
+- 成本门禁使用逻辑调用、HTTP attempt 与 prompt/completion token；人民币成本不可得时如实记录，
+  不伪造金额。样本使用 `n >= 3`、中位数与最大值，小样本不报告 P95。
+
+以上批准冻结产品结果、风险边界和参数调节范围，不把默认值误写为永远不可修改。允许范围内由开发
+证据决定最终值；超出范围、降低目标或增加调用/总预算必须进入 Architecture Challenge。
 
 ## 5. 范围冻结后的 PLAN 准备动作
 
