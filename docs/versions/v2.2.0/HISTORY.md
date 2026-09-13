@@ -191,3 +191,19 @@
   Falsification Check、证据等级和 `CHALLENGE_OPEN` 规则。
 - 下一步：形成只授权设计无关实现的完整 PLAN Revision 1；Design Snapshot 获批后再由 Revision 2
   取代，导入设计并授权可见布局与最终集成。
+
+## VH-009 修复“规则已存在但新 Agent 不可发现”的阅读入口
+
+- 日期：2026-09-13
+- 阶段：V2.2.0 PLAN Revision 1 审阅
+- 触发事实：Product Owner 指出 Development 的既有默认路径为 `docs/README → CURRENT_STATE →
+  PLAN → 源码`，而新迁入的反思机制位于 `HUMAN_AI_WORKFLOW.md`；该文件头又写着“不进入开发
+  Agent 默认上下文”。即使 PLAN 正文引用 §3.4，新 Agent 仍可能不知道哪些全局章节是强制输入。
+- 根因：文档拥有权与可发现性被分开维护，只完成了“规则落盘”，没有同时更新从唯一开发入口出发的
+  角色路由；这是入口合同缺口，不是开发 Agent 的阅读疏忽。
+- 修正：`docs/README.md` 新增 §0 Agent 执行入口；`HUMAN_AI_WORKFLOW.md` 明确“不全文默认读取”
+  不等于“不读取 PLAN 点名章节”；V2.2.0 PLAN 顶部新增 Required Reading，精确列出开发必须重读的
+  权限、冻结、反思、开发职责和上下文控制章节。
+- 防复发：以后新增或迁移全局工作流规则时，Documentation Agent 必须同时检查三个入口：
+  `docs/README` 的角色路由、当前 PLAN 的 Required Reading、目标全局文件自己的阅读说明。只改规则
+  正文而未更新入口，文档 Gate 不得判为完成。

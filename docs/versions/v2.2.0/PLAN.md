@@ -10,6 +10,19 @@
 > Design Baseline：无；Design Gate 关闭  
 > 批准 commit / PLAN blob：批准后由 Documentation Agent 登记
 
+## Required Reading（Development Agent 必读）
+
+按以下顺序读取，读完后在 RESULT 的身份区逐项确认；缺一项不得开始实现：
+
+1. `docs/README.md` §0、§1～§5；
+2. `docs/CURRENT_STATE.md`；
+3. 本 PLAN 全文；
+4. `docs/HUMAN_AI_WORKFLOW.md` §3.1（权限）、§3.2（PLAN/候选）、§3.4（强制反思与
+   Architecture Challenge）、§6（开发职责）、§11（上下文控制）。
+
+本 Revision 没有 Design Baseline，不读取 Design Agent 的工作稿。无需默认读取 DRAFT、HISTORY、
+完整 DECISIONS 或历史 RESULT；只有本 PLAN 明确点名时才定向读取。
+
 ## 0. 合同性质
 
 本文件是 V2.2.0 当前唯一可执行开发合同。Revision 1 只授权不依赖最终 Design Snapshot 的数据、

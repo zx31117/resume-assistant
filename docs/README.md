@@ -10,6 +10,22 @@
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
 
+## 0. Agent 执行入口
+
+新 Agent 从本文开始时，必须先确认自己的角色，再按下表读取；不能因为某份规则“不在默认全文阅读
+路径”就忽略当前 PLAN 明确引用的章节：
+
+| 角色 | 最小必读路径 |
+|---|---|
+| Development | 本文 → `CURRENT_STATE.md` → 当前版本 `PLAN.md` → PLAN“Required Reading”列出的 `HUMAN_AI_WORKFLOW.md` 定向章节 → PLAN 绑定的 Design Baseline（如有） → 源码与相关测试 |
+| Documentation | 本文 → `CURRENT_STATE.md` → 上一版本 RESULT → 当前需求/DRAFT/PLAN → 按需读取 DECISIONS 与 `HUMAN_AI_WORKFLOW.md` |
+| Acceptance | 当前 PLAN → 当前 RESULT → RESULT“待独立验收问题” → `HUMAN_AI_WORKFLOW.md` §7、§8、§11 → 相关源码与失败路径 |
+| Design | 本文的产品目标/边界 → 当前设计任务与已批准 Design Snapshot → `HUMAN_AI_WORKFLOW.md` §3.1、§3.3 |
+
+`HUMAN_AI_WORKFLOW.md` 不要求所有角色每次全文重读，但其中被当前 PLAN 点名的章节属于强制开发
+上下文。发生上下文压缩、任务恢复、角色切换或长时间中断后，必须重新读取当前 PLAN 的
+“Required Reading”，不能只依赖会话摘要。
+
 文档的核心目的是留存开发经验：记录问题、方案、决策依据、实际结果和计划偏差，供后续回忆与他人学习。能依据记录复刻当时的开发路径，是检验记录完整度的标准，不是项目目的。
 
 ## 1. 产品目标

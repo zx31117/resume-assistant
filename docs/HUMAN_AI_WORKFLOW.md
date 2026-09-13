@@ -2,7 +2,7 @@
 
 > 文档性质：协作方式留存  
 > 不属于产品、架构或版本开发文档  
-> 不进入开发 Agent 的默认上下文  
+> 不要求开发 Agent 默认全文读取；当前 PLAN 明确引用的定向章节属于强制上下文
 > 首次记录：2026-08-15
 > 最近更新：2026-09-13
 
@@ -254,11 +254,14 @@ Design Baseline、范围、技术路线、失败边界与偏差是否完整且�
 docs/README
 → CURRENT_STATE
 → 当前版本 PLAN
+→ PLAN 的 Required Reading 点名的 HUMAN_AI_WORKFLOW 定向章节
 → PLAN 绑定的 canonical Design Baseline（如适用）
 → 源码和相关测试
 ~~~
 
-只有 PLAN 明确要求理解某项历史决策时，才读取对应的 `DECISIONS.md` 或历史 RESULT。
+不要求 Development Agent 每次全文读取本工作流；但 PLAN 点名的权限、冻结、反思、交付和上下文
+章节属于本轮强制开发输入。只有 PLAN 明确要求理解某项历史决策时，才读取对应的 `DECISIONS.md`
+或历史 RESULT。
 
 用户批准后的 PLAN 对开发 Agent 只读。开始实现前必须核对批准 commit/blob；若 PLAN 缺失、不可执行或需要扩展范围，停止并交由文档 Agent 修订，不能自行修改 PLAN、以 RESULT 反向改变任务范围或用源码事实覆盖批准契约。
 
