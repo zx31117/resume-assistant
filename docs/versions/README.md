@@ -36,7 +36,7 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 
 | 版本 | 定位 | 计划 | 结果 | 状态 |
 |---|---|---|---|---|
-| V2.2.0 | 任务连续性、渐进生成、性能优化与新工作流首轮应用 | [PLAN](./v2.2.0/PLAN.md) / [DRAFT](./v2.2.0/DRAFT.md) / [HISTORY](./v2.2.0/HISTORY.md) | — | PLAN Revision 1 已形成，待 Product Owner 批准；仅授权设计无关第一批 |
+| V2.2.0 | 任务连续性、渐进生成、性能优化与新工作流首轮应用 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | — | PLAN Revision 1 已批准；仅授权设计无关第一批，等待开发 checkpoint |
 
 ## 阶段需求池（非开发指令）
 
@@ -66,5 +66,5 @@ V1.0.0 PLAN → V1.0.0 RESULT
 → V2.0.1 PLAN → V2.0.1 RESULT
 → V2.0.2 PLAN → V2.0.2 RESULT
 → V2.1.0 PLAN → V2.1.0 RESULT
-→ V2.2.0 DRAFT → V2.2.0 HISTORY（仅在追查修订与事故时）
+→ V2.2.0 PLAN → V2.2.0 HISTORY（仅在追查修订与事故时）
 ~~~

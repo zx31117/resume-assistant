@@ -2,13 +2,13 @@
 
 > Plan Revision：1  
 > Supersedes：无；由 V2.2.0 DRAFT 范围基线转入  
-> 状态：待 Product Owner 批准  
+> 状态：已批准
 > 日期：2026-09-13  
 > 产品源码基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`  
 > 开发路径：`<current-workspace>` 的 `version/v2.2.0`  
 > 本 Revision 授权：第一批、仅设计无关实现  
 > Design Baseline：无；Design Gate 关闭  
-> 批准 commit / PLAN blob：批准后由 Documentation Agent 登记
+> 批准 commit / PLAN blob：见同目录 `HISTORY.md` 的 VH-010；本次状态变更不改变已批准的产品合同
 
 ## Required Reading（Development Agent 必读）
 

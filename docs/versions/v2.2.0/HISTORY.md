@@ -207,3 +207,18 @@
 - 防复发：以后新增或迁移全局工作流规则时，Documentation Agent 必须同时检查三个入口：
   `docs/README` 的角色路由、当前 PLAN 的 Required Reading、目标全局文件自己的阅读说明。只改规则
   正文而未更新入口，文档 Gate 不得判为完成。
+
+## VH-010 PLAN Revision 1 获 Product Owner 批准
+
+- 日期：2026-09-13
+- 阶段：V2.2.0 PLAN Revision 1 → 第一批开发授权
+- Product Owner 决定：批准 V2.2.0 Revision 1 的产品目标、两阶段流式路线、经历并发 2、任务连续性、
+  实际取消、性能/Token/容量边界、内容修正和 RESULT Delivery Contract；授权范围仍限于设计无关第一批。
+- 批准范围：紧凑 JD 输出默认 1024 completion tokens，允许在 512～2048 内由证据调节；正常 LLM
+  调用按最终 Fact 数量 `F` 计算为 `1 + 2F`；Fact/reason 两阶段、Embedding 单独计数；超出授权区间或改变
+  产品目标、调用/总预算、Design Gate 或强制验收合同必须发起 Architecture Challenge。
+- 身份：用户批准的合同内容基线为前一提交 `50c4f23` 中的 PLAN blob `55624b0051e5079d96314f082ce820ffdb03b9f1`；本次
+  收口只把状态标为“已批准”、移除活动 DRAFT 入口并更新索引，不改变合同语义。正式收口提交及新的
+  PLAN blob 在本节后续补录。
+- 下一步：将批准的 PLAN 同步到固定开发路径 `<current-workspace>`，切换活动版本分支；开发必须先完成
+  Required Reading、Pre-mortem 和 T01，再开始源码实现。
