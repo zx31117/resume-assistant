@@ -5,7 +5,7 @@
 > 当前已验收版本：V2.1.0；源码验收对象为 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
 > 当前已发布版本：V2.1.0；重新创建的 annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；功能验收、预检标题修正、重新验证与重发均已完成
-> 下一开发草稿：V2.1.1；跨页面工作台状态保持、反思/路线挑战与快速交付工作流已记录但尚未进入正式 PLAN；“生成历史”等后续 V2 能力继续保留在 [V2 需求池](./versions/V2_REQUIREMENTS_POOL.md)
+> 下一开发草稿：V2.2.0；任务连续性、四阶段渐进输出、按经历并行生成、性能优化及新交付工作流已记录但尚未进入正式 PLAN；V2.1.1 仅保留给必要紧急修复
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -103,7 +103,7 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | `design/baselines/<version>/DS-xxx/` | 正式 PLAN 导入并绑定的不可变设计基线；设计获批不等于能力已实现 |
 | `versions/<version>/PLAN.md` | 该版本当前唯一有效的执行合同 |
 | `versions/<version>/RESULT.md` | 该版本实际完成什么、偏差、证据和验收结论 |
-| `versions/<version>/HISTORY.md` | V2.1.1 起记录重要事件、PLAN 修订和候选失效历史；不是开发指令 |
+| `versions/<version>/HISTORY.md` | V2.2.0 起记录重要事件、PLAN 修订和候选失效历史；不是开发指令 |
 
 规则：PLAN 规定要做什么，RESULT 记录实际做了什么，CURRENT_STATE 只记录已经验收的事实。
 Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定哪些内容进入开发。
@@ -111,7 +111,7 @@ Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定�
 版本目录同时遵守以下结构约束：
 
 1. 版本号和目录统一采用三段式：文档显示为 `V<major>.<minor>.<patch>`，目录为 `v<major>.<minor>.<patch>`；已经发布的历史 Git tag 保留原名，不因文档规范化而移动或重建。
-2. V2.1.0 及以前正式版本保持 `PLAN.md` 与 `RESULT.md` 的历史结构；V2.1.1 起正式版本目录使用
+2. V2.1.0 及以前正式版本保持 `PLAN.md` 与 `RESULT.md` 的历史结构；V2.2.0 起正式版本目录使用
    `PLAN.md`、`RESULT.md` 与 `HISTORY.md`。尚未立项时以 `DRAFT.md` 为草稿入口，已经批准的版本级
    流程决策可以先记入 HISTORY，但不构成开发授权。
 3. HISTORY 只记录 P0/P1、技术路线推翻、重复问题、候选/包身份错误、路径/工作区事故、跨角色
@@ -130,7 +130,7 @@ linked worktree；`<design-workspace>` 只保存 Design Agent 工作稿与本地
 
 ## 7. RESULT 最低交付契约
 
-以下是全局最低要求。V2.1.1 起，每个正式 PLAN 必须在开发开始前给出本版本的
+以下是全局最低要求。V2.2.0 起，每个正式 PLAN 必须在开发开始前给出本版本的
 `RESULT Delivery Contract`，把适用 PLAN ID、开发 Gate、证据摘要、候选/包身份、偏差和“待独立
 验收问题”模板具体化。文档 Agent 按该合同审查，不在开发声称完成后临时新增 RESULT 交付栏目。
 
@@ -140,7 +140,7 @@ linked worktree；`<design-workspace>` 只保存 Design Agent 工作稿与本地
 2. **实际全局变化**：分别说明 API、数据表/模型、模块职责、配置/依赖是否变化；没有变化也要明确写“无”；
 3. **验证表**：每项验证标记为“通过”“失败”“未执行”或“待独立验收”，并记录简短证据或未执行原因。
 4. **两类开发侧验证结论**：分别记录“功能验证”和“结构变更验证”；后者没有适用变化时写“不适用”，不得冒充独立验收。
-5. **V2.1.1 起的交付映射**：逐项记录 PLAN ID、用户要求/产品结果、开发理解、实际交付、可复核
+5. **V2.2.0 起的交付映射**：逐项记录 PLAN ID、用户要求/产品结果、开发理解、实际交付、可复核
    证据和已知偏差，供文档 Agent 核对理解是否一致。
 6. **待独立验收问题**：列明需要验收 Agent 从源码、失败路径、原始运行证据或最终包中确认的事实；
    不得把开发尚未完成的强制自测或开发证据转交验收补跑。
@@ -150,7 +150,7 @@ linked worktree；`<design-workspace>` 只保存 Design Agent 工作稿与本地
 用户批准 PLAN 后，文档 Agent 记录批准 commit、PLAN Revision、路径和 blob；开发 Agent 与验收
 Agent 对该 PLAN 只读。开发 Agent 只在候选冻结前更新 RESULT 的实施、自测和偏差，冻结后由文档
 Agent 记录源码验收、人工验收、文档收口与发布状态。V2.1.0 及以前保留已经形成的追加式 PLAN；
-V2.1.1 起只有产品范围、技术路线、Design Baseline 或强制验收合同实质变化时才产生新 Revision，
+V2.2.0 起只有产品范围、技术路线、Design Baseline 或强制验收合同实质变化时才产生新 Revision，
 当前 PLAN 改写为完整、独立、唯一有效的新合同，旧全文由 Git 保存，变化原因和身份影响写入 HISTORY。
 
 替换、废弃、统一、迁移或事实来源变更必须同时证明：新状态生效、旧状态退出、其他链路无回归。
@@ -173,7 +173,7 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 |---|---|
 | 公开用途、安装、运行、配置、隐私边界或用户可见能力 | 根 `../README.md` |
 | 版本实际实现、测试和偏差 | 当前版本 `RESULT.md` |
-| 版本内重要事件、PLAN 修订、候选或证据失效 | 当前版本 `HISTORY.md`（V2.1.1 起） |
+| 版本内重要事件、PLAN 修订、候选或证据失效 | 当前版本 `HISTORY.md`（V2.2.0 起） |
 | 已验收能力、API、数据模型、模块、运行基线和缺口 | `CURRENT_STATE.md` |
 | 稳定产品目标、版本边界或架构不变量 | `README.md` |
 | 影响后续版本的重要选择或既有决策状态变化 | `DECISIONS.md` |
