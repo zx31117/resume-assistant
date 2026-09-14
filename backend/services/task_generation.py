@@ -20,7 +20,9 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import queue
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -137,15 +139,34 @@ def _process_experience(
     budget: llm_service.TaskTokenBudget,
     provider: object | None,
     run_ctx: TaskRunContext,
+    progress_q: Optional["queue.Queue"] = None,
 ) -> GeneratedExperience:
-    """同一经历内按 Fact 串行：Fact 结构化 + reason。返回结果，不写 DB。"""
+    """同一经历内按 Fact 串行：Fact 结构化 + reason。返回结果，不写 DB。
+
+``progress_q`` 非空时，通过线程安全队列把**已完成的 Fact**（结构化 + 绑定校验）立刻
+传给编排主线程发布 fact.done，且 reason 单独以 reason.delta 发布——使"首个完整
+Fact"以它真正完成的时间出现，而不是被挂到整段经历全部调用结束才统一写入（后者会
+让首 Fact 计时被后续经历拉长）。不改变调用公式（仍 1+2F）、并发上限（MAX_WORKERS=2）
+与任何内容/校验。队列项字面约定：
+  ("fact",   experience_id, GeneratedFact)  → 主线程发 fact.done
+  ("reason", experience_id, fact_id, reason) → 主线程发 reason.delta
+"""
     compact_dict = _compact_dict(compact)
     facts: list[GeneratedFact] = []
     for src in prep.facts:
         run_ctx.assert_writable()  # fence + 取消信号（安全点）
         fact, _ = _fact_call(compact_dict, prep, src, budget, provider)
+        # Fact（headline/body/fact_refs，已绑定+校验）在结构化调用返回即“完整”；
+        # 立即发布，使“首个完整 Fact”以它真正完成时刻出现。reason 是旁侧渐进叙事，
+        # 单独以 reason.delta 发布（schema：真增量流输出），不再阻塞 fact.done。
+        if progress_q is not None:
+            progress_q.put(("fact", prep.experience_id, GeneratedFact(
+                fact_id=fact.fact_id, headline=fact.headline, body=fact.body,
+                fact_refs=list(fact.fact_refs), reason="")))
         reason, _ = _reason_call(compact_dict, fact, budget, provider)
         run_ctx.assert_writable()
+        if progress_q is not None:
+            progress_q.put(("reason", prep.experience_id, fact.fact_id, reason))
         facts.append(GeneratedFact(
             fact_id=fact.fact_id, headline=fact.headline, body=fact.body,
             fact_refs=list(fact.fact_refs), reason=reason,
@@ -289,32 +310,57 @@ def generate_task(
 
     run_ctx.assert_writable()
 
-    # ── P3 Fact＋reason（经历并发 2，经历内 Fact 串行） ──
+    # ── P3 Fact＋reason（经历并发 2，经历内 Fact 串行，逐 Fact 渐进发布） ──
     merged: list[GeneratedExperience] = []
     if prepared:
         workers = min(len(prepared), MAX_WORKERS)
+        progress_q: queue.Queue = queue.Queue()
+
+        def _drain_progress() -> None:
+            """把已完成的 Fact/reason 事件从线程安全队列转到主线程 DB（单写者，seq 单调）。
+
+            队列项为两元字面（见 ``_process_experience``）：
+              ("fact", exp_id, gf)         → fact.done（首个完整 Fact 以其真实完成时刻发布）
+              ("reason", exp_id, fact_id, r) → reason.delta（旁侧渐进叙事，紧随对应 fact）
+            """
+            while True:
+                try:
+                    kind = progress_q.get_nowait()
+                except queue.Empty:
+                    return
+                if kind[0] == "fact":
+                    _exp_id, gf = kind[1], kind[2]
+                    repo.append_event(task, input_revision=input_revision.get("revision", 0),
+                                      event_type="fact.done", phase="P3",
+                                      payload={"experience_id": _exp_id,
+                                               "fact_id": gf.fact_id, "headline": gf.headline,
+                                               "body": gf.body, "fact_refs": list(gf.fact_refs)})
+                elif kind[0] == "reason":
+                    _exp_id, _fact_id, _reason = kind[1], kind[2], kind[3]
+                    repo.append_event(task, input_revision=input_revision.get("revision", 0),
+                                      event_type="reason.delta", phase="P3",
+                                      payload={"fact_id": _fact_id, "delta": _reason})
+
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="taskGen") as ex:
-            futures = {ex.submit(_process_experience, prep, compact, budget, provider, run_ctx): prep
+            futures = {ex.submit(_process_experience, prep, compact, budget, provider,
+                                 run_ctx, progress_q): prep
                        for prep in prepared}
+            pending = set(futures)
             try:
-                for fut in as_completed(futures):
-                    prep = futures[fut]
-                    res = fut.result()  # 取消/失败在此抛出
-                    # 主线程写 DB：子任务状态 + 快照 + 事件（按完成序渐进发布）
-                    repo.update_subtask(
-                        task, prep.experience_id, status=task_core.SubtaskStatus.SUCCEEDED,
-                        fact_results=[_fact_result_view(f) for f in res.facts],
-                    )
-                    for f in res.facts:
-                        repo.append_event(task, input_revision=input_revision.get("revision", 0),
-                                          event_type="fact.done", phase="P3",
-                                          payload={"experience_id": prep.experience_id,
-                                                   "fact_id": f.fact_id, "headline": f.headline,
-                                                   "body": f.body, "fact_refs": list(f.fact_refs)})
-                        repo.append_event(task, input_revision=input_revision.get("revision", 0),
-                                          event_type="reason.delta", phase="P3",
-                                          payload={"fact_id": f.fact_id, "delta": f.reason})
-                    merged.append(res)
+                while pending:
+                    _drain_progress()  # a) 首完整 Fact 以其真实完成时刻发布（不等整段经历）
+                    newly = [f for f in pending if f.done()]
+                    for fut in newly:  # b) 收集已完成经历；事件已在 a) 逐 Fact 发布
+                        pending.discard(fut)
+                        prep = futures[fut]
+                        res = fut.result()  # 取消/失败在此抛出
+                        repo.update_subtask(
+                            task, prep.experience_id, status=task_core.SubtaskStatus.SUCCEEDED,
+                            fact_results=[_fact_result_view(f) for f in res.facts],
+                        )
+                        merged.append(res)
+                    if pending and not newly:
+                        time.sleep(0.02)
             except BaseException:
                 # 同任务下将未完成子任务标 FAILED（最终态由 run_generation 决定）
                 try:
@@ -326,6 +372,7 @@ def generate_task(
                 except Exception:
                     pass
                 raise
+            _drain_progress()  # 兜底：经历全完成后榨干最后几格队列（无 Fact 事件被挂起）
         # 完成顺序不得改变模板顺序：按冻结 sort_order 合并
         merged.sort(key=lambda x: x.sort_order)
     else:

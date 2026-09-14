@@ -72,6 +72,9 @@ input/*.docx
 # ===== 验收产物（验收时生成，含本机路径，不入仓库；目录重命名后仍对所有版本生效）=====
 docs/versions/*/validation-artifacts/
 /validation-artifacts/
+# 任意层级下的验证/验收产物目录均不入仓库（含 backend/validation-artifacts/ 等本机过程证据）
+**/validation-artifacts/
 
 # ===== Agent 产物（会话/缓存，不入仓库）=====
 .workbuddy/
+.trae/

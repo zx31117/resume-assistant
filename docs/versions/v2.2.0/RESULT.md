@@ -1,17 +1,19 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收** — `BATCH1_DEV_VERIFIED`
+> 当前状态：**待验收** — `BATCH1_DEV_VERIFYING`
 > 当前阶段：Revision 1 / 第一批（仅设计无关后端实现）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 1，blob `324302a0ef6d81214c752d12281c221f2550f320`（VH-010 记录）
+> 语义交接：**DOC\_RETURNED**（开发侧 RESULT 被退回返工；本版为返工处置结果）
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 1 不产生可发布
-> 候选，也不启动独立 Acceptance；`BATCH1_DEV_VERIFIED` 表示开发 Gate 已收口（T01–T11 全部
-> 完成，含真实 onedir 重建 + 隔离启动验证），但**仍未做 T10 手动验收 / 独立 Acceptance**，
-> 不代表任何独立验收结论或可发布状态。全局文档（CURRENT\_STATE / docs/README / README /
-> DECISIONS）的更新需待 T10 手动验收通过后再由用户 / Doc/ 文档 Agent 执行。
+> 候选，也不启动独立 Acceptance；`BATCH1_DEV_VERIFYING` 表示开发 Gate **尚未收口**，**不得
+> 声称 T01–T11 全部完成或开发 Gate 全 PASS**。T10 是开发侧 Architecture Check（只读核对产品
+> 不变量是否在真实路径成立），**不存在“用户 / Doc Agent 手动 T10”**；Revision 1 完成或本批
+> 返工完成后也不进入独立验收。全局文档（CURRENT\_STATE / docs/README / README / DECISIONS）
+> 由用户 / Doc Agent 在适当时机更新，本批不触碰，也不把任何返工过程文档升级为事实真源。
 
 ***
 
@@ -283,16 +285,16 @@ DOCX/PDF 落盘），并已使其通过（246/0 回归）。
 
 ### 6.2 生成、性能与成本
 
-| 项目                                  | 结论           | 证据                                                                                                                                                                                                 |
-| ----------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fact schema/绑定/reason/无外来 ID        | PASS         | T6 typed/binding/顺序/并发/重试/超限；真实纵切绑定门禁                                                                                                                                                              |
-| P1/P2/P3/P4 增量与 fallback            | PASS         | T6:\[T9] run\_generation SUCCEEDED；reason 真增量                                                                                                                                                      |
-| 经历并发 2、顺序稳定、单经历失败隔离                 | PASS         | T6 并发门禁；\`MAX\_WORKERS=2\`                                                                                                                                                                         |
-| 调用公式 \`1+2F\`、Embedding 0/1、重连增量 0  | PASS         | T6 调用/Token 观测                                                                                                                                                                                     |
-| 成功不重试；可重试 ≤3；不可重试立即失败               | PASS         | T6                                                                                                                                                                                                 |
-| 任务 16k Completion 上限，超限非截断成功        | PASS         | T6 超限门禁                                                                                                                                                                                            |
-| **固定样例 real 每格 n≥3、中位数/最大值、首 Fact** | **FAIL(部分)** | total **PASS**（n=5：34.04/37.04/38.04/41.04/43.04s，median=38.04，max=43.04，较 V2.1.0 typical-cold median 89.49s 降 **(89.49-38.04)/89.49≈57.4%**，达标）；首 Fact **未达标**（n=2：17.42/17.48s，median≈17.4，>15s） |
-| 同一单调时钟记录全阶段                         | PASS         | \`\_e2e\_v22\_slice.py\` 用事件时间戳（jd.done→fact.done）与 perf\_counter 同源采样                                                                                                                             |
+| 项目                                 | 结论            | 证据                                                                                                                                                                                                                                                                  |
+| ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fact schema/绑定/reason/无外来 ID       | PASS          | T6 typed/binding/顺序/并发/重试/超限；真实纵切绑定门禁                                                                                                                                                                                                                               |
+| P1/P2/P3/P4 增量与 fallback           | PASS          | T6:\[T9] run\_generation SUCCEEDED；reason 真增量                                                                                                                                                                                                                       |
+| 经历并发 2、顺序稳定、单经历失败隔离                | PASS          | T6 并发门禁；\`MAX\_WORKERS=2\`                                                                                                                                                                                                                                          |
+| 调用公式 \`1+2F\`、Embedding 0/1、重连增量 0 | PASS          | T6 调用/Token 观测                                                                                                                                                                                                                                                      |
+| 成功不重试；可重试 ≤3；不可重试立即失败              | PASS          | T6                                                                                                                                                                                                                                                                  |
+| 任务 16k Completion 上限，超限非截断成功       | PASS          | T6 超限门禁                                                                                                                                                                                                                                                             |
+| 固定样例 real 每格 n≥3、中位数/最大值、首 Fact    | **PASS（返工后）** | **复用（旧证据）**：total 达标（n=5：34.04/37.04/38.04/41.04/43.04s，median=38.04，max=43.04，较 V2.1.0 typical-cold median 89.49s 降 ≈57.4%）。**本轮新证据（重跑）**：见 §7.6 矩阵——short/typical/long × cold/warm 每格 n≥3，**首完整 Fact 中位数与最大值均 ≤15s**（cold max=12.96，warm max=11.10），源层 real 模型验证。 |
+| 同一单调时钟记录全阶段                        | PASS          | \`\_e2e\_v22\_profile.py\` 用事件时间戳（jd.done→首 fact.done→reason.delta）与 perf\_counter 同源采样（重跑）                                                                                                                                                                         |
 
 ### 6.3 内容与 artifact
 
@@ -340,36 +342,66 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **产品基线**：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 
-- **当前 HEAD**：见候选冻结收口 commit（RESULT 提交时 HEAD；docs 收口链顶部）
+- **返工前已提交 checkpoint identity**：
 
-- **checkpoint commit / 唯一父 / clean**：T11 收口 commit 唯一父为上链 docs commit；冻结前工作树将清 clean
+  - **HEAD**：`085c8d84cb25456ffdabbeb0cbd06b66097e6962`
 
-- **相对基线完整文件清单 + diff 统计**：`git diff --stat` 见 §6.4（10 文件、+776/-44，其中 docs RESULT 为主）；未计入未暂存新增 `_v22_*.py`、`_e2e_v22_slice.py`、`scripts/t11_isolated_start.py`（见 checkpoint 提交）
+  - **当前父提交**：`e6b808c6cd20ecd593b4ab83092f765dfaf1477f`
 
-- **第一批内部包**：`dist/ResumeAssistant/`（onedir），4045 文件、170,325,085 B、EXE `ResumeAssistant.exe`
-  sha256 `ccfb00a1f8a336…`；**是非发布 Debug-onedir，不得称发布包**
+  - **相对批准基线** **`d75b692`** **的 diff**：**32 files changed, 6013 insertions(+), 14 deletions(-)**
+
+- **相对基线完整文件清单（32 files，d75b692 → 085c8d8）**：
+  `backend/_e2e_v22_slice.py`、`_v22_t2_task_store.py`、`_v22_t3_task_api.py`、`_v22_t4_sse.py`、
+  `_v22_t5_cancel.py`、`_v22_t6_generation.py`、`_v22_t7_document.py`、`_v22_t8_short_render.py`、
+  `_v22_t9_cleanup.py`、`api/routes/task.py`、`api/schemas.py`、`core/task.py`、`core/task_cancel.py`、
+  `database/migrations.py`、`database/models.py`、`main.py`、`models/resume_document.py`、
+  `prompts/task_compact_jd.py`、`prompts/task_fact.py`、`prompts/task_reason.py`、
+  `services/document_assembler.py`、`services/docx_writer.py`、`services/jd_analyzer.py`、
+  `services/llm_service.py`、`services/task_cleanup.py`、`services/task_generation.py`、
+  `services/task_repository.py`、`services/task_service.py`、`services/task_sse.py`、
+  `services/template_renderer.py`、`docs/versions/v2.2.0/RESULT.md`、`scripts/t11_isolated_start.py`
+
+- **本返工在其后的新增/修改**：`services/task_generation.py`（渐进逐 Fact 发布）、
+  `docs/versions/v2.2.0/RESULT.md`（本文件）、`backend/_e2e_v22_profile.py`、
+  `backend/_e2e_v22_matrix.py`、`.gitignore`（托管 `.trae/`）——返工后另以新 checkpoint 提交。
+
+- **第一批内部包（当前构建产物，身份如实）**：
+
+  - 包路径：`dist/ResumeAssistant/`（onedir）；EXE `dist/ResumeAssistant/ResumeAssistant.exe`
+
+  - 文件数：4045；总字节：170,325,085 B
+
+  - **EXE SHA-256**：`CCFB00A161F8A33644A214FDDFBEB5EE8AEA2BC10D995D87FE8E9AB0D4F47DCC`
+
+  - **manifest / 构建身份**：PyInstaller onedir，spec `packaging/resume_assistant.spec`；
+    `name=ResumeAssistant`，`console=False`，`upx=False`，`excludes=["reportlab"]`；无内嵌
+    版本资源/额外 EXE manifest（无自定义 version/icon 资源）。
+
+  - **如实说明**：本包为返工 checkpoint 之前构建；性能修正为**源层** `task_generation.py` 的
+    事件发布粒度改动，**尚未重打包进 onedir 二进制**（重打包+复核 `h8_package_audit`/隔离启动
+    为待办，另见 §8）。**是非发布 Debug-onedir，不得称发布包**。
 
 ### 7.2 逐项交付映射
 
-| PLAN ID                          | 用户结果                    | 开发理解                                 | 实际交付                    | 可复核证据                  | 已知偏差                 |
-| -------------------------------- | ----------------------- | ------------------------------------ | ----------------------- | ---------------------- | -------------------- |
-| V220-G01 任务连续性                   | 任务跨路由/刷新/重开恢复           | Task/InputRevision/Snapshot/Event 恢复 | task\_repository/sse 协议 | T2/T3/T4 27+26+27      | 无                    |
-| V220-G02 可恢复草稿+实际取消              | 姓名必填/选填/后端确认/取消停产       | 状态机+单活动+cancel 协议                    | task\_api/task\_cancel  | T3/T5                  | 无                    |
-| V220-G03 四阶段渐进结果                 | P1-P4 真实状态              | generate\_task 编排+事件流                | task\_generation        | T6/T7 real e2e         | 无                    |
-| V220-G04 性能                      | total 降25%+首Fact≤15s    | 见 §6.2                               | 真实模型 timing             | n=5 total、n=2 首Fact    | **首 Fact 17.4s>15s** |
-| V220-G05 内容正确性                   | 联系方式/技能/headline/教育/短输入 | document\_assembler+渲染修复             | T7/T8                   | 57+14                  | 无                    |
-| V220-G06 最终产物不变量                 | DOCX 唯一真源/PDF 同源/三端一致   | real DOCX→Word→PDF 链                 | docx\_writer/隔离验证       | real e2e artifact hash | 无                    |
-| V220-R1-T01 身份+Pre-mortem        | Required Reading/假设台账   | §1-§3                                | §5                      | 完成                     | 无                    |
-| T02 Task schema/migration/repo   | 状态/冻结/容量                | task\_repository                     | T2 41/0                 | 无                      | <br />               |
-| T03 API/保存/单活动/恢复                | REST                    | task api                             | T3 26/0                 | 无                      | <br />               |
-| T04 SSE seq/恢复/幂等                | 事件流                     | task\_sse                            | T4 27/0                 | 无                      | <br />               |
-| T05 实际取消/清理/fence                | cancel                  | task\_cancel                         | T5 39/0                 | 无                      | <br />               |
-| T06 紧凑JD/Fact+reason/并发2/门禁      | 编排                      | task\_generation/jd/llm/prompts      | T6 23/0                 | 无                      | <br />               |
-| T07 联系方式/技能/headline/教育          | 装配                      | document\_assembler                  | T7 57/0                 | 无                      | <br />               |
-| T08 短输入 TemplateError 修复         | 宽容渲染                    | template\_renderer                   | T8 14/0                 | 无                      | <br />               |
-| T09 容量/保留/cleanup                | cleanup                 | task\_cleanup                        | T9 19/0                 | 无                      | <br />               |
-| T10 真实纵切 Architecture Check      | 只读                      | §4                                   | 246/0 回归                | 无                      | <br />               |
-| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 首Fact 偏差               | <br />               |
+| PLAN ID                          | 用户结果                    | 开发理解                                 | 实际交付                    | 可复核证据                         | 已知偏差     |
+| -------------------------------- | ----------------------- | ------------------------------------ | ----------------------- | ----------------------------- | -------- |
+| V220-G01 任务连续性                   | 任务跨路由/刷新/重开恢复           | Task/InputRevision/Snapshot/Event 恢复 | task\_repository/sse 协议 | T2/T3/T4 27+26+27             | 无        |
+| V220-G02 可恢复草稿+实际取消              | 姓名必填/选填/后端确认/取消停产       | 状态机+单活动+cancel 协议                    | task\_api/task\_cancel  | T3/T5                         | 无        |
+| V220-G03 四阶段渐进结果                 | P1-P4 真实状态              | generate\_task 编排+事件流                | task\_generation        | T6/T7 real e2e                | 无        |
+| V220-G04 性能                      | total 降25%+首Fact≤15s    | 见 §6.2 / §7.6                        | 真实模型 timing             | total n=5 复用 + §7.6 矩阵（本轮新证据） | 无（返工后达标） |
+| V220-G05 内容正确性                   | 联系方式/技能/headline/教育/短输入 | document\_assembler+渲染修复             | T7/T8                   | 57+14                         | 无        |
+| V220-G06 最终产物不变量                 | DOCX 唯一真源/PDF 同源/三端一致   | real DOCX→Word→PDF 链                 | docx\_writer/隔离验证       | real e2e artifact hash        | 无        |
+| V220-R1-T01 身份+Pre-mortem        | Required Reading/假设台账   | §1-§3                                | §5                      | 完成                            | 无        |
+| T02 Task schema/migration/repo   | 状态/冻结/容量                | task\_repository                     | T2 41/0                 | 无                             | <br />   |
+| T03 API/保存/单活动/恢复                | REST                    | task api                             | T3 26/0                 | 无                             | <br />   |
+| T04 SSE seq/恢复/幂等                | 事件流                     | task\_sse                            | T4 27/0                 | 无                             | <br />   |
+| T05 实际取消/清理/fence                | cancel                  | task\_cancel                         | T5 39/0                 | 无                             | <br />   |
+| T06 紧凑JD/Fact+reason/并发2/门禁      | 编排                      | task\_generation/jd/llm/prompts      | T6 23/0                 | 无                             | <br />   |
+| T07 联系方式/技能/headline/教育          | 装配                      | document\_assembler                  | T7 57/0                 | 无                             | <br />   |
+| T08 短输入 TemplateError 修复         | 宽容渲染                    | template\_renderer                   | T8 14/0                 | 无                             | <br />   |
+| T09 容量/保留/cleanup                | cleanup                 | task\_cleanup                        | T9 19/0                 | 无                             | <br />   |
+| T10 真实纵切 Architecture Check      | 只读                      | §4                                   | 246/0 回归                | 无                             | <br />   |
+| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 首Fact 偏差                      | <br />   |
 
 ### 7.3 参数与运行证据
 
@@ -381,7 +413,10 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **调用摘要（真实纵切，typical 样例）**：逻辑调用公式 `1+2F`；真实样例 SUCCEEDED，DOCX 38,9xx B、PDF 4,225,x7x B
 
-- **性能样本**：见 §6.2（total n=5 median 38.04 max 43.04；首 Fact n=2 均为 17.4s）
+- **性能样本**：total 见 §6.2（**复用**，返工前 n=5 median 38.04 max 43.04；返工后典型 cold 实测
+  total≈38.35/37.42/40.07s）；**首完整 Fact 全部为本轮新证据**（见 §7.6 矩阵 6 格 n=3：中位数
+  8.68~~14.04、最大值 8.99~~14.27，均 ≤15s）。旧“首 Fact n=2 均为 17.4s”是返工前（事件挂到整段
+  经历结束才发布）的历史测量，仅作根因对照，不再作为达标证据。
 
 - **状态/事件真实序列**：`_e2e_v22_slice.py` 打印 jd.done→fact.done→reason→P4；取消/T09 归 T5/T9 隔离验证
 
@@ -408,17 +443,69 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **可见前端**：无（Revision 1 禁可见改动；仅修复冲突导致的构建）——**无**
 
-- **假设台账最终状态**：A09/A10 已由 T07/T08 改为 EVIDENCED（含反例修复）；A03 因首 Fact >15s 降级为
-  **REJECTED（本批性能目标未全达成）**；A05/A06 维持如实（T6/T9 门禁覆盖，Long/干预 16k 探针在 T6）
+- **假设台账最终状态**：A09/A10 已由 T07/T08 改为 EVIDENCED（含反例修复）；**A03 返工后恢复为
+  EVIDENCED**（§7.6 矩阵 6 格 n≥3，首完整 Fact 中位数与最大值均 ≤15s）；A05/A06 维持如实（T6/T9
+  门禁覆盖，Long/干预 16k 探针在 T6）
 
-- **Challenge**：无 `CHALLENGE_OPEN`；首 Fact 偏差不否定技术路线（2 并发、15s 目标需模型/调度权衡），
-  作为已登记偏差留给 Revision 2 / 性能治理，不伪造达标，也**不需要**新 PLAN Revision 之外的新合同
+- **Challenge**：本批返工对首 Fact 性能偏差**开启** **`CHALLENGE_OPEN`**（§7.6）并已在现合同内达成
+  ≤15s——未改硬目标/模型/调用公式/并发上限/技术路线，只修正编排器的事件发布粒度（渐进逐 Fact），
+  因此**不需要新 PLAN Revision、也不把问题推迟给 Revision 2**。
+
+### 7.6 CHALLENGE\_OPEN 处置（本轮返工，均为本轮新证据）
+
+**问题**：从“点击生成”计时的首个完整 Fact 曾 ≈17.4s（旧测量为 P1 完成点起算 17.4s；若严格从点击
+零点起算曾高达 \~23.9s），>15s 硬目标。
+
+**完整延迟分解**（本轮新证据，真实复跑 `_e2e_v22_profile.py`，模型 deepseek-v4-pro-ga-260813，
+typical，冷启动，点击零点同基单调时钟；进程 `perf_counter` 全程 **38.01s**，DOCX 38961 B / PDF 4,226,804 B）：
+
+| 阶段             | 返工前                                 | 返工后（本轮实测）                 | 说明                   |
+| -------------- | ----------------------------------- | ------------------------- | -------------------- |
+| P1 紧凑 JD（LLM）  | 5.6–6.6s（旧）                         | 6.95s（jd.done 相对点击零点）     | 单次 LLM，无并发           |
+| P2 选材（本地）      | \~0.5s（旧）                           | \~0.0s（selection，无 LLM）   | 本地排序                 |
+| P3 首个完整 Fact   | 挂到整段经历（+18.3s，首 Fact \~23.9s）**根因** | **+6.51s（首 Fact 13.47s）** | 渐进逐 Fact 发布          |
+| P4 装配/DOCX→PDF | —                                   | 落于 SUCCEEDED（38.01s）      | 非首 Fact 路径，不影响首 Fact |
+
+**最弱假设与根因**：此前 P3 事件在“整段经历全部 6 次调用（3 Fact + 3 reason）结束后”才统一写
+fact.done；首个完整 Fact 的**发布时刻**被后续调用的完成时刻人为拉长。技术路线与调用公式并无问题，
+是**事件发布粒度**（编排器实现细节）导致的测量偏差。
+
+**现合同内可达成性的验证**：改发布粒度（worker 每完成一个已绑定+校验的 Fact 即经线程安全队列交回
+主线程单一 DB 写者，立即发 fact.done；reason 单独以 reason.delta 渐进发布）。不改变调用公式
+（仍 1+2F）、并发上限（MAX\_WORKERS=2）、模型与 Token/质量约束。**真实矩阵结果**（每格 n≥3，首完整
+Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
+
+| 格            | n | 原始 first\_fact（逐步采样）  | 中位数   | 最大值   | 是否 ≤15s |
+| ------------ | - | --------------------- | ----- | ----- | ------- |
+| short-cold   | 3 | 12.15 / 11.75 / 11.84 | 11.84 | 12.15 | ✓       |
+| typical-cold | 3 | 14.04 / 13.90 / 14.27 | 14.04 | 14.27 | ✓       |
+| long-cold    | 3 | 13.64 / 13.73 / 13.19 | 13.64 | 13.73 | ✓       |
+| short-warm   | 3 | 8.99 / 8.68 / 8.58    | 8.68  | 8.99  | ✓       |
+| typical-warm | 3 | 10.79 / 10.61 / 10.00 | 10.61 | 10.79 | ✓       |
+| long-warm    | 3 | 10.90 / 10.11 / 10.34 | 10.34 | 10.90 | ✓       |
+
+（cold 每样本独立进程+全新 runtime；warm 同进程预热后连续 n 次。total 仍满足 ≥25% 相对 V2.1.0
+典型的降幅，见 §6.2 复用证据。）
+
+**本轮证据归集（尽可能可复核）**：真实矩阵原始 JSON 逐步采样已持久化于
+`backend/validation-artifacts/v2.2-rework/matrix/cold_{short,typical,long}.jsonl` 与
+`warm_{short,typical,long}.jsonl`（该目录按仓库约定整体 `.gitignore`，仅留本机审计，不入 checkpoint）；
+复现入口脚本 `backend/_e2e_v22_profile.py`、`backend/_e2e_v22_matrix.py` 将随本 checkpoint 提交，
+供 Documentation Agent / 独立验收在具备 ARK Key 时复跑。本表为这些原始采样的汇总指标。
+
+**替代路线与最小证伪实验**：若渐进逐 Fact 仍不达标，备选路线＝把首个经历的首个 Fact 从并发池
+单列、让 P1 完成即串行启动首 Fact（减少多 worker 共享限流的等待），其证伪实验＝单任务只含 1 段
+经历时测首 Fact；本矩阵 short/1 经历即**直接验证**该场景（short-cold max 12.15s ≤15s），故无需
+额外打开。任何路线均未移动计时零点、未降低内容质量、未删减合法事实。
+
+**结论**：已开启又**在现合同内关闭**的 CHALLENGE\_OPEN；A03 恢复 EVIDENCED；无需 PLAN Revision。
 
 ### 7.5 待独立验收问题
 
 1. 刷新/重连/乱序下是否真实不重复调用、不交叉覆盖（T3/T4 隔离验证 → 需包内候选复核）
 2. 取消后 Provider/Word/artifact 是否真正停止、能否立即开始新任务（T5 验证）
-3. 两阶段绑定、并发 2、调用/Token 与 **15s 首 Fact** 是否在最终包成立（**首 Fact 真实≈17.4s，>15s，须治理**）
+3. 两阶段绑定、并发 2、调用/Token 在最终包成立（**首 Fact ≤15s 已由 §7.6 源层真实矩阵证实；
+   包内最终复核仍属独立验收**）
 4. task cleanup 是否可能误删活动状态或已发布 DOCX/PDF（T9 验证）
 5. 联系方式/技能/headline/教育/short 是否在真实 DOCX/PDF 一致（T7/T8 + real docx hash 验证）
 6. 最终 Revision 2 是否忠实实现批准 `DS-xxx`，HTML 过程预览未成第二产物真源（待 Doc Agent）
@@ -427,15 +514,20 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 ## 8. 第一批完成条件与下一门禁
 
-- T01–T11 完成；开发 Gate：6.1/6.3/6.4 **PASS**，6.2 生成与成本 PASS、**性能 total PASS / 首 Fact 偏差已登记**
+- 状态保持 `BATCH1_DEV_VERIFYING`：开发侧工作按需完成，但**不声称 T01–T11 全部完成、不声称开发 Gate
+  全 PASS、不进入独立验收**；T10 为开发侧 Architecture Check，不存在“用户 / Doc Agent 手动 T10”。
 
-- RESULT 合同一次填写完整；工作树在 checkpoint 提交后 clean
+- 性能偏差已按 `CHALLENGE_OPEN` 处置：§7.6 已给出完整延迟分解、根因、现合同内 ≤15s 的达成验证与
+  替代路线/最小证伪实验；A03 恢复 EVIDENCED；**无需 PLAN Revision，问题不推迟给 Revision 2**。
 
-- 无开放 `CHALLENGE_OPEN`；**首 Fact>15s 登记为性能偏差**（非 Challenge，但 A03 假设 REJECTED，需 Revision 2 处置）
+- 保留已通过的功能/回归/构建/打包结果；本轮仅重跑受性能与身份修正影响的 Gate，并明确标注
+  **复用证据**（§6.2 total、T2–T9 回归）与**本轮新证据**（§7.6 矩阵、首 Fact 渐进发布）。
 
-- 未触 Design Gate 禁止范围（无可见布局/文案/动效改动）
+- 返工后工作树将清 clean（含托管 `.trae/`，不把过程文档升级为事实真源）后形成新 checkpoint 提交。
 
-- Documentation Agent 仅依据 PLAN/RESULT/机械身份/证据入口完成一次语义交接审查
+- 未触 Design Gate 禁止范围（无可见布局/文案/动效改动）。
+
+- Documentation Agent 仅依据 PLAN/RESULT/机械身份/证据入口完成一次语义交接审查（本轮为集中语义交接）。
 
 **下一门禁**：Product Owner 批准 Design Snapshot → Documentation Agent 形成 Revision 2、导入 `DS-xxx` →
 授权第二批可见实现与最终集成 —— 本批仅是 clean 开发 checkpoint，不构成发布候选或独立验收 PASS。
