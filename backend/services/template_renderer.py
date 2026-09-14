@@ -51,6 +51,15 @@ class TemplateRenderer:
         self.template_id = template_id
         self.doc, self.spec = docx_writer.load_template_assets(template_id, backend_root)
         self.warnings: list[str] = []
+        # V2.2.0 T07c：T07 任务管线把每条事实构造成 `headline：body`，渲染时
+        # 仅加粗简短标题及冒号、正文保持普通字重。默认 False，旧调用方(DOCX 复刻)
+        # 行为不变；T07 assembler 显式开启。
+        self.bold_headline: bool = False
+        # V2.2.0 T08：合法短输入下，空章节（即便模板标 required=true）优雅移除而非抛
+        # TemplateError。不改变事实、不改变模板真源——仍按 title_style 定位并删除
+        # 标题段+原型段。默认 False 保持旧调用方/复刻 fixture 的严格行为；T07/T08
+        # 装配链（document_assembler.assemble_and_render）显式开启。
+        self.allow_empty_required: bool = False
 
     # ------------------------------------------------------------------
     # 主入口
@@ -104,6 +113,10 @@ class TemplateRenderer:
                 if section.required:
                     raise
                 self.warnings.append(str(e))
+        # V2.2.0 T07d：教育「缺任一字段不输出空括号」—— 删除渲染后遗留的
+        # 空圆括号 `（）/()`（如学历缺失导致的 `本科（）`）。数据无关，仅做
+        # 输出文本清理，不触碰模板真源（finds、set() 均不改动模板资产）。
+        self._strip_empty_parens()
         # 注：V1.2 PDF 布局复刻版起参照 PDF 布局，bullet 行全部常规字体，不再做关键词加粗后处理
 
         # V1.3 T8：未替换占位符扫描（不抛异常，只加 warnings，严重时人工复核）
@@ -163,6 +176,34 @@ class TemplateRenderer:
             counts[sec.id] = len(docx_writer.find_paragraphs_by_style(self.doc, first_style))
         return counts
 
+    def _strip_empty_parens(self) -> None:
+        """V2.2.0 T07d：删除渲染输出中遗留的空圆括号 `（）` / `()`。
+
+        教育学历缺失时模板字面 `（{{edu.degree}}）` 会渲染成 `本科（）`。
+        此处对最终文档所有段落/单元格做文本清理，删掉空括号对，保证"缺任一字段
+        不输出空括号"，且不改动模板真源与任何非空括号内容。
+        """
+        empty_pairs = ("（）", "()")
+        for p in self.doc.paragraphs:
+            self._strip_empty_parens_in_paragraph(p, empty_pairs)
+        for table in self.doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for p in cell.paragraphs:
+                        self._strip_empty_parens_in_paragraph(p, empty_pairs)
+
+    @staticmethod
+    def _strip_empty_parens_in_paragraph(p, empty_pairs) -> None:
+        for run in list(p.runs):
+            text = run.text or ""
+            if not text or not any(pair in text for pair in empty_pairs):
+                continue
+            ntext = text
+            for pair in empty_pairs:
+                ntext = ntext.replace(pair, "")
+            if ntext != text:
+                run.text = ntext
+
     def _scan_unreplaced_placeholders(self) -> set[str]:
         """扫描全文，检出未替换占位符，去重后加入 warnings。
 
@@ -218,13 +259,14 @@ class TemplateRenderer:
         """
         text = (resume_doc.profile.summary or "").strip()
         if not text:
-            if section.required:
+            if section.required and not self.allow_empty_required:
                 raise TemplateError(f"必填章节[{section.id}]自我评价无内容（profile.summary 为空）")
-            # 非必填：删标题段 + 原型块
+            # T08：短输入下空 summary 优雅移除（不改变模板真源）
             title_paras = docx_writer.find_paragraphs_by_style(self.doc, section.title_style or "")
             if title_paras:
                 self._remove_section(title_paras[0], preserve_title=False)
-            self.warnings.append(f"章节[{section.id}]自我评价为空（非必填，已移除）")
+            tag = "（required，短输入下 T08 优雅移除）" if section.required else "（非必填）"
+            self.warnings.append(f"章节[{section.id}]自我评价为空{tag}，已移除")
             return
         lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
         # 构造 dummy items：每个 item = {"bullet": 一行文本}
@@ -263,13 +305,15 @@ class TemplateRenderer:
             )
             items = items[: section.max_items]
 
-        # 3. 空列表 + required=true → 报错；空列表 + required=false → 删标题段和原型块，跳过
+        # 3. 空列表：required 且非 T08 lenient → 报错；否则删标题段+原型块优雅跳过
         if not items:
-            if section.required:
+            if section.required and not self.allow_empty_required:
                 raise TemplateError(f"必填章节[{section.id}]无条目")
-            # 删标题段 + 下方所有原型块段落（直到下一个已知的 SectionTitle_* 段为止）
+            # 合法短输入（T08）：空章节即便 required 也优雅移除，不中断渲染。
+            # 不改变模板真源：靠 title_style 定位并删除标题段 + 下方原型块。
             self._remove_section(P_title, preserve_title=False)
-            self.warnings.append(f"章节[{section.id}]为空（非必填，已移除标题+原型）")
+            tag = "（required，短输入下 T08 优雅移除）" if section.required else "（非必填）"
+            self.warnings.append(f"章节[{section.id}]为空{tag}，已移除标题+原型")
             return
 
         # 4. 收集 item_block 原型段（按 row_spec.style 顺序定位）
@@ -315,6 +359,10 @@ class TemplateRenderer:
                         if was_empty:
                             # 空 bullet 也跳过不插
                             continue
+                        # V2.2.0 T07c：仅 T07 管线开启，把 `headline：body` 的
+                        # bullet 拆分为「加粗标题+冒号」+「普通正文」。
+                        if self.bold_headline:
+                            docx_writer.apply_bold_headline(clone_p)
                         docx_writer.insert_after(ref, clone_p)
                         ref = clone_p
                 else:
@@ -360,10 +408,12 @@ class TemplateRenderer:
         P_title = title_paras[0]
 
         if not items:
-            if section.required:
+            if section.required and not self.allow_empty_required:
                 raise TemplateError("必填章节 skills 无内容")
+            # T08：短输入下空 skills 优雅移除（不改变模板真源）
             self._remove_section(P_title, preserve_title=False)
-            self.warnings.append("章节[skills]为空（非必填，已移除）")
+            tag = "（required，短输入下 T08 优雅移除）" if section.required else "（非必填）"
+            self.warnings.append(f"章节[skills]为空{tag}，已移除")
             return
 
         block = self._collect_item_block(P_title, section.item_block or [])
@@ -407,10 +457,12 @@ class TemplateRenderer:
         P_title = title_paras[0]
 
         if not items:
-            if section.required:
+            if section.required and not self.allow_empty_required:
                 raise TemplateError("必填章节 awards 无内容")
+            # T08：短输入下空章节优雅移除（不改变模板真源）
             self._remove_section(P_title, preserve_title=False)
-            self.warnings.append("章节[awards]为空（非必填，已移除）")
+            tag = "（required，短输入下 T08 优雅移除）" if section.required else "（非必填）"
+            self.warnings.append(f"章节[awards]为空{tag}，已移除")
             return
 
         block = self._collect_item_block(P_title, section.item_block or [])

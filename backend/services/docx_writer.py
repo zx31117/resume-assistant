@@ -48,6 +48,43 @@ def remove_paragraph(p: Paragraph) -> None:
     p._p.getparent().remove(p._p)
 
 
+def apply_bold_headline(p: Paragraph) -> None:
+    """V2.2.0 T07c：把段落内的 `headline：body` 单 Run 拆为「加粗标题+冒号」与「普通正文」。
+
+    仅对能解析出完整边界的 Run 生效（见 split_headline_boundary）：标题部分设为
+    加粗并保留冒号，正文以普通字重追加为后续 Run（复用原型 rPr，仅清加粗）。
+    无有效边界或正文为空的 Run 不做任何改动。
+    """
+    from services.document_assembler import split_headline_boundary  # lazy，避免循环导入
+    for run in list(p.runs):
+        text = run.text or ""
+        if not text:
+            continue
+        head, body = split_headline_boundary(text)
+        if not body:
+            continue
+        from docx.oxml.ns import qn as _qn
+        run.text = head
+        run.font.bold = True
+        # 克隆当前 Run 作为正文段，清掉加粗，复用原型字体/字号
+        seg = copy.deepcopy(run._r)
+        for t in seg.findall(_qn('w:t')):
+            seg.remove(t)
+        from docx.oxml.ns import qn as _qn2
+        new_t = seg.makeelement(_qn2('w:t'), {})
+        new_t.text = body
+        seg.append(new_t)
+        # 仅保留一个 w:rPr 与 b=0（清加粗）
+        rPr = seg.find(_qn2('w:rPr'))
+        if rPr is not None:
+            for b in rPr.findall(_qn2('w:b')):
+                rPr.remove(b)
+            b0 = rPr.makeelement(_qn2('w:b'), {})
+            b0.set(_qn2('w:val'), '0')
+            rPr.append(b0)
+        run._r.addnext(seg)
+
+
 def find_paragraphs_by_style(doc: Document, style_name: str) -> list[Paragraph]:
     """按段落 style.name 精确匹配，返回所有命中段落（渲染器按 style 定位，不靠文本）。"""
     return [p for p in doc.paragraphs if p.style.name == style_name]

@@ -34,12 +34,15 @@ _FACT_NAMESPACE = uuid.UUID("7f5e2a1b-1c40-4d2a-9b6e-000000000001")
 
 SCHEMA_VERSION_FACT_SCHEMA = "v1.5.0-fact-schema"
 SCHEMA_VERSION_FACT_MIGRATION = "v1.5.0-fact-migration"
+# V2.2.0：临时任务持久化表（PLAN §2.3）。schema 步骤复用 create_all，幂等创建缺失表。
+SCHEMA_VERSION_TASK_SCHEMA = "v2.2.0-task-schema"
 
 # 顺序迁移注册表：(version, description, callable(session_or_engine))
 # schema 步骤接收 engine；数据步骤接收 session
 _MIGRATIONS = [
     (SCHEMA_VERSION_FACT_SCHEMA, "Create Fact + SchemaVersion tables", "engine"),
     (SCHEMA_VERSION_FACT_MIGRATION, "Deterministic Experience -> Fact migration", "session"),
+    (SCHEMA_VERSION_TASK_SCHEMA, "Create V2.2.0 temporary task tables", "engine"),
 ]
 
 

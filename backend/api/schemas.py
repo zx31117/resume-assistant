@@ -573,3 +573,85 @@ class ConfigSnapshotResponse(BaseModel):
     LLM_MODEL: ConfigFieldMeta
     EMBEDDING_MODEL: ConfigFieldMeta
     ARK_API_KEY: ConfigKeyMeta
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V2.2.0 T3：Task 工作台契约（PLAN §2.3 / V220-G01/G02）
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TaskInputIn(BaseModel):
+    """任务入参（姓名必填；电话/邮箱/所在地选填；JD 原文保存，不静默截断）。"""
+
+    name: str = ""
+    phone: str = ""
+    email: str = ""
+    location: str = ""
+    jd: str = ""
+
+
+class TaskSnapshotOut(BaseModel):
+    """覆盖式权威快照（刷新/重连恢复基准）。"""
+
+    seq: int = 0
+    phase: str = ""
+    payload: dict[str, Any] = {}
+    updated_at: str = ""
+
+
+class TaskOut(BaseModel):
+    """任务只读投影（创建 / 保存确认 / 冻结 / 启动 / 读取恢复共用）。"""
+
+    task_id: str
+    status: str
+    current_input_revision: int = 0
+    active_operation_id: Optional[str] = None
+    seq: int = 0
+    created_at: str = ""
+    updated_at: str = ""
+    expires_at: Optional[str] = None
+    terminal_error: Optional[str] = None
+    published_resume_revision: Optional[int] = None
+    published_docx_path: Optional[str] = None
+    published_pdf_path: Optional[str] = None
+    latest_input: Optional[dict[str, Any]] = None
+    subtasks: List[dict[str, Any]] = []
+    snapshot: Optional[dict[str, Any]] = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V2.2.0 T6b：P3 Fact / reason 两阶段契约（PLAN §2.1 / §2.3）
+# ═══════════════════════════════════════════════════════════════════════════
+class TaskFactOut(BaseModel):
+    """P3 单条 Fact 结构化流输出。
+
+    - experience_id：所属经历
+    - fact_id：本条简历条目自身的唯一 id（形如 {experience_id}/1）
+    - headline：加粗简短标题；body：普通字重正文
+    - fact_refs：正文实际引用的源 fact_id（可核验）
+    - ok=false：材料不足，不编造、不用通用空话补齐，附 insufficient_reason
+    """
+
+    experience_id: str = ""
+    fact_id: str = ""
+    headline: str = ""
+    body: str = ""
+    fact_refs: List[str] = []
+    ok: bool = True
+    insufficient_reason: str = ""
+
+    @field_validator("fact_refs", mode="before")
+    @classmethod
+    def _coerce_fact_refs(cls, v: Any) -> list:
+        return _coerce_to_list(v)
+
+
+class TaskReasonOut(BaseModel):
+    """P3 旁侧 reason 真增量流输出（绑定同一 fact_id）。
+
+    delta：相对已输出理由的新增文本（追加到累积文本）；done：理由是否已完整。
+    快照保存 reason 当前完整文本 = 各 delta 追加结果；断线重连不重放。
+    """
+
+    fact_id: str = ""
+    delta: str = ""
+    done: bool = True

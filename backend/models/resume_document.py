@@ -151,9 +151,14 @@ class ProjectItem(ResumeItemMixin):
 
 
 class SkillGroup(BaseModel):
-    """技能分组（按类聚合，避免一条条罗列）。"""
+    """技能分组（按类聚合，避免一条条罗列）。
+
+    V2.2.0 T07c：技能条目需可核验来源，fact_refs 承载该类别内技能实际引用到的
+    fact_id（用于反查 Fact 原文），空即无声称依据。
+    """
     category: str = ""          # 如"编程语言"/"产品工具"/"AI 框架"
     items: List[str] = []
+    fact_refs: List[str] = []   # V2.2.0 T07c：本类别技能的事实依据 fact_id 集合
 
 
 class ResumeDocument(BaseModel):

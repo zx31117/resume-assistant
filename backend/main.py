@@ -29,6 +29,18 @@ async def lifespan(app: FastAPI):
     init_db()
     # V2.0.1：诊断 tracker 初始化 + 启动收口（遗留 RUNNING → INTERRUPTED，轮转）
     tracker.initialize()
+    # V2.2.0 T9：应用启动触发一次任务 cleanup（幂等；失败可见但不阻断启动）
+    try:
+        from database.session import SessionLocal
+        from services.task_cleanup import run_cleanup
+        db = SessionLocal()
+        try:
+            run_cleanup(db)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:  # noqa: BLE001
+        logger.error("T9 startup cleanup failed（可见但非致命）: %r", e)
     yield
 
 
@@ -97,6 +109,10 @@ app.include_router(generate.router, prefix="/api/resume", tags=["generate"])
 from api.routes import config, system
 app.include_router(config.router, prefix="/api/config", tags=["config-v2"])
 app.include_router(system.router, prefix="/api/system", tags=["system-v2"])
+
+# V2.2.0 T3：任务工作台 API（创建/保存/冻结/启动/读取恢复，PLAN §2.3 / G01/G02）
+from api.routes import task
+app.include_router(task.router, prefix="/api/task", tags=["task-v2.2"])
 
 # V1.2：模板填充路由（延迟 import，python-docx 缺失时 V1.1 链路仍可启动）
 try:
