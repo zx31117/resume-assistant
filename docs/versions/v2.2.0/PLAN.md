@@ -1,354 +1,303 @@
 # ResumeAssistant V2.2.0 PLAN
 
-> Plan Revision：1  
-> Supersedes：无；由 V2.2.0 DRAFT 范围基线转入  
-> 状态：已批准
-> 日期：2026-09-13  
-> 产品源码基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`  
-> 开发路径：`<current-workspace>` 的 `version/v2.2.0`  
-> 本 Revision 授权：第一批、仅设计无关实现  
-> Design Baseline：无；Design Gate 关闭  
-> 批准 commit / PLAN blob：见同目录 `HISTORY.md` 的 VH-010；本次状态变更不改变已批准的产品合同
+> Plan Revision：2
+> Supersedes：Revision 1（批准 PLAN blob `324302a0ef6d81214c752d12281c221f2550f320`）
+> 状态：待 Product Owner 批准
+> 日期：2026-09-15
+> 产品源码基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
+> Revision 1 开发候选 H：`09ee23651161afe7dc24f2e839618f49213e4217`
+> Revision 1 文档交接：`DOC_ALIGNED`，文档提交 `e4f9e499d1013fd03bf150bd9f50c8476cd01cbb`
+> 开发路径：`<current-workspace>` 的 `version/v2.2.0`
+> 本 Revision 授权：第二批可见界面、Design Snapshot 集成、最终纵切与发布候选
+> Design Baseline：源 `D-003` → canonical `DS-003`
+> 批准 commit / PLAN blob：待 Product Owner 批准后登记
 
 ## Required Reading（Development Agent 必读）
 
-按以下顺序读取，读完后在 RESULT 的身份区逐项确认；缺一项不得开始实现：
+按顺序读取，完成后在 RESULT 身份区逐项确认；缺一项不得开始 Revision 2 实现：
 
 1. `docs/README.md` §0、§1～§5；
 2. `docs/CURRENT_STATE.md`；
 3. 本 PLAN 全文；
-4. `docs/HUMAN_AI_WORKFLOW.md` §3.1（权限）、§3.2（PLAN/候选）、§3.4（强制反思与
-   Architecture Challenge）、§6（开发职责）、§11（上下文控制）。
+4. `docs/HUMAN_AI_WORKFLOW.md` §3.1、§3.2、§3.3、§3.4、§6、§11；
+5. `docs/versions/v2.2.0/RESULT.md` §6～§9；
+6. `docs/design/baselines/V2.2.0/DS-003/SNAPSHOT.md`、`SPEC.md`、
+   `prototype/README.md` 和 `prototype/index.html`。
 
-本 Revision 没有 Design Baseline，不读取 Design Agent 的工作稿。无需默认读取 DRAFT、HISTORY、
-完整 DECISIONS 或历史 RESULT；只有本 PLAN 明确点名时才定向读取。
+不得读取或跟随 Design Agent 的 `current/`、后续工作稿或新快照。无需默认重读 DRAFT、完整 HISTORY、
+完整 DECISIONS 或历史版本 RESULT；遇到本 PLAN 点名的冲突时才定向读取。
 
 ## 0. 合同性质
 
-本文件是 V2.2.0 当前唯一可执行开发合同。Revision 1 只授权不依赖最终 Design Snapshot 的数据、
-后端、协议、生成、性能、内容模型、DOCX/PDF 和测试工作；不得读取或猜测 Design Agent 的
-`current/` 或未批准快照，不得实现新的可见布局、文案、动效和响应式。
+本文件获批后成为 V2.2.0 唯一可执行开发合同。Revision 1 已完成设计无关的 Task、SSE、生成、性能、
+内容模型和 artifact 基础；Revision 2 只在该 checkpoint 上实现批准设计、真实前后端集成和最终门禁。
 
-Design Snapshot 获批后，Documentation Agent 将形成完整 Revision 2，`Supersedes` 本 Revision，
-导入并绑定 `DS-xxx`，再授权前端可见交互、生成中 HTML 预览和最终集成。两批由同一 Development
-Integrator 连续负责，不记为返工；Revision 1 不产生可发布 V2.2.0 候选，也不启动独立 Acceptance。
+本 Revision 仍采用单一 Development Integrator 修改产品源码；测试、构建和不冲突的只读验证可以
+并行，但不得由多个开发角色并行改同一产品链。目标导向冻结允许在不改变用户结果、Design Baseline、
+事实真源、调用公式、并发上限和成本上限的前提下调整实现细节。
 
-如果真实实现证据否定本文件的技术路线，必须按
-`docs/HUMAN_AI_WORKFLOW.md` §3.4 发起 Architecture Challenge。目标导向冻结允许在本文件明确
-授权的参数区间内调整实现，但不允许静默降低用户结果、扩大调用/成本或改变 Design Gate。
+在 Product Owner 批准本 Revision 前，Revision 1 仍是有效合同，Development Agent 不得提前实现
+Revision 2。实现证据否定路线时按 `HUMAN_AI_WORKFLOW.md` §3.4 开启 `CHALLENGE_OPEN`。
 
-## 1. 用户结果
+## 1. 已冻结基线
 
-### V220-G01 任务连续性
+### 1.1 Revision 1 checkpoint
 
-一次工作台任务使用稳定 `task_id + input_revision`。在后端仍运行的前提下，应用内路由切换、
-浏览器刷新和页面重开后，能够恢复已保存身份/JD、当前真实阶段、已完成业务结果、历史阶段、
-失败/取消状态和最终结果。SSE 重连不得重复模型调用。
+- 开发候选 H：`09ee23651161afe7dc24f2e839618f49213e4217`；
+- 文档交接：`DOC_ALIGNED`；
+- 已完成：任务持久化、输入 revision、SSE 恢复、实际取消、Experience 并发 2、逐 Fact 发布、
+  reason 增量、内容字段修正、短输入修复、DOCX/PDF 后端链、容量清理与真实性能矩阵；
+- 本 Revision 必须复用上述单一实现，不得另建第二套任务、事件、生成或 artifact 链。
 
-关闭整个应用/后端、应用崩溃、系统重启或关机后的未完成任务续跑不属于 V2.2.0。
+### 1.2 Design Snapshot 导入身份
 
-### V220-G02 可恢复草稿与实际取消
+| 字段 | 冻结值 |
+|---|---|
+| 源 Snapshot | `<design-workspace>/snapshots/D-003` |
+| 源状态 | `Approved / Immutable` |
+| 批准者 | Product Owner |
+| 批准证据 | `R-D003-12`；明确“审批通过，按文档要求做下一步” |
+| canonical Baseline | `docs/design/baselines/V2.2.0/DS-003` |
+| canonical ID | `DS-003` |
+| 入口 | `prototype/index.html` |
+| 主题 | A，单一生产主题 |
+| 现实产品基线 | `v2.1.0` / `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd` |
+| 源 manifest SHA-256 | `cc699466af400ee603a7e9fe39ef22e75bc7db37bd7150f41a0f0718ac9d0a61` |
+| 导入文件 | 28 个：manifest 登记 27 个文件，加 `CHECKSUMS.sha256` 本身 |
+| 导入校验 | 源与 canonical 逐文件 SHA-256 一致，mismatch=0 |
 
-- 姓名必填；电话、邮箱、所在地选填；JD 与身份摘要保存到后端临时任务；
-- 每个新任务重新填写，不从上一任务、Career Memory、模板、JD 或 AI 自动回填；
-- 保存状态必须来自后端确认，不能只显示前端假状态；
-- 取消必须停止本产品可控的排队、Provider 流读取、事件发布、Word worker 和 artifact 发布；
-- revision fence 拒绝旧任务迟到结果；释放本地活动槽后允许立即开始新任务；
-- 第三方 Provider 已接收请求后的内部计算或计费不承诺能够撤销。
+导入保持源快照字节不变。`SNAPSHOT.md`、`SPEC.md`、`DESIGN_QA.md`、`SCREENSHOT_MATRIX.md`、
+`THEME_EVALUATION.md`、10 张主题 A 参考图及完整 `prototype/` 均纳入。Snapshot 中标为 Design-only
+的能力只有进入 §3 实施矩阵后才构成本版本开发任务。
 
-### V220-G03 四阶段渐进结果
+精确导入清单：
 
-- P1：逐项提供已完整解析、校验的 JD 业务条目；
-- P2：逐项提供入选 Experience/Fact 以及面向用户的匹配依据；
-- P3：每条 `headline + body + fact_refs` 完整校验后整条进入结果快照；随后在旁侧对同一
-  `fact_id` 流式输出选择理由；
-- P4：提供 DOCX 装配、Word→PDF、锚点和 artifact 发布的真实状态；
-- 历史阶段可以回看最终业务结果，但不回放字符动画，不保存或展示模型私有思维链。
+- 根目录：`CHECKSUMS.sha256`、`DESIGN_QA.md`、`SCREENSHOT_MATRIX.md`、`SNAPSHOT.md`、
+  `SPEC.md`、`THEME_EVALUATION.md`；
+- `previews/`：`empty-theme-A-1440x900.png`、`experiences-theme-A-1440x900.png`、
+  `failed-theme-A-1440x900.png`、`p1-theme-A-1440x900.png`、`p2-theme-A-1440x900.png`、
+  `p3-theme-A-1440x900.png`、`p4-theme-A-1440x900.png`、`privacy-theme-A-1440x900.png`、
+  `saved-theme-A-1440x900.png`、`success-theme-A-1440x900.png`；
+- `prototype/`：`index.html`、`README.md`、`server.cjs`；
+- `prototype/assets/`：`app.js`、`fixture.json`、`sample-resume.docx`、`sample-resume.pdf`、
+  `theme-tokens.css`、`workbench.css`；
+- `prototype/assets/vendor/`：`pdf.mjs`、`pdf.worker.mjs`、`PDFJS-LICENSE.txt`。
 
-### V220-G04 性能
+## 2. 最终用户结果与不变量
 
-- 用户提交后真实状态反馈不晚于 1 秒；
-- 固定代表性样例从“点击生成”计时，首个完整 Fact 的 `n >= 3` 中位数和最大值均不晚于 15 秒；
-- 同一短/典型/长及 cold/warm 样例的成功总耗时中位数相对 V2.1.0 至少降低 25%；
-- V2.1.0 的短样例 `TemplateRenderer.render` 错误必须修复；短样例无成功基线，因此只要求最终
-  正确性与绝对耗时记录，不伪造降低比例；
-- 不得通过减少事实校验、删除合法内容、更换低质量模型或移动计时起点达标。
+### V220-G01 连续任务工作台
 
-V2.1.0 对照基线：
+- 四步为“身份与目标 → 理解岗位 → 匹配经历 → 润色、预览与导出”；界面按 `DS-003` 呈现；
+- 路由切换、浏览器刷新和页面重开不停止后端任务；只恢复后端已确认输入、权威快照和真实状态；
+- dirty 输入必须明确显示“未保存”，不得把前端本地值冒充已保存；
+- 关闭整个应用/后端、崩溃、系统重启或关机后的未完成任务续跑不在 V2.2.0 范围。
 
-| 样例 | n | 中位数 | 最大值 | V2.2 中位数上限 |
-|---|---:|---:|---:|---:|
-| typical cold | 5 | 89.49s | 111.21s | 67.12s |
-| typical warm | 4 | 84.48s | 105.78s | 63.36s |
-| long cold | 4 | 94.32s | 122.82s | 70.74s |
-| long warm | 3 | 97.92s | 125.24s | 73.44s |
-| short cold/warm | 4/3 | 全部 TemplateError | 不适用 | 先达到成功 |
+### V220-G02 保存、取消和新任务
 
-统计只报告样本数、中位数和最大值；小样本不报告 P95。
+- 姓名必填；电话、邮箱、所在地、目标岗位选填；JD 至少 60 字，最终有效性与容量以服务端为准；
+- 每个新任务重新填写，不自动从 Profile、Career Memory、模板或上一任务回填身份；
+- 取消停止本产品可控的 Provider 流、排队、事件、Word worker 和 artifact 发布，迟到结果被 fence；
+- 释放活动槽后允许立即开始新任务；新任务不删除历史简历或 Career Memory。
 
-### V220-G05 内容正确性
+### V220-G03 真实渐进结果
 
-- 已填写的姓名、电话、邮箱和所在地必须确定性进入 ResumeDocument、DOCX、同源 PDF、viewer 与下载；
-- 技能区生成 2～4 个与 JD 相关、有 Fact 依据、可扫读的能力类别；事实不足时宁可减少类别，不得
-  用内部实现词或关键词堆砌补数；
-- 每条润色 Fact 使用结构化 `headline + body`；只加粗简短标题及冒号，正文保持普通字重；
-- `headline / body / skills / reason` 均保留可核验的 `fact_refs`，且不回写 Career Memory；
-- 教育的学校、专业、学历与时间保持独立语义；专业在外、学历在括号内，缺任一字段时不输出空括号，
-  禁止字段倒置、重复括号和 `本科（）`；
-- 短、长、中文/英文/数字混排和临界换行不能造成字段丢失或合法短输入渲染失败。
+- P1 逐项显示已校验的 JD 业务条目；P2 逐项显示入选 Experience/Fact 与业务匹配依据；
+- P3 每条 `headline + body + fact_refs` 完整校验后整条进入 HTML 过程预览；随后在同一 Fact 旁侧
+  对绑定 `fact_id` 流式显示 reason；断流使用明确 fallback；
+- 已完成阶段可回看最终业务结果，当前阶段自动选中且不可点击，未来阶段禁用；回看不暂停后台任务；
+- 不展示模型私有思维链、评分或置信度。
 
-### V220-G06 最终产物不变量
+### V220-G04 最终预览与 artifact
 
-DOCX 继续是唯一排版真源；PDF 只由同一 DOCX 经 Microsoft Word COM 转换；PDF.js viewer 与 PDF
-下载读取同一不可变 artifact。不得恢复 ReportLab/手绘 PDF 或把过程 HTML 预览升级为第二产物真源。
-Word/PDF 任一失败必须 fail closed，保留仍有效的独立下载，不得把残缺 artifact 标为成功。
+- P3 HTML 是过程展示，只读权威 `display_snapshot/ResumeDocument`，不是排版或下载真源；
+- P4 成功后切换到真实 PDF.js viewer；viewer 与 PDF 下载读取同一不可变 PDF artifact；
+- DOCX 继续是唯一排版真源，PDF 只由同一 DOCX 经 Microsoft Word COM 转换；
+- Word/PDF 独立失败时 fail closed，只保留真实可用的下载，不显示残缺成功。
 
-## 2. 冻结技术路线
+### V220-G05 内容和性能
 
-### 2.1 流程与并发
+- Revision 1 的联系方式、技能 2～4 类、Fact 加粗短标题、`fact_refs`、教育字段和短输入修正必须
+  在最终 UI、ResumeDocument、DOCX、PDF 和下载链保持一致；Career Memory 不因生成润色而改变；
+- 用户提交后真实状态反馈 ≤1 秒；短/典型/长 × cold/warm 首个完整 Fact 的 `n>=3` 中位数和最大值
+  均 ≤15 秒；有 V2.1.0 基线的总耗时中位数降低至少 25%；
+- 不得移动计时起点、降低模型质量、删合法事实或增加正常调用公式达标。
+
+### V220-G06 失败不白屏
+
+输入保存、P1、P2、单 Experience、reason、P4/PDF 和下载失败必须落在对应卡片的稳定错误态，保留
+已成功结果和可恢复动作。任何组件异常必须由 ErrorBoundary 接住，不得整页白屏、重复生成或清空
+已保存输入。
+
+## 3. `DS-003` 实施矩阵
+
+| 页面/状态 | Revision 2 状态 | 真实数据与行为 | 明确不实施 |
+|---|---|---|---|
+| 顶栏、当前任务、四步轨道 | REAL | 绑定当前 `task_id`、状态和历史回看 | 主题切换、评审条、批注工具 |
+| 身份与目标 | REAL | Task API 保存确认；姓名/JD校验；选填联系方式和目标岗位 | 身份长期持久化、自动回填 |
+| P1 理解岗位 | REAL | 权威快照 + SSE 完成项，刷新后恢复 | 输入页提前调用模型 |
+| P2 匹配经历 | REAL | Experience/Fact 与匹配依据逐项显示 | 用户逐条采用、改变冻结顺序 |
+| P3 润色履历 | REAL PROCESS PREVIEW | 完整 Fact 原子出现；reason 在旁侧增量；依据可查看原始 Fact | HTML 导出、HTML 作为排版真源 |
+| P4 预览与导出 | REAL | 同 artifact PDF.js、下载 Word、下载 PDF、anchor/依据定位 | 固定样张、伪造可用链接 |
+| 取消/取消后/新任务 | REAL | 确认对象与影响；迟到拒收；立即新任务 | 撤销 Provider 已发生的计费承诺 |
+| insufficient/partial/failed | REAL | 保留输入及已完成经历；按失败范围重试或返回经历补充 | 编造事实补齐、全任务静默重跑 |
+| 我的经历 | REAL（既有 Career Memory） | 头像菜单进入；查看/纠正已有 Experience/Fact；修改只影响未来任务 | 新上传、OCR、导入查重、删除新语义 |
+| 我的简历 | REAL（既有记录能力） | 查看已生成记录和真实可用 artifact | 新的版本管理、回退、批量删除 |
+| 个人与隐私 | REAL（限定） | 准确说明本地/第三方边界；可清当前未运行草稿 | 账户级删除、云隐私承诺 |
+| 自然语言修改/“开始编辑” | HIDDEN | N/A | 意图修订、单 Fact 重生成、锁定、修改后重制文件 |
+
+“我的经历”“我的简历”“个人与隐私”采用 `DS-003` 外观和导航，但只能连接现有真实能力；不存在的
+API 不得用 fixture 冒充。经历纠正不修改当前冻结 InputRevision、正在生成内容或已导出文件。
+
+## 4. 冻结技术路线
+
+### 4.1 单一状态链
+
+前端以 `task_id + input_revision + seq` 为唯一任务身份：进入或重连先 GET 权威快照，再订阅 SSE；
+重复 seq 忽略，缺口/缓冲过期/artifact 变化重取快照。路由组件不得各自复制一套生成状态或再次调用
+LLM。只恢复服务端已确认输入，dirty 本地输入在保存成功前保持可见未保存状态。
+
+### 4.2 过程预览与最终 PDF
 
 ```text
-冻结 InputRevision
-├─ P1 紧凑 JD 结构化
-└─ P2 可提前执行的本地索引/候选准备
-   ↓ P1 结果与 P2 候选汇合
-按 Experience 分组，最多 2 个经历并发
-└─ 同一经历内按 Fact 串行
-   ├─ Fact 结构化流：experience_id + fact_id + headline + body + fact_refs
-   └─ Reason 文本流：协议层绑定同一 fact_id
-全部经历按冻结顺序合并
-→ ResumeDocument → DOCX → Word COM PDF → anchors/artifact
+P1/P2/P3 权威业务快照
+→ HTML 过程预览（可恢复、可回看、不可导出）
+→ ResumeDocument
+→ DOCX（唯一排版真源）
+→ Word COM PDF
+→ PDF.js viewer / PDF 下载（同一 artifact）
 ```
 
-“单次复杂结构化流同时输出 Fact 与 reason”标记为 `REJECTED`：开发前真实证据只有 1/3 稳定
-绑定，且 reason 不满足旁侧逐字语义，不得重新作为默认路线。
+HTML 可使用模板视觉骨架，但不得声称与 Word 像素一致。Fact 的显示宽度、换行或字体差异不得反向
+改写内容；P4 完成后以真实 PDF 替换过程预览。依据 overlay 必须绑定当前 artifact/anchor，错配时
+诚实不可用。
 
-并发边界是 Experience，不是单 Fact。同一 Experience 内的 Fact 串行，共享上下文；跨 Experience
-最大并发固定为 2。完成顺序不得改变最终模板顺序或把 reason 绑定到其他 Fact。
+### 4.3 布局与响应式
 
-### 2.2 模型、调用与 Token
+- 主题 A；桌面为顶栏 + 步骤轨道 + 主卡 + 辅助卡，卡片外框不随内容量跳动；
+- 1920×1080、1440×900、1280×800、1024×768 保持稳定工作面；
+- 720×450、390×844、320×568 改为单主卡和横向步骤，详情使用弹窗或内部区域；
+- `html/body` 不产生整页滚动；只允许 PLAN/`DS-003` 指定的主卡、PDF、详情等内部滚动容器；
+- PDF 适应卡片宽度，不增加装饰性纸张边框；导出区固定且只显示真实可用动作。
 
-- 默认模型：`deepseek-v4-pro-ga-260813`；
-- Endpoint：Ark 北京；
-- `temperature=0`、`response_format=json_object`、`reasoning_effort=minimal`；
-- JD 结构化输出默认 1024 completion tokens；开发可在 512～2048 内依据边界测试调整；
-- Fact 每次 HTTP attempt 最多 800 completion tokens；
-- reason 每次 HTTP attempt 最多 256 completion tokens；
-- 每任务所有 LLM completion tokens 合计最多 16k；即将超限时不得启动新的 Fact/reason 调用，
-  以明确失败或容量不足状态结束，不返回截断成功；
-- 原始 JD 不受“1024 输出上限”限制，按冻结 InputRevision 原文保存；若整个输入记录超过状态硬
-  上限，返回明确 413/领域错误和实际限制，不得静默截断；
-- 令 `F` 为最终准备生成的 Fact 数量，正常 LLM 逻辑调用为 `1 + 2F`：一次 JD、每 Fact 一次
-  Fact 调用和一次 reason 调用。Experience 数量记为 `E`，并发上限为 `min(E, 2)`；
-- Embedding 单独计数；同一 `input_revision` 最多一次在线 JD 查询向量调用，已有 Fact embedding
-  必须复用，不得因 SSE 重连或 Fact/reason 阶段重复计算；
-- 单个逻辑调用最多重试 2 次，即最多 3 个 HTTP attempt。逻辑调用、HTTP attempt、重试原因、
-  prompt/completion/reasoning tokens 分开记录；
-- 人民币成本不可得时记录为 unavailable，以调用与 Token 作为本版本成本门禁，不伪造金额。
+### 4.4 不变的生成与成本边界
 
-JD 默认值在 512～2048 内调整不产生 PLAN Revision，但 RESULT 必须记录最终值与边界证据。超出
-区间、增加正常逻辑调用公式、提高 16k 总预算、改变模型或降低性能/正确性目标必须进入 Challenge。
+默认模型 `deepseek-v4-pro-ga-260813`、Ark 北京、`temperature=0`、JSON structured output、
+`reasoning_effort=minimal`；Experience 最大并发 2，同一 Experience 内 Fact 串行；正常逻辑调用
+`1 + 2F`，单任务 completion ≤16k，单逻辑调用最多 3 attempts。Revision 2 不为 UI 再调用模型。
 
-### 2.3 Task、快照与事件
-
-后端是任务状态真源。实现可以在不改变语义的前提下调整表拆分，但至少保存：
-
-- `Task(task_id, status, current_input_revision, active_operation_id, created_at, updated_at, expires_at)`；
-- 不可变 `InputRevision`：姓名、电话、邮箱、所在地、完整 JD、输入 hash；
-- Experience 子任务状态、冻结顺序、Fact 结果和失败；
-- 覆盖式 `display_snapshot`：当前可恢复的 P1～P4 业务结果、reason 当前完整文本、当前阶段；
-- 单调 `seq`、终态、错误和已发布 ResumeRevision/artifact 引用。
-
-状态至少为 `DRAFT / READY / RUNNING / CANCELLING / SUCCEEDED / FAILED / CANCELLED`。一次本地
-profile 只允许一个前台活动任务；开始新任务不允许旧 task/revision 再写入当前结果。
-
-SSE 事件必须包含 `task_id / input_revision / seq / type / phase / payload`。业务完成事件与权威
-快照持久化；字符/token delta 不逐条写数据库。客户端首次进入或重连先读取权威快照，再订阅后续
-序号；重复 seq 幂等忽略，出现缺口、服务端环形缓冲过期或 artifact 身份变化时重取快照，禁止自行
-拼接猜测。快照刷新须限频并受容量约束，但刷新间隔属于实现细节。
-
-### 2.4 容量、保留与清理
-
-- 单任务状态记录硬上限 256 KiB；
-- 单任务事件与 display snapshot 合计硬上限 256 KiB；
-- 一次 profile 只允许一个 `RUNNING/CANCELLING` 前台任务；
-- 最多保留 20 条终态或孤立临时记录，artifact 正文之外的临时状态总量最多 16 MiB；
-- 当前 `DRAFT/READY/RUNNING/CANCELLING`、当前页面引用、当前 ResumeRevision 及其 DOCX/PDF
-  不得清理；
-- 未提交孤立草稿及 `FAILED/CANCELLED` 保留 24 小时；
-- `SUCCEEDED` 工作台状态保留到用户开始新任务；已发布简历及 DOCX/PDF 保留到用户主动删除；
-- 页面离开只保存状态并断开 SSE，不触发删除；
-- 清理只在应用启动、任务进入终态和超过记录/字节阈值时扫描；cleanup 必须幂等、限定 runtime
-  data root，失败可见，不得误删活动任务、已发布 artifact 或相邻文件。
-
-## 3. Revision 1 允许与禁止范围
-
-### 3.1 允许
-
-- SQLite schema/migration、task repository、application service、API 与领域错误；
-- Provider 流适配、结构化增量解析、reason 文本流、调用/Token/时间观测；
-- Experience 级调度、取消、revision fence、资源清理；
-- 权威快照、SSE 序号与恢复协议；
-- ResumeDocument/Builder/模板字段映射、技能与 Fact 输出结构、短输入 Renderer 修复；
-- DOCX→Word COM→PDF→viewer/download 既有链的后端回归；
-- 不产生新可见结果的 TypeScript API 类型和 client 适配；
-- fixture、测试 runner、precheck、打包依赖与文档 RESULT。
-
-### 3.2 禁止
-
-- 修改导航、页面布局、卡片、可见文案、颜色、字号、间距、动画和响应式；
-- 实现生成中 HTML 简历预览、理由旁栏的具体视觉或最终 PDF 切换布局；
-- 读取或实现 Design Agent 的 `current/`、`D-003` 或其他未批准快照；
-- 多 Development Agent 并行修改产品源码；
-- 登录、多用户、PostgreSQL、对象存储、分布式队列、跨设备/后端重启恢复；
-- 同时运行多个前台任务、并发 3、单 Fact 并发或全简历额外统一润色；
-- Profile 持久化、身份自动回填、简历上传查重/OCR、Fact 锁定或单 Fact 重新生成；
-- 新模板、任意 Word 模板解析、ReportLab PDF 回退、自动全局字体/行距/字距排版。
-
-触碰禁止范围时停止并报告，不以“便于联调”扩大 Revision 1。
-
-## 4. 开发任务与依赖
+## 5. Revision 2 开发任务与依赖
 
 | ID | 开发结果 | 关键依赖 | 完成证据 |
 |---|---|---|---|
-| V220-R1-T01 | 身份/基线核对；完成版本 Pre-mortem 和假设台账 | 无 | commit/blob/clean；三个失败模式、探针、停止点 |
-| V220-R1-T02 | Task/InputRevision/子任务/快照 schema、migration 与 repository | T01 | 迁移正反向、幂等、旧库升级、容量边界 |
-| V220-R1-T03 | Task API、保存确认、单活动任务和恢复快照 | T02 | 创建/保存/刷新/重连/终态矩阵 |
-| V220-R1-T04 | SSE seq、去重、缺口重取、断线恢复与 artifact 身份 | T02-T03 | 重复/乱序/缺口/缓冲过期/重连不增调用 |
-| V220-R1-T05 | 实际取消、Provider/worker 清理和 revision fence | T03-T04 | P1-P4 取消、迟到结果、立即新任务、无泄漏 |
-| V220-R1-T06 | 紧凑 JD、Fact＋reason 两阶段、经历并发 2、调用/Token 门禁 | T03-T05 | typed/binding/顺序/并发/重试/超限/真实模型 |
-| V220-R1-T07 | 联系方式、技能、headline/body/fact_refs、教育字段修正 | T06 | 数据链与 DOCX/PDF 三端内容对照 |
-| V220-R1-T08 | 修复合法短输入 TemplateError，不改变事实/模板真源 | T07 | short cold/warm 成功；原失败可复现对照 |
-| V220-R1-T09 | 容量/保留/cleanup 与并发故障恢复 | T02-T08 | 20条/16MiB、保护对象、失败/幂等/越界 |
-| V220-R1-T10 | 首条真实纵切后的 Architecture Check | T02-T09 的最小纵切 | 只读 Challenge 记录；双真源/代理指标检查 |
-| V220-R1-T11 | 完整开发 Gate、冻结前 Falsification Check、RESULT | T01-T10 | 全部门禁 PASS、clean 第一批 checkpoint |
+| V220-R2-T01 | 身份/PLAN/DS-003/Revision1 checkpoint 核对；Pre-mortem | 无 | commit/blob/manifest/clean；3个失败模式与停止点 |
+| V220-R2-T02 | 顶栏、头像菜单、四步轨道、固定工作面与路由壳 | T01 | DS-003 DOM/截图对照；无旧常驻侧栏 |
+| V220-R2-T03 | 身份/JD保存确认、dirty边界、刷新/页面重开恢复 | T02 | native input/粘贴/刷新/重开；不重复调用 |
+| V220-R2-T04 | P1/P2 逐项输出、历史阶段回看与缺口重取 | T03 | SSE重复/乱序/断线/回看；调用增量0 |
+| V220-R2-T05 | P3 HTML过程预览、完整Fact、reason旁侧增量与依据 | T04 | 原子Fact/reason绑定/fallback/恢复；HTML不可导出 |
+| V220-R2-T06 | P4真实PDF切换、anchor、双下载；首条完整纵切后的 Architecture Check | T05 | DOCX/PDF/viewer hash；Challenge记录 |
+| V220-R2-T07 | 我的经历/我的简历/个人与隐私真实能力映射 | T06 | 无fixture；当前任务返回；作用范围断言 |
+| V220-R2-T08 | 取消、新任务、insufficient/partial/failed、范围重试与 ErrorBoundary | T06-T07 | P1-P4失败矩阵；不白屏/不丢状态/不重复POST |
+| V220-R2-T09 | 全视口、键盘、焦点、reduced-motion、卡片与滚动收口 | T02-T08 | 7视口截图+DOM；focus/dialog/menu/overflow |
+| V220-R2-T10 | 真实模型、性能、回归、precheck、clean onedir 与隔离 E2E | T01-T09 | 全部门禁 PASS；最终包 identity |
+| V220-R2-T11 | Falsification Check、RESULT、clean 候选 H2 冻结 | T10 | RESULT完整、无开放Challenge、clean |
 
-T10 未完成前不得继续铺开所有路径；发现 `CHALLENGE_OPEN` 时暂停受影响任务。T11 只形成可供
-Revision 2 继续的 clean 开发 checkpoint，不构成 V2.2.0 发布候选或独立验收 PASS。
+T06 完成首条真实纵切后必须暂停做 Architecture Check；存在双真源、只能靠 CSS/重试逼近、fixture
+冒充真实能力、HTML/PDF 内容漂移或职责转移时进入 `CHALLENGE_OPEN`，关闭前不得铺开 T07～T11。
 
-## 5. 风险预案与假设台账
+## 6. 风险预案与反思门禁
 
-| ID | 状态 | 风险/判断 | 最小反证与处置 |
-|---|---|---|---|
-| A01 | EVIDENCED | minimal 可稳定输出绑定 Fact | 最终实现 3+3+3 边界重跑；失败则 Challenge 模型/协议 |
-| A02 | REJECTED | 单复杂流能同时稳定绑定 Fact/reason | 禁止采用；不得用局部 1/3 PASS 恢复 |
-| A03 | EVIDENCED | 紧凑 JD＋两阶段可在 15s 内首 Fact | 最终集成固定样例 n≥3；max>15s 即不得声称达标 |
-| A04 | EVIDENCED | Experience 并发 2 有收益且绑定稳定 | 限流/乱序/单经历失败；异常则退回串行并 Challenge 性能目标 |
-| A05 | ASSUMPTION | 16k 总预算覆盖合法长简历 | 最大 Fact 数、重试与超限探针；不足不得静默删内容 |
-| A06 | ASSUMPTION | 快照限频可同时满足恢复与 512KiB/task | 断线中 reason、缺口和容量压力；超限时压缩完成事件而非删结果 |
-| A07 | EVIDENCED | 长任务状态峰值约 26.9KiB | 最终 schema 重新序列化；不得直接沿用实验对象大小 |
-| A08 | EVIDENCED | 联系方式链可完整保留 | 最终 Task→Document→DOCX→PDF/download 重跑 |
-| A09 | REJECTED | 当前教育映射正确 | 真实 `本科（）` 反例；T07 必须修复 |
-| A10 | REJECTED | 合法短输入当前可稳定渲染 | short 7/7 TemplateError；T08 必须关闭 |
+Pre-mortem 至少覆盖：
 
-Pre-mortem 至少重点尝试证明：
+1. 前端路由状态与后端 Task 形成双真源，刷新后 UI 看似恢复但重复生成；
+2. HTML 过程预览与 ResumeDocument/DOCX 分叉，用户看到的 Fact 与最终 PDF 不一致；
+3. Design-only fixture、固定样张或无效按钮被误接入正式产品；
+4. 响应式仅靠压缩导致卡片跳动、整页滚动、下载区丢失或 PDF 模糊；
+5. 失败/取消/重试触发第二次 POST、跨 task 写入或白屏。
 
-1. SSE 和快照在断线/并发下会重复调用、交叉绑定或让旧 revision 覆盖新任务；
-2. 两阶段调用与经历并发会使 Token、限流或顺序失控，15 秒只在简化探针成立；
-3. 清理或取消会误删活动/已发布对象，或遗留 Provider、Word、文件与迟到 artifact。
+每项必须给最小证伪实验、最迟决策点和替代路线。T06 Architecture Check 与 T11 Falsification Check
+必须明确回答证据验证的是最终用户结果还是代理指标；只写“测试通过/未发现风险”不算完成。
 
-## 6. 开发 Gate
+## 7. 开发 Gate
 
-### 6.1 状态、协议与取消
+### 7.1 Design Fidelity
 
-- schema migration：新库、V2.1.0 旧库、重复执行、失败回滚、备份/cleanup；
-- Task：DRAFT→RUNNING→SUCCEEDED/FAILED/CANCELLED 全矩阵，非法跳转 fail closed；
-- 草稿：保存确认、刷新/页面重开恢复、输入 revision 冻结、未保存与已保存边界；
-- SSE：重复 seq、乱序、缺口、重连、缓冲过期、快照替换、reason 断流；
-- 幂等：刷新和重连不增加 LLM/Embedding/Word 调用；
-- 取消：P1、P2、每个并发 P3、P4/Word worker；迟到结果不发布；随后新任务能开始；
-- 资源：Provider client、后台 task、数据库、文件、Word/worker 无泄漏。
+- 与 `DS-003` 主题 A 对照 workbench empty/saved/P1/P2/P3/P4/failed/success、experiences、records、
+  privacy；不得出现评审工具、主题切换、fixture 提示或自然语言修改入口；
+- 当前阶段自动选中不可点、已完成阶段可回看、未来阶段禁用；卡片位置和主操作不随内容量跳动；
+- 7 个冻结 viewport 检查 DOM、截图、整页 overflow=0、指定内部滚动容器、PDF 清晰度和下载区；
+- 菜单、dialog、详情、返回焦点、Tab、Escape、方向键、错误关联和 reduced-motion 可操作。
 
-### 6.2 生成、性能与成本
+### 7.2 Task、SSE 与用户流程
 
-- Fact schema、`experience_id/fact_id/fact_refs`、reason 绑定、无外来 ID；
-- P1/P2 完成业务项、P3 整条 Fact、reason 真增量；断流使用明确 fallback；
-- Experience 串行对照并发 2，顺序稳定、单经历失败隔离；
-- 正常逻辑调用 `1 + 2F`，Embedding 0/1，SSE 重连增量 0；
-- 成功不重试；可重试失败不超过 3 attempts；不可重试错误立即失败；
-- JD/Fact/reason 单 attempt 和任务 16k Token 上限；超限不产生截断成功；
-- 固定短/典型/长、cold/warm 真实模型样本每格 `n >= 3`；记录中位数、最大值和完整调用数据；
-- 点击零点首状态、首 JD 项、首召回 Fact、首完成 Fact、P1-P4 和总耗时全部使用同一单调时钟。
+- 原生 setter + input/change、键盘、粘贴、保存中刷新、保存后刷新、路由切换、页面重开；
+- 点击生成前 LLM/Embedding/operation=0；点击一次只创建一个 task operation；
+- P1/P2完成项、P3完整Fact/reason增量、历史回看、断流fallback、重复/乱序/缺口/缓冲过期；
+- 取消 P1/P2/P3/P4、迟到拒收、立即新任务；partial/failed只重试失败范围；ErrorBoundary不白屏；
+- 返回我的经历/简历/隐私后当前 task/input/阶段不丢失、不新增调用。
 
-### 6.3 内容与 artifact
+### 7.3 内容、预览与 artifact
 
-- 联系方式全组合：仅姓名、每个选填字段、全部字段、Unicode/空白归一；
-- 技能 2～4 类或事实不足时诚实减少，类别/条目均有事实依据，无内部术语堆砌；
-- headline/body 标题加粗边界、冒号、fact_refs、事实不扩张、Career Memory 字节不变；
-- 教育 major/degree 缺失组合、已有括号、中文/英文混排，无空括号/倒置/重复；
-- short/typical/long 均生成 DOCX；同一 DOCX→Word PDF→viewer/download hash；
-- Word 缺失、COM 失败、超时、并发 busy、PDF/anchor/下载失败均 fail closed；
-- P4 全程无控制台或可见 Word 闪窗，WINWORD/worker 泄漏 0。
+- 联系方式全组合、目标岗位、技能2～4类、Fact标题/正文/fact_refs、教育字段、short/typical/long；
+- 每个已进入 HTML 的完整 Fact 与最终 ResumeDocument/DOCX/PDF 文本一致；reason 不进入简历正文；
+- HTML无下载端点、无打印/导出真源；P4前后切换不丢内容；PDF.js与下载PDF字节相同；
+- DOCX→Word COM→PDF 单一路径；GET/HEAD/Range/MIME/hash/404/405；失败保留独立可用的Word；
+- anchor绑定当前artifact，空/错配诚实不可用；P4无控制台/Word闪窗，worker/WINWORD泄漏0。
 
-### 6.4 容量、回归与构建
+### 7.4 性能、回归与包
 
-- 256KiB/256KiB、20 条、16MiB 边界及恰好等于/超出 1 byte；
-- 活动、取消中、当前页面、ResumeRevision、DOCX/PDF 保护对象 0 误删；
-- 启动/终态/阈值 cleanup，重复调用、句柄占用、cleanup 失败、相邻哨兵；
-- V2.1.0 核心事实、单次 JD、DOCX/PDF 同源、三视口零整页滚动与 ErrorBoundary 回归；
-- Python compile、类型检查、前端正式 build、统一 precheck；
-- Windows onedir 从 clean baseline 重建并隔离启动；包内无 Key、真实数据、测试注入、开发机路径和
-  ReportLab 产品链；前端可见行为未在 Revision 1 被修改。
+- 短/典型/长 × cold/warm 真实模型每格 `n>=3`；首完整Fact中位数与最大值≤15秒；
+- typical/long 同格总耗时中位数相对 V2.1.0 降低≥25%；short全部成功并记录绝对耗时；
+- 正常调用 `1+2F`、Embedding 0/1、SSE/路由/回看增量0；成功不重试，失败最多3 attempts；
+- Revision1固定计数回归、前端类型/build/Hooks、统一precheck、包审计全部通过；
+- 从 H2 clean 源码重建 onedir，在隔离 runtime 用真实模型完成输入→P1-P4→viewer/双下载 E2E；
+- 包内无Key、真实数据、设计fixture、评审工具、测试注入、开发机路径、ReportLab产品链或旧bundle。
 
-所有必做项必须给出 PASS/FAIL 与非零失败退出；“未执行”“待验收代跑”“环境限制但未定位”均不能
-形成 T11 checkpoint。真实外部模型暂不可用时进入 `BLOCKED`，不得用 mock 替代真实性能结论。
+所有必做项必须给出 PASS/FAIL 和退出码。FAIL、NOT_RUN、缺最终包真实纵切、环境限制未定位或把
+开发自测转给 Acceptance 均不能形成 H2。真实模型不可用时进入 `BLOCKED`，不得用 mock 代替。
 
-## 7. RESULT Delivery Contract
+## 8. RESULT Delivery Contract
 
-Development Agent 在候选冻结前创建/更新 `RESULT.md`，顶部状态只能为“待验收”，并首先标明
-`BATCH1_DEV_VERIFYING` 或 `BATCH1_DEV_VERIFIED`；不得写“独立验收通过”或“可发布”。
+Development Agent 在候选冻结前更新同一 `RESULT.md`，顶部状态保持“待验收”，并标记
+`REV2_DEV_VERIFYING` 或 `REV2_DEV_VERIFIED`；不得写独立验收通过、人工验收通过或可发布。
 
-### 7.1 必填身份
+RESULT 必须一次性包含：
 
-- 版本、Plan Revision、批准 PLAN commit/blob；
-- 实际 `<current-workspace>`、branch、开发基线、checkpoint commit、唯一父和 clean；
-- 相对基线的完整文件清单与 diff 统计；
-- 若有第一批内部包：路径、文件数/总字节、EXE/hash、manifest；不得称为发布包。
+1. Plan Revision 2 批准 commit/blob、H2/唯一父/branch/clean、相对 H 的完整 diff；
+2. `DS-003` 源/导入身份、manifest hash、实施矩阵实际状态及逐项偏差；
+3. `V220-G01～G06` 与 `V220-R2-T01～T11` 的“用户结果→开发理解→实际交付→证据→偏差”；
+4. API/schema/领域模型/模块职责/配置依赖/打包/前端可见变化；无变化写“无”；
+5. Pre-mortem、Architecture Check、Falsification Check、所有假设和 Challenge 最终状态；
+6. 真实模型六格样本、首Fact/总时长、调用/attempt/Token、SSE增量、DOCX/PDF/viewer/hash摘要；
+7. Design Fidelity 的状态/viewport/截图与 DOM 断言汇总；
+8. 全部命令、退出码、固定计数、最终包路径/文件数/总字节/EXE SHA-256/manifest；
+9. 待独立验收问题：任务恢复与幂等、取消清理、流式绑定、HTML/DOCX/PDF一致、设计符合度、
+   失败边界、性能、包身份和隐私扫描；
+10. 建议进入全局文档的已验证事实；未经独立验收不得提前更新全局文档。
 
-### 7.2 逐项交付映射
+## 9. 冻结、验收与发布门禁
 
-必须逐行填写：
+Revision 2 开发完成必须同时满足：T01～T11 全部完成、开发 Gate 无 FAIL/NOT_RUN、RESULT 完整、
+工作区 clean、无开放 `CHALLENGE_OPEN`、未超出实施矩阵。形成 H2 后冻结，不再由开发修改。
 
-| PLAN ID | 用户结果 | 开发理解 | 实际交付 | 可复核证据 | 已知偏差 |
-|---|---|---|---|---|---|
-| V220-G01～G06、V220-R1-T01～T11 | 不得缺项 | 说明结果而非只列模块 | 文件/API/schema/行为 | 命令、退出码、计数、artifact | 无也写“无” |
+随后按顺序执行：
 
-### 7.3 参数与运行证据
+1. Documentation Agent 只依据 PLAN、RESULT、机械身份和证据入口给出 `DOC_ALIGNED`；
+2. 未参与 H2 实现、自测或修复的 Acceptance Agent 在隔离副本和最终 onedir 上完成 Design Fidelity、
+   Integration、失败矩阵、真实性能、artifact、资源清理与包审计；
+3. Documentation Agent 将绑定 H2 的验收结论写入 RESULT；
+4. Product Owner 使用同一候选包完成人工验收；
+5. 全部通过后才收口 CURRENT_STATE、docs索引和根README；Product Owner 另行批准发布后才推送
+   remote `main` 并创建 annotated tag `v2.2.0`。
 
-- 最终模型、Endpoint、reasoning、temperature、response format；
-- JD 最终 token 值及为何在允许区间，Fact/reason/任务总上限；
-- `E/F`、逻辑调用、HTTP attempt、Embedding、重试与 Token 的逐样例摘要；
-- 短/典型/长及 cold/warm 的 n、中位数、最大值、首 Fact 和总时长；
-- 状态/事件真实序列、取消与迟到 fence、容量/cleanup、DOCX/PDF hash；
-- Pre-mortem、Architecture Check、Falsification Check 的结论；没有可信失败模式不能标记完成。
+任一源码、测试、依赖、配置、构建或入包文件在验收后变化，原验收自动失效并重新冻结 H2。
 
-### 7.4 实际变化与偏差
+## 10. 明确延期/排除
 
-分别说明 API、数据库/schema、领域模型、模块职责、配置/依赖、打包和可见前端是否变化；无变化也
-写“无”。所有 `ASSUMPTION` 的最终状态必须更新。出现 Challenge 时记录触发证据、关闭方式和是否
-需要 Revision 2 之外的新 PLAN Revision。
+- 后端/应用退出、崩溃、系统重启后的未完成任务续跑；多前台任务、跨设备恢复；
+- 登录、多用户、PostgreSQL、对象存储、分布式队列和云部署；
+- Profile身份长期保存或自动回填；简历上传、OCR、导入查重和重复合并；
+- 自然语言意图修订、单Fact重生成/锁定、修改后重制文件和修订历史；
+- 新模板、任意Word模板解析、自动全局字号/行距/字距适配；
+- 生产主题切换、Design批注工具、固定fixture/样张、完整WCAG/屏幕阅读器认证。
 
-### 7.5 待独立验收问题
-
-Revision 1 不启动 Acceptance，但 RESULT 必须预先列出最终候选需要独立核实的问题：
-
-1. 刷新/重连/乱序下是否真实不重复调用、不交叉覆盖；
-2. 取消后 Provider/Word/artifact 是否真正停止或被 fence，能否立即开始新任务；
-3. 两阶段绑定、并发 2、调用/Token 与 15 秒是否在真实模型和最终包成立；
-4. task cleanup 是否可能误删活动状态或已发布 DOCX/PDF；
-5. 联系方式、技能、headline、教育和 short 输入是否在真实 DOCX/PDF 一致；
-6. 最终 Revision 2 是否忠实实现批准 `DS-xxx`，且 HTML 过程预览没有成为第二产物真源。
-
-## 8. 第一批完成条件与下一门禁
-
-Revision 1 完成必须同时满足：
-
-1. T01～T11 全部完成，开发 Gate 无 FAIL/NOT_RUN；
-2. RESULT 合同一次填写完整，工作区 clean；
-3. 没有开放 `CHALLENGE_OPEN`；
-4. 没有修改 Design Gate 禁止范围；
-5. Documentation Agent 仅依据 PLAN、RESULT、机械身份和证据入口完成一次语义交接审查。
-
-随后仍不进入独立验收或发布。下一门禁是 Product Owner 批准 Design Snapshot；Documentation Agent
-据此形成 Revision 2、导入 `DS-xxx` 并授权第二批可见实现与最终集成。只有 Revision 2 完成并形成
-冻结候选，才进入 Acceptance、Product Owner 人工验收和发布流程。
+上述内容进入后续需求池，不得以“Design Snapshot 中可点击”为由在 V2.2.0 隐含实现。

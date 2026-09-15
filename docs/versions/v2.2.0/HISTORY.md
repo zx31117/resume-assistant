@@ -223,3 +223,46 @@
   `324302a0ef6d81214c752d12281c221f2550f320`。
 - 下一步：将批准的 PLAN 同步到固定开发路径 `<current-workspace>`，切换活动版本分支；开发必须先完成
   Required Reading、Pre-mortem 和 T01，再开始源码实现。
+
+## VH-011 Revision 1 开发交接完成语义核对
+
+- 日期：2026-09-15
+- 阶段：V2.2.0 Revision 1 开发交接
+- 事实：Revision 1 开发候选冻结为 `09ee23651161afe7dc24f2e839618f49213e4217`，工作区 clean，
+  approved PLAN blob 为 `324302a0ef6d81214c752d12281c221f2550f320`。真实模型六格性能矩阵中首个
+  完整 Fact 的各格最大值均不超过 15 秒；有 V2.1.0 基线的 typical/long cold/warm 总耗时中位数
+  均降低至少 25%；short cold/warm 全部成功。
+- 文档核对：Documentation Agent 依据 PLAN、RESULT、机械身份与证据入口完成集中语义审查，直接
+  修正 RESULT 中的状态、时态、证据映射、checkpoint 身份和下一门禁等文档问题；结论为
+  `DOC_ALIGNED`，文档提交为 `e4f9e499d1013fd03bf150bd9f50c8476cd01cbb`，未要求 Development Agent
+  为文档措辞再次返工。
+- 边界纠正：Revision 1 的批准合同要求 clean onedir 重建与隔离启动，但没有要求该批在最终包内再次
+  完成真实模型纵切；该纵切属于 Revision 2 最终候选门禁。Documentation Agent 不得把后续批次门禁
+  倒灌为前批开发返工项。以后发现交接文档可由文档角色确定修正且不改变候选事实时，由文档角色一次
+  收口；只有产品实现、证据真实性或身份本身不满足合同才集中打回开发。
+
+## VH-012 D-003 获批并导入为 DS-003
+
+- 日期：2026-09-15
+- 阶段：V2.2.0 Design Gate → PLAN Revision 2 准备
+- Product Owner 决定：批准 Design Snapshot `D-003`，以主题 A 和四步连续任务工作台作为 V2.2.0
+  Revision 2 的可见设计基线。
+- 导入：源 `<design-workspace>/snapshots/D-003` 按原始字节导入
+  `docs/design/baselines/V2.2.0/DS-003`；共 28 个文件，源 `CHECKSUMS.sha256` 的 SHA-256 为
+  `cc699466af400ee603a7e9fe39ef22e75bc7db37bd7150f41a0f0718ac9d0a61`，manifest 登记的 27 个
+  文件全部校验通过，源与 canonical 逐文件对照 mismatch=0。
+- 范围：Snapshot 中的生产主题 A、四步状态、过程 Fact/reason、最终 PDF 预览、头像菜单与参考页面
+  进入 Revision 2 取舍输入；评审工具、主题切换、fixture 和自然语言修改等 Design-only 能力不得因
+  原型可点击而自动进入产品。
+
+## VH-013 PLAN Revision 2 草案形成
+
+- 日期：2026-09-15
+- 阶段：V2.2.0 PLAN Revision 2 待批准
+- 目的：Revision 2 取代 Revision 1 的执行合同，绑定 `DS-003`，只授权可见界面、真实能力映射、
+  最终集成和候选冻结；复用 Revision 1 已完成的单一 Task/SSE/生成/artifact 链，不另建双真源。
+- 门禁强化：最终开发候选必须从 clean 源码重建 onedir，并在隔离 runtime 使用真实模型跑通输入、
+  P1～P4、PDF.js viewer 与 Word/PDF 双下载；该项出现 FAIL、NOT_RUN 或环境阻断时不得形成 H2，
+  不得转交独立验收代跑。
+- 当前状态：草案已形成但尚未获得 Product Owner 批准，不授权 Revision 2 产品源码开发；批准后登记
+  approved commit/PLAN blob 并同步固定开发路径。
