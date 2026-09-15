@@ -283,4 +283,5 @@
 - 授权边界：Revision 2 立即取代 Revision 1 成为唯一有效开发合同。Development Agent 必须从
   `docs/README.md` 的固定角色入口读取 Required Reading 和 `DS-003`，在 current 的
   `version/v2.2.0` 上继续；不得跟随 Design 工作稿，也不得把最终包真实纵切转给独立验收代跑。
-- 批准收口 commit / 当前 PLAN blob：下一文档身份提交登记。
+- 批准收口 commit：`e3c68ac7405abe3a70e807b22d51a25ddb80731f`；当前已批准 PLAN blob：
+  `e134703ce6e37a2f4d5df389662119f38638fae8`。
