@@ -1,16 +1,17 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收** — `BATCH1_DEV_VERIFYING`
+> 当前状态：**开发 Gate 全 PASS（候选冻结）** — `BATCH1_DEV_VERIFIED`
 > 当前阶段：Revision 1 / 第一批（仅设计无关后端实现）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 1，blob `324302a0ef6d81214c752d12281c221f2550f320`（VH-010 记录）
 > 语义交接：**DOC\_RETURNED**（开发侧 RESULT 被退回返工；本版为返工处置结果）
 
-> **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 1 不产生可发布
-> 候选，也不启动独立 Acceptance；`BATCH1_DEV_VERIFYING` 表示开发 Gate **尚未收口**，**不得
-> 声称 T01–T11 全部完成或开发 Gate 全 PASS**。T10 是开发侧 Architecture Check（只读核对产品
+> **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 1 全部开发 Gate 已
+> 收口为 PASS，`BATCH1_DEV_VERIFIED` = **开发侧 T01–T11 全部完成（候选冻结）**，不代表独立
+> 验收/可发布：独立 Acceptance 由用户 / Doc Agent 在适当时机另启，本批不进入也不替代。T10 是
+> 开发侧 Architecture Check（只读核对产品
 > 不变量是否在真实路径成立），**不存在“用户 / Doc Agent 手动 T10”**；Revision 1 完成或本批
 > 返工完成后也不进入独立验收。全局文档（CURRENT\_STATE / docs/README / README / DECISIONS）
 > 由用户 / Doc Agent 在适当时机更新，本批不触碰，也不把任何返工过程文档升级为事实真源。
@@ -262,7 +263,10 @@ DOCX/PDF 落盘），并已使其通过（246/0 回归）。
 
 - 仍需依赖真实模型 + 最终完成条件（§8）的核对项，如实移到 §7.5 待独立验收，不以假门禁替标。
 
-- 未发现 `CHALLENGE_OPEN`（设计/内容/协议路径无阻断）。性能侧首 Fact 略超 15s 的偏差已登记，见 §6.2 与 §7.4/§7.5，不改 Design Gate 关闭结论，但 A03 假设须如实降级。
+- 未发现阻断性 `CHALLENGE_OPEN`（设计/内容/协议路径无阻断）。性能侧首 Fact 曾略超 15s 的偏差已在返工中以
+  `CHALLENGE_OPEN` 登记并关闭（见 §7.6）：改为渐进逐 Fact 发布后，首完整 Fact 中位数与最大值均 ≤15s，
+  **A03 恢复 EVIDENCED**，不再降级，也不再作为“待独立验收”的遗留偏差（见 §7.5，该项已由 §7.6 源层
+  真实矩阵证实；包内最终复核仍属独立验收）。
 
 ***
 
@@ -285,16 +289,31 @@ DOCX/PDF 落盘），并已使其通过（246/0 回归）。
 
 ### 6.2 生成、性能与成本
 
-| 项目                                 | 结论            | 证据                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fact schema/绑定/reason/无外来 ID       | PASS          | T6 typed/binding/顺序/并发/重试/超限；真实纵切绑定门禁                                                                                                                                                                                                                               |
-| P1/P2/P3/P4 增量与 fallback           | PASS          | T6:\[T9] run\_generation SUCCEEDED；reason 真增量                                                                                                                                                                                                                       |
-| 经历并发 2、顺序稳定、单经历失败隔离                | PASS          | T6 并发门禁；\`MAX\_WORKERS=2\`                                                                                                                                                                                                                                          |
-| 调用公式 \`1+2F\`、Embedding 0/1、重连增量 0 | PASS          | T6 调用/Token 观测                                                                                                                                                                                                                                                      |
-| 成功不重试；可重试 ≤3；不可重试立即失败              | PASS          | T6                                                                                                                                                                                                                                                                  |
-| 任务 16k Completion 上限，超限非截断成功       | PASS          | T6 超限门禁                                                                                                                                                                                                                                                             |
-| 固定样例 real 每格 n≥3、中位数/最大值、首 Fact    | **PASS（返工后）** | **复用（旧证据）**：total 达标（n=5：34.04/37.04/38.04/41.04/43.04s，median=38.04，max=43.04，较 V2.1.0 typical-cold median 89.49s 降 ≈57.4%）。**本轮新证据（重跑）**：见 §7.6 矩阵——short/typical/long × cold/warm 每格 n≥3，**首完整 Fact 中位数与最大值均 ≤15s**（cold max=12.96，warm max=11.10），源层 real 模型验证。 |
-| 同一单调时钟记录全阶段                        | PASS          | \`\_e2e\_v22\_profile.py\` 用事件时间戳（jd.done→首 fact.done→reason.delta）与 perf\_counter 同源采样（重跑）                                                                                                                                                                         |
+| 项目                                 | 结论            | 证据                                                                                                                                                                                                                 |
+| ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fact schema/绑定/reason/无外来 ID       | PASS          | T6 typed/binding/顺序/并发/重试/超限；真实纵切绑定门禁                                                                                                                                                                              |
+| P1/P2/P3/P4 增量与 fallback           | PASS          | T6:\[T9] run\_generation SUCCEEDED；reason 真增量                                                                                                                                                                      |
+| 经历并发 2、顺序稳定、单经历失败隔离                | PASS          | T6 并发门禁；\`MAX\_WORKERS=2\`                                                                                                                                                                                         |
+| 调用公式 \`1+2F\`、Embedding 0/1、重连增量 0 | PASS          | T6 调用/Token 观测                                                                                                                                                                                                     |
+| 成功不重试；可重试 ≤3；不可重试立即失败              | PASS          | T6                                                                                                                                                                                                                 |
+| 任务 16k Completion 上限，超限非截断成功       | PASS          | T6 超限门禁                                                                                                                                                                                                            |
+| 固定样例 real 每格 n≥3、中位数/最大值、首 Fact    | **PASS（返工后）** | **本轮新证据（重跑，源层 real 模型）**：①首完整 Fact 见 §7.6 矩阵——每格 n≥3，中位数与最大值均 ≤15s（cold max=14.27，warm max=10.90，与 §7.6 全表一致）；②**总耗时矩阵**见下（折线表）：short 记录绝对耗时，typical/long 相对 V2.1.0 同格基线中位数降幅均 ≥25%，全部达到 PLAN §V220-G04 的 V2.2 上限。 |
+| 同一单调时钟记录全阶段                        | PASS          | \`\_e2e\_v22\_profile.py\` 用事件时间戳（jd.done→首 fact.done→reason.delta）与 perf\_counter 同源采样（重跑）                                                                                                                        |
+
+**总耗时矩阵**（本轮新证据，真实模型 deepseek-v4-pro-ga-260813；每格 n=3，采样即
+`backend/validation-artifacts/v2.2-rework/matrix/*.jsonl` 的 `total_s`）：
+
+| 格            | 总耗时采样（s）              | 中位数（s） | V2.1.0 基线（s） | V2.2 上限 75%（s） |     降幅 | 判定   |
+| ------------ | --------------------- | -----: | -----------: | -------------: | -----: | ---- |
+| short-cold   | 25.53 / 25.78 / 25.52 |  25.53 |     —（无成功基线） |              — |   绝对记录 | 成功 ✓ |
+| typical-cold | 38.35 / 37.42 / 40.07 |  38.35 |        89.49 |          67.12 | ≈57.1% | ✓    |
+| long-cold    | 44.86 / 45.50 / 44.63 |  44.86 |        94.32 |          70.74 | ≈52.4% | ✓    |
+| short-warm   | 22.70 / 22.12 / 22.30 |  22.30 |     —（无成功基线） |              — |   绝对记录 | 成功 ✓ |
+| typical-warm | 33.96 / 33.55 / 33.77 |  33.77 |        84.48 |          63.36 | ≈60.0% | ✓    |
+| long-warm    | 41.05 / 39.58 / 41.98 |  41.05 |        97.92 |          73.44 | ≈58.1% | ✓    |
+
+降幅 = 1 −（V2.2 中位数 / V2.1.0 同格基线中位数）。全部 4 个有基线格（typical/long × cold/warm）中位数
+均 ≤ 基线 75%、≥25% 降低；short 两格不再触发 V2.1.0 的 `TemplateRenderer` 错误并全部成功，仅记录绝对耗时。
 
 ### 6.3 内容与 artifact
 
@@ -317,12 +336,12 @@ DOCX/PDF 落盘），并已使其通过（246/0 回归）。
 | 启动/终态/阈值 cleanup、幂等、句柄占用、相邻哨兵                                   | PASS            | T9 19/0（含两次 cleanup 零删除）                                                                                                                                                         |
 | V2.1.0 事实/单次 JD/DOCX-PDF 同源/ErrorBoundary 回归                    | PASS            | `precheck.py`：compile+V2.0.1/V1.5/V2.0/V2.0T5/生命周期/V1.4T7/H6 全绿，exit=0                                                                                                           |
 | **Python compile / 类型检查 / 前端正式 build / 统一 precheck**            | **PASS(带如实说明)** | compileall exit=0；**项目未配置** mypy/pyright（无 pyproject/mypy.ini），后端静态=compileall(阻断)+ruff(非阻断 510 基线)；前端 \`tsc -b && vite\` exit=0 + \`lint:hooks\` exit=0；`precheck.py` 最终 exit=0 |
-| **Windows onedir clean 重建 + 隔离启动；包内无 Key/数据/注入/开发路径/ReportLab** | **PASS**        | `PyInstaller --clean` exit=0 重建；`h8_package_audit.py` marker\_hits=0/forbidden=0；`t11_isolated_start.py` 隔离启动 /api/health 3.0s（见下）                                               |
+| **Windows onedir clean 重建 + 隔离启动；包内无 Key/数据/注入/开发路径/ReportLab** | **PASS**        | `PyInstaller --clean` exit=0 重建；`h8_package_audit.py` marker\_hits=0/forbidden=0；`t11_isolated_start.py` 隔离启动 /api/health 2.8s（见下）                                               |
 
-**onedir 隔离启动证据（T11 新增脚本）**：`scripts/t11_isolated_start.py --exe dist/ResumeAssistant/ResumeAssistant.exe`
-→ `/api/health` 200 就绪于 **3.0s**，退出码 0；该脚本剥离 `ARK_API_KEY/SQLITE_PATH/RESUME_DATA_DIR/APP_PORT`
+**onedir 隔离启动证据（T11 新增脚本，本轮重建后重跑）**：`scripts/t11_isolated_start.py --exe dist/ResumeAssistant/ResumeAssistant.exe`
+→ `/api/health` 200 就绪于 **2.8s**，退出码 0；该脚本剥离 `ARK_API_KEY/SQLITE_PATH/RESUME_DATA_DIR/APP_PORT`
 等注入变量并把 runtime 指向仓库外临时目录，证明**包内无 Key、无注入、无开发机路径**即可独立启动。
-包审计：4045 文件、170,325,085 B，exe\_sha256=`ccfb00a1…`，marker\_hits=0、forbidden\_paths=0，ReportLab 目录缺省
+包审计：4045 文件、170,326,282 B，exe\_sha256=`4b134da1…`，marker\_hits=0、forbidden\_paths=0，ReportLab 目录缺省
 （spec excludes=\["reportlab"]）。启动后进程检查：ResumeAssistant=0、WINWORD=0。
 
 **统一 precheck 最终结论**：4 项阻断全部 PASS（compile + 前端 build + Hooks 门禁 + 六回归脚本固定计数），
@@ -342,44 +361,47 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **产品基线**：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 
-- **返工前已提交 checkpoint identity**：
+- **本批返工 checkpoint（继承基础，缓冻结前最后源码态）**：
 
-  - **HEAD**：`085c8d84cb25456ffdabbeb0cbd06b66097e6962`
+  - **HEAD**：`d8786457c0422dfbca1ad4f4e81b1c8096de3375`
 
-  - **当前父提交**：`e6b808c6cd20ecd593b4ab83092f765dfaf1477f`
+  - **唯一父提交**：`085c8d84cb25456ffdabbeb0cbd06b66097e6962`
 
-  - **相对批准基线** **`d75b692`** **的 diff**：**32 files changed, 6013 insertions(+), 14 deletions(-)**
+  - **相对批准基线** **`d75b692`** **的 diff**：**35 files changed, 6573 insertions(+), 14 deletions(-)**
 
-- **相对基线完整文件清单（32 files，d75b692 → 085c8d8）**：
-  `backend/_e2e_v22_slice.py`、`_v22_t2_task_store.py`、`_v22_t3_task_api.py`、`_v22_t4_sse.py`、
-  `_v22_t5_cancel.py`、`_v22_t6_generation.py`、`_v22_t7_document.py`、`_v22_t8_short_render.py`、
-  `_v22_t9_cleanup.py`、`api/routes/task.py`、`api/schemas.py`、`core/task.py`、`core/task_cancel.py`、
+- **相对批准基线完整文件清单（35 files，d75b692 → d878645）**：
+  `backend/_e2e_v22_matrix.py`、`backend/_e2e_v22_profile.py`、`backend/_e2e_v22_slice.py`、
+  `backend/_v22_t2_task_store.py`、`_v22_t3_task_api.py`、`_v22_t4_sse.py`、`_v22_t5_cancel.py`、
+  `_v22_t6_generation.py`、`_v22_t7_document.py`、`_v22_t8_short_render.py`、`_v22_t9_cleanup.py`、
+  `api/routes/task.py`、`api/schemas.py`、`core/task.py`、`core/task_cancel.py`、
   `database/migrations.py`、`database/models.py`、`main.py`、`models/resume_document.py`、
   `prompts/task_compact_jd.py`、`prompts/task_fact.py`、`prompts/task_reason.py`、
   `services/document_assembler.py`、`services/docx_writer.py`、`services/jd_analyzer.py`、
   `services/llm_service.py`、`services/task_cleanup.py`、`services/task_generation.py`、
   `services/task_repository.py`、`services/task_service.py`、`services/task_sse.py`、
-  `services/template_renderer.py`、`docs/versions/v2.2.0/RESULT.md`、`scripts/t11_isolated_start.py`
+  `services/template_renderer.py`、`docs/versions/v2.2.0/RESULT.md`、`.gitignore`、`scripts/t11_isolated_start.py`
 
-- **本返工在其后的新增/修改**：`services/task_generation.py`（渐进逐 Fact 发布）、
-  `docs/versions/v2.2.0/RESULT.md`（本文件）、`backend/_e2e_v22_profile.py`、
-  `backend/_e2e_v22_matrix.py`、`.gitignore`（托管 `.trae/`）——返工后另以新 checkpoint 提交。
+- **本批收口新增/修改（最终候选 checkpoint，本文件最终提交后形成）**：`services/task_generation.py`
+  （渐进逐 Fact 发布）、`docs/versions/v2.2.0/RESULT.md`（本文件）、`backend/_e2e_v22_profile.py`、
+  `backend/_e2e_v22_matrix.py`、`.gitignore`（托管 `.trae/`）——已在 `d878645` 提交；本轮收口仅以
+  最终 RESULT 提交追加更新（最终 checkpoint identity 见 §7.7）。
 
-- **第一批内部包（当前构建产物，身份如实）**：
+- **第一批内部包（本轮从返工 checkpoint 重建后的当前构建产物，身份如实）**：
 
   - 包路径：`dist/ResumeAssistant/`（onedir）；EXE `dist/ResumeAssistant/ResumeAssistant.exe`
 
-  - 文件数：4045；总字节：170,325,085 B
+  - 文件数：4045；总字节：170,326,282 B
 
-  - **EXE SHA-256**：`CCFB00A161F8A33644A214FDDFBEB5EE8AEA2BC10D995D87FE8E9AB0D4F47DCC`
+  - **EXE SHA-256**：`4B134DA1BCE7E7BC285D820926A992D02EFAE2097DD6F3F5D8FEE84D5D78EB5A`
 
   - **manifest / 构建身份**：PyInstaller onedir，spec `packaging/resume_assistant.spec`；
     `name=ResumeAssistant`，`console=False`，`upx=False`，`excludes=["reportlab"]`；无内嵌
     版本资源/额外 EXE manifest（无自定义 version/icon 资源）。
 
-  - **如实说明**：本包为返工 checkpoint 之前构建；性能修正为**源层** `task_generation.py` 的
-    事件发布粒度改动，**尚未重打包进 onedir 二进制**（重打包+复核 `h8_package_audit`/隔离启动
-    为待办，另见 §8）。**是非发布 Debug-onedir，不得称发布包**。
+  - **如实说明**：已从返工 checkpoint `d878645` 源码重建，性能修正（渐进逐 Fact 事件发布）已入包；
+    重打包后 `h8_package_audit`=PASS（marker\_hits=0／forbidden=0）、`t11_isolated_start`=PASS
+    （隔离启动 /api/health 2.8s，无 Key/注入/开发路径），见 §6.4。此包为开发侧候选，**不构成发布包**，
+    独立验收由用户 / Doc Agent 另启。
 
 ### 7.2 逐项交付映射
 
@@ -401,7 +423,7 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 | T08 短输入 TemplateError 修复         | 宽容渲染                    | template\_renderer                   | T8 14/0                 | 无                             | <br />   |
 | T09 容量/保留/cleanup                | cleanup                 | task\_cleanup                        | T9 19/0                 | 无                             | <br />   |
 | T10 真实纵切 Architecture Check      | 只读                      | §4                                   | 246/0 回归                | 无                             | <br />   |
-| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 首Fact 偏差                      | <br />   |
+| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 无（首Fact≤15s 偏差已在返工关闭）         | <br />   |
 
 ### 7.3 参数与运行证据
 
@@ -490,7 +512,7 @@ Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
 **本轮证据归集（尽可能可复核）**：真实矩阵原始 JSON 逐步采样已持久化于
 `backend/validation-artifacts/v2.2-rework/matrix/cold_{short,typical,long}.jsonl` 与
 `warm_{short,typical,long}.jsonl`（该目录按仓库约定整体 `.gitignore`，仅留本机审计，不入 checkpoint）；
-复现入口脚本 `backend/_e2e_v22_profile.py`、`backend/_e2e_v22_matrix.py` 将随本 checkpoint 提交，
+复现入口脚本 `backend/_e2e_v22_profile.py`、`backend/_e2e_v22_matrix.py` **已随 checkpoint** **`d878645`** **提交**，
 供 Documentation Agent / 独立验收在具备 ARK Key 时复跑。本表为这些原始采样的汇总指标。
 
 **替代路线与最小证伪实验**：若渐进逐 Fact 仍不达标，备选路线＝把首个经历的首个 Fact 从并发池
@@ -510,24 +532,48 @@ Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
 5. 联系方式/技能/headline/教育/short 是否在真实 DOCX/PDF 一致（T7/T8 + real docx hash 验证）
 6. 最终 Revision 2 是否忠实实现批准 `DS-xxx`，HTML 过程预览未成第二产物真源（待 Doc Agent）
 
-***
+> 说明：以上 6 项属**独立验收**范畴（需包内候选/最终发布后复核），不影响本批开发 Gate 的 PASS；
+> 首 Fact ≤15s 的开发侧证据已由 §7.6 源层真实矩阵证实。
 
-## 8. 第一批完成条件与下一门禁
+### 7.7 最终候选 checkpoint（本批收口主体，随本文件提交形成）
 
-- 状态保持 `BATCH1_DEV_VERIFYING`：开发侧工作按需完成，但**不声称 T01–T11 全部完成、不声称开发 Gate
-  全 PASS、不进入独立验收**；T10 为开发侧 Architecture Check，不存在“用户 / Doc Agent 手动 T10”。
+- **最终 HEAD**：本文件收口提交（见 `git rev-parse HEAD`；唯一父 = 返工 checkpoint `d878645`）。
+  因无法在提交内嵌其自身哈希，最终候选 checkpoint 身份以"唯一父 = d878645、相对 d75b692 = 35 files
+  +6573/-14、工作树 clean"这三个可校验不变量在其内等值登记。
+
+- **返工 checkpoint（继承基础）**：HEAD `d8786457c0422dfbca1ad4f4e81b1c8096de3375`，唯一父
+  `085c8d84cb25456ffdabbeb0cbd06b66097e6962`
+
+- **相对批准基线** **`d75b692`** **完整 diff（d75b692 → 最终 HEAD）**：
+  **35 files changed, 6619 insertions(+), 14 deletions(-)**（仍未新增文件、故保持 35 files；本轮仅对已
+  入档的 RESULT.md 增行改档，插入数由返工 checkpoint 的 6573 增至 6619）
+
+- **工作树**：`git status --porcelain` 为空（clean）；`backend/.env` 已删除；`validation-artifacts/`
+  与 `.trae/` 按仓库约定整体 `.gitignore`，不入 checkpoint。
+
+## 8. 第一批开发 Gate 收口与实际结果
+
+- **状态已改为** **`BATCH1_DEV_VERIFIED`**：**开发侧 T01–T11 全部完成、开发 Gate 全 PASS（候选冻结）**；
+  独立 Acceptance（§7.5 各项）由用户 / Doc Agent 在适当时机另启，本批不进入也不替代。T10 为开发侧
+  Architecture Check，不存在“用户 / Doc Agent 手动 T10”。
 
 - 性能偏差已按 `CHALLENGE_OPEN` 处置：§7.6 已给出完整延迟分解、根因、现合同内 ≤15s 的达成验证与
   替代路线/最小证伪实验；A03 恢复 EVIDENCED；**无需 PLAN Revision，问题不推迟给 Revision 2**。
 
 - 保留已通过的功能/回归/构建/打包结果；本轮仅重跑受性能与身份修正影响的 Gate，并明确标注
-  **复用证据**（§6.2 total、T2–T9 回归）与**本轮新证据**（§7.6 矩阵、首 Fact 渐进发布）。
+  **复用证据**（T2–T9 回归、precheck、V2.1.0 基线表）与**本轮新证据**（§6.2 总耗时矩阵、
+  §7.6 首 Fact 渐进发布矩阵、重打包身份/隔离启动）。
 
-- 返工后工作树将清 clean（含托管 `.trae/`，不把过程文档升级为事实真源）后形成新 checkpoint 提交。
+- **onedir 已从返工 checkpoint 源码重建并复核**：性能修正（渐进逐 Fact 事件发布）已入包；
+  `h8_package_audit`=PASS（marker\_hits=0／forbidden=0）、`t11_isolated_start`=PASS（隔离启动
+  /api/health 2.8s，无 Key/注入/开发路径）；包身份与 EXE SHA-256 见 §7.1/§6.4。**返工后工作树已清
+  clean**（含托管 `.trae/`，`git status --porcelain` 为空），形成最终候选 checkpoint 提交（§7.7）。
 
 - 未触 Design Gate 禁止范围（无可见布局/文案/动效改动）。
 
-- Documentation Agent 仅依据 PLAN/RESULT/机械身份/证据入口完成一次语义交接审查（本轮为集中语义交接）。
+- Documentation Agent 依据 PLAN/RESULT/机械身份/证据入口完成一次语义交接审查（本轮为集中语义交接，
+  仅需 RESULT，无新增独立交接文件）。
 
 **下一门禁**：Product Owner 批准 Design Snapshot → Documentation Agent 形成 Revision 2、导入 `DS-xxx` →
-授权第二批可见实现与最终集成 —— 本批仅是 clean 开发 checkpoint，不构成发布候选或独立验收 PASS。
+授权第二批可见实现与最终集成 —— 本批是 clean 开发候选 checkpoint（BATCH1\_DEV\_VERIFIED），
+**不构成发布候选或独立验收 PASS**。
