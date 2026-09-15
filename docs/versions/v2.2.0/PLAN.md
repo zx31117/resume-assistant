@@ -2,7 +2,7 @@
 
 > Plan Revision：2
 > Supersedes：Revision 1（批准 PLAN blob `324302a0ef6d81214c752d12281c221f2550f320`）
-> 状态：待 Product Owner 批准
+> 状态：已获 Product Owner 批准
 > 日期：2026-09-15
 > 产品源码基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > Revision 1 开发候选 H：`09ee23651161afe7dc24f2e839618f49213e4217`
@@ -10,7 +10,7 @@
 > 开发路径：`<current-workspace>` 的 `version/v2.2.0`
 > 本 Revision 授权：第二批可见界面、Design Snapshot 集成、最终纵切与发布候选
 > Design Baseline：源 `D-003` → canonical `DS-003`
-> 批准 commit / PLAN blob：待 Product Owner 批准后登记
+> Product Owner 批准内容基线：commit `af2f8f9bc193fbe78e77e5d6009b5ad7836d6f3e` / PLAN blob `7104bfbd430cefb66cfc29bb92520c2ff65aeaff`
 
 ## Required Reading（Development Agent 必读）
 
@@ -36,8 +36,8 @@
 并行，但不得由多个开发角色并行改同一产品链。目标导向冻结允许在不改变用户结果、Design Baseline、
 事实真源、调用公式、并发上限和成本上限的前提下调整实现细节。
 
-在 Product Owner 批准本 Revision 前，Revision 1 仍是有效合同，Development Agent 不得提前实现
-Revision 2。实现证据否定路线时按 `HUMAN_AI_WORKFLOW.md` §3.4 开启 `CHALLENGE_OPEN`。
+Revision 2 已取代 Revision 1，Development Agent 只能在本合同和 `DS-003` 实施矩阵内继续实现。
+实现证据否定路线时按 `HUMAN_AI_WORKFLOW.md` §3.4 开启 `CHALLENGE_OPEN`。
 
 ## 1. 已冻结基线
 

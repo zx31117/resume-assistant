@@ -266,3 +266,21 @@
   不得转交独立验收代跑。
 - 当前状态：草案已形成但尚未获得 Product Owner 批准，不授权 Revision 2 产品源码开发；批准后登记
   approved commit/PLAN blob 并同步固定开发路径。
+
+## VH-014 PLAN Revision 2 获 Product Owner 批准
+
+- 日期：2026-09-15
+- 阶段：V2.2.0 PLAN Revision 2 → 第二批开发授权
+- Product Owner 决定：批准 Revision 2 的完整当前合同，包括 `DS-003` 实施矩阵、过程 HTML 与最终
+  PDF 的真源边界、路由/刷新连续性、实际取消、P1～P4 渐进体验、真实能力映射、七视口设计门禁、
+  最终包真实模型纵切和 RESULT Delivery Contract。
+- 批准内容身份：commit `af2f8f9bc193fbe78e77e5d6009b5ad7836d6f3e`，PLAN blob
+  `7104bfbd430cefb66cfc29bb92520c2ff65aeaff`。批准后只修改批准状态、活动开发入口与本条历史，
+  不改变 Product Owner 审阅的合同正文。
+- Design 身份：源 `D-003` → canonical `DS-003`；入口 `prototype/index.html`；manifest SHA-256
+  `cc699466af400ee603a7e9fe39ef22e75bc7db37bd7150f41a0f0718ac9d0a61`；28 个文件；导入对照
+  mismatch=0。
+- 授权边界：Revision 2 立即取代 Revision 1 成为唯一有效开发合同。Development Agent 必须从
+  `docs/README.md` 的固定角色入口读取 Required Reading 和 `DS-003`，在 current 的
+  `version/v2.2.0` 上继续；不得跟随 Design 工作稿，也不得把最终包真实纵切转给独立验收代跑。
+- 批准收口 commit / 当前 PLAN blob：下一文档身份提交登记。
