@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**开发 Gate 全 PASS（候选冻结）** — `BATCH1_DEV_VERIFIED`
+> 当前状态：**待验收** — `BATCH1_DEV_VERIFIED`
 > 当前阶段：Revision 1 / 第一批（仅设计无关后端实现）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -176,7 +176,7 @@ PLAN §5 已冻结假设身份；本台账在开发执行中逐项维护最终�
 
 ### 4.4 代理指标检查
 
-- **真实首 Fact 观测（现在 EVIDENCED）**：隔离 runtime 真实纵切记录 `jd.done`(P1) 至首个
+- **返工前真实首 Fact 观测（当时已形成证据）**：隔离 runtime 真实纵切记录 `jd.done`(P1) 至首个
   `fact.done`(P3) 约 17s（05:30:12 → 05:30:30），端到端 P1–P3+P4 总耗时约 37s。这是真实模型数据，
   非 T06 简化探针；最终 schema 复测归 T11 Gate。
 
@@ -214,7 +214,7 @@ PLAN §5 已冻结假设身份；本台账在开发执行中逐项维护最终�
 
 ### 4.8 结论
 
-- **未触发** **`CHALLENGE_OPEN`**：无明显双真源漂移、无 fixture 与真实 artifact 的链级冲突、无只能靠
+- **T10 当时未触发** **`CHALLENGE_OPEN`**：无明显双真源漂移、无 fixture 与真实 artifact 的链级冲突、无只能靠
   调参逼近的硬编码；三处监控风险（R1/R2/R3）属 Revision 2 治理项，已登记，不阻断 T11。
 
 - **真实纵切（EVIDENCED，原 BLOCKED 项）**：自 §4.1 起已取得真实模型键并在隔离 runtime 内跑通
@@ -405,25 +405,25 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 ### 7.2 逐项交付映射
 
-| PLAN ID                          | 用户结果                    | 开发理解                                 | 实际交付                    | 可复核证据                         | 已知偏差     |
-| -------------------------------- | ----------------------- | ------------------------------------ | ----------------------- | ----------------------------- | -------- |
-| V220-G01 任务连续性                   | 任务跨路由/刷新/重开恢复           | Task/InputRevision/Snapshot/Event 恢复 | task\_repository/sse 协议 | T2/T3/T4 27+26+27             | 无        |
-| V220-G02 可恢复草稿+实际取消              | 姓名必填/选填/后端确认/取消停产       | 状态机+单活动+cancel 协议                    | task\_api/task\_cancel  | T3/T5                         | 无        |
-| V220-G03 四阶段渐进结果                 | P1-P4 真实状态              | generate\_task 编排+事件流                | task\_generation        | T6/T7 real e2e                | 无        |
-| V220-G04 性能                      | total 降25%+首Fact≤15s    | 见 §6.2 / §7.6                        | 真实模型 timing             | total n=5 复用 + §7.6 矩阵（本轮新证据） | 无（返工后达标） |
-| V220-G05 内容正确性                   | 联系方式/技能/headline/教育/短输入 | document\_assembler+渲染修复             | T7/T8                   | 57+14                         | 无        |
-| V220-G06 最终产物不变量                 | DOCX 唯一真源/PDF 同源/三端一致   | real DOCX→Word→PDF 链                 | docx\_writer/隔离验证       | real e2e artifact hash        | 无        |
-| V220-R1-T01 身份+Pre-mortem        | Required Reading/假设台账   | §1-§3                                | §5                      | 完成                            | 无        |
-| T02 Task schema/migration/repo   | 状态/冻结/容量                | task\_repository                     | T2 41/0                 | 无                             | <br />   |
-| T03 API/保存/单活动/恢复                | REST                    | task api                             | T3 26/0                 | 无                             | <br />   |
-| T04 SSE seq/恢复/幂等                | 事件流                     | task\_sse                            | T4 27/0                 | 无                             | <br />   |
-| T05 实际取消/清理/fence                | cancel                  | task\_cancel                         | T5 39/0                 | 无                             | <br />   |
-| T06 紧凑JD/Fact+reason/并发2/门禁      | 编排                      | task\_generation/jd/llm/prompts      | T6 23/0                 | 无                             | <br />   |
-| T07 联系方式/技能/headline/教育          | 装配                      | document\_assembler                  | T7 57/0                 | 无                             | <br />   |
-| T08 短输入 TemplateError 修复         | 宽容渲染                    | template\_renderer                   | T8 14/0                 | 无                             | <br />   |
-| T09 容量/保留/cleanup                | cleanup                 | task\_cleanup                        | T9 19/0                 | 无                             | <br />   |
-| T10 真实纵切 Architecture Check      | 只读                      | §4                                   | 246/0 回归                | 无                             | <br />   |
-| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 无（首Fact≤15s 偏差已在返工关闭）         | <br />   |
+| PLAN ID                          | 用户结果                    | 开发理解                                 | 实际交付                    | 可复核证据                              | 已知偏差     |
+| -------------------------------- | ----------------------- | ------------------------------------ | ----------------------- | ---------------------------------- | -------- |
+| V220-G01 任务连续性                   | 任务跨路由/刷新/重开恢复           | Task/InputRevision/Snapshot/Event 恢复 | task\_repository/sse 协议 | T2/T3/T4 27+26+27                  | 无        |
+| V220-G02 可恢复草稿+实际取消              | 姓名必填/选填/后端确认/取消停产       | 状态机+单活动+cancel 协议                    | task\_api/task\_cancel  | T3/T5                              | 无        |
+| V220-G03 四阶段渐进结果                 | P1-P4 真实状态              | generate\_task 编排+事件流                | task\_generation        | T6/T7 real e2e                     | 无        |
+| V220-G04 性能                      | total 降25%+首Fact≤15s    | 见 §6.2 / §7.6                        | 真实模型 timing             | §6.2 总耗时矩阵 + §7.6 首 Fact 矩阵（本轮新证据） | 无（返工后达标） |
+| V220-G05 内容正确性                   | 联系方式/技能/headline/教育/短输入 | document\_assembler+渲染修复             | T7/T8                   | 57+14                              | 无        |
+| V220-G06 最终产物不变量                 | DOCX 唯一真源/PDF 同源/三端一致   | real DOCX→Word→PDF 链                 | docx\_writer/隔离验证       | real e2e artifact hash             | 无        |
+| V220-R1-T01 身份+Pre-mortem        | Required Reading/假设台账   | §1-§3                                | §5                      | 完成                                 | 无        |
+| T02 Task schema/migration/repo   | 状态/冻结/容量                | task\_repository                     | T2 41/0                 | 无                                  | <br />   |
+| T03 API/保存/单活动/恢复                | REST                    | task api                             | T3 26/0                 | 无                                  | <br />   |
+| T04 SSE seq/恢复/幂等                | 事件流                     | task\_sse                            | T4 27/0                 | 无                                  | <br />   |
+| T05 实际取消/清理/fence                | cancel                  | task\_cancel                         | T5 39/0                 | 无                                  | <br />   |
+| T06 紧凑JD/Fact+reason/并发2/门禁      | 编排                      | task\_generation/jd/llm/prompts      | T6 23/0                 | 无                                  | <br />   |
+| T07 联系方式/技能/headline/教育          | 装配                      | document\_assembler                  | T7 57/0                 | 无                                  | <br />   |
+| T08 短输入 TemplateError 修复         | 宽容渲染                    | template\_renderer                   | T8 14/0                 | 无                                  | <br />   |
+| T09 容量/保留/cleanup                | cleanup                 | task\_cleanup                        | T9 19/0                 | 无                                  | <br />   |
+| T10 真实纵切 Architecture Check      | 只读                      | §4                                   | 246/0 回归                | 无                                  | <br />   |
+| T11 完整 Gate+Falsification+RESULT | 本批收口                    | §5-§8 + 新增验证脚本                       | Gate/打包/隔离启动            | 无（首Fact≤15s 偏差已在返工关闭）              | <br />   |
 
 ### 7.3 参数与运行证据
 
@@ -442,7 +442,7 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **状态/事件真实序列**：`_e2e_v22_slice.py` 打印 jd.done→fact.done→reason→P4；取消/T09 归 T5/T9 隔离验证
 
-- **Pre-mortem/Architecture Check/Falsification**：三处注册失败模式（§2）均配 Min 证伪探针；T10 只读无 CHALLENGE\_OPEN；T11 Falsification 找到 2 个真实反例并修复
+- **Pre-mortem/Architecture Check/Falsification**：三处注册失败模式（§2）均配最小证伪探针；T10 当时未打开 Challenge，后续性能返工已按 §7.6 开启并关闭 `CHALLENGE_OPEN`；T11 Falsification 找到 2 个真实反例并修复。
 
 ### 7.4 实际变化与偏差
 
@@ -530,21 +530,20 @@ Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
    包内最终复核仍属独立验收**）
 4. task cleanup 是否可能误删活动状态或已发布 DOCX/PDF（T9 验证）
 5. 联系方式/技能/headline/教育/short 是否在真实 DOCX/PDF 一致（T7/T8 + real docx hash 验证）
-6. 最终 Revision 2 是否忠实实现批准 `DS-xxx`，HTML 过程预览未成第二产物真源（待 Doc Agent）
+6. 最终 Revision 2 是否忠实实现其绑定的 `DS-xxx`，HTML 过程预览未成第二产物真源。
 
-> 说明：以上 6 项属**独立验收**范畴（需包内候选/最终发布后复核），不影响本批开发 Gate 的 PASS；
+> 说明：以上 6 项属**独立验收**范畴（需在 Revision 2 最终候选包上、正式发布前复核），不影响本批开发 Gate 的 PASS；
 > 首 Fact ≤15s 的开发侧证据已由 §7.6 源层真实矩阵证实。
 
-### 7.7 最终候选 checkpoint（本批收口主体，随本文件提交形成）
+### 7.7 开发候选 checkpoint（本批收口主体）
 
-- **最终 HEAD**：本文件收口提交（见 `git rev-parse HEAD`；唯一父 = 返工 checkpoint `d878645`）。
-  因无法在提交内嵌其自身哈希，最终候选 checkpoint 身份以"唯一父 = d878645、相对 d75b692 = 35 files
-  +6573/-14、工作树 clean"这三个可校验不变量在其内等值登记。
+- **开发候选 H**：`09ee23651161afe7dc24f2e839618f49213e4217`；唯一父为返工 checkpoint
+  `d8786457c0422dfbca1ad4f4e81b1c8096de3375`。
 
 - **返工 checkpoint（继承基础）**：HEAD `d8786457c0422dfbca1ad4f4e81b1c8096de3375`，唯一父
   `085c8d84cb25456ffdabbeb0cbd06b66097e6962`
 
-- **相对批准基线** **`d75b692`** **完整 diff（d75b692 → 最终 HEAD）**：
+- **相对批准基线** **`d75b692`** **完整 diff（d75b692 → H）**：
   **35 files changed, 6619 insertions(+), 14 deletions(-)**（仍未新增文件、故保持 35 files；本轮仅对已
   入档的 RESULT.md 增行改档，插入数由返工 checkpoint 的 6573 增至 6619）
 
@@ -571,9 +570,28 @@ Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
 
 - 未触 Design Gate 禁止范围（无可见布局/文案/动效改动）。
 
-- Documentation Agent 依据 PLAN/RESULT/机械身份/证据入口完成一次语义交接审查（本轮为集中语义交接，
-  仅需 RESULT，无新增独立交接文件）。
+- Documentation Agent 的语义交接结论见 §9；未新增独立交接文件。
 
-**下一门禁**：Product Owner 批准 Design Snapshot → Documentation Agent 形成 Revision 2、导入 `DS-xxx` →
-授权第二批可见实现与最终集成 —— 本批是 clean 开发候选 checkpoint（BATCH1\_DEV\_VERIFIED），
-**不构成发布候选或独立验收 PASS**。
+**下一门禁**：Product Owner 已批准本地 Design Snapshot `D-003`；Documentation Agent 据此形成 Revision 2、
+映射并导入 canonical `DS-003`，取得 Product Owner 对 Revision 2 的批准后，才授权第二批可见实现与
+最终集成。本批是 clean 开发候选 checkpoint（`BATCH1_DEV_VERIFIED`），**不构成发布候选或独立验收 PASS**。
+
+## 9. RESULT 语义交付审查
+
+- **结论**：`DOC_ALIGNED`。
+
+- **审查对象**：开发候选 H `09ee23651161afe7dc24f2e839618f49213e4217`，批准 PLAN blob
+  `324302a0ef6d81214c752d12281c221f2550f320`，分支 `version/v2.2.0`。
+
+- **机械前置**：H 唯一父为 `d8786457c0422dfbca1ad4f4e81b1c8096de3375`；相对批准基线
+  `d75b692` 为 35 files、+6619/-14；开发交接时工作区 clean。
+
+- **语义结论**：RESULT 已完整声明 Revision 1 范围、开发理解、实际交付、Challenge 处置、开发 Gate、
+  证据入口、包身份、偏差和待独立验收问题；声明与 PLAN Revision 1 一致，可以进入下一文档门禁。
+
+- **边界**：本结论只依据 PLAN、RESULT、机械身份和证据入口，不证明源码或运行行为真实正确。
+  Revision 1 明确不启动独立 Acceptance；最终候选包的真实纵切属于 Revision 2 完成后的独立验收，
+  不是本批新增开发门禁。
+
+***
+
