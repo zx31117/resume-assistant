@@ -77,6 +77,17 @@ def cancel_task(task_id: str, svc: TaskService = Depends(_svc)):
     return svc.cancel_task(task_id)
 
 
+@router.post("/{task_id}/continue", response_model=schemas.TaskOut)
+def continue_failed_scope(task_id: str, svc: TaskService = Depends(_svc)):
+    """「只重试失败范围」：从 FAILED 源任务创建续试任务（新 task_id）。
+
+    - 保持源 FAILED 终态不变（不改状态机），以新任务承载续试（PLAN 不要求沿用同一 task_id）；
+    - 复用源任务已完成经历（SUCCEEDED 子任务 fact_results，零模型调用），仅对失败范围调用模型；
+    - 返回续试新任务视图；其 task_id 与源任务不同，界面独立可操作。
+    """
+    return svc.continue_failed_scope(task_id)
+
+
 @router.get("/records", response_model=list[schemas.TaskRecordOut])
 def list_records(limit: int = 200, svc: TaskService = Depends(_svc)):
     """我的简历：真实生成记录列表（V220-R2-T08）。

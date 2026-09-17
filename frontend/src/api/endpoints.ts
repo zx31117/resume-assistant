@@ -162,6 +162,11 @@ export const taskApi = {
     return api.post<TaskOut>(`/task/${taskId}/cancel`, undefined, operationHeaders(operationId))
   },
 
+  /** 「只重试失败范围」：从 FAILED 源任务创建续试任务（新 task_id），复用已完成、仅重跑失败范围。 */
+  continue(taskId: string, operationId?: string) {
+    return api.post<TaskOut>(`/task/${taskId}/continue`, undefined, operationHeaders(operationId))
+  },
+
   get(taskId: string) {
     return api.get<TaskOut>(`/task/${taskId}`)
   },

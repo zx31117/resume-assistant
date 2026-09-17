@@ -169,6 +169,7 @@ class TaskService:
         provider: object | None = None,
         selector: object | None = None,
         assembler: object | None = None,
+        preload: Optional[dict[str, list[dict[str, Any]]]] = None,
     ) -> dict[str, Any]:
         """启动一次生成运行（异步 worker），接通 task_generation 编排器（PLAN §2.1 / T06d）。
 
@@ -237,7 +238,8 @@ class TaskService:
                 )
                 summary = generate_task(local, db_task, ctx, input_view,
                                         budget=None, provider=provider,
-                                        selector=selector, assembler=effective_assembler)
+                                        selector=selector, assembler=effective_assembler,
+                                        preload=preload)
                 # 先落地 SUCCEEDED，再发布产物引用（publish_artifacts 仅允许在 SUCCEEDED
                 # 终态写入发布路径；倒序会被 guard 拒绝，如 T10 真实装配链暴露）。
                 repo.transition(db_task, TaskStatus.SUCCEEDED)
@@ -284,6 +286,93 @@ class TaskService:
         _ = threading.Thread(target=_worker, name=f"taskGen-{task_id[:8]}", daemon=True)
         _.start()
         return self._view(task_id)
+
+    def continue_failed_scope(self, source_task_id: str, *,
+                              provider: object | None = None) -> dict[str, Any]:
+        """「只重试失败范围」续试任务：从 FAILED 源任务创建续试任务（新 task_id）。
+
+        - 保持 FAILED 为终态（不改状态机），以**新任务**承载续试（PLAN 不要求沿用同一 task_id）；
+        - 复用源任务已完成经历（SUCCEEDED 子任务的 fact_results，零模型调用），仅重跑未完成经历；
+        - 由此调用只发生在失败范围，已完成结果被复用。
+        """
+        from core import task as task_domain
+        from database.models import InputRevision, TaskSnapshot, TaskSubtask
+        from services import fact_service
+        from services.task_generation import PreparedExperience, PreparedFact
+
+        src = self._repo.get(source_task_id)
+        if src is None:
+            raise TaskNotFoundError(f"源任务不存在:{source_task_id}", details={"task_id": source_task_id})
+        if task_domain.TaskStatus(src.status) != task_domain.TaskStatus.FAILED:
+            raise TaskStateError(
+                f"仅 FAILED 任务可续试失败范围，当前 {src.status}",
+                details={"task_id": source_task_id, "status": src.status})
+
+        subs = (self._db.query(TaskSubtask).filter_by(task_id=source_task_id)
+                .order_by(TaskSubtask.sort_order, TaskSubtask.id).all())
+        succeeded: dict[str, list[dict[str, Any]]] = {}
+        incomplete: list[str] = []
+        slot_by_exp: dict[str, tuple[int, str]] = {}
+        for s in subs:
+            slot_by_exp[s.experience_id] = (s.sort_order, s.experience_id)
+            if s.status == task_domain.SubtaskStatus.SUCCEEDED.value:  # noqa: SIM
+                succeeded[s.experience_id] = list(s.fact_results or [])
+            else:
+                incomplete.append(s.experience_id)
+
+        if not succeeded:
+            raise TaskStateError("源任务无已完成子任务可复用，无法续试失败范围",
+                                 details={"task_id": source_task_id})
+        if not incomplete:
+            raise TaskStateError("源任务已全部完成，无失败范围可续试",
+                                 details={"task_id": source_task_id})
+
+        # 源 P2 选择顺序（sort_order 保序），兜底用子任务顺序
+        snap = (self._db.query(TaskSnapshot).filter_by(task_id=source_task_id).first())
+        selected_slots: list[tuple[int, str, str]] = []
+        if snap and snap.payload and snap.payload.get("experiences"):
+            for e in snap.payload["experiences"]:
+                selected_slots.append((int(e.get("sort_order", 0) or 0),
+                                       e.get("experience_id", ""),
+                                       e.get("title") or e.get("experience_id", "")))
+        for eid, (order, title) in slot_by_exp.items():
+            if eid not in {s[1] for s in selected_slots}:
+                selected_slots.append((order, eid, eid))
+        selected_slots.sort(key=lambda x: x[0])
+
+        # 源冻结入参 → 续试任务沿用同一输入
+        latest = (self._db.query(InputRevision).filter_by(task_id=source_task_id)
+                  .order_by(InputRevision.revision.desc()).first())
+        if latest is None:
+            raise TaskStateError("源任务无冻结入参，无法续试", details={"task_id": source_task_id})
+
+        # 为失败范围抓取源 Fact（供重跑）
+        fact_objs = fact_service.list_facts_for_experiences(self._db, incomplete)
+        facts_by_exp: dict[str, list[PreparedFact]] = {}
+        for f in fact_objs:
+            facts_by_exp.setdefault(f.experience_id, []).append(PreparedFact(
+                fact_id=f.fact_id, text=f.text or "",
+                fact_type=f.fact_type.value if hasattr(f.fact_type, "value") else str(f.fact_type),
+                source_text=f.source_text or ""))
+
+        # 建续试任务（新 task_id，界面独立可操作）
+        tid = self.create_task()["task_id"]
+        kw = dict(name=latest.name or "", phone=latest.phone or "", email=latest.email or "",
+                  location=latest.location or "", jd=latest.jd or "")
+        self.save_draft(tid, **kw)
+        self.freeze_input(tid, **kw)
+        self.start_task(tid)
+
+        # selector：按源选材范围重建（completed 以空 Fact 占位，由 preload 覆盖；失败范围带源 Fact）
+        def _scope_selector(compact):
+            preps = []
+            for order, eid, title in selected_slots:
+                preps.append(PreparedExperience(eid, order, title,
+                                                facts=facts_by_exp.get(eid, [])))
+            return preps
+
+        self.run_generation(tid, provider=provider, selector=_scope_selector, preload=succeeded)
+        return self._view(tid)
 
     def _view(self, task_id: str) -> dict[str, Any]:
         view = self._repo.get_view(task_id)

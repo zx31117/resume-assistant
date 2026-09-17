@@ -30,7 +30,7 @@ function liveStep(status: TaskStatus | null, phase: string): number {
 }
 
 export default function WorkbenchPage() {
-  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError } =
+  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError, generatePending, continueScope } =
     useWorkbenchTask()
   const current = liveStep(status, snapshotPhase)
   const [selected, setSelected] = useState(current)
@@ -126,11 +126,19 @@ export default function WorkbenchPage() {
             <li>如需补充材料或纠正某段经历，请到「我的经历」修改后再回来重新制作（范围化重试）。</li>
           </ul>
           <div className="wb-failed__actions">
-            <Link className="wb-btn wb-btn--primary wb-btn--sm" to="/experiences">
-              去我的经历补充 ›
+            <button
+              type="button"
+              className="wb-btn wb-btn--primary wb-btn--sm"
+              disabled={generatePending}
+              onClick={continueScope}
+            >
+              {generatePending ? '正在创建续试…' : '续试失败范围 ›'}
+            </button>
+            <Link className="wb-btn wb-btn--ghost wb-btn--sm" to="/experiences">
+              去我的经历补充材料 ›
             </Link>
             <span className="wb-failed__muted">
-              重新制作：使用顶栏「＋ 开始新任务」生成一份新简历。
+              续试会复用已完成经历（不再重复调用），仅对失败范围重新生成。
             </span>
           </div>
         </div>

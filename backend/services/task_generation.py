@@ -268,8 +268,14 @@ def generate_task(
     provider: object | None = None,
     selector: Optional[Callable[[Any], list[PreparedExperience]]] = None,
     assembler: Optional[Callable[[GenerationSummary, Any], tuple[bool, dict[str, Any]]]] = None,
+    preload: Optional[dict[str, list[dict[str, Any]]]] = None,
 ) -> GenerationSummary:
-    """执行一次生成运行（应在 run_generation 的专用 worker 线程中调用，独占 db session）。"""
+    """执行一次生成运行（应在 run_generation 的专用 worker 线程中调用，独占 db session）。
+
+    ``preload``：experience_id → 该经历已完成的 Fact 视图列表（来自源 FAILED 任务 SUCCEEDED 子任务）。
+    续试任务把已完成的经历**零调用复用**（直接入 P3 合并、子任务置 SUCCEEDED），只对未完成经历调用模型
+    ——即「只重试失败范围，已完成结果被复用，调用只发生在失败范围」。PLAN 不要求沿用同一 task_id。
+    """
     budget = budget or llm_service.TaskTokenBudget(task_core.TASK_LLM_COMPLETION_LIMIT)
     repo = None
     from services.task_repository import TaskRepository
@@ -298,22 +304,59 @@ def generate_task(
     # ── P2 候选准备（selector 注入或默认选材） ──
     prepared = selector(compact) if selector is not None else default_selector(db, compact)
 
-    # 初始化子任务
+    # 续试（只重试失败范围）：preload 命中的经历零调用复用；未命中者进入 P3 worker 重跑。
+    preload = preload or {}
+
+    def _reuse_experience(prep: PreparedExperience) -> Optional[GeneratedExperience]:
+        """由 preload 复原已完成的经历（无任何模型调用）。"""
+        facts = preload.get(prep.experience_id)
+        if not facts:
+            return None
+        gen_facts = [
+            GeneratedFact(fact_id=f.get("fact_id", ""), headline=f.get("headline", ""),
+                          body=f.get("body", ""), fact_refs=list(f.get("fact_refs") or []),
+                          reason=f.get("reason", ""))
+            for f in facts
+        ]
+        return GeneratedExperience(experience_id=prep.experience_id,
+                                   sort_order=prep.sort_order, title=prep.title,
+                                   facts=gen_facts)
+
+    # 初始化子任务；preload 命中的直接置 SUCCEEDED，其余待 P3 worker 写入。
     for prep in prepared:
-        repo.upsert_subtask(task, prep.experience_id, sort_order=prep.sort_order)
+        if _reuse_experience(prep) is not None:
+            repo.upsert_subtask(task, prep.experience_id, sort_order=prep.sort_order)
+            repo.update_subtask(task, prep.experience_id,
+                                status=task_core.SubtaskStatus.SUCCEEDED,
+                                fact_results=preload[prep.experience_id])
+        else:
+            repo.upsert_subtask(task, prep.experience_id, sort_order=prep.sort_order)
+    # 续试中 preload 命中的已完成子任务立即提交：即使本轮其余经历再失败，复用的已完成
+    # 结果也已持久化，不被后续 rollback 回滚（与 V220-G02 partial 保留一致）。
+    if preload:
+        db.commit()
     repo.save_snapshot(task, phase="P2", payload={
         "compact_jd": compact_dict,
         "experiences": [{"experience_id": e.experience_id, "sort_order": e.sort_order,
                          "title": e.title, "fact_count": len(e.facts)} for e in prepared],
         "stage": "P2.selected",
+        "reused_experiences": sorted(k for k in preload if k in {e.experience_id for e in prepared}),
     })
 
     run_ctx.assert_writable()
 
     # ── P3 Fact＋reason（经历并发 2，经历内 Fact 串行，逐 Fact 渐进发布） ──
     merged: list[GeneratedExperience] = []
-    if prepared:
-        workers = min(len(prepared), MAX_WORKERS)
+    # 续试：先并入零调用复用的已完成经历，再只对未完成的 prepared 起 worker。
+    todo: list[PreparedExperience] = []
+    for prep in prepared:
+        reused = _reuse_experience(prep)
+        if reused is not None:
+            merged.append(reused)
+        else:
+            todo.append(prep)
+    if todo:
+        workers = min(len(todo), MAX_WORKERS)
         progress_q: queue.Queue = queue.Queue()
 
         def _drain_progress() -> None:
@@ -344,7 +387,7 @@ def generate_task(
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="taskGen") as ex:
             futures = {ex.submit(_process_experience, prep, compact, budget, provider,
                                  run_ctx, progress_q): prep
-                       for prep in prepared}
+                       for prep in todo}
             pending = set(futures)
             try:
                 while pending:
@@ -368,7 +411,7 @@ def generate_task(
             except BaseException:
                 # 同任务下将未完成子任务标 FAILED（最终态由 run_generation 决定）
                 try:
-                    for prep in prepared:
+                    for prep in todo:
                         if repo is not None:
                             repo.update_subtask(task, prep.experience_id,
                                                 status=task_core.SubtaskStatus.FAILED,
@@ -377,13 +420,14 @@ def generate_task(
                     pass
                 raise
             _drain_progress()  # 兜底：经历全完成后榨干最后几格队列（无 Fact 事件被挂起）
-        # 完成顺序不得改变模板顺序：按冻结 sort_order 合并
-        merged.sort(key=lambda x: x.sort_order)
     else:
-        # 无入选经历：明确失败/容量/材料不足，不虚构内容
-        repo.save_snapshot(task, phase="P3", payload={"stage": "P3.no_experiences",
-                                                       "experiences": []})
-        raise ContentGenerationError("第一层未入选任何经历，无法生成（材料缺失）", stage="P2")
+        # 无待重跑经历（preload 已覆盖全部，或无条件材料不足已在上层处理）：仍须校验是否有产出。
+        if not merged:
+            repo.save_snapshot(task, phase="P3", payload={"stage": "P3.no_retry_experiences",
+                                                           "experiences": []})
+            raise ContentGenerationError("续试任务无待重跑经历，且无已复用产出", stage="P2")
+    # 完成顺序不得改变模板顺序：按冻结 sort_order 合并
+    merged.sort(key=lambda x: x.sort_order)
 
     reasons_payload: dict[str, str] = {}
     for exp in merged:

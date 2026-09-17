@@ -71,6 +71,8 @@ export interface WorkbenchTaskValue {
   saveNow: () => void
   generate: () => Promise<void>
   cancel: () => Promise<void>
+  /** 「只重试失败范围」：从 FAILED 源任务创建续试任务（新 task_id），复用已完成、仅重跑失败范围。 */
+  continueScope: () => Promise<void>
   retryLoad: () => void
   startNewTask: () => void
 }
@@ -421,6 +423,24 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
     }
   }, [taskId, applyView])
 
+  // —— 「只重试失败范围」续试（仅 FAILED；创建新 task_id，复用已完成、仅重跑失败范围）——
+  const continueScope = useCallback(async () => {
+    if (!taskId || status !== 'FAILED') return
+    if (generatePending) return
+    setGenerateError(null)
+    setGeneratePending(true)
+    try {
+      const t = await taskApi.continue(taskId, newOperationId())
+      setTaskId(t.task_id)
+      persistTaskId(t.task_id)
+      applyView(t)
+    } catch (e) {
+      setGenerateError(toError(e))
+    } finally {
+      setGeneratePending(false)
+    }
+  }, [taskId, status, generatePending, persistTaskId, applyView])
+
   // —— SSE 只读订阅（run 期间；重连幂等，绝不触发生成）——
   useEffect(() => {
     if (!taskId || status !== 'RUNNING') return
@@ -549,13 +569,14 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
       saveNow,
       generate,
       cancel,
+      continueScope,
       retryLoad: () => void restore(),
       startNewTask,
     }),
     [taskId, status, input, snapshotPhase, snapshotPayload, loadState, loadError, saving,
      dirty, saveError, generateError, generatePending, terminalError, stepStates, reasons, liveFacts,
      factDone, streamEnded, publishedDocxPath, publishedPdfPath, routingPage, setInputField,
-     saveNow, generate, cancel, restore, startNewTask],
+     saveNow, generate, cancel, continueScope, restore, startNewTask],
   )
 
   return <WorkbenchTaskContext.Provider value={value}>{children}</WorkbenchTaskContext.Provider>
