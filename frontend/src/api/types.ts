@@ -457,6 +457,22 @@ export interface TaskOut {
   subtasks: unknown[]
 }
 
+/** GET /api/task/records 一条真实生成记录（V220-R2-T08「我的简历」列表项）。 */
+export interface TaskRecordOut {
+  task_id: string
+  status: TaskStatus
+  published_resume_revision: number | null
+  published_docx_path: string | null
+  published_pdf_path: string | null
+  created_at: string
+  updated_at: string
+  latest_input: {
+    name: string
+    jd: string
+    jd_len: number
+  } | null
+}
+
 // ———— V2.2.0 T4：SSE 事件投影 ————
 
 export type TaskEventType = 'jd.done' | 'fact.done' | 'reason.delta'

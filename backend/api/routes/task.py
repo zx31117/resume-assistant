@@ -77,6 +77,16 @@ def cancel_task(task_id: str, svc: TaskService = Depends(_svc)):
     return svc.cancel_task(task_id)
 
 
+@router.get("/records", response_model=list[schemas.TaskRecordOut])
+def list_records(limit: int = 200, svc: TaskService = Depends(_svc)):
+    """我的简历：真实生成记录列表（V220-R2-T08）。
+
+    列出所有 SUCCEEDED 且已发布 DOCX/PDF 产物的任务；每条含可下载引用与最新入参。
+    必须在 GET /{task_id} 之前声明，避免被路径参数捕获。为空返回 []，不伪造历史。
+    """
+    return svc.list_records(limit=limit)
+
+
 @router.get("/{task_id}", response_model=schemas.TaskOut)
 def get_task(task_id: str, svc: TaskService = Depends(_svc)):
     """读取权威快照 + 最新入参（刷新/重连/恢复）。"""

@@ -618,6 +618,19 @@ class TaskOut(BaseModel):
     snapshot: Optional[dict[str, Any]] = None
 
 
+class TaskRecordOut(BaseModel):
+    """我的简历一条真实生成记录（V220-R2-T08 列表项，含可下载产物引用）。"""
+
+    task_id: str
+    status: str
+    published_resume_revision: Optional[int] = None
+    published_docx_path: Optional[str] = None
+    published_pdf_path: Optional[str] = None
+    created_at: str = ""
+    updated_at: str = ""
+    latest_input: Optional[dict[str, Any]] = None
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # V2.2.0 T6b：P3 Fact / reason 两阶段契约（PLAN §2.1 / §2.3）
 # ═══════════════════════════════════════════════════════════════════════════

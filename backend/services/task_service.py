@@ -120,6 +120,10 @@ class TaskService:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
         return _task_view_dict(view)
 
+    def list_records(self, *, limit: int = 200) -> list[dict[str, Any]]:
+        """列出真实可用的生成记录（V220-R2-T08：我的简历）。"""
+        return self._repo.list_records(limit=limit)
+
     def cancel_task(self, task_id: str) -> dict[str, Any]:
         """实际取消（PLAN V220-G02 / Gate 6.1）。
 

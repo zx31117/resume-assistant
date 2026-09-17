@@ -17,8 +17,6 @@ print("[GUARD] _e2e_v13_full.py depends on deleted V1.3/V1.4 modules (rag_servic
 print("[GUARD] V1.5.0: use _v13_stub_e2e.py or _v15_t*.py instead.")
 sys.exit(0)
 
-from __future__ import annotations
-
 import json
 import os
 import sys

@@ -24,6 +24,9 @@ if str(_THIS_DIR) not in sys.path:
 
 from _v2_test_runner import run_isolated  # noqa: E402
 
+# V220-G02：JD 至少 60 字（Revision 2 收口）；所有走冻结的 JD 必须满足。
+_JD60 = "高级软件工程师，负责核心系统设计与模块实现，熟悉分布式、数据库与工程化实践，参与技术评审、性能优化与线上稳定性保障，良好的协作与文档能力，base 杭州。"
+
 _passed = 0
 _failed = 0
 
@@ -80,12 +83,12 @@ def _run_tests_inner(state) -> int:
           "错误码 TASK_INPUT_INVALID", extra=r_missing.json().get("error_code"))
     # 保存草稿
     r_save = client.put(f"/api/task/{task_id}/save", json={
-        "name": "张三", "phone": "138", "email": "a@b.c", "location": "上海", "jd": "岗位JD全文"}, **REQ)
+        "name": "张三", "phone": "138", "email": "a@b.c", "location": "上海", "jd": _JD60}, **REQ)
     check(r_save.status_code == 200, "保存返回 200", extra=str(r_save.status_code))
     saved = r_save.json()
     check(saved["status"] == "DRAFT", "保存后仍在 DRAFT")
     check(saved["latest_input"]["name"] == "张三", "保存确认入参回读一致")
-    check(saved["latest_input"]["phone"] == "138" and saved["latest_input"]["jd"] == "岗位JD全文",
+    check(saved["latest_input"]["phone"] == "138" and saved["latest_input"]["jd"] == _JD60,
           "电话/JD 原文保存")
     # 刷新/重连读取
     r_get = client.get(f"/api/task/{task_id}", **REQ)
@@ -93,7 +96,7 @@ def _run_tests_inner(state) -> int:
     check(r_get.json()["latest_input"]["name"] == "张三", "刷新从后端读到已保存状态")
     # 冻结
     r_freeze = client.post(f"/api/task/{task_id}/freeze", json={
-        "name": "张三", "phone": "138", "email": "a@b.c", "location": "上海", "jd": "岗位JD全文"}, **REQ)
+        "name": "张三", "phone": "138", "email": "a@b.c", "location": "上海", "jd": _JD60}, **REQ)
     check(r_freeze.status_code == 200, "冻结返回 200", extra=str(r_freeze.status_code))
     frozen = r_freeze.json()
     check(frozen["status"] == "READY", "冻结后进入 READY", extra=frozen.get("status"))
@@ -117,9 +120,9 @@ def _run_tests_inner(state) -> int:
     r2 = client.post("/api/task", **REQ)
     task2 = r2.json()["task_id"]
     client.put(f"/api/task/{task2}/save", json={
-        "name": "王五", "phone": "", "email": "", "location": "", "jd": "JD2"}, **REQ)
+        "name": "王五", "phone": "", "email": "", "location": "", "jd": _JD60}, **REQ)
     client.post(f"/api/task/{task2}/freeze", json={
-        "name": "王五", "phone": "", "email": "", "location": "", "jd": "JD2"}, **REQ)
+        "name": "王五", "phone": "", "email": "", "location": "", "jd": _JD60}, **REQ)
     r_start2 = client.post(f"/api/task/{task2}/start", **REQ)
     check(r_start2.status_code == 409, "已有活动任务时启动第二任务 409",
           extra=str(r_start2.status_code))

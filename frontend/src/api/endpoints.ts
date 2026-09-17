@@ -19,6 +19,7 @@ import type {
   SystemStatus,
   TaskInput,
   TaskOut,
+  TaskRecordOut,
   TemplateListResponse,
   DiagnosticsResponse,
 } from './types'
@@ -163,6 +164,10 @@ export const taskApi = {
 
   get(taskId: string) {
     return api.get<TaskOut>(`/task/${taskId}`)
+  },
+
+  records() {
+    return api.get<TaskRecordOut[]>(`/task/records`)
   },
 
   streamUrl(taskId: string) {

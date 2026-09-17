@@ -25,8 +25,6 @@ print("[GUARD] _v13_validation.py depends on deleted V1.3/V1.4 modules (rag_serv
 print("[GUARD] V1.5.0: use _v13_stub_e2e.py or _v15_t*.py instead.")
 sys.exit(0)
 
-from __future__ import annotations
-
 import json
 import os
 import shutil

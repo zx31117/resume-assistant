@@ -248,6 +248,43 @@ class TaskRepository:
             return None
         return self._view_of(task)
 
+    def list_records(self, *, limit: int = 200) -> list[dict]:
+        """列出真实可用的生成记录（我的简历列表，V220-R2-T08 补齐）。
+
+        仅返回 SUCCEEDED 且已发布 DOCX/PDF 产物的任务；每条含可复核的发布引用与最新入参。
+        为空则不伪造历史，如实返回 []。
+        """
+        rows = (self._db.query(Task)
+                .filter(Task.status == TaskStatus.SUCCEEDED.value)
+                .filter(
+                    Task.published_docx_path.isnot(None),
+                    Task.published_docx_path != "",
+                )
+                .order_by(Task.updated_at.desc())
+                .limit(limit)
+                .all())
+        out: list[dict] = []
+        for t in rows:
+            latest = (self._db.query(InputRevision)
+                      .filter_by(task_id=t.task_id)
+                      .order_by(InputRevision.revision.desc())
+                      .first())
+            out.append({
+                "task_id": t.task_id,
+                "status": t.status,
+                "published_resume_revision": t.published_resume_revision,
+                "published_docx_path": t.published_docx_path,
+                "published_pdf_path": t.published_pdf_path,
+                "created_at": t.created_at.isoformat() if t.created_at else "",
+                "updated_at": t.updated_at.isoformat() if t.updated_at else "",
+                "latest_input": {
+                    "name": latest.name or "" if latest else "",
+                    "jd": latest.jd or "" if latest else "",
+                    "jd_len": len((latest.jd or "").strip()) if latest else 0,
+                } if latest else None,
+            })
+        return out
+
     def assert_writable(self, task: Task) -> None:
         """终态（SUCCEEDED/FAILED/CANCELLED）拒收现状结果写入（T5：迟到结果不得发布）。
 

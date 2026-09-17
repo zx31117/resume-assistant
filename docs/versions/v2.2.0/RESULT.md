@@ -1005,3 +1005,129 @@ artifact 链，不另建第二套。
 
 ***
 
+## R2-8. Revision 2 收口缺口处理（集中补齐，本 Revision 专属证据，不引用 Revision 1）
+
+> 本节对应用户在 Revision 2 收口提出的 5 项缺口的集中处理。每项「用户结果 → 开发理解 → 实际交付
+> → 可复核证据 → 偏差」均在下方映射表或对应小节中如实给出；未实现/需决策处显式标注阻断，不缩小范围。
+
+### R2-8.1 R2 专属映射表（V220-G01~G06、R2-T01~T11，本 Revision 专属，不充数 §7.2）
+
+| PLAN ID | 用户结果 | 开发理解 | 实际交付 | 可复核证据 | 偏差 |
+| --- | --- | --- | --- | --- | --- |
+| V220-G01 任务连续性 | 跨路由/刷新/重开恢复 | Task/InputRevision/Snapshot/Event + SSE 恢复协议 | task_repository/task_sse | §R2-3.2/3.3；`_v22_t4_sse.py` 27/27 | 无 |
+| V220-G02 可恢复草稿+实际取消 | 姓名必填/后端确认/可取消停产；JD≥60 | 状态机+单活动+cancel 协议 + `TaskService._require_jd` 权威下限 | task_api/task_cancel；StepIdentity gate | §R2-3.2；`_v22_t3_task_api.py` 26/26、`_v22_t5_cancel.py` 39/39；JD-60 阈值 3 例 | 无 |
+| V220-G03 四阶段渐进 | P1–P4 真实状态 + P3 HTML 过程预览 | generate_task 编排 + 事件流 + incremental commit | task_generation | §R2-3.3/3.4/3.5；`_v22_t6_generation.py` 23/23 | 无 |
+| V220-G04 性能 | total 降 + 首 Fact≤15s | 真实模型 timing + 增量提交 | 见 §R2-8.4 | 真实模型仅 1 次典型 run（§R2-7.3） | **6 格真实模型矩阵待独立验收/ARK 环境**（§R2-8.4），未以 §7.6 替代 |
+| V220-G05 内容正确性 | 联系方式/技能/headline/教育；短输入宽容 | document_assembler/渲染修复 | docx 装配 | §R2-3.5；T7/T8 回归 | 无 |
+| V220-G06 最终产物不变量 | DOCX 唯一真源 / PDF 同源 / viewer 同源 | real DOCX→Word→PDF 链 + viewer 取证 | docx_writer/隔离验证 | §R2-7.3 `same_source=true`、`ui_hash16=cbb2e521…` ⊇ 下载 sha 前 16 位 | 无 |
+| V220-R2-T01 身份+Required Reading 复核 | Required Reading/假设台账 | §R2-1/§R2-2 | §R2-1/§R2-2 | §R2-1/§R2-2 | 无 |
+| V220-R2-T02 DS-003 工作台壳 | 四步轨道 + 路由壳 | 工作台壳实现 | §R2-3.1 | §R2-3.1 | 无 |
+| V220-R2-T03 身份/JD 保存确认 | 后端确认/dirty/刷新恢复 | task api/R2 校验对齐 60 | §R2-3.2 | `_v22_t3_task_api.py` 26/26 | 无 |
+| V220-R2-T04 P1/P2 逐项+历史回看 | 逐项输出/缺料重取 | P1/P2 编排 | §R2-3.3 | `_v22_t4_sse.py` 27/27 | 无 |
+| V220-R2-T05 P3 HTML 预览+Fact+reason | 过程预览/完整 Fact/依据 | P3 HTML + reason 旁侧 | §R2-3.4 | `_v22_t6_generation.py` 23/23 | 无 |
+| V220-R2-T06 P4 真实 PDF+anchor+双下载 | PDF 切换/锚点/双下载 | P4 + 发布产物 | §R2-3.5 | 真实双下载 38,897B / 4,228,060B 字节一致 | 无 |
+| V220-R2-T07 我的经历/简历/隐私 | 真实记录 + artifact | 记录列表查询 | **本批新增 records 端点**（§R2-8.2） | `_v22_t8_records.py` 12/12 | 无 |
+| V220-R2-T08 取消/新任务/失败面板/范围重试 | 失败保留已完成、只重试失败范围 | 任务级 partial 保留 + 调用增量 | **本批新增 `_v22_range_retry_proof.py`**（§R2-8.3） | 10/10 | **同一任务「只重试失败范围」因 `TRANSITIONS[FAILED]=∅` 阻断**（§R2-8.3 决策，不静默缩小） |
+| V220-R2-T09 视口/键盘/焦点/滑动收口 | 全视口可访问 | 7 视口收口 | §R2-6 | §R2-6.3 7 视口 E2E | 无 |
+| V220-R2-T10 模型对齐+clean 重建+真实 E2E | 默认模型真实可用 | 默认值对齐 + 重建 + 隔离 E2E | §R2-7 | h8 真实 19 chat exit 0 | 无 |
+| V220-R2-T11 Falsification+Gate 收口 | 反例证伪 + 交付清单 | 主动伪造 | §R2-7.4 + §R2-8 | Gate 全绿（§R2-8.5） | 无 |
+
+### R2-8.2 缺口 2：我的简历真实记录列表（不再只展示当前任务）
+
+- **实现**：新增只读列表端点 `GET /api/task/records`（[task.py](backend/api/routes/task.py)，声明在
+  `GET /{task_id}` 之前避免路径参数捕获），`TaskRepository.list_records()` + `TaskService.list_records()`
+  只返回 `SUCCEEDED` 且已发布 DOCX 原件的任务；[RecordsPage.tsx](frontend/src/pages/RecordsPage.tsx)
+  改为拉取列表并按每条记录的 `published_docx_path / published_pdf_path` 渲染真实
+  `/api/template/download` 下载链接（与工作台 P4 逐字同源），不再只展示当前任务、也不再伪造历史。
+- **验证**（`_v22_t8_records.py`，TestClient 真实 HTTP 层）：**12 通过 / 0 失败**，exit=0。断言：
+  [B1] 仅 SUCCEEDED+已发布进列表，失败/无产物任务不进；[B2] docx/pdf 发布引用真实可构造下载链接；
+  [B3] 每条 name/jd_len 真实回读；[B4] 按发布时间降序；[B5] `GET /records` 不被 `/{task_id}` 捕获、
+  `GET /api/task/{task_id}` 单独读取仍正常。
+- **前端构建与入包**：`npm run build` exit=0；产物 bundle `index-DCtj5n8O.js`；打包后 bundle 含 `task/records`
+  （`CONTAINS_RECORDS=True`），即正式 onedir 已具备该能力。
+- **偏差**：无（此前仅声明展示当前任务的缺口已在本批范围内补齐）。
+
+### R2-8.3 缺口 3：失败范围重试操作证据（`_v22_range_retry_proof.py`，10/10，exit=0）
+
+- **实现**：在 [task_generation.py](backend/services/task_generation.py) P3 每个完成经历的
+  `update_subtask(SUCCEEDED)` 后新增 `db.commit()`（约 L362-365），使已完成经历的子任务与 Fact 事件
+  在整次运行后续失败时不会被 worker 的 `local.rollback()` 回滚，从而被持久化保留。
+- **操作证据**（注入确定性 provider，exp-a 先完整完成并提交、exp-b 首 Fact 延迟 0.25s 后抛
+  `ContentGenerationError`）：
+  - **用户可见动作**：点击生成 → 任务 RUNNING；exp-b 失败 → 编排向上抛异常（非截断成功）→ worker 收尾 FAILED；
+  - **状态变化**：exp-a 子任务 `SUCCEEDED`+`fact_results` 持久化保留（rollback 不影响）；exp-b 为
+    `PENDING`/非 SUCCEEDED（无成功 artifact）；`TaskEvent` 保留 `fact.done` + `reason.delta`；
+  - **调用增量**：只覆盖失败范围——compact×1、exp-a：fact+reason；exp-b：fact 调用发生但失败被拒，
+    无额外成功产出。实测 `fact_calls=[fact(exp-a), fact(exp-b)]`、`reason_calls=[reason(exp-a/fa1)]`、
+    `compact_calls=1`。
+- **现状边界（需决策，不静默缩小范围）**：同一任务「只重试失败范围、不全任务静默重跑」因
+  [core/task.py](backend/core/task.py) `TRANSITIONS[FAILED] = ∅`（FAILED 为终态）而**无法在同一任务上触发**
+  ——本证明覆盖「失败后已完成范围保留 + 调用仅限失败范围」。若要【同任务直接续跑失败范围】需 P.O. 决策：
+  - 选项 A：允许 `RUNNING → FAILED → RUNNING` 复用，且 generate_task 跳过 SUCCEEDED 子任务、复用其
+    `fact_results`，只重跑未完成经历（改动状态机 + 增量提交门禁）；
+  - 选项 B：维持 FAILED 终态，失败范围只能以「新任务 + 复用已完成 Fact」承载。
+- **偏差**：同任务直接重试失败范围本身仍未实现（阻断于状态机终态语义），需用户/所有者以上任一决策。
+
+### R2-8.4 缺口 4：Revision 2 最终包清单、真实模型时序与调用摘要
+
+- **最终 onedir 包身份**（`python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，
+  仓库根 cwd，exit=0，**本批重建含 records + JD-60 + 模型对齐**）：
+  - 包路径：`dist/ResumeAssistant/`；EXE：`dist/ResumeAssistant/ResumeAssistant.exe`
+  - 文件数：**4045**；总字节：**170,353,066 B**
+  - **EXE SHA-256**：`FF05ECB85B6D1B64BF009937BFA24C58AB780440F67221B83B1395B05F9B9E04`
+  - 前端 bundle：`index-DCtj5n8O.js`（646,862 B；含 `task/records` + JD-60 文案）
+  - manifest：PyInstaller onedir，spec `packaging/resume_assistant.spec`，`name=ResumeAssistant`，
+    `console=False`，`upx=False`，`excludes=["reportlab"]`。
+  - 说明：以上为本批从当前源码候选重建后的实测计数，**未沿用 Revision 1 的 `4B134…` EXE**。
+- **真实模型时序/调用/Token 摘要**：现有真实模型证据仅为 **1 次典型 warm run**（§R2-7.3 隔离 E2E：
+  19 次真实 `POST /chat/completions` 全 200、`deepseek-v4-pro-ga-260813`、温度 0.0、另 1 次 embedding；
+  端到端约 **112s**，P4 出现；首 Fact 时刻未单独记录）。
+- **6 格真实模型矩阵（short/typical/long × cold/warm × n≥3）**：本批**未提供**，需真实 ARK Key +
+  打包 onedir + 有头浏览器 + 长时运行环境另行执行，故标记为**待独立/文档验收项（DOC）**；不以其缺失
+  求退、也不用 Revision 1 §7.6 矩阵充数。此为剩余开发侧交付边界，如实上报。
+
+### R2-8.5 修订后的必做开发 Gate（本批收口现场重跑）
+
+| 门禁 | 命令 | 结果 | 退出码 |
+| --- | --- | --- | --- |
+| 后端语法 | `python -m compileall backend` | **PASS**（本批修复 3 个遗留 GUARD 脚本的 `__future__` 位置，见下） | **0** |
+| 前端类型+构建 | `frontend: npm run build`（`tsc -b && vite build`） | **SUCCESS**（69 modules；bundle `index-DCtj5n8O.js`） | **0** |
+| T04 SSE/恢复 | `backend/_v22_t4_sse.py` | PASS（27/27） | 0 |
+| T05 取消/新任务 | `backend/_v22_t5_cancel.py` | PASS（39/39） | 0 |
+| T06 生成/编排/重试 | `backend/_v22_t6_generation.py` | PASS（23/23） | 0 |
+| T03 Task API | `backend/_v22_t3_task_api.py` | PASS（26/26，R2 JD-60 对齐后重跑） | 0 |
+| 记录列表（新增） | `backend/_v22_t8_records.py` | PASS（12/12） | 0 |
+| 范围重试（新增） | `backend/_v22_range_retry_proof.py` | PASS（10/10） | 0 |
+| T09 清理 | `backend/_v22_t9_cleanup.py` | PASS（19/19） | 0 |
+| 打包 | `PyInstaller --clean packaging/resume_assistant.spec` | SUCCESS | 0 |
+
+- 关于 `compileall`：**此前 RESULT 记载编译 PASS，但现场实测 exit=1**，根因为 3 个遗留 GUARD 脚本
+  （`_v13_validation.py` / `_e2e_v13_full.py` / `_v14_t3_migrate.py`）把 `from __future__ import annotations`
+  放在 `sys.exit(0)` 之后，属死代码但触发 SyntaxError。本批已删除这 3 处死行（不改逻辑，脚本仍立即
+  GUARD 退出），`compileall` 恢复 exit=0。此 3 文件不入打包图，不影响包身份。
+
+### R2-8.6 缺口 5：提交身份澄清（H2 与 RESULT-only 提交）
+
+- **源码候选 H2 = `106bd810c3c42cd51c6369aff02bb33e2d6d9450`**（feat），唯一父提交 `47ae33e`（批准基线
+  H），相对 H diff：**31 files / 4282 insertions / 137 deletions**；该 tree 为冻结源码树（含模型对齐 +
+  JD-60 + 真实模型 E2E 等 R2 全部源码/验证脚本/证据）。
+- **`3d7eb22`（docs）仅为本文件顶部身份块内容更正**（把 H2 身份字段从旧的 `2af905b+4268` 修正为
+  `106bd81+4282`），**不改变冻结源码树，故不是独立验收的源码候选**。
+- **为何 `106bd81` 内仍含旧身份字段（2af905b/4268）**：H2 提交内的 RESULT 身份块是在 amend 之前的
+  H2 原始哈希/尺寸下写就的；amend 改写了 hex1 与 diff 尺寸但**未同步改写嵌入的 RESULT 身份块**，因此
+  该旧文本留存在 `106bd81` 的冻结文档里。`3d7eb22` 通过独立 docs 提交仅修正该身份块。
+- **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（PLAN
+  Revision 2 未变更）。
+- **新 clean 候选（本批）**：见下一节 R2-9。
+
+### R2-8.7 剩余偏差与阻断（交付边界，如实上报）
+
+- 范围内已补齐：records 列表（12/12）、任务级 partial 保留 + 失败范围（10/10）、compileall=0、
+  包重建 manifest、映射表。
+- 需决策/待独立验收（不静默缩小）：**同一任务直接重试失败范围**（状态机终态，§R2-8.3 选项 A/B）；
+  **6 格真实模型矩阵**（需 ARK+浏览器环境，§R2-8.4）；最终顶部全局文档由用户/Doc Agent 在人工验收后更新。
+
+## R2-9. 本批新 clean 候选（gap 处理后提交）
+
+> 由下一节提交说明填写（commit / 唯一父 / 相对 H diff / PLAN blob / 包身份），提交完成后补录。
+

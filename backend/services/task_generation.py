@@ -359,6 +359,10 @@ def generate_task(
                             fact_results=[_fact_result_view(f) for f in res.facts],
                         )
                         merged.append(res)
+                        # V220-G02 partial 保留：逐已完成子任务提交，使单任务中途失败后
+                        # 已完成经历/Fact/事件已被持久化，不被外层 rollback 回滚（供范围重试复用、
+                        # 并在 FAILED 面板如实呈现"已完成范围保留"）。单一写者线程，无并发竞争。
+                        db.commit()
                     if pending and not newly:
                         time.sleep(0.02)
             except BaseException:
