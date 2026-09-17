@@ -1129,5 +1129,12 @@ artifact 链，不另建第二套。
 
 ## R2-9. 本批新 clean 候选（gap 处理后提交）
 
-> 由下一节提交说明填写（commit / 唯一父 / 相对 H diff / PLAN blob / 包身份），提交完成后补录。
+- **HEAD / 源码候选**：`58ab85dff987dfd52ae36361d67ac06f165c9215`（fix：close Revision 2 gaps）
+- **唯一父提交**：`3d7eb22`（docs：RESULT 顶部身份更正，仅文档；其下源码基线即 H2 `106bd81`）
+- **相对批准基线 H（`47ae33e`）的 diff**：**40 files, 4894 insertions(+), 148 deletions(-)**
+- **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（Revision 2 未变）
+- **最终包身份**：onedir `dist/ResumeAssistant/`（4045 files / 170,353,066 B）；EXE SHA-256
+  `FF05ECB85B6D1B64BF009937BFA24C58AB780440F67221B83B1395B05F9B9E04`；前端 bundle
+  `index-DCtj5n8O.js`（含 `task/records` + JD-60 文案）。
+- 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收）。提交说明见 §R2-8。
 
