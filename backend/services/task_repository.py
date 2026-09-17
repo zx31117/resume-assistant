@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from sqlalchemy import func
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from core.errors import DomainError
@@ -336,28 +337,49 @@ class TaskRepository:
                 details={"status": task.status},
             )
         self._assert_state_bytes(name, phone, email, location, jd)
-        rev = task.current_input_revision
-        existing = (self._db.query(InputRevision)
-                    .filter_by(task_id=task.task_id, revision=rev)
-                    .first()) if rev > 0 else None
-        if existing is None:
-            existing = InputRevision(
-                task_id=task.task_id, revision=rev or 0,
-                name=name, phone=phone, email=email, location=location, jd=jd,
-                input_hash=_sha256(name + phone + email + location + jd),
-                created_at=_utcnow(),
-            )
-            self._db.add(existing)
-            # autoflush=False：同事务内再次保存草稿（同 revision 0）时查询可见并原地更新
-            self._db.flush()
+        rev = task.current_input_revision or 0
+        if rev > 0:
+            # 极薄的防线：仅在 DRAFT 却已有冻结 revision 时命中；保守原地更新。
+            existing = (self._db.query(InputRevision)
+                        .filter_by(task_id=task.task_id, revision=rev).first())
+            if existing is None:
+                existing = InputRevision(
+                    task_id=task.task_id, revision=rev,
+                    name=name, phone=phone, email=email, location=location, jd=jd,
+                    input_hash=_sha256(name + phone + email + location + jd),
+                    created_at=_utcnow(),
+                )
+                self._db.add(existing)
+                self._db.flush()
+            else:
+                existing.name = name
+                existing.phone = phone
+                existing.email = email
+                existing.location = location
+                existing.jd = jd
+                existing.input_hash = _sha256(name + phone + email + location + jd)
+                existing.created_at = _utcnow()
         else:
-            existing.name = name
-            existing.phone = phone
-            existing.email = email
-            existing.location = location
-            existing.jd = jd
-            existing.input_hash = _sha256(name + phone + email + location + jd)
-            existing.created_at = _utcnow()
+            # revision 0 草稿行：前端快速连续保存（如刷新-回写、多输入并存）会在独立连接上
+            # 并发 read-then-insert，同时对 (task_id, revision=0) 落行 → UNIQUE 冲突(500)。
+            # 改为 SQLite 原子 upsert（唯一键 task_id+revision）：已存在则原地覆盖草稿列，
+            # 不抛错、并发安全、幂等；同事务内再次同 revision 保存语义不变。
+            now = _utcnow()
+            h = _sha256(name + phone + email + location + jd)
+            ins = sqlite_insert(InputRevision).values(
+                task_id=task.task_id, revision=0,
+                name=name, phone=phone, email=email, location=location, jd=jd,
+                input_hash=h, created_at=now,
+            )
+            excluded = ins.excluded
+            ins = ins.on_conflict_do_update(
+                index_elements=["task_id", "revision"],
+                set_=dict(name=excluded.name, phone=excluded.phone,
+                          email=excluded.email, location=excluded.location,
+                          jd=excluded.jd, input_hash=excluded.input_hash,
+                          created_at=excluded.created_at),
+            )
+            self._db.execute(ins)
         task.updated_at = _utcnow()
         return task
 

@@ -155,9 +155,9 @@ def _run_tests_inner(state) -> int:
         t = svc.create_task()
         tid = t["task_id"]
         svc.save_draft(tid, name="甲", phone="138", email="a@b.c", location="上海",
-                       jd="招聘后端工程师，要求 Python 与大模型，开发系统。")
+                       jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
         svc.freeze_input(tid, name="甲", phone="138", email="a@b.c", location="上海",
-                         jd="招聘后端工程师，要求 Python 与大模型，开发系统。")
+                         jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
         return tid
 
     # 准备 3 条经历，各含 2 个源 Fact（用于并发与顺序断言）

@@ -108,8 +108,10 @@ def _run_tests_inner(state) -> int:
     svc = TaskService(svc_db)
     t = svc.create_task()
     task_id = t["task_id"]
-    svc.save_draft(task_id, name="甲", phone="138", email="a@b.c", location="上海", jd="JD")
-    svc.freeze_input(task_id, name="甲", phone="138", email="a@b.c", location="上海", jd="JD")
+    svc.save_draft(task_id, name="甲", phone="138", email="a@b.c", location="上海",
+                   jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
+    svc.freeze_input(task_id, name="甲", phone="138", email="a@b.c", location="上海",
+                     jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
     svc.start_task(task_id)
     # 用 repository 写快照 + 事件并推进终态
     db = SessionLocal()

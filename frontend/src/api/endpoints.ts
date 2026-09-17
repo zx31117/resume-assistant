@@ -17,6 +17,8 @@ import type {
   ResumeDocxGenerateResponse,
   ResumeTextOut,
   SystemStatus,
+  TaskInput,
+  TaskOut,
   TemplateListResponse,
   DiagnosticsResponse,
 } from './types'
@@ -130,5 +132,40 @@ export const systemApi = {
 
   clearLogs() {
     return api.del<{ ok: boolean }>('/system/logs')
+  },
+}
+
+/** V2.2.0 T3：Task 工作台 API。绑定真实后端 Task 契约。 */
+export const taskApi = {
+  create(operationId?: string) {
+    return api.post<TaskOut>('/task', undefined, operationHeaders(operationId))
+  },
+
+  save(taskId: string, data: TaskInput, operationId?: string) {
+    return api.put<TaskOut>(`/task/${taskId}/save`, data, operationHeaders(operationId))
+  },
+
+  freeze(taskId: string, data: TaskInput, operationId?: string) {
+    return api.post<TaskOut>(`/task/${taskId}/freeze`, data, operationHeaders(operationId))
+  },
+
+  start(taskId: string, operationId?: string) {
+    return api.post<TaskOut>(`/task/${taskId}/start`, undefined, operationHeaders(operationId))
+  },
+
+  generate(taskId: string, operationId?: string) {
+    return api.post<TaskOut>(`/task/${taskId}/generate`, undefined, operationHeaders(operationId))
+  },
+
+  cancel(taskId: string, operationId?: string) {
+    return api.post<TaskOut>(`/task/${taskId}/cancel`, undefined, operationHeaders(operationId))
+  },
+
+  get(taskId: string) {
+    return api.get<TaskOut>(`/task/${taskId}`)
+  },
+
+  streamUrl(taskId: string) {
+    return `/api/task/${taskId}/stream`
   },
 }

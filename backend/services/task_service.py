@@ -38,6 +38,26 @@ def _require_name(name: str) -> str:
     return str(name).strip()
 
 
+def _require_jd(jd: str) -> str:
+    """V220-G02：JD 至少 60 字（以服务端为最终权威）。
+
+    freeze_input 是生成点击的最终入口，这里作为服务端 backstop；草稿保存(save_draft)
+    仍是宽松草稿，不在此收紧（保证输入中频繁自动保存不被拦截）。
+    """
+    if jd is None or not str(jd).strip():
+        raise TaskInputValidationError(
+            "JD 必填（V220-G02）；至少 60 字",
+            details={"missing": ["jd"], "jd_len": len(str(jd or ""))},
+        )
+    j = str(jd).strip()
+    if len(j) < 60:
+        raise TaskInputValidationError(
+            f"JD 至少 60 字（V220-G02），当前 {len(j)} 字",
+            details={"missing": [], "jd_len": len(j), "min_jd_len": 60},
+        )
+    return j
+
+
 def _run_task_cleanup(db: Session) -> None:
     """任务进入终态后的一次 cleanup（T9）。幂等；失败可见但不影响任务终态结果。"""
     try:
@@ -75,6 +95,7 @@ class TaskService:
     def freeze_input(self, task_id: str, *, name: str, phone: str = "",
                      email: str = "", location: str = "", jd: str = "") -> dict[str, Any]:
         name = _require_name(name)
+        jd = _require_jd(jd)   # V220-G02：JD 至少 60 字（服务端权威）
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})

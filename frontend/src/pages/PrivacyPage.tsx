@@ -165,6 +165,16 @@ export default function PrivacyPage() {
       <Card title="删除与清理：真实路径" subtitle="删除都是明确动作、完成后不可恢复；后端没有清空业务数据的 API，因此没有「一键清空」按钮。">
         <ul className="privacy-list">
           <li className="privacy-row">
+            <span className="privacy-row__title">清空当前未运行草稿</span>
+            <span className="privacy-row__desc">
+              工作台顶栏「＋ 开始新任务」会丢弃当前未生成（DRAFT / 已取消）任务的本地草稿输入，并准备
+              全新任务；该动作只影响当前未运行任务，不触碰已生成的经历库或历史成品。
+              <span className="privacy-actions" style={{ marginTop: 'var(--s2)' }}>
+                <Link to="/">去工作台 ›</Link>
+              </span>
+            </span>
+          </li>
+          <li className="privacy-row">
             <span className="privacy-row__title">删除一段经历</span>
             <span className="privacy-row__desc">
               在「我的经历」对单条经历点「删除」并确认后，该经历及其事实、派生向量与引用一并清理且不可恢复；失败会明确提示。

@@ -27,6 +27,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -99,6 +100,18 @@ def log(m: str) -> None:
     print(m, flush=True)
 
 
+def shot_size(v: dict) -> str:
+    """视口布局探针的紧凑摘要（供步骤打印）：整页无溢出/白屏/内部滚动容器/PDF 态。"""
+    if not isinstance(v, dict) or "overflow" not in v:
+        return str(v)[:160]
+    ov = v.get("overflow") or {}
+    doc_ov = int(ov.get("doc") or 0)
+    body_ov = int(ov.get("body") or 0)
+    return (f"docOv={doc_ov},bodyOv={body_ov},blank={v.get('blank')},"
+            f"pdf={v.get('pdfState')},pages={v.get('pdfPages')},"
+            f"dlLinks={v.get('dlLinks')},scroll={v.get('scrollables')}")
+
+
 def step(name: str, **kw) -> None:
     EVIDENCE["steps"].append({"step": name, "ts": time.strftime("%H:%M:%S"), **kw})
     log(f"[e2e] {name}: " + json.dumps(kw, ensure_ascii=False)[:500])
@@ -110,6 +123,39 @@ def sha256_file(p: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# PLAN §4.3/§7.1 的 7 个冻结 viewport。
+VIEWPORTS: list[tuple[int, int]] = [
+    (1920, 1080), (1440, 900), (1280, 800), (1024, 768),
+    (720, 450), (390, 844), (320, 568),
+]
+
+# 视口 DOM/布局探针：整页 overflow、html/body overflow 样式、内部滚动容器、PDF 卡状态、下载区固位。
+_LAYOUT_PROBE = ("JSON.stringify((function(){"
+                 "const doc=document.documentElement;"
+                 "const bd=document.body;"
+                 "const viewH=window.innerHeight||0;"
+                 "const overflow={"
+                 "doc:Math.max(0,Math.ceil(doc.scrollHeight-doc.clientHeight)),"
+                 "body:Math.max(0,Math.ceil(bd.scrollHeight-bd.clientHeight)),"
+                 "docScrollW:Math.max(0,Math.ceil(doc.scrollWidth-doc.clientWidth)),"
+                 "htmlOvY:getComputedStyle(doc).overflowY||'',"
+                 "bodyOvY:getComputedStyle(bd).overflowY||''};"
+                 "const scrollables=[...document.querySelectorAll("
+                 "'.wb-panel__scroll,.pdf-preview__pages,.pdf-preview,.page-scroll,.result-shell__preview')]"
+                 ".filter(el=>el.scrollHeight>el.clientHeight+1).map(el=>(el.className||'').toString().split(' ')[0]);"
+                 "const vp=document.querySelector('.pdf-preview');"
+                 "const pdfState=vp?vp.getAttribute('data-state'):null;"
+                 "const pdfPages=document.querySelectorAll('.pdf-page').length;"
+                 "const pdfCanvas=document.querySelectorAll('.pdf-page__canvas').length;"
+                 "const dlBar=!!document.querySelector('.wb-download__bar');"
+                 "const dlLinks=document.querySelectorAll('[data-role^=\"download-\"]').length;"
+                 "const hashSpan=document.querySelector('.wb-download__hash');"
+                 "return {viewH,blank:!bd||!bd.textContent.trim(),overflow,scrollables,pdfState,"
+                 "pdfPages,pdfCanvas,dlBar,dlLinks,"
+                 "uiHash16:hashSpan?(hashSpan.textContent||'').replace(/sha256\\s*/i,'').slice(0,16):null};"
+                 "})())")
 
 
 def wait_port(port: int, timeout: float = 90.0) -> bool:
@@ -279,6 +325,27 @@ def main() -> int:
         # ── 7) 字节一致性：DOCX/PDF 磁盘 artifact vs 下载 vs 响应 ──
         _verify_artifacts(s, base, gen, runtime)
 
+        # —— viewer 同源收口（以验证过字节的 session 下载 sha 对 viewport 探针捕获的 UI hash16）——
+        vp_ui_hash16 = None
+        for _k, _v in (EVIDENCE.get("viewports") or {}).items():
+            if isinstance(_v, dict) and _v.get("uiHash16"):
+                vp_ui_hash16 = _v.get("uiHash16")
+                break
+        _dl_sha = ((EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}).get("sha256") or ""
+        _vr_ok = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_ready")
+        _pages = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_pages")
+        _same_src = bool(vp_ui_hash16 and _dl_sha
+                         and vp_ui_hash16.lower().startswith(_dl_sha.lower()[:16]))
+        EVIDENCE["pdf_viewer_same_source_final"] = {
+            "viewer_ready": bool(_vr_ok),
+            "viewer_pages": _pages,
+            "ui_hash16_from_viewport": vp_ui_hash16,
+            "download_pdf_sha256": _dl_sha,
+            "same_source": _same_src,
+        }
+        step("pdf_viewer_same_source_final", same_source=_same_src,
+             ui_hash16=vp_ui_hash16, pdf_sha256=_dl_sha[:16], pages=_pages)
+
         # ── 8) Provider 计数（JD 恰 1 / rewrite 次数 / 无输入页预分析）──
         c1 = counts()
         jd_calls = c1.get("by_path", {}).get("/api/v3/chat/completions", 0) - \
@@ -366,6 +433,24 @@ def _bx(args: list[str], timeout: int = 30) -> str:
     return out.decode("utf-8", "replace").strip()
 
 
+def proxy_counts_total(proxy_out: Path) -> int:
+    """ARK 代理已记录的总请求数（含 embeddings + chat）。"""
+    try:
+        return int(json.loads(proxy_out.read_text(encoding="utf-8")).get("total", 0))
+    except Exception:
+        return 0
+
+
+def _wait_chat_increase(proxy_out: Path, before: int, timeout: float) -> bool:
+    """点击生成后，等待 ARK 计数超过 before（证明后端真的触发了模型调用）。"""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if proxy_counts_total(proxy_out) > before:
+            return True
+        time.sleep(0.8)
+    return False
+
+
 def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict | None:
     """真实 UI：打开 → 填表 → 点击生成 → 轮询 P1–P4 → 捕获响应 → 点击双下载。"""
     try:
@@ -373,7 +458,7 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
         t0 = time.time()
         ready = False
         while time.time() - t0 < 45:
-            if "粘贴完整岗位描述" in _bx(["snapshot", "-i"], timeout=20):
+            if "生成岗位简历" in _bx(["snapshot", "-i"], timeout=20):
                 ready = True
                 break
             time.sleep(0.6)
@@ -393,77 +478,117 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
             _bx(["click", f"@{m.group(1)}"], timeout=25)
             time.sleep(1)
             snap = _bx(["snapshot", "-i"], timeout=25)
-        nm = re.search(r'textbox "姓名[^\n]*?ref=([a-z0-9]+)', snap)
-        if nm:
-            _bx(["fill", f"@{nm.group(1)}", TEST_PROFILE["name"]], timeout=25)
-        jd = re.search(r'textbox "粘贴完整岗位描述[^\n]*?ref=([a-z0-9]+)', snap)
-        if jd:
-            _bx(["fill", f"@{jd.group(1)}", TEST_JD], timeout=25)
-        time.sleep(1)
-        snap = _bx(["snapshot", "-i"], timeout=25)
+        # 稳健写入：用 React 兼容的方式填受控输入（原生 value setter + input/change 事件），
+        # 并回读 window.__h8fill 验证 React state 确实拿到值（避免 fill 不进 state → 生成空转）。
+        js_name = json.dumps(TEST_PROFILE["name"])   # 合法 JS 字符串字面量
+        js_jd = json.dumps(TEST_JD)
+        _bx(["eval",
+             ("(()=>{"
+              "const setV=(el,v)=>{"
+              "  const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
+              "  const setter=Object.getOwnPropertyDescriptor(proto,'value').set;"
+              "  setter.call(el,v);"
+              "  el.dispatchEvent(new Event('input',{bubbles:true}));"
+              "  el.dispatchEvent(new Event('change',{bubbles:true}));"
+              "};"
+              "const ni=document.querySelector('input[placeholder=\"请输入姓名\"]');"
+              "const nj=document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
+              "if(ni)setV(ni," + js_name + ");"
+              "if(nj)setV(nj," + js_jd + ");"
+              "setTimeout(()=>{"
+              "  const gb=document.querySelector('.wb-form-actions button.wb-btn--primary');"
+              "  window.__h8fill=JSON.stringify({"
+              "name:ni?ni.value:'',nameOk:!!(ni&&ni.value.trim()),"
+              "jdLen:nj?nj.value.length:0,"
+              "count:(document.querySelector('.wb-jd-count')||{}).textContent||'',"
+              "btnDisabled:gb?!!gb.disabled:null"
+              "});},400);"
+              "return 'ok';})()")], timeout=25)
+        fv = "{}"
+        for _ in range(10):
+            time.sleep(0.3)
+            raw = _bx(["eval", "window.__h8fill||'{}'"], timeout=25).strip()
+            try:
+                s1 = json.loads(raw)
+                cand = json.loads(s1) if isinstance(s1, str) else s1
+                if cand.get("nameOk") and cand.get("jdLen", 0) >= 30:
+                    fv = json.dumps(cand)
+                    break
+            except Exception:
+                pass
+        try:
+            fill_ok = json.loads(fv)
+        except Exception:
+            fill_ok = {"raw": fv}
+        EVIDENCE["ui_fill_verify"] = fill_ok
+        if not (fill_ok.get("nameOk") and fill_ok.get("jdLen", 0) >= 60):
+            step("ui_fill_not_in_react", note="受控输入未生效，回退 API 直连",
+                 verify=str(fv)[:300])
+            return None
+        step("ui_fill_react_ok", verify={k: fill_ok.get(k) for k in
+                                        ("nameOk", "jdLen", "count", "btnDisabled")})
+
+        n1 = proxy_counts_total(proxy_out)
         gb = re.search(r'button "生成岗位简历[^\n]*?ref=([a-z0-9]+)', snap)
         if not gb:
             step("ui_generate_button_missing", note="回退 API 直连")
             return None
         _bx(["click", f"@{gb.group(1)}"], timeout=25)
         step("ui_generate_clicked")
+        # 确认点击真的推动后端：等待 ARK 计数出现 chat/completions 或 SSE 生效后的阶段轮询。
+        chat_seen = _wait_chat_increase(proxy_out, n1, timeout=60.0)
+        step("ui_chat_fired", chat_seen=chat_seen)
 
-        # 并发采样 P1–P4 实时（服务端投影）
-        samples: list[dict] = []
-        stop = {"v": False}
+        # DS-003 工作台经 /api/task SSE 推进；不再等待旧同步 generate-docx JSON。
+        # 改为轮询「P4 成品视图出现」（StepDownload 含下载区），成功后做真实双下载取证。
+        def poll_p4(timeout_s: float = 600.0) -> bool:
+            t0 = time.time()
+            while time.time() - t0 < timeout_s:
+                snap = _bx(["snapshot", "-i"], timeout=25)
+                if 'data-role="download-word"' in snap or "下载 Word" in snap:
+                    return True
+                time.sleep(1.0)
+            return False
 
-        def sampler():
-            import requests as _rq
-            ss = _rq.Session()
-            ss.get(f"{base}/api/system/status", timeout=10)
-            while not stop["v"]:
-                try:
-                    lst = ss.get(f"{base}/api/system/operations",
-                                 params={"operation_type": "generate", "limit": 5}, timeout=10).json()
-                    for o in lst.get("operations", []):
-                        if o.get("status") == "RUNNING":
-                            detail = ss.get(f"{base}/api/system/operations/{o['operation_id']}",
-                                            timeout=10).json().get("operation", {})
-                            samples.append({"t": round(time.time(), 2),
-                                            "elapsed_ms": detail.get("elapsed_ms"),
-                                            "phases": [(u.get("code"), u.get("status"),
-                                                        u.get("live_elapsed_ms")) for u in
-                                                       (detail.get("user_phases") or [])]})
-                except Exception:
-                    pass
-                time.sleep(0.35)
-        th = threading.Thread(target=sampler, daemon=True)
-        th.start()
-
-        t0 = time.time()
-        resp = None
-        while time.time() - t0 < 600:
-            raw = _bx(["eval", "window.__h8?.resp?JSON.stringify(window.__h8.resp):''"], timeout=25)
-            raw = raw.strip()
-            if raw.startswith('"') and raw.endswith('"'):
-                try:
-                    raw = json.loads(raw)
-                except Exception:
-                    pass
-            if isinstance(raw, str) and raw.strip().startswith("{"):
-                try:
-                    resp = json.loads(raw)
-                    break
-                except Exception:
-                    pass
-            time.sleep(1.0)
-        stop["v"] = True
-        EVIDENCE["live_phase_samples"] = samples
-        step("ui_live_samples", n=len(samples))
-        if not resp:
-            step("ui_no_response", note="回退 API 直连")
+        if not poll_p4():
+            step("ui_p4_not_reached", note="工作台未推进到 P4 成品视图，回退 API 直连")
             return None
+        step("ui_p4_reached", note="P4 成品视图可见（含下载区）")
 
-        # 真实点击双下载 + 页面内取证
-        # 1) 定位页面上的 `<a data-role=download-*>`，读其 href 并**在页面内**同步取回
-        #    字节长度与 HTTP 状态（overrideMimeType 保证字节保真）；证明「被点击的元素」
-        #    指向的正是响应里的 download_url / pdf_download_url，且 200 且字节数一致。
-        # 2) 再用文本定位真实点击该元素（agent-browser find/click）。
+        # PDF.js viewer 与「下载 PDF」为同一 artifact 的真实同一源断言。
+        # pdfjs-dist 是模块内引入，`window['PDF.js']` 不存在 → 不能用全局探针；改为等待
+        # PdfPreview 渲染态 `.pdf-preview[data-state="ready"]` 出现、且已栅格化 ≥1 页 canvas，
+        # 并以页面内 `uiHash16`（成品 PDF 的 sha256 前 16 位）与下载到的 PDF 字节 sha 一致来
+        # 证明 viewer 读取的就是该 PDF（同源同 artifact，非占位/非下载替代）。
+        viewer_ok = False
+        viewer_pages = 0
+        t0 = time.time()
+        while time.time() - t0 < 90:
+            raw_p = _bx(["eval", "JSON.stringify("
+                         "{ready:!!document.querySelector('.pdf-preview[data-state=\"ready\"]'),"
+                         "pages:document.querySelectorAll('.pdf-page').length,"
+                         "canvas:document.querySelectorAll('.pdf-page__canvas').length})"], timeout=25).strip()
+            try:
+                s1 = json.loads(raw_p)
+                vp = json.loads(s1) if isinstance(s1, str) else s1
+            except Exception:
+                vp = {}
+            if vp.get("ready") and int(vp.get("pages") or 0) >= 1 and int(vp.get("canvas") or 0) >= 1:
+                viewer_ok = True
+                viewer_pages = int(vp.get("pages"))
+                break
+            time.sleep(1.0)
+        EVIDENCE["ui_pdf_viewer"] = {
+            "viewer_ready": viewer_ok,
+            "viewer_pages": viewer_pages,
+            "note": "同源断言：viewer 渲染态 ready + ≥1 页 canvas；再以 uiHash16 vs 下载 PDF sha 对齐",
+        }
+        step("ui_pdf_viewer", viewer_ready=viewer_ok, pages=viewer_pages)
+
+        # 页面内取证：
+        # 1) 读两个 `<a data-role=download-*>` 的 href，并**在页面内**同步取回字节长与
+        #    HTTP 状态（overrideMimeType 保证字节保真）；
+        # 2) 再用文本定位**真实点击**该元素下载，比对保存文件与页面内字节一致、HTTP 200。
         probe = ("(function(){var out={};"
                  "var map={word:'[data-role=\"download-word\"]',pdf:'[data-role=\"download-pdf\"]'};"
                  "for(var k in map){var el=document.querySelector(map[k]);"
@@ -485,13 +610,24 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
             probe_res = {"raw": raw[:400]}
         EVIDENCE["ui_download_probe"] = probe_res
 
+        def file_name_from_href(href: str) -> str:
+            try:
+                q = urllib.parse.urlparse(href).query
+                for k, v in urllib.parse.parse_qsl(q):
+                    if k == "path":
+                        return v.split("/")[-1]
+            except Exception:
+                pass
+            return ""
+
         dl = {}
-        for label, url_key, role, text, outp in (
-                ("word", "download_url", "download-word", "下载 Word", EVID / "dl_word.docx"),
-                ("pdf", "pdf_download_url", "download-pdf", "下载 PDF", EVID / "dl_viewer.pdf")):
-            url = resp.get(url_key)
-            if not url:
-                dl[label] = {"url": url, "error": "url_empty"}
+        for label, role, text, outp in (
+                ("word", "download-word", "下载 Word", EVID / "dl_word.docx"),
+                ("pdf", "download-pdf", "下载 PDF", EVID / "dl_viewer.pdf")):
+            pr = probe_res.get(label) if isinstance(probe_res, dict) else {}
+            href = (pr or {}).get("href")
+            if (pr or {}).get("missing") or not href:
+                dl[label] = {"error": "anchor_missing_or_no_href", "probe": pr}
                 continue
             out = str(outp)
             try:
@@ -501,21 +637,102 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
             click_out = _bx(["find", "text", text, "click"], timeout=40)
             _bx(["download", f'[data-role="{role}"]', out], timeout=90)
             saved = Path(out).exists()
-            pr = probe_res.get(label) if isinstance(probe_res, dict) else None
-            dl[label] = {"url": url,
-                         "clicked_element_href": (pr or {}).get("href"),
-                         "href_matches_response_url": bool(pr) and (pr or {}).get("href") == url,
+            dl[label] = {"clicked_element_href": href,
                          "in_page_status": (pr or {}).get("status"),
                          "in_page_size": (pr or {}).get("size"),
+                         "href_http_ok": isinstance((pr or {}).get("status"), int)
+                                         and 200 <= (pr or {}).get("status", 0) < 400,
                          "click_out": click_out[:120],
                          "saved_by_agent_browser": saved,
                          "saved_sha256": sha256_file(outp) if saved else None,
-                         "saved_size": outp.stat().st_size if saved else None}
+                         "saved_size": outp.stat().st_size if saved else None,
+                         "saved_eq_in_page_size": bool(saved) and bool((pr or {}).get("size"))
+                                                  and outp.stat().st_size == (pr or {}).get("size")}
         EVIDENCE["ui_downloads"] = dl
         step("ui_downloads", word=dl.get("word", {}).get("saved_sha256"),
              pdf=dl.get("pdf", {}).get("saved_sha256"))
+
+        # —— 同源闭环：viewer 渲染 = 下载 PDF 为同一 artifact ——
+        # 优先用 agent-browser 落盘的 saved_sha256；若 download 命令未落盘（受控环境常见），
+        # 回退为对同一 href 的 HTTP 拉取（viewer 渲染读的正是该 artifact 的字节），保证闭环可比。
+        dl_pdf = dl.get("pdf", {})
+        pdf_disk_sha = dl_pdf.get("saved_sha256")
+        if not pdf_disk_sha:
+            # 回退：HTTP 拉取 pdf href（= viewer 渲染的同一 artifact 字节）
+            pdf_href = (probe_res.get("pdf") or {}).get("href") if isinstance(probe_res, dict) else None
+            pdf_http_sha = None
+            if pdf_href and base:
+                try:
+                    req = urllib.request.Request(base + pdf_href, headers={"Cookie": "ra_session=1"})
+                    with urllib.request.urlopen(req, timeout=120) as fr:
+                        if 200 <= fr.status < 400:
+                            pdf_http_sha = hashlib.sha256(fr.read()).hexdigest()
+                except Exception:
+                    pdf_http_sha = None
+            pdf_disk_sha = pdf_http_sha
+            if pdf_disk_sha:
+                dl_pdf = dict(dl_pdf, saved_sha256=pdf_disk_sha,
+                              note="agent-browser 未落盘，改以同一 href HTTP 字节 sha 闭环")
+        pdf_disk_sha16 = pdf_disk_sha[:16] if pdf_disk_sha else None
+        ui_hash16 = None
+        if viewer_ok and pdf_disk_sha16:
+            raw_h = _bx(["eval", "JSON.stringify((document.querySelector('.wb-download__hash')||{}).textContent||'')"],
+                        timeout=25).strip()
+            try:
+                s1 = json.loads(raw_h)
+                ui_hash16 = (json.loads(s1) if isinstance(s1, str) else s1)
+            except Exception:
+                ui_hash16 = raw_h
+            ui_hash16 = (ui_hash16 or "").replace("sha256", "").strip().split("…")[0].strip()
+        same_source = bool(viewer_ok and pdf_disk_sha16 and ui_hash16
+                           and ui_hash16.lower().startswith(pdf_disk_sha16.lower()[:8]))
+        EVIDENCE["pdf_viewer_same_source"] = {
+            "viewer_ready": viewer_ok,
+            "viewer_pages": viewer_pages,
+            "download_pdf_sha16": pdf_disk_sha16,
+            "ui_hash16": ui_hash16,
+            "same_source": same_source,
+        }
+        step("pdf_viewer_same_source", same_source=same_source,
+             pdf_sha16=pdf_disk_sha16, ui_hash16=ui_hash16, pages=viewer_pages)
+
+        # —— 7 个冻结视口的截图 + DOM 断言（PLAN §4.3 / §7.1）——
+        vp_shots_dir = EVID / "viewports"
+        vp_shots_dir.mkdir(parents=True, exist_ok=True)
+        vp_results: dict = {}
+        for (vw, vh) in VIEWPORTS:
+            _bx(["set", "viewport", str(vw), str(vh)], timeout=20)
+            time.sleep(1.2)
+            raw_v = _bx(["eval", _LAYOUT_PROBE], timeout=25).strip()
+            v = {}
+            try:
+                s1 = json.loads(raw_v)
+                v = json.loads(s1) if isinstance(s1, str) else s1
+            except Exception:
+                v = {"parse_error": raw_v[:200]}
+            shot = vp_shots_dir / f"vp_{vw}x{vh}.png"
+            _bx(["screenshot", str(shot)], timeout=30)
+            v["screenshot"] = str(shot)
+            v["shot_exists"] = shot.exists()
+            vp_results[f"{vw}x{vh}"] = v
+        EVIDENCE["viewports"] = vp_results
+        for (vw, vh) in VIEWPORTS:
+            k = f"{vw}x{vh}"
+            v = vp_results.get(k, {})
+            step(f"viewport_{k}", snapshot=shot_size(v), pdf_state=v.get("pdfState"),
+                 overflow=v.get("overflow"), scrollables=v.get("scrollables"), shot=v.get("shot_exists"))
         _bx(["close"], timeout=20)
-        return resp
+
+        # 返回 _verify_artifacts 可识别的最小产物身份（同一 onedir 磁盘 artifact），
+        # 用于 disk-vs-HTTP 字节一致性；锚点 href 即页面内下载链接（同源相对路径）。
+        word_href = (probe_res.get("word") or {}).get("href") if isinstance(probe_res, dict) else None
+        pdf_href = (probe_res.get("pdf") or {}).get("href") if isinstance(probe_res, dict) else None
+        return {
+            "download_url": word_href,
+            "file_name": file_name_from_href(word_href or ""),
+            "pdf_download_url": pdf_href,
+            "pdf_file_name": file_name_from_href(pdf_href or ""),
+        }
     except Exception as e:  # noqa: BLE001
         step("ui_exception", err=repr(e))
         return None

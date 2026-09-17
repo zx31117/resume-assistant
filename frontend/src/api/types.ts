@@ -416,3 +416,83 @@ export interface DiagnosticsResponse {
   diagnostics: DiagnosticsSummary
   diagnostics_health: string
 }
+
+// ———— V2.2.0 T3：Task 工作台契约（backend/api/schemas.py TaskOut/TaskInputIn） ————
+
+export type TaskStatus = 'DRAFT' | 'READY' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
+
+/** 任务入参（姓名必填，其余选填；JD 原文保存）。与 TaskInputIn 对齐。 */
+export interface TaskInput {
+  name: string
+  phone: string
+  email: string
+  location: string
+  jd: string
+}
+
+/** 覆盖式权威快照（刷新/重连恢复基准）。 */
+export interface TaskSnapshotData {
+  seq: number
+  phase: string
+  payload: Record<string, unknown>
+  updated_at: string
+}
+
+/** GET /api/task/{id} 权威任务视图。与 schemas.TaskOut 逐字段对齐。 */
+export interface TaskOut {
+  task_id: string
+  status: TaskStatus
+  current_input_revision: number
+  active_operation_id: string | null
+  seq: number
+  created_at: string
+  updated_at: string
+  expires_at: string | null
+  terminal_error: string | null
+  published_resume_revision: number | null
+  published_docx_path: string | null
+  published_pdf_path: string | null
+  latest_input: TaskInput | null
+  snapshot: TaskSnapshotData | null
+  subtasks: unknown[]
+}
+
+// ———— V2.2.0 T4：SSE 事件投影 ————
+
+export type TaskEventType = 'jd.done' | 'fact.done' | 'reason.delta'
+
+/** SSE「event」业务事件：task_id / input_revision / seq / type / phase / payload。 */
+export interface TaskSseEvent {
+  task_id: string
+  input_revision: number
+  seq: number
+  type: string
+  phase: string
+  payload: Record<string, unknown>
+}
+
+/** SSE「snapshot」权威快照事件。 */
+export interface TaskSseSnapshot {
+  task_id: string
+  seq: number
+  phase: string
+  payload: Record<string, unknown>
+  status: string
+  terminal: boolean
+}
+
+/** SSE「refetch」：客户端必须重取权威快照（服务端检测到 seq 缺口/缓冲过期）。 */
+export interface TaskSseRefetch {
+  task_id: string
+  reason: string
+  from_seq: number
+  snapshot_seq: number
+  expected: number | null
+  got: number | null
+}
+
+/** SSE「done」：流结束并携带终态 status。 */
+export interface TaskSseDone {
+  task_id: string
+  status: string
+}

@@ -53,7 +53,7 @@ def build_llm(
         api_key=api_key,
         base_url=base_url,
         temperature=temperature,
-        # doubao-seed-evolving 是推理模型，复杂任务可能需要较长时间；
+        # 默认 LLM 为推理模型（deepseek-v4-pro-ga-260813），复杂任务可能需要较长时间；
         # 设 300s 超时避免无限挂起（V1 单用户场景可接受较长等待）。
         timeout=timeout,
     )

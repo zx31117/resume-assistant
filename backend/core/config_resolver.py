@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # 内置默认值与 core.config.Settings 对齐（配置项仅 3 个 secret 无关项）
 _DEFAULTS = {
     "ARK_BASE_URL": "https://ark.cn-beijing.volces.com/api/v3",
-    "LLM_MODEL": "doubao-seed-evolving",
+    "LLM_MODEL": "deepseek-v4-pro-ga-260813",
     "EMBEDDING_MODEL": "doubao-embedding-vision-251215",
 }
 

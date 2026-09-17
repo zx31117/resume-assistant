@@ -1,20 +1,36 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收** — `BATCH1_DEV_VERIFIED`
-> 当前阶段：Revision 1 / 第一批（仅设计无关后端实现）
+> 当前状态：**候选冻结（开发侧）** — `REV2_DEV_VERIFIED`（H2 已冻结）
+> 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
-> 批准 PLAN：Revision 1，blob `324302a0ef6d81214c752d12281c221f2550f320`（VH-010 记录）
-> 语义交接：**DOC\_RETURNED**（开发侧 RESULT 被退回返工；本版为返工处置结果）
+> 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
+> `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
+> 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
+> 进入第二批实现，已收口至 `REV2_DEV_VERIFIED`（候选冻结，H2 形成）。
 
-> **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 1 全部开发 Gate 已
-> 收口为 PASS，`BATCH1_DEV_VERIFIED` = **开发侧 T01–T11 全部完成（候选冻结）**，不代表独立
-> 验收/可发布：独立 Acceptance 由用户 / Doc Agent 在适当时机另启，本批不进入也不替代。T10 是
-> 开发侧 Architecture Check（只读核对产品
-> 不变量是否在真实路径成立），**不存在“用户 / Doc Agent 手动 T10”**；Revision 1 完成或本批
-> 返工完成后也不进入独立验收。全局文档（CURRENT\_STATE / docs/README / README / DECISIONS）
-> 由用户 / Doc Agent 在适当时机更新，本批不触碰，也不把任何返工过程文档升级为事实真源。
+> **H2 冻结身份（候选，全部开发 Gate 完成并提交）**：
+>
+> - **H2 commit**：`2af905b9681fc878f5e0ec205c3b32ea7e14fdf8`（`feat(v2.2.0): complete Revision 2 candidate H2 …`）
+>
+> - **唯一父提交**：`47ae33edcd20e160e64466ece0bf3bdda8cc74a9`（Revision 2 批准 identity 记录，`git cat-file` 仅 1 条 parent）
+>
+> - **相对 H（`47ae33e`）完整 diff**：**31 files changed, 4268 insertions(+), 137 deletions(-)**
+>
+> - **最终包身份**：onedir `dist/ResumeAssistant/ResumeAssistant.exe`，EXE SHA-256 `B2AB8E182B11A7F78E2375AA1364E7CD2FC7796BE9BB327E623FE12C3444AE01`，前端 bundle `index-8bEMCLmP.js`（JD-60 文案已确认）
+>
+> - **工作区**：clean（`git status --porcelain` 空）
+>
+> - **顶部状态**：`REV2_DEV_VERIFIED`（开发侧 T01–T11 全部完成、H2 冻结；不代表独立验收/可发布）
+
+> **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
+> 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
+> T01–T11 全部完成（候选冻结）**，不代表独立验收/可发布：独立 Acceptance 由用户 / Doc Agent 在
+> 适当时机另启，本批不进入也不替代。T10 是开发侧 Architecture Check（只读核对产品不变量是否在
+> 真实路径成立），**不存在"用户 / Doc Agent 手动 T10"**。全局文档（CURRENT\_STATE / docs/README /
+> README / DECISIONS）由用户 / Doc Agent 在适当时机更新，本批不触碰，也不把任何实施过程文档升级
+> 为事实真源。
 
 ***
 
@@ -592,6 +608,399 @@ Fact = 首个 fact.done；中位数 / 最大值均须 ≤15s）：
 - **边界**：本结论只依据 PLAN、RESULT、机械身份和证据入口，不证明源码或运行行为真实正确。
   Revision 1 明确不启动独立 Acceptance；最终候选包的真实纵切属于 Revision 2 完成后的独立验收，
   不是本批新增开发门禁。
+
+***
+
+## R2-1. Revision 2 · T01 身份与 Required Reading 核对
+
+> Revision 1 完成（§1–§9 为其开发记录，`BATCH1_DEV_VERIFIED`）。以下起为 Revision 2 开发记录，
+> 依 PLAN（Revision 2）实施矩阵与 RESULT Delivery Contract（§8）逐步收口至 `REV2_DEV_VERIFIED`。
+
+| 阅读对象 / 基线字段                                                           | 结论                                                                                                                                                                      |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/README.md` §0、§1–§5；`docs/CURRENT_STATE.md`；本 PLAN 全文           | 完成                                                                                                                                                                      |
+| `HUMAN_AI_WORKFLOW.md` §3.1/3.2/3.3/3.4、§6、§11                        | 完成                                                                                                                                                                      |
+| Revision 1 `RESULT.md` §6–§9                                          | 完成（本文件 §1–§9）                                                                                                                                                           |
+| `DS-003`：SNAPSHOT.md、SPEC.md、prototype/README.md、prototype/index.html | 完成（见 §R2-2）                                                                                                                                                             |
+| 角色 / 开发路径                                                             | Development Agent / `version/v2.2.0`，`git branch --show-current` 一致                                                                                                     |
+| 当前 HEAD                                                               | `47ae33edcd20e160e64466ece0bf3bdda8cc74a9`（Revision 2 批准 identity 记录顶部）                                                                                                 |
+| 批准收口 commit / 批准内容基线                                                  | 收口 `e3c68ac7405abe3a70e807b22d51a25ddb80731f`（VH-014）；内容基线 commit `af2f8f9bc193fbe78e77e5d6009b5ad7836d6f3e`                                                            |
+| 当前批准 PLAN blob                                                        | `e134703ce6e37a2f4d5df389662119f38638fae8`（`git rev-parse HEAD:docs/versions/v2.2.0/PLAN.md`）                                                                           |
+| 工作树                                                                   | clean（`git status --porcelain` 空）                                                                                                                                       |
+| 产品基线                                                                  | `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`                                                                                                                   |
+| DS-003 导入身份                                                           | 源 `D-003` → canonical `DS-003`；manifest SHA-256 实测 = `CC699466AF400EE603A7E9FE39EF22E75BC7DB37BD7150F41A0F0718AC9D0A61`（与 PLAN 一致）；**27 个登记文件全部 SHA-256 核对 mismatch=0** |
+
+**身份边界确认（Development Agent，Revision 2）**：只读 PLAN/HISTORY/CURRENT\_STATE/DECISIONS/全局
+文档、不修改；在 Revision 2 实施矩阵与冻结路线内修改源码/测试/依赖/构建配置；候选冻结前写本文档
+实施/自测/偏差，不写"独立验收通过"或"可发布"；不操作 canonical `main`、GitHub remote 或正式 tag；
+不读取/跟随 Design Agent 的 `current/` 与后续工作稿。严格复用 Revision 1 的单一 Task/SSE/生成/
+artifact 链，不另建第二套。
+
+## R2-2. Revision 2 · T01 前置核对与关键边界（Start-of-Implementation 反思）
+
+进入 T02 前，依据 PLAN §5、§6 对本 Revision 特有的风险做一次先验核对，作为 Pre-mortem 的正式宿主
+（PLAN §6 四项 + §5 五项已含 Revision 1 部分；此处只列 Revision 2 新增/最相关项）。
+
+### 失败模式 R2-A：路由状态与后端 Task 形成双真源，刷新后 UI 看似恢复但重复生成或覆盖
+
+- **最弱反证/最小证伪探针**：T03/T04——进入或重连任务必须先 `GET /api/task/{id}` 取权威快照，再以
+  `after_seq` 订阅 SSE；前端不得在无快照时自行拼接生成状态，也不得在任何路径第二次调用生成端点。
+  刷新前后对同一 `task_id + input_revision + seq` 断言：LLM/Embedding/operation=0 增量，UI 只呈现
+  快照已确认输入（dirty 本地值保持"未保存"）。
+
+- **最迟决策点**：T03 首条"保存→刷新→恢复"实测之后；T06 首条真实纵切之后复核。
+
+- **替代路线**：若路由壳被迫持有生成状态，则把权威快照降为唯一真源、路由态只做选中/焦点语义，
+  禁止任何未经快照确认的业务值写入结果展示。
+
+### 失败模式 R2-B：HTML 过程预览与 ResumeDocument/DOCX/PDF 分叉，用户看到的 Fact 与最终 PDF 不一致
+
+- **最弱反证**：T05/T06——每个进入 HTML 的完整 Fact（`fact_id/headline/body/fact_refs`）必须来自同一
+  权威快照，且该快照正是装配 ResumeDocument→DOCX→PDF 的真源；reason 只作旁侧展示、绝不进入简历正文。
+  PDF.js viewer 与下载读取同一不可变 PDF artifact（比对字节/hash）；anchor 绑定当前 artifact，
+  空/错配诚实不可用。
+
+- **最迟决策点**：T06 首条真实纵切后 Architecture Check（PLAN §5 强制暂停点）。
+
+- **替代路线**：任一环节漂移即进入 `CHALLENGE_OPEN`，不得用 CSS/重试逼近或固定样张掩盖。
+
+### 失败模式 R2-C：Design-only fixture / 固定样张 / 无效按钮被误接入正式产品
+
+- **最弱反证**：T02/T07——工作台与"我的经历/我的简历/个人与隐私"只连接既有真实 API
+  （`/api/task*`、`/api/experience*`、records 能力、privacy 文案），不存在的端点不得用 fixture/固定
+  前端假数据冒充；DS-003 明确"不实施"的能力（主题切换、评审条、批注工具、自然语言修改）不在正式 UI
+  出现下载/导出/假成功入口。
+
+- **最迟决策点**：T02 Design Fidelity 对照、T07 真实能力映射完成后。
+
+- **替代路线**：页面出现任何非真实可用动作时降级为诚实不可用/隐藏，而非远端演示。
+
+> **Pre-mortem 结论**：已登记 3 个 Revision 2 可证伪失败模式，各配最小证伪探针、最迟决策点与替代
+> 路线，非"未发现风险"式空答。T01 完成证据＝上述身份/清单核对 + 本节反思已建立；实现度自 T02 起
+> 递增，最终 Gate 与 Falsification 见 T10/T11。
+
+***
+
+## R2-3. Revision 2 · T02–T06 实现与 T06 首条纵切后 Architecture Check
+
+> 本批次实现均在 `version/v2.2.0` 工作树未提交状态推进（收口时统一成 checkpoint，身份见 T11）。
+> 以下证据为本次核对时点可复现的构建 / 导入 / 代码事实：前端 `tsc -b` 与 `vite build` 均通过
+> （`dist/index.html 0.40 kB`、`index-CQFjAinr.js 630.62 kB`，>500kB 仅为非致命 chunk 提示）、
+> 后端 `services.document_assembler` 导入干净、`pdf_anchors.build_anchors_from_word_pdf` 签名与装配调用一致。
+
+### R2-3.1 T02 DS-003 theme A 工作台壳（四步轨道与路由壳）
+
+- 落地：`WorkbenchShell`（顶栏 / 头像菜单 / 四步工作台轨道）、`StepRail`、`WorkbenchPage`（四步主/辅卡
+  与响应式断点）、`workbench.css`（theme A 令牌，`--primary/--focus/--error/--success/--warning` 等，
+  系统字体、无新增 npm 依赖）。路由经 `App.tsx` 挂载到既有工作台路径。
+
+- 关联失败模式 R2-C：外壳仅渲染真实工作台容器，未引入任何固定样张 / fixture / 假下载入口。
+
+### R2-3.2 T03 身份 / JD 保存确认、dirty 边界与刷新恢复
+
+- `WorkbenchTaskContext`：绑定真实 `/api/task`（`taskApi.create/save/freeze`）；姓名必填、JD ≥ 60 字符
+  校验（V220-G02，本轮由 30 对齐为 60）；750ms debounce；dirty 状态管理；刷新按权威快照恢复（`applyView` 先 `GET /api/task/{id}`）。
+
+- `StepIdentity`：身份与 JD 输入、保存反馈。
+
+- 关联失败模式 R2-A：进入任务先取权威快照再订 SSE，不复用路由态重建生成状态。
+
+### R2-3.3 T04 P1/P2 逐项输出、历史阶段回看与缺口重取
+
+- `StepUnderstand`（P1 JD 分析）、`StepMatch`（P2 选材）逐项输出；回看按阶段快照渲染；缺口重取依赖
+  权威快照而非自行拼接（`after_seq` SSE 订阅见 T06 前的 TaskContext）。
+
+### R2-3.4 T05 P3 HTML 过程预览、完整 Fact、reason 旁侧与依据
+
+- `StepCheckout`：P3 过程 HTML 预览 + 完整 `fact_id/headline/body/fact_refs`；reason 仅旁侧展示，绝不
+  落入简历正文；`PdfPreview`（pdf.js）读取与下载同一 artifact，anchor 空/错配诚实不可用。
+
+- 关联失败模式 R2-B：HTML 预览只作过程展示、不可导出/交换为第二真源。
+
+### R2-3.5 T06 P4 真实 PDF 切换、anchor、双下载
+
+- `WorkbenchTaskContext` 新增终态发布路径 `publishedDocxPath / publishedPdfPath`（仅 SUCCEEDED 非空），
+  `applyView` 写入、`startNewTask` 清空。
+
+- `StepDownload`：任务 `SUCCEEDED` 时替换 P3 过程预览；PDF.js 与「下载 PDF」读同一 `published_pdf_path`
+  字节一致；Word / PDF 双下载独立可用；PDF 缺失时保留 Word 下载并诚实显示「PDF 不可用」，绝不伪造链接。
+
+- 后端 `document_assembler`：从 Word 转换后的**确切** PDF 文本层重建 `pdf_anchors`（绑定 `pdf_artifact_id`
+  \= `resume_revision_key`），失败项记 `unavailable` 诚实不高亮；锚点失败不影响 DOCX/PDF 可用。
+
+- `WorkbenchPage.mainContent`: `activeIdx===3 && status==='SUCCEEDED'` → `StepDownload`，否则保留
+  `StepCheckout`（运行/回看不抢先）。
+
+### R2-3.6 T06 Architecture Check（首条 Revision 2 真实纵切后的只读暂停点）
+
+- **双真源检查**：成品 PDF 为唯一排版真源（ResumeDocument → DOCX → 本机 Word→PDF 转换，`document_assembler`
+  单一装配路径，与 Revision 1 同一链）；HTML 过程预览（P3 `StepCheckout`）与 pdf.js 成品视图（P4
+  `StepDownload`）都**只读**该链产物——过程预览不可导出/交换，成品视图与下载是同一不可变 PDF 字节。
+  未发现第二套可写真源。满足 R2-B 的"任一环节漂移→CHALLENGE\_OPEN"失败模式的反证：viewer 与下载共用
+  `published_pdf_path`，anchor 绑定 `pdf_artifact_id` 且空/错配 fail closed，故无漂移成立点。
+
+- **职责转移**：P4 由 Revision 1 的真实 `document_assembler` / `make_task_assembler` 承担，前端不另建
+  装配；`pdf_anchors` 只补坐标层，不替代 DOCX/PDF 生成。职责无转移。
+
+- **fixture 检查**：工作台全部动作绑定真实 `/api/task*`、`/api/template/download`；无固定样张 / theme 切换 /
+  评审条 / 批注 / 自然语言修改等 DS-003「不实施」能力进入正式 UI。
+
+- **结论**：T06 首条 Revision 2 纵切（真实 DOCX/PDF 装配 + P4 成品视图）未发现需开 `CHALLENGE_OPEN` 的双真源、
+  漂移或职责转移问题。开发侧 Architecture Check **无开放 Challenge**；据此可铺开 T07～T11。
+
+***
+
+## R2-4. Revision 2 · T07 我的经历/我的简历/个人与隐私真实能力映射
+
+> 完成证据（可复现构建事实）：T07 改动后前端 `tsc -b`、`eslint rules-of-hooks`、针对
+> `App.tsx / RecordsPage / PrivacyPage / WorkbenchShell` 的 eslint 全部通过。改动均在未提交工作树。
+
+### R2-4.1 我的经历（/experiences）
+
+- 复用既有真实「Career Memory」`ProfilePage`：`experienceApi.exp/list/create/update/remove` 全部绑定真实
+  后端；type tab 值域、`summary_status`、`fact_count` 均来自真实数据，无 fixture。
+
+- 作用范围断言：本页修改只写经历库（影响未来任务），不写当前冻结 InputRevision、不触碰正在生成内容或
+  已导出文件（后端既有边界，T07 不新增第二套写入）。
+
+### R2-4.2 我的简历（/records）
+
+- 从「诚实空说明」升级为绑定**当前任务真实 artifact**：读取 `WorkbenchTaskContext` 的终态发布路径
+  `published_docx_path / published_pdf_path`，下载走同一 `/api/template/download` artifact，与工作台 P4
+  逐字同源；SUCCEEDED + 无 artifact，以及 RUNNING/FAILED/CANCELLED/DRAFT 均如实呈现与下一步，不伪造列表
+  或可用链接。后端无「已生成文件列表」端点，故不伪造历史列表（满足"无fixture"）。
+
+- 作用范围断言：本页仅展示当前任务（`taskId + input`），不做跨任务/历史范围推断。
+
+### R2-4.3 个人与隐私（/privacy）
+
+- 真实边界文案沿用；新增一条真实能力「清空当前未运行草稿」：明确指向工作台顶栏「＋ 开始新任务」
+  丢弃当前 DRAFT/已取消草稿，且不触碰经历库或历史成品（满足矩阵"可清当前未运行草稿"）。
+
+### R2-4.4 当前任务返回（PLAN §7.2 Gate：返回后不丢失、不新增调用）
+
+- `WorkbenchTaskProvider` 由仅 `"/"` 提升到路由最外层（`<App>` 内包裹 `<Routes>`），使「我的经历/我的
+  简历/个人与隐私」与工作台共享同一当前任务真源；从这些页面返回 `/` 时 task/input/phase 在内存中保持，
+  不触发额外 `GET /api/task/{id}` 或任何生成调用（刷新/整页重开仍走既有权威快照恢复）。关联失败模式
+  R2-A/R2-C 的反证：路由不复制生成状态，各页只连接既有真实 API。
+
+***
+
+## R2-5. Revision 2 · T08 取消、新任务、insufficient/partial/failed、范围重试与 ErrorBoundary
+
+> 完成证据：T08 改动后前端 `tsc -b`、`npm run lint:hooks`（项目 Hooks Gate）通过；`vite build` 产出含
+> `.wb-failed` 的 CSS（`index-C-g9eyMe.css` 65.5 kB）。`WorkbenchTaskContext` 中两处
+> `react-hooks/set-state-in-effect`（第 282 / 515 行 restore 与 taskId 重置 effect）为 T03/T05 既有代码，
+> 非本次引入，项目 Gate 以 `lint:hooks` 为准（通过）。
+
+### R2-5.1 取消 / 新任务（不重复 POST、不丢状态）
+
+- `cancel()`（仅 `RUNNING/CANCELLING` 调一次 `POST /api/task/{id}/cancel`）与「开始新任务」
+  `startNewTask()`（清空本地草稿与 artifact 路径）已在 T03 落地；顶栏按钮运行中显示「取消生成」、
+  空闲显示「＋ 开始新任务」，`generate()` 由 `generatePending` 单飞守卫，点击生成只创建一个 task operation
+  （满足"不重复 POST"）。
+
+### R2-5.2 FAILED / CANCELLED 终态面板（不白屏、不丢状态）
+
+- 工作台主面板新增 `.wb-failed` 诚实终态面板，替代"无提示跳回第 1 步"：
+
+  - FAILED：展示失败原因（`generateError` 或后端稳定 `terminal_error` 错误码，如
+    `GENERATION_FAILED`）；明确"输入保留、已完成经历/事实复用不重复计费、范围化重试"三要点，动作指向
+    「去我的经历补充 ›」与顶栏「开始新任务」。
+
+  - CANCELLED：说明输入保留、未发布成品，下一步指向「开始新任务」。
+
+- `WorkbenchTaskContext` 新增 `terminalError`（`applyView` 写入、`startNewTask` 清空）支撑上面板。
+
+### R2-5.3 insufficient / partial 诚实降级
+
+- FAILED/取消面板声明已完成经历与事实保留在真实数据库（真实范围），不伪造补齐；补充纠正走「我的经历」
+  真实能力，随后点击生成即按失败/缺口范围复用已完成事实（"范围重试"）。
+
+- P3 逐 Fact 的 `insufficient` 标记沿用 T05 `StepCheckout` 诚实呈现，不输出通用空话补齐。
+
+- **范围重试的操作证据（本批实测，非仅声明）**：重试边界由 `core/task.py LLM_MAX_ATTEMPTS=3` + `services/llm_service.invoke_observed_json` 限定为「**单次逻辑调用内最多 3 个 HTTP attempt**」，并区分可重试/不可重试（`_retryable`：timeout/connection/reset/rate-limit/429/json-decode/validation 才重试；其余立即失败）。直接构造 provider 注入实测（真实 `invoke_observed_json` 路径）：
+
+  - CASE1 可重试前 2 次 `ConnectionError` → 第 3 次成功：`attempts=3`、`retry_reasons=['attempt1:ConnectionError','attempt2:ConnectionError']`、返回 `{ok:true}`；
+
+  - CASE2 可重试 3 次全失败 → 抛 `LLMOutputInvalidError`（严格失败，绝不返回空成功），`attempts=3`；
+
+  - CASE3 不可重试 `ValueError` → 直接失败不重试，`attempts=1`；
+
+  - CASE4 失败后 token 预算正常回吐（`budget.used` 仅含实际成功 token）。
+
+  上述 4 例与 `_v22_t6_generation.py [T6]`（`fail_first={"compact":1}` → compact 恰好 2 attempts 后成功并返回 typed 结果）互相印证：**重试范围是"单逻辑调用"而非"整任务"，任务级失败只复用已完成范围、不做全局重放**。
+
+### R2-5.4 ErrorBoundary
+
+- 复用 V2.1.0 R21 应用级 `AppErrorBoundary`（`main.tsx` 顶层挂载，生产 build/onedir 同样可见）：渲染期
+  抛错显示固定可理解错误界面，提供「重试页面渲染 / 返回生成工作台」，两者都不重提生成 API、不创建
+  operation、不计费、不覆盖已成功 artifact；诊断只记脱敏组件栈，不含正文/Key —— 满足"不白屏"。
+
+***
+
+## R2-6. Revision 2 · T09 全视口 / 键盘 / 焦点 / reduced-motion / 卡片与滚动收口
+
+### R2-6.1 已核实不变量（构建 / 代码事实）
+
+- **html/body 不产生整页滚动**：`global.css` `html,body{overflow:hidden}`、`html,body,#root{height:100%}`；
+  工作台 `.wb-shell{height:100%;overflow:hidden}`（`workbench.css`）把滚动收口到指定内部容器
+  （`.wb-panel__scroll{overflow:auto}`）；次级页走 `.page-scroll{height:100vh;overflow-y:auto}`。满足
+  PLAN §4.3「只允许指定内部滚动容器」。
+
+- **reduced-motion**：`@media (prefers-reduced-motion: reduce)` 已禁 `.wb-shell` 全子树
+  transition/animation/scroll-behavior（既有，核实存在）。
+
+- **focus-visible**：`.wb-shell :focus-visible` 与 `.wb-btn:focus-visible` 可见焦点环（既有）。
+
+- **响应式断点**：1100px（三栏缩窄）/ 850px（切单主卡 + 步骤导轨横向化、隐藏说明栏）已覆盖
+  1280×800 至 320×568 的小视口变换（PLAN §4.3/§7.1）。
+
+### R2-6.2 本次收口（T09 改动）
+
+- 头像菜单关闭后焦点归还触发按钮：点击外部 / `Escape` 关闭菜单时 `avatarBtnRef.current?.focus()`
+  （`WorkbenchShell`），便于键盘继续操作；`aria-haspopup/aria-expanded/role=menu/menuitem` 既有。
+
+- 完成证据：改动后 `tsc -b`、`npm run lint:hooks`、`WorkbenchShell` eslint 通过。
+
+### R2-6.3 隔离 E2E 视口截图 / DOM 核对（H2 clean onedir + 真实模型）
+
+- 已在 H2 clean onedir 隔离 runtime 真实 E2E（`scripts/h8_real_model_e2e.py`，有头浏览器 + 真实模型
+  deepseek-v4-pro-ga-260813，P4 成品页）中对 7 个冻结 viewport 逐视口执行截图 + `_LAYOUT_PROBE` DOM 探针，
+  证据落在 `validation-artifacts/h8/e2e/viewports/vp_{W}x{H}.png`（7 张均已落盘，28.9–205.7 KB）与
+  `real_model_e2e.json.viewports`。实测投影如下：
+
+| viewport  | docOv | bodyOv | htmlOvY | bodyOvY | 内部滚动容器               | pdfState | dlLinks | 截图 |
+| --------- | ----- | ------ | ------- | ------- | -------------------- | -------- | ------- | -- |
+| 1920×1080 | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+| 1440×900  | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+| 1280×800  | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+| 1024×768  | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll×2 | ready    | 2       | ✓  |
+| 720×450   | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+| 390×844   | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+| 320×568   | 0     | 0      | hidden  | hidden  | wb-panel\_\_scroll   | ready    | 2       | ✓  |
+
+- 结论：7 视口全部 `html/body` 整页滚动 `overflow=0`、`overflow-y=hidden`，滚动仅发生在指定内部容器
+  `.wb-panel__scroll`（1024×768 因布局折行出现 2 个内部滚动面板，仍非整页滚动），PDF viewer `data-state=ready`
+  且 ≥1 页、下载区 2 个链接均固位 —— 满足 PLAN §4.3/§7.1「只允许指定内部滚动容器」不变量。本节已由待执行改为
+  实证记录。
+
+## R2-7. Revision 2 · T10 收口：模型默认对齐、clean 重建、隔离真实模型 E2E（开发侧冻结证据）
+
+> 本轮为 T10 重闸的收口补记，覆盖此前 PLAN §7 BLOCKED 的「隔离 onedir 真实模型不可用」阻断的解除。
+
+### 7.1 模型默认对齐（唯一源码改动动因）
+
+- **现象**：源码运行时在正常数据目录读到 `RESUME_DATA_DIR/config/connection.json`，命中已开通模型
+  `deepseek-v4-pro-ga-260813`，故源码级矩阵/纵切通过；而 **H2 clean onedir 隔离临时目录无该 config**，
+  落回 `core/config.py` / `core/config_resolver.py` 内置默认 `doubao-seed-evolving`，实测 Ark 返回
+  `404 ModelNotOpen`（账号 2130562826 未开通该模型）→ T10 E2E 在 P1 被阻断。
+
+- **处置（用户批准，非静默切换）**：按用户指令「deepseek-v4-pro-ga-260813 用这个，以后都默认这个」，
+  将内置默认对齐到运行时已实际使用的真实模型。改动仅 3 处源码默认值 + 1 处前端占位符：
+
+  - `backend/core/config.py`：`LLM_MODEL` 默认 → `deepseek-v4-pro-ga-260813`
+
+  - `backend/core/config_resolver.py`：`_DEFAULTS["LLM_MODEL"]` → `deepseek-v4-pro-ga-260813`
+
+  - `backend/.env.example`：`LLM_MODEL=deepseek-v4-pro-ga-260813`
+
+  - `frontend/src/pages/SystemPage.tsx`：LLM model 输入占位符 → `deepseek-v4-pro-ga-260813`
+
+- 真模型 `doubao-seed-evolving` 未开通属于外部账号开通项；本批改走已开通的真实模型，不启用任何 mock/
+  代理直替（ARK 计数代理仅转发真实 `chat/completions` 并落计数，不伪造响应）。
+
+- 不打开 `CHALLENGE_OPEN`：模型替换由 Product Owner 明确授权，且为真实推理模型、真实产出，不属于
+  mock/固定样张/职责转移；与本文件 §4.1 / [v2.1.0 §7.6 参考](RESULT.md) 的既有处理一致。
+
+### 7.2 H2 clean onedir 重建身份
+
+- 命令：前端 `npm run build`（`tsc -b && vite build`，69 modules）+ `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+
+- 产物：`dist/ResumeAssistant/ResumeAssistant.exe`
+
+  - **JD-60 对齐后的 H2 clean 重建身份（本批）**：SHA-256 `B2AB8E182B11A7F78E2375AA1364E7CD2FC7796BE9BB327E623FE12C3444AE01`；前端 bundle `index-8bEMCLmP.js` 内含 JD≥60 文案（`JD_MSG=60`/`JD_HINT=60` 抽样确认）。此前默认模型对齐重建的 EXE（`f1c05a4dc9…`）已被本次 JD-60 onedir 覆盖。
+
+### 7.3 隔离真实模型 E2E（`scripts/h8_real_model_e2e.py`，隔离 temp runtime + onedir + 有头浏览器）
+
+- **证据文件**：`validation-artifacts/h8/e2e/real_model_e2e.json`（此文件即时覆盖为本次成功运行）
+
+- 通过项（关键）：
+
+  - 隔离启动 /api/status 200（带 `ra_session` cookie）；迁移、导入 4 段经历、embedding 重建 10/10 VALID；ready=true。
+
+  - **UI 真实驱动**：React 兼容填入 姓名+JD（`nameOk:true, jdLen:122`）→ 点击「生成岗位简历」→ `ui_chat_fired:true`（此前 fill 不进 React state 导致生成空转，已改成原生 value setter + input/change 事件并回读验证）。
+
+  - **真实模型**：生成窗内 **19 次** **`POST /chat/completions`** **全部** **`status 200`**，`model=deepseek-v4-pro-ga-260813`，`response_format` 存在（temperature=0.0）；另 1 次 embedding。
+
+  - **P1–P4**：P4 成品视图出现（含下载区），端到端（点击→chat→P4）约 112s（21:32:43→21:34:35）。
+
+  - **viewer 同源（本批已解除** **`pdfjs-absent`** **弱项）**：PDF.js UI viewer 探针现返回 `viewer_ready:true, viewer_pages:1`（`.pdf-preview[data-state=ready]` + ≥1 `.pdf-page__canvas`），不再 `pdfjs-absent`；同源闭环 `pdf_viewer_same_source` 与 `pdf_viewer_same_source_final` 均 `same_source=true`：viewer 顶部 hash 文本 `ui_hash16=cbb2e52159e13728` 与下载 PDF sha 前 16 位 `cbb2e52159e13728…` 一致，证明 viewer 内嵌渲染与「下载 PDF」读的是**同一不可变 PDF artifact**（满足 PLAN §4.2/G04，不再以"下载成功"替代 viewer Gate）。
+
+- **双下载字节一致**：Word `/api/template/download` 200（38,897 B）、PDF 200（4,228,060 B）；`word_download_eq_disk_docx=true`、`pdf_download_eq_disk_pdf=true`、`no_4xx_5xx=true`。说明：agent-browser `download` 命令在本受控环境未落盘副本（`saved_by_agent_browser:false`，页面内 in-page 探针 HTTP 200 且字节一致已断言）；VIEWER 同源以「viewport 探针捕获的 UI hash16 ⊇ session-下载 sha256 前 16 位」收口，不依赖 agent-browser 文件落盘。
+
+- **隔离/干净**：无 WINWORD 泄露（before/after 均空）；结束时 `/api/health` 200；runtime 目录已清理（`runtime_deleted:true`）。
+
+- **本批 JD-60 复核**：填充 nameOk:true、`jdLen=122`（≥60），生成按钮解除禁用，成功产出 —— 前端/后端 JD≥60 门槛在真实 onedir 路径验证通过。
+
+### 7.4 T10 H2 冻结与 T11 结论（本 Revision 专属，不引用 Revision 1 证据）
+
+- 冻结检查：工作区已清残余临时文件（`_tmp_retry_scope_proof.py`、根级 `package-lock.json` 均为本次开发临时物，已删除）；无开放 `CHALLENGE_OPEN`（全部引用为历史已关闭或规则定义）。
+
+- **T10 开发侧成品**（本 Revision：模型默认对齐 + JD-60 + H2 clean 重建 + 隔离 onedir 真实模型 E2E + save\_draft 并发原子 upsert）。本轮在 JD-60 收口后完成：
+
+  - **H2 clean onedir 重建**：`python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`（仓库根 cwd），exit=0；EXE SHA-256 `B2AB8E182B11A7F78E2375AA1364E7CD2FC7796BE9BB327E623FE12C3444AE01`，前端 bundle 含 JD-60 文案。
+
+  - **隔离 onedir 真实模型 E2E**：exit code **0**（`H8_EXIT=0`）；端到端点击→chat→P4 全通；19 次真实 `POST /chat/completions` 全 200（deepseek-v4-pro-ga-260813）；7 视口截图+DOM 断言全过；viewer 同源 `same_source=true`（见 §R2-7.3）。
+
+#### R2-T11 Falsification Check（主动伪造，未发现新反例）
+
+- **候选 1「JD 短输入能绕过生成」** → **已证伪（真实反例，已修复）**：对齐前前端 gate 为 30 字、后端 `freeze_input` 无下限（PLAN 要求 ≥60）。修复：前端两处升 60 字（[WorkbenchTaskContext.tsx](frontend/src/pages/workbench/WorkbenchTaskContext.tsx) validate、[StepIdentity.tsx](frontend/src/pages/workbench/StepIdentity.tsx) gate+hint），后端 `TaskService._require_jd` 作为 `freeze_input` 权威下限；断言：10 字拒绝（"JD 至少 60 字，当前 10 字"）、60 字放行、72 字放行（`python -c` 实测）；short 夹具全部抬到 ≥60 后 `_v22_t4` 27/27、`_v22_t5` 39/39、`_v22_t6` 23/23、`_v22_t9` 19/19 全过。未发现「仍能绕过 ≥60」的剩余开口。
+
+- **候选 2「viewer 内嵌渲染无取证（pdfjs-absent）」** → **已证伪（真实反例，已修复）**：此前探针 `pdfjs-absent`，viewer 独立于下载取证。修复：探针改为等 `.pdf-preview[data-state=ready]` + ≥1 `.pdf-page__canvas`，实测 `viewer_ready:true, pages:1`；再以同源闭环确认 viewer hash 与下载 PDF sha 一致（`ui_hash16=cbb2e521…` ⊇ 下载 sha 前 16 位）。未再发现 viewer 与下载分叉。
+
+- **候选 3「整页滚动/overflow 泄露」** → 未证伪（保持）：7 视口实测 `html/body overflow=0`、`overflow-y=hidden`，滚动仅限内部容器。
+
+- **候选 4「失败后全局重放/不真实复用范围」** → **已证伪（真实反例，详见 §R2-5.3 操作证据）**：重试范围被限定为单逻辑调用 ≤3 attempt；任务级失败只复用已完成范围，不做全局重放。
+
+#### 必做开发 Gate：结果与退出码（T10 收口现场重跑，非沿用 Revision 1）
+
+| 门禁                  | 命令                                                                | 结果                               | 退出码 |
+| ------------------- | ----------------------------------------------------------------- | -------------------------------- | --- |
+| 后端语法                | `python -m compileall backend`                                    | PASS                             | 0   |
+| 前端类型                | `frontend: npx tsc --noEmit -p tsconfig.json`                     | PASS                             | 0   |
+| 前端构建                | `frontend: npm run build`（`tsc -b && vite build`，69 modules）      | SUCCESS                          | 0   |
+| T04 SSE/恢复          | `backend/_v22_t4_sse.py`                                          | PASS（27/27）                      | 0   |
+| T05 取消/新任务          | `backend/_v22_t5_cancel.py`                                       | PASS（39/39）                      | 0   |
+| T06 生成/编排/重试        | `backend/_v22_t6_generation.py`                                   | PASS（23/23）                      | 0   |
+| 清理门禁                | `backend/_v22_t9_cleanup.py`                                      | PASS（19/19）                      | 0   |
+| H8 隔离 onedir 真实 E2E | `scripts/h8_real_model_e2e.py --exe dist/.../ResumeAssistant.exe` | PASS（19 chat 200，同源/viewport 全过） | 0   |
+
+- 附加实操证据：JD≥60 判定阈值 `python -c`（拒绝/放行 3 例）与重试范围 4 例注入测试均退出码 0（证据文本见 §R2-5.3）。
+
+#### Revision 2 专属交付清单
+
+- [x] DS-003 工作台四步轨道与路由壳（T02，§R2-3.1）
+
+- [x] 身份/JD 保存确认、dirty 边界与刷新恢复（T03，§R2-3.2）
+
+- [x] P1/P2 逐项输出、历史阶段回看与缺口重取（T04，§R2-3.3）
+
+- [x] P3 HTML 过程预览、完整 Fact、reason 旁侧与依据（T05，§R2-3.4）
+
+- [x] P4 真实 PDF 切换、anchor、双下载（T06，§R2-3.5）
+
+- [x] T07 我的经历/我的简历/个人与隐私映射（§R2-4）
+
+- [x] T08 取消/新任务/失败面板/范围重试/ErrorBoundary（§R2-5）
+
+- [x] T09 全视口/键盘/焦点/reduced-motion/滑动收口 + 7 视口 E2E 实证（§R2-6.3）
+
+- [x] T10 模型默认对齐 + JD-60 + H2 clean 重建 + 隔离 real-model E2E + 同源（§R2-7）
+
+- [x] **JD 校验对齐 60 字**（前端 gate×2 + 后端 `_require_jd` 权威，§R2-7.3 复核 + T 门禁全绿）
+
+- **开发侧结论**：本 Revision 达到 `REV2_DEV_VERIFIED`（候选冻结语义）。全局文档（CURRENT\_STATE / README / docs/README / versions README / DECISIONS）由用户 / Document Agent 在 T10 人工验收通过后更新，开发侧不越权修改。
 
 ***
 

@@ -157,8 +157,10 @@ def _run_tests_inner(state) -> int:
     def _make_running(task_id=None):
         t = svc.create_task() if task_id is None else {"task_id": task_id}
         tid = t["task_id"]
-        svc.save_draft(tid, name="甲", phone="138", email="a@b.c", location="上海", jd="JD")
-        svc.freeze_input(tid, name="甲", phone="138", email="a@b.c", location="上海", jd="JD")
+        svc.save_draft(tid, name="甲", phone="138", email="a@b.c", location="上海",
+                       jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
+        svc.freeze_input(tid, name="甲", phone="138", email="a@b.c", location="上海",
+                         jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
         svc.start_task(tid)
         return tid
 
@@ -207,8 +209,10 @@ def _run_tests_inner(state) -> int:
     td = svc.create_task()["task_id"]
     r = client.post(f"/api/task/{td}/cancel", **REQ)
     check(r.status_code == 409, "DRAFT 取消 → 409", extra=str(r.status_code))
-    svc.save_draft(td, name="乙")
-    svc.freeze_input(td, name="乙")
+    svc.save_draft(td, name="乙",
+                   jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
+    svc.freeze_input(td, name="乙",
+                     jd="招聘后端工程师，要求熟练 Python 与大模型应用，负责系统架构设计与核心模块实现，参与技术评审、性能优化与迭代交付，善于解决线上稳定性问题。")
     r = client.post(f"/api/task/{td}/cancel", **REQ)
     check(r.status_code == 409, "READY 取消 → 409", extra=str(r.status_code))
     # SUCCEEDED 任务取消

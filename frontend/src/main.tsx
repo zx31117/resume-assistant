@@ -8,6 +8,7 @@ import { ServicesProvider } from './services'
 import { AppStateProvider } from './state'
 import './styles/tokens.css'
 import './styles/global.css'
+import './styles/workbench.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

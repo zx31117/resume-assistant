@@ -351,7 +351,7 @@ export default function SystemPage() {
                 <TextInput
                   value={form.llm_model}
                   onChange={(e) => set('llm_model')(e.target.value)}
-                  placeholder="doubao-seed-evolving"
+                  placeholder="deepseek-v4-pro-ga-260813"
                   autoComplete="off"
                   spellCheck={false}
                 />

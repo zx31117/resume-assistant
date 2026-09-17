@@ -477,6 +477,8 @@ def assemble_and_render(
         # 3) 同源 PDF（Word COM）；失败则 DOCX 仍有效，PDF 置空
         pdf_name = ""
         pdf_abs = ""
+        pdf_sha256 = ""
+        pdf_bytes = b""
         try:
             conv = docx_to_pdf.convert_docx_to_pdf_bytes(docx_abs, timeout_s=timeout_s)
             pdf_bytes = conv["pdf_bytes"]
@@ -484,10 +486,44 @@ def assemble_and_render(
             pdf_abs = os.path.join(out_dir, pdf_name)
             with open(pdf_abs, "wb") as f:
                 f.write(pdf_bytes)
+            pdf_sha256 = _file_sha256(pdf_abs)
         except Exception as e:  # noqa: BLE001 —— fail closed：PDF 不可用不标成功
             logger.warning("T07 P4 Word→PDF 失败（DOCX 仍有效）: %s", e)
             pdf_name = ""
             pdf_abs = ""
+
+        # 4) PreviewAnchor：从 Word 转换后的确切 PDF 文本层重建（T06 anchor/依据定位）。
+        #    绑定本 revision artifact 身份 op_slug；无法可靠定位的行记 unavailable（不高亮，诚实降级）。
+        pdf_anchors: list[dict] = []
+        if pdf_bytes:
+            try:
+                from services import pdf_anchors as _pa
+                rows: list[dict] = []
+                for edu_ in resume_doc.education:
+                    if getattr(edu_, "description", None):
+                        rows.append({"text": edu_.description,
+                                     "content_item_id": edu_.experience_id or None,
+                                     "bullet_index": 0})
+                for w_ in resume_doc.work:
+                    for bi, bl in enumerate(w_.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": w_.experience_id or None,
+                                     "bullet_index": bi})
+                for pr_ in resume_doc.projects:
+                    for bi, bl in enumerate(pr_.bullets):
+                        rows.append({"text": bl,
+                                     "content_item_id": pr_.experience_id or None,
+                                     "bullet_index": bi})
+                _anchors, _unavail = _pa.build_anchors_from_word_pdf(
+                    pdf_bytes, rows, artifact_id=op_slug)
+                pdf_anchors = [dict(a) for a in _anchors]
+                if _unavail:
+                    warnings.append(
+                        f"PDF: 锚点 unavailable {len(_unavail)} 条（诚实降级，不高亮）: "
+                        + ";".join(u.get("text", "")[:16] for u in _unavail[:3]))
+            except Exception as e:  # noqa: BLE001 —— 锚点失败不影响 DOCX/PDF 本身可用
+                logger.warning("T06 P4 锚点重建失败（PDF 仍可用）: %s", e)
+                warnings.append(f"PDF: 锚点重建失败（预览可用，anchor 不可用）: {type(e).__name__}")
 
         artifacts = {
             "docx_path": f"output/{docx_name}",
@@ -496,7 +532,10 @@ def assemble_and_render(
             "pdf_abs": pdf_abs,
             "template_id": template_id,
             "resume_revision_key": op_slug,
+            "pdf_artifact_id": op_slug if pdf_name else "",
             "docx_sha256": _file_sha256(docx_abs),
+            "pdf_sha256": pdf_sha256,
+            "pdf_anchors": pdf_anchors,
             "warnings": list(warnings),
         }
         return True, artifacts

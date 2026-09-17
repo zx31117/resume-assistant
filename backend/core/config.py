@@ -87,7 +87,7 @@ class Settings:
     # 豆包 / 火山方舟
     ARK_API_KEY: str = os.getenv("ARK_API_KEY", "")
     ARK_BASE_URL: str = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "doubao-seed-evolving")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "deepseek-v4-pro-ga-260813")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "doubao-embedding-vision-251215")
 
     # V1.4：源码资产根（只读使用，内部 modules 取模板/config/prompts 等用它）
