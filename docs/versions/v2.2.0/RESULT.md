@@ -12,11 +12,12 @@
 
 > **H2 冻结身份（候选，全部开发 Gate 完成并提交）**：
 >
-> - **H2 commit**：`2af905b9681fc878f5e0ec205c3b32ea7e14fdf8`（`feat(v2.2.0): complete Revision 2 candidate H2 …`）
+> - **H2 commit**：`106bd810c3c42cd51c6369aff02bb33e2d6d9450`（`feat(v2.2.0): complete Revision 2 candidate H2 - DS-003 workbench, JD-60, real-model E2E, viewport+viewer evidence`）
 >
 > - **唯一父提交**：`47ae33edcd20e160e64466ece0bf3bdda8cc74a9`（Revision 2 批准 identity 记录，`git cat-file` 仅 1 条 parent）
 >
-> - **相对 H（`47ae33e`）完整 diff**：**31 files changed, 4268 insertions(+), 137 deletions(-)**
+> - **相对 H（`47ae33e`）完整 diff**：**31 files changed, 4282 insertions(+), 137 deletions(-)**
+>   （`47ae33e`→`106bd81` 实测 `git diff --shortstat`，与 RESULT 增补一致；全部候选改动已含 JD-60 代码收口、7 视口证据与真实模型 E2E 脚本）
 >
 > - **最终包身份**：onedir `dist/ResumeAssistant/ResumeAssistant.exe`，EXE SHA-256 `B2AB8E182B11A7F78E2375AA1364E7CD2FC7796BE9BB327E623FE12C3444AE01`，前端 bundle `index-8bEMCLmP.js`（JD-60 文案已确认）
 >
