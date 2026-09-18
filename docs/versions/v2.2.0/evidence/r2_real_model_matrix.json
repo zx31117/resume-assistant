@@ -1,0 +1,220 @@
+{
+  "engine": "real-model deepseek-v4-pro-ga-260813 (credential-manager key)",
+  "cells": 3,
+  "elapsed_s": 1367.3,
+  "samples": [
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.67,
+      "first_reason_s": 12.78,
+      "total_s": 32.74,
+      "size": "short",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.0,
+      "first_reason_s": 13.32,
+      "total_s": 33.94,
+      "size": "short",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.26,
+      "first_reason_s": 13.23,
+      "total_s": 31.14,
+      "size": "short",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 9.12,
+      "first_reason_s": 11.48,
+      "total_s": 31.12,
+      "size": "short",
+      "mode": "warm",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.15,
+      "first_reason_s": 11.98,
+      "total_s": 32.74,
+      "size": "short",
+      "mode": "warm",
+      "sample": 2
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 9.76,
+      "first_reason_s": 11.61,
+      "total_s": 30.93,
+      "size": "short",
+      "mode": "warm",
+      "sample": 3
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.35,
+      "first_reason_s": 13.41,
+      "total_s": 41.17,
+      "size": "typical",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 12.28,
+      "first_reason_s": 14.47,
+      "total_s": 44.38,
+      "size": "typical",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.58,
+      "first_reason_s": 14.32,
+      "total_s": 43.97,
+      "size": "typical",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.19,
+      "first_reason_s": 12.54,
+      "total_s": 42.35,
+      "size": "typical",
+      "mode": "warm",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.49,
+      "first_reason_s": 12.97,
+      "total_s": 41.98,
+      "size": "typical",
+      "mode": "warm",
+      "sample": 2
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.06,
+      "first_reason_s": 11.94,
+      "total_s": 41.96,
+      "size": "typical",
+      "mode": "warm",
+      "sample": 3
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.75,
+      "first_reason_s": 13.67,
+      "total_s": 50.81,
+      "size": "long",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 12.88,
+      "first_reason_s": 15.36,
+      "total_s": 52.61,
+      "size": "long",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 11.87,
+      "first_reason_s": 13.91,
+      "total_s": 50.8,
+      "size": "long",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.14,
+      "first_reason_s": 12.34,
+      "total_s": 48.58,
+      "size": "long",
+      "mode": "warm",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.17,
+      "first_reason_s": 12.84,
+      "total_s": 48.78,
+      "size": "long",
+      "mode": "warm",
+      "sample": 2
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 10.67,
+      "first_reason_s": 12.72,
+      "total_s": 49.39,
+      "size": "long",
+      "mode": "warm",
+      "sample": 3
+    }
+  ],
+  "summary": {
+    "short/cold": {
+      "n": 3,
+      "first_fact_median_s": 11.0,
+      "first_fact_max_s": 11.26,
+      "total_median_s": 32.74,
+      "total_max_s": 33.94,
+      "succeeded": 3
+    },
+    "short/warm": {
+      "n": 3,
+      "first_fact_median_s": 9.76,
+      "first_fact_max_s": 10.15,
+      "total_median_s": 31.12,
+      "total_max_s": 32.74,
+      "succeeded": 3
+    },
+    "typical/cold": {
+      "n": 3,
+      "first_fact_median_s": 11.58,
+      "first_fact_max_s": 12.28,
+      "total_median_s": 43.97,
+      "total_max_s": 44.38,
+      "succeeded": 3
+    },
+    "typical/warm": {
+      "n": 3,
+      "first_fact_median_s": 10.19,
+      "first_fact_max_s": 10.49,
+      "total_median_s": 41.98,
+      "total_max_s": 42.35,
+      "succeeded": 3
+    },
+    "long/cold": {
+      "n": 3,
+      "first_fact_median_s": 11.87,
+      "first_fact_max_s": 12.88,
+      "total_median_s": 50.81,
+      "total_max_s": 52.61,
+      "succeeded": 3
+    },
+    "long/warm": {
+      "n": 3,
+      "first_fact_median_s": 10.17,
+      "first_fact_max_s": 10.67,
+      "total_median_s": 48.78,
+      "total_max_s": 49.39,
+      "succeeded": 3
+    }
+  },
+  "failures": 0
+}

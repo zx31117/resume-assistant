@@ -10,7 +10,7 @@
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
 > 进入第二批实现，已收口至 `REV2_DEV_VERIFIED`（候选冻结，H2 形成）。
 
-> **H2 冻结身份（候选，全部开发 Gate 完成并提交）**：
+> **H2 冻结身份（候选，全部开发 Gate 完成并提交）**：见下。**收口后当前候选 = `b70d6e6`**（§R2-10/§R2-11）。
 >
 > - **H2 commit**：`106bd810c3c42cd51c6369aff02bb33e2d6d9450`（`feat(v2.2.0): complete Revision 2 candidate H2 - DS-003 workbench, JD-60, real-model E2E, viewport+viewer evidence`）
 >
@@ -1017,7 +1017,7 @@ artifact 链，不另建第二套。
 | V220-G01 任务连续性 | 跨路由/刷新/重开恢复 | Task/InputRevision/Snapshot/Event + SSE 恢复协议 | task_repository/task_sse | §R2-3.2/3.3；`_v22_t4_sse.py` 27/27 | 无 |
 | V220-G02 可恢复草稿+实际取消 | 姓名必填/后端确认/可取消停产；JD≥60 | 状态机+单活动+cancel 协议 + `TaskService._require_jd` 权威下限 | task_api/task_cancel；StepIdentity gate | §R2-3.2；`_v22_t3_task_api.py` 26/26、`_v22_t5_cancel.py` 39/39；JD-60 阈值 3 例 | 无 |
 | V220-G03 四阶段渐进 | P1–P4 真实状态 + P3 HTML 过程预览 | generate_task 编排 + 事件流 + incremental commit | task_generation | §R2-3.3/3.4/3.5；`_v22_t6_generation.py` 23/23 | 无 |
-| V220-G04 性能 | total 降 + 首 Fact≤15s | 真实模型 timing + 增量提交 | 见 §R2-8.4 | 真实模型仅 1 次典型 run（§R2-7.3） | **6 格真实模型矩阵待独立验收/ARK 环境**（§R2-8.4），未以 §7.6 替代 |
+| V220-G04 性能 | total 降 + 首 Fact≤15s | 真实模型 timing + 增量提交 | 见 §R2-8.4、§R2-10 | **6 格真实模型矩阵已完成**（§R2-10：18/18，首 Fact 中位数+最大值全部 ≤12.88s < 15s，满足门禁） | 无 |
 | V220-G05 内容正确性 | 联系方式/技能/headline/教育；短输入宽容 | document_assembler/渲染修复 | docx 装配 | §R2-3.5；T7/T8 回归 | 无 |
 | V220-G06 最终产物不变量 | DOCX 唯一真源 / PDF 同源 / viewer 同源 | real DOCX→Word→PDF 链 + viewer 取证 | docx_writer/隔离验证 | §R2-7.3 `same_source=true`、`ui_hash16=cbb2e521…` ⊇ 下载 sha 前 16 位 | 无 |
 | V220-R2-T01 身份+Required Reading 复核 | Required Reading/假设台账 | §R2-1/§R2-2 | §R2-1/§R2-2 | §R2-1/§R2-2 | 无 |
@@ -1082,9 +1082,7 @@ artifact 链，不另建第二套。
 - **真实模型时序/调用/Token 摘要**：现有真实模型证据仅为 **1 次典型 warm run**（§R2-7.3 隔离 E2E：
   19 次真实 `POST /chat/completions` 全 200、`deepseek-v4-pro-ga-260813`、温度 0.0、另 1 次 embedding；
   端到端约 **112s**，P4 出现；首 Fact 时刻未单独记录）。
-- **6 格真实模型矩阵（short/typical/long × cold/warm × n≥3）**：本批**未提供**，需真实 ARK Key +
-  打包 onedir + 有头浏览器 + 长时运行环境另行执行，故标记为**待独立/文档验收项（DOC）**；不以其缺失
-  求退、也不用 Revision 1 §7.6 矩阵充数。此为剩余开发侧交付边界，如实上报。
+- **6 格真实模型矩阵（short/typical/long × cold/warm × n≥3）**：**已完成**（见 §R2-10）。
 
 ### R2-8.5 修订后的必做开发 Gate（本批收口现场重跑）
 
@@ -1124,8 +1122,9 @@ artifact 链，不另建第二套。
 
 - 范围内已补齐：records 列表（12/12）、任务级 partial 保留 + 失败范围（10/10）、compileall=0、
   包重建 manifest、映射表。
-- 需决策/待独立验收（不静默缩小）：**同一任务直接重试失败范围**（状态机终态，§R2-8.3 选项 A/B）；
-  **6 格真实模型矩阵**（需 ARK+浏览器环境，§R2-8.4）；最终顶部全局文档由用户/Doc Agent 在人工验收后更新。
+- 需决策/待独立验收（不静默缩小）：**同一任务直接重试失败范围**（状态机终态，§R2-8.3 选项 A/B —— 本批以
+  **用户可操作的"只重试失败范围"续试任务**收口，见 §R2-10），**6 格真实模型矩阵**（§R2-8.4 —— 本批已完成，
+  见 §R2-10）；最终顶部全局文档由用户/Doc Agent 在人工验收后更新。
 
 ## R2-9. 本批新 clean 候选（gap 处理后提交）
 
@@ -1137,4 +1136,78 @@ artifact 链，不另建第二套。
   `FF05ECB85B6D1B64BF009937BFA24C58AB780440F67221B83B1395B05F9B9E04`；前端 bundle
   `index-DCtj5n8O.js`（含 `task/records` + JD-60 文案）。
 - 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收）。提交说明见 §R2-8。
+
+## R2-10. H3 开发侧收口（DOC_RETURNED 后，两项开发 Gate 完成）
+
+> 背景：H3（`58ab85d`）被以 `DOC_RETURNED` 退回开发侧，要求补两项**开发 Gate**（不进入独立验收、不改全局
+> 文档及 PLAN）。本节为两项收口的开发侧结果与证据。候选已更新，详见 R2-11。
+
+### R2-10.1 收口一：用户可操作的"只重试失败范围"续试任务
+
+- **需求**（源自 §R2-8.3 选项 A/B）：状态机保持 `FAILED` 为终态，不沿用源 task_id，新建承载续试的任务；
+  **已完成子任务的 fact_results 被复用、不重复计费**；实际发起模型调用仅落在失败范围内。
+- **实现**：
+  - `backend/services/task_generation.py`：`generate_task(..., preload)`，P2 命中即复用经历 id 子任务置
+    SUCCEEDED，P3 先并入 reused、其余进 todo worker；`_reuse_experience` 复原 `GeneratedFact`。
+  - `backend/services/task_service.py`：`continue_failed_scope(source_task_id)` —— 校验源 FAILED → 读 SUCCEEDED
+    子任务为 `succeeded` 复用 + `incomplete` 失败范围 → 从源 snapshot 恢复 selected_slots 与冻结 InputRevision →
+    `create_task`+`save_draft`+`freeze_input`+`start_task` 新建续试任务 → `_scope_selector` 按源选材重建 →
+    `run_generation(tid, select_scope, preload=succeeded)`。
+  - `backend/api/routes/task.py`：新增 `POST /{task_id}/continue`。
+  - 前端：`endpoints.ts` 的 `taskApi.continue`、`WorkbenchTaskContext.continueScope()`、`WorkbenchPage` FAILED
+    面板「续试失败范围 ›」按钮（生成中 disabled）。
+- **操作证据**：`backend/_v22_continue_scope_proof.py` → **11/11 PASS, exit 0**；关键断言：
+  - 源任务 FAILED 终态；续试用**新 task_id**；
+  - 续试 exp-a fact_results 与源任务**逐字一致**（已完成结果被复用）；
+  - 续试实际调用增量仅 `['compact(jd)','fact(exp-b)','reason(exp-b/fb1)','fact(exp-b)','reason(exp-b/fb2)']`，
+    **已完成 exp-a 零调用**（不重复计费）；
+  - 源任务保持 FAILED（未改写）。
+
+### R2-10.2 收口二：六格真实模型性能矩阵（short/typical/long × cold/warm × n≥3）
+
+- **运行入口**：`backend/_v22_sixgrid_run.py`（从 credential manager 注入真实 ARK Key）；
+  单格脚本 `backend/_e2e_v22_matrix.py`；cold 每样本独立子进程 `--n 1`、warm 单进程 `--n 3`（规避 engine
+  单例引发的 cold 多样本 UNIQUE 冲突）。
+- **模型**：`deepseek-v4-pro-ga-260813`（真实模型，credential-manager key）。
+- **结果**：**18/18 SUCCEEDED**，证据 `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`（elapsed 1367.3s）。
+  首完整 Fact 中位数+最大值（单调时钟，秒）：
+
+  | cell | n | first_fact median | first_fact max | total median | total max |
+  | --- | --- | --- | --- | --- | --- |
+  | short/cold | 3 | 11.00 | 11.26 | 32.74 | 33.94 |
+  | short/warm | 3 | 9.76 | 10.15 | 31.12 | 32.74 |
+  | typical/cold | 3 | 11.58 | 12.28 | 43.97 | 44.38 |
+  | typical/warm | 3 | 10.19 | 10.49 | 41.98 | 42.35 |
+  | long/cold | 3 | 11.87 | 12.88 | 50.81 | 52.61 |
+  | long/warm | 3 | 10.17 | 10.67 | 48.78 | 49.39 |
+
+- **门禁判定**：全部 18 样本首 Fact **max ≤ 12.88s < 15s**，满足 **V220-G04** 首 Fact≤15s 门禁（不再以
+  §7.6 旧矩阵或 §R2-7.3 单次典型 run 充数；§R2-8.4 标记已更新为完成）。
+
+### R2-10.3 收口二（续）：新候选 clean 源码重建 onedir + 真实模型 E2E
+
+- **重建**：当前候选（HEAD `b70d6e6`，含续试 + 六格矩阵 + records）clean 源码 → 前端 `npm run build` →
+  `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+- **新包身份**：`dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
+  `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`。
+- **真实模型 E2E**（`scripts/h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`，隔离 runtime）：
+  - 生成窗口 **19 次真实 `POST /chat/completions` + 1 次 embedding 均 200**（deepseek-v4-pro-ga-260813，温度 0.0）；
+  - viewer 同源 **`pdf_viewer_same_source.same_source=true`**，`ui_hash16=download_pdf_sha 前16位
+    =`f46314fff7a4f3c1`（viewer 渲染 PDF 与下载 PDF 同源）;
+  - 双下载一致：`word_download_eq_disk_docx=true`、`pdf_download_eq_disk_pdf=true`、`no_4xx_5xx=true`;
+  - **7 视口** DOM 断言 + 截图全过：`docOv=0, bodyOv=0, pdf=ready, dlLinks=2`；
+  - `winword` 无泄漏；`http_health_final=200`。
+  - 产物：`validation-artifacts/h8/e2e/real_model_e2e.json`。
+
+## R2-11. 收口后新 clean 候选（§R2-10 两项收口提交）
+
+- **HEAD / 源码候选**：`b70d6e6 feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`
+  （含续试收口；六格矩阵运行脚本 + 证据随 docs 提交见下）。
+- **唯一父提交**：`1c92323`（docs：记录 R2-9 候选身份 58ab85d；仅文档）。
+- **相对批准基线 H（`47ae33e`）的 diff**：源码候选 + 证据/脚本，统计见提交时 `git diff --shortstat`。
+- **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（Revision 2 未变）。
+- **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
+  `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`。
+- 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收，不宣称 DOC_ALIGNED / 独立验收通过 / 可发布）。
+  交付只报开发侧结果与证据。
 
