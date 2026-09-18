@@ -1199,15 +1199,15 @@ artifact 链，不另建第二套。
 
   → **4/4 有基线格中位数均 ≤ 基线上限 75% 且 ≥25% 降低**，满足 PLAN §V220-G04 的 total 门禁。
 
-- **调用 / attempt / Token 摘要**（PLAN §270 要求；真实模型 deepseek-v4-pro-ga-260813）：
-  - **调用**（正常路径 `1 + 2F`，Embedding 0/1）：六格矩阵全部经 P1 compact→P3 fact+reason（并发 2）→P4；
-    每样本真实 `chat/completions` 调用处正常公式外，无 UI/SSE 重复调用。真实端到端佐证见 §R2-10.3
-    生成窗口 **19 次 chat + 1 次 embedding，均 200**。
-  - **attempt**：`_e2e_v22_matrix` 走 `llm_service.invoke_observed_json` 3-attempt；18/18 全部 SUCCEEDED，
-    **无一进入重试路径**（成功不重试；矩阵无 attempt>1 样本）。
-  - **Token**：六格矩阵为计时型证据，逐样本未聚合 Token 计数（首 Fact/total 为门禁口径）；单任务
-    completion ≤16k 上限不变；真实调用 token 见 §R2-10.3 的 `provider_counts.calls_in_window`（含
-    resp_bytes 可折算，未虚构数值）。
+- **调用 / attempt / Token 摘要**（PLAN §270 要求；按"实测 / 推断 / 未采集"分明记录）：
+  - **实测**：六格矩阵 **18/18 终态 SUCCEEDED**（状态机实测）；端到端 E2E 生成窗口 **19 次
+    `chat/completions` + 1 次 embedding 均 HTTP 200**、`provider_counts.calls_in_window` 含逐次
+    **resp_bytes**（字节数，非 Token）；调用路径 P1 compact→P3 fact+reason（并发 2）→P4 无 UI/SSE
+    重复调用。
+  - **推断**："18/18 SUCCEEDED ⇒ 无重试" 是**推断**而非实测 —— 六格矩阵为计时型证据，终态 SUCCEEDED
+    不能排除内部 retry 后仍成功；attempt 逐样本计数**未采集**，故不据终态断言 attempt=1。
+  - **未采集**：矩阵逐样本 **Token 计数未聚合**；E2E 仅记录 resp_bytes（响应字节），**不能折算为
+    Token 数**。单任务 completion ≤16k 为设计/调用上限声明，非本次采集值。
 
 ### R2-10.3 收口二（续）：新候选 clean 源码重建 onedir + 真实模型 E2E
 
@@ -1216,10 +1216,13 @@ artifact 链，不另建第二套。
 - **新包身份**：`dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`。
 - **真实模型 E2E**（`scripts/h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`，隔离 runtime）：
-  - **实际退出码 = 0**（`main()` 成功路径 `return 0 if not leaks else 9`；本次 `winword_leaked=[]` → 0）。
+  - **实际退出码 = 0（补采实测，命令级 `$LASTEXITCODE` 捕获；非脚本成功分支推断）**：本 RESULT 首版曾据
+    `main()` 成功路径推断为 0，后按 DOC_RETURNED 要求补采，实际运行
+    `python scripts\h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe` 捕获
+    `REAL_E2E_EXIT=0`，证据以 `validation-artifacts/h8/e2e/real_model_e2e.json` 为准。
   - 生成窗口 **19 次真实 `POST /chat/completions` + 1 次 embedding 均 200**（deepseek-v4-pro-ga-260813，温度 0.0）；
-  - viewer 同源 **`pdf_viewer_same_source.same_source=true`**，`ui_hash16=download_pdf_sha 前16位
-    =`f46314fff7a4f3c1`（viewer 渲染 PDF 与下载 PDF 同源）;
+  - viewer 同源 **`pdf_viewer_same_source.same_source=true`**，`ui_hash16=`download_pdf 前16位
+    =`f97054e95001ea84`（viewer 渲染 PDF 与下载 PDF 同源；取自本次补采后 `real_model_e2e.json` 实测）;
   - 双下载一致：`word_download_eq_disk_docx=true`、`pdf_download_eq_disk_pdf=true`、`no_4xx_5xx=true`;
   - **7 视口** DOM 断言 + 截图全过：`docOv=0, bodyOv=0, pdf=ready, dlLinks=2`；
   - `winword` 无泄漏；`http_health_final=200`。
