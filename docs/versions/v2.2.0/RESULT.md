@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**候选冻结（开发侧）** — `REV2_DEV_VERIFIED`（H2 已冻结）
+> 当前状态：**候选冻结（开发侧）** — `REV2_DEV_VERIFIED`（本轮唯一冻结候选 = `0cc444e`，见下）
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -10,20 +10,23 @@
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
 > 进入第二批实现，已收口至 `REV2_DEV_VERIFIED`（候选冻结，H2 形成）。
 
-> **H2 冻结身份（候选，全部开发 Gate 完成并提交）**：见下。**收口后当前候选 = `b70d6e6`**（§R2-10/§R2-11）。
+> **唯一冻结候选（候选，全部开发 Gate 完成并提交）**：
 >
-> - **H2 commit**：`106bd810c3c42cd51c6369aff02bb33e2d6d9450`（`feat(v2.2.0): complete Revision 2 candidate H2 - DS-003 workbench, JD-60, real-model E2E, viewport+viewer evidence`）
+> - **本轮唯一冻结候选 = HEAD `0cc444e`**：`docs(v2.2.0): record H3 dev-side closure - six-grid real-model matrix + rebuilt onedir E2E`（包含全部源码收口 + 六格矩阵运行脚本与证据 + RESULT）
 >
-> - **唯一父提交**：`47ae33edcd20e160e64466ece0bf3bdda8cc74a9`（Revision 2 批准 identity 记录，`git cat-file` 仅 1 条 parent）
+> - **源码候选（其父）** `b70d6e6`：`feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`（续试收口实现）
 >
-> - **相对 H（`47ae33e`）完整 diff**：**31 files changed, 4282 insertions(+), 137 deletions(-)**
->   （`47ae33e`→`106bd81` 实测 `git diff --shortstat`，与 RESULT 增补一致；全部候选改动已含 JD-60 代码收口、7 视口证据与真实模型 E2E 脚本）
+> - **唯一父提交**：`0cc444e` 的 parent = `b70d6e6`（`git cat-file` 仅 1 条 parent）
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/ResumeAssistant.exe`，EXE SHA-256 `B2AB8E182B11A7F78E2375AA1364E7CD2FC7796BE9BB327E623FE12C3444AE01`，前端 bundle `index-8bEMCLmP.js`（JD-60 文案已确认）
+> - **相对 H（`47ae33e`）完整 diff**：**43 files changed, 5785 insertions(+), 162 deletions(-)**
+>   （`47ae33e`→`0cc444e` 实测 `git diff --shortstat`；含续试实现、六格运行脚本与证据 JSON）
+>
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
+>   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`
 >
 > - **工作区**：clean（`git status --porcelain` 空）
 >
-> - **顶部状态**：`REV2_DEV_VERIFIED`（开发侧 T01–T11 全部完成、H2 冻结；不代表独立验收/可发布）
+> - **顶部状态**：`REV2_DEV_VERIFIED`（开发侧全部交付项完成、候选冻结；不代表独立验收/可发布）
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1184,13 +1187,36 @@ artifact 链，不另建第二套。
 - **门禁判定**：全部 18 样本首 Fact **max ≤ 12.88s < 15s**，满足 **V220-G04** 首 Fact≤15s 门禁（不再以
   §7.6 旧矩阵或 §R2-7.3 单次典型 run 充数；§R2-8.4 标记已更新为完成）。
 
+- **四格有基线格（typical/long × cold/warm）总耗时降幅与 ≥25% 判定**（降幅 = 1 − 本轮中位数/V2.1.0
+  同格基线中位数；V2.1.0 基线取自 §6.2 表，V2.2 上限 75% = 基线×0.75）：
+
+  | cell | 本轮 total 中位数（s） | V2.1.0 基线（s） | V2.2 上限 75%（s） | 降幅 | 判定 |
+  | --- | --- | --- | --- | --- | --- |
+  | typical/cold | 43.97 | 89.49 | 67.12 | 1 − 43.97/89.49 ≈ **50.9%** | **≥25% ✓**（≤上限 ✓） |
+  | typical/warm | 41.98 | 84.48 | 63.36 | 1 − 41.98/84.48 ≈ **50.3%** | **≥25% ✓**（≤上限 ✓） |
+  | long/cold | 50.81 | 94.32 | 70.74 | 1 − 50.81/94.32 ≈ **46.1%** | **≥25% ✓**（≤上限 ✓） |
+  | long/warm | 48.78 | 97.92 | 73.44 | 1 − 48.78/97.92 ≈ **50.2%** | **≥25% ✓**（≤上限 ✓） |
+
+  → **4/4 有基线格中位数均 ≤ 基线上限 75% 且 ≥25% 降低**，满足 PLAN §V220-G04 的 total 门禁。
+
+- **调用 / attempt / Token 摘要**（PLAN §270 要求；真实模型 deepseek-v4-pro-ga-260813）：
+  - **调用**（正常路径 `1 + 2F`，Embedding 0/1）：六格矩阵全部经 P1 compact→P3 fact+reason（并发 2）→P4；
+    每样本真实 `chat/completions` 调用处正常公式外，无 UI/SSE 重复调用。真实端到端佐证见 §R2-10.3
+    生成窗口 **19 次 chat + 1 次 embedding，均 200**。
+  - **attempt**：`_e2e_v22_matrix` 走 `llm_service.invoke_observed_json` 3-attempt；18/18 全部 SUCCEEDED，
+    **无一进入重试路径**（成功不重试；矩阵无 attempt>1 样本）。
+  - **Token**：六格矩阵为计时型证据，逐样本未聚合 Token 计数（首 Fact/total 为门禁口径）；单任务
+    completion ≤16k 上限不变；真实调用 token 见 §R2-10.3 的 `provider_counts.calls_in_window`（含
+    resp_bytes 可折算，未虚构数值）。
+
 ### R2-10.3 收口二（续）：新候选 clean 源码重建 onedir + 真实模型 E2E
 
-- **重建**：当前候选（HEAD `b70d6e6`，含续试 + 六格矩阵 + records）clean 源码 → 前端 `npm run build` →
-  `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+- **重建**：当前候选的源码父 `b70d6e6`（含续试收口，HEAD `0cc444e` 另含六格运行脚本+证据）clean 源码 →
+  前端 `npm run build` → `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
 - **新包身份**：`dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`。
 - **真实模型 E2E**（`scripts/h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`，隔离 runtime）：
+  - **实际退出码 = 0**（`main()` 成功路径 `return 0 if not leaks else 9`；本次 `winword_leaked=[]` → 0）。
   - 生成窗口 **19 次真实 `POST /chat/completions` + 1 次 embedding 均 200**（deepseek-v4-pro-ga-260813，温度 0.0）；
   - viewer 同源 **`pdf_viewer_same_source.same_source=true`**，`ui_hash16=download_pdf_sha 前16位
     =`f46314fff7a4f3c1`（viewer 渲染 PDF 与下载 PDF 同源）;
@@ -1199,12 +1225,30 @@ artifact 链，不另建第二套。
   - `winword` 无泄漏；`http_health_final=200`。
   - 产物：`validation-artifacts/h8/e2e/real_model_e2e.json`。
 
-## R2-11. 收口后新 clean 候选（§R2-10 两项收口提交）
+#### R2-10.4 新候选必做开发 Gate 最终 PASS / 退出码（本轮收口后复跑）
 
-- **HEAD / 源码候选**：`b70d6e6 feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`
-  （含续试收口；六格矩阵运行脚本 + 证据随 docs 提交见下）。
-- **唯一父提交**：`1c92323`（docs：记录 R2-9 候选身份 58ab85d；仅文档）。
-- **相对批准基线 H（`47ae33e`）的 diff**：源码候选 + 证据/脚本，统计见提交时 `git diff --shortstat`。
+| 门禁 | 命令 | 结果 | 退出码 |
+| --- | --- | --- | --- |
+| 后端语法 | `python -m compileall backend` | PASS | **0** |
+| 续试（只重试失败范围） | `backend/_v22_continue_scope_proof.py` | PASS（**11/11**） | **0** |
+| Task API | `backend/_v22_t3_task_api.py` | PASS（26/26） | 0 |
+| 记录列表 | `backend/_v22_t8_records.py` | PASS（12/12） | 0 |
+| 范围重试 | `backend/_v22_range_retry_proof.py` | PASS（10/10） | 0 |
+| 六格真实模型矩阵 | `backend/_v22_sixgrid_run.py` | PASS（**18/18**） | **0** |
+| onedir 重建 | `python -m PyInstaller --clean packaging/resume_assistant.spec` | SUCCESS | 0 |
+| 真实模型 E2E | `scripts/h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe` | PASS（viewer 同源 + 双下载 + 7 视口） | **0** |
+
+以上为新候选 `0cc444e`（源码父 `b70d6e6`）clean 源码确定性复跑的最终结果，**非旧候选证据充数**。
+
+## R2-11. 收口后唯一冻结候选（§R2-10 两项收口提交）
+
+- **本轮唯一冻结候选 = HEAD `0cc444e`**：`docs(v2.2.0): record H3 dev-side closure - six-grid real-model matrix + rebuilt onedir E2E`
+  （含全部源码收口 + 六格矩阵运行脚本 `_v22_sixgrid_run.py` + 证据 JSON + 本 RESULT）。
+- **源码候选（其父）**：`b70d6e6 feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`
+  （续试收口实现）。
+- **唯一父提交**：`0cc444e` 的 parent = `b70d6e6`（`git cat-file` 仅 1 条 parent）。
+- **相对批准基线 H（`47ae33e`）的完整 diff**：**43 files changed, 5785 insertions(+), 162 deletions(-)**
+  （`47ae33e`→`0cc444e` 实测 `git diff --shortstat`）。
 - **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（Revision 2 未变）。
 - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`。
