@@ -305,3 +305,23 @@
 - 下一步：由 Development Agent 在原 PLAN 范围内完成版本元数据单点修正、受影响回归与 clean onedir
   重建，冻结新候选；Documentation Agent 重新完成机械接收，独立 Acceptance Agent 对新包复验。无需修改
   PLAN，也不更新 CURRENT_STATE、版本索引、根 README、远端 main 或正式 tag。
+
+## VH-016 版本元数据候选冻结，旧验收结论不继承
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 发布阻断处置 → 新候选待独立复验
+- 开发交付：Development Agent 将 `core.version.APP_VERSION` 从 2.1.0 改为 2.2.0，并同步两个受影响
+  版本断言；未改变 PLAN、产品功能、全局文档或冻结设计。版本元数据源码提交为
+  `a2f4f3a3325b46624f05ede48022b06c192903ed`，最终开发侧 RESULT 候选为
+  `be59acd268dcfe88ba19fa02be2e12c62d476d77`，父链为 `be59acd → a2f4f3a → 3e156bc`。
+- 新包身份：4045 files / 170,356,336 B；EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`；开发侧报告版本端点均为
+  2.2.0，precheck、包审计和真实模型最终纵切 exit 0。
+- 身份影响：旧 §R2-12 的 `ACCEPTANCE_PASS` 只绑定 `3e156bc`，因入包源码与可执行元数据变化而不再
+  覆盖当前发布候选。该事件不改变 Revision 2 产品范围、技术路线、Design Baseline 或强制验收合同，
+  因此无需 PLAN Revision。
+- 文档收口：Documentation Agent 在 canonical 保护本地候选引用
+  `candidates/v2.2.0/be59acd`，一次性修正 RESULT 顶部身份、章节编号、源码/完整 diff 与包身份；
+  Documentation Gate 为 `DOC_ALIGNED`，不把开发自测升级为独立验收。
+- 下一步：将固定 review detached 到 `be59acd`，由未参与实现、自测或修复的 Acceptance Agent 对精确
+  候选与精确新包完成独立复验。复验通过前不进行 Product Owner 人工验收、全局文档收口或发布。

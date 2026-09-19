@@ -1,32 +1,35 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**独立验收通过，待 Product Owner 人工验收** — `ACCEPTANCE_PASS`
+> 当前状态：**待验收** — 新候选 `DOC_ALIGNED`，等待独立复验
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
-> 进入第二批实现并形成冻结候选；Documentation Gate 与独立源码/运行验收均已完成。
+> 进入第二批实现并形成冻结候选；旧候选已完成独立验收，但版本元数据修正形成了新冻结候选，
+> 旧 `ACCEPTANCE_PASS` 不继承。
 
-> **独立验收绑定的唯一冻结候选**：
+> **当前唯一冻结候选**：
 >
-> - **候选 commit**：`3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`（包含全部产品源码、验证脚本、六格矩阵证据和开发侧 RESULT）
+> - **候选 commit**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`（包含版本元数据源码提交与开发侧 RESULT）
 >
-> - **最后产品源码提交**：`b70d6e69b461907f837d365e6ce779b036e3ea80`；其后至 `3e156bc` 仅验证脚本、证据和 RESULT 变化，不改变产品源码或最终 onedir 内容
+> - **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；其 parent 为旧验收候选
+>   `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`
 >
-> - **候选唯一父提交**：`fbfdea0aa328d1db5d76e6b8113daf3a74ebbfdc`；候选历史为线性单父链
+> - **候选唯一父提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；候选历史为线性单父链
 >
-> - **相对批准基线 H（`47ae33e`）完整 diff**：**43 files changed, 9707 insertions(+), 163 deletions(-)**
->   （`47ae33e`→`3e156bc` 实测 `git diff --shortstat`）
+> - **相对批准基线 H（`47ae33e`）完整 diff**：**46 files changed, 9773 insertions(+), 166 deletions(-)**；
+>   相对旧验收候选 `3e156bc` 为 **4 files changed, 66 insertions(+), 3 deletions(-)**
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
->   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
+>   `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`
 >
-> - **工作区**：clean（`git status --porcelain` 空）
+> - **开发工作区**：`version/v2.2.0` clean；canonical 已保护本地候选引用
+>   `candidates/v2.2.0/be59acd`
 >
-> - **验收状态**：`DOC_ALIGNED`、`ACCEPTANCE_PASS`；尚未进行 Product Owner 人工验收，尚不可发布
+> - **当前门禁**：`DOC_ALIGNED`；新候选尚未独立复验、尚未 Product Owner 人工验收、尚不可发布
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1294,3 +1297,78 @@ artifact 链，不另建第二套。
   对外版本元数据仍报告 `2.1.0`。后者不影响本轮功能/运行验收结论，但属于 V2.2.0 发布阻断：
   `APP_VERSION` 是入包源码与可执行元数据，任何修正都会按工作流使当前验收失效并要求重新冻结、重建包和
   复验。故当前状态为“独立验收通过，待版本元数据处置和 Product Owner 人工验收”，不得直接发布。
+- **后续状态**：本节 `ACCEPTANCE_PASS` 仅绑定 `3e156bc`，作为历史验收记录保留。版本元数据源码提交
+  `a2f4f3a` 已使它不再覆盖当前发布候选；当前门禁见 §R2-13、§R2-14。
+
+---
+
+## R2-13. 仅版本元数据候选（外部 APP_VERSION 2.1.0 → 2.2.0）
+
+> 本节承接 Development Agent 对新候选的交付声明。范围只包括对外版本单一真源与两个受影响版本断言；
+> 不修改产品功能、PLAN、全局文档或已冻结设计，也不宣称旧 `ACCEPTANCE_PASS` 自动继承。
+
+- **源码变更**（`3e156bc`→`a2f4f3a`：**3 files changed, 3 insertions(+), 3 deletions(-)**）：
+  1. `backend/core/version.py` — `APP_VERSION = "2.1.0"` → `"2.2.0"`；
+  2. `backend/_v201_validation.py` — `/api/health` 版本断言 2.1.0 → 2.2.0；
+  3. `backend/_v20_smoke.py` — `/api/health` 版本断言 2.1.0 → 2.2.0。
+- **Development Agent 的单一真源声明**：`/api/health`、`/api/system/status`、OpenAPI
+  `info.version`、FastAPI `app.version`、`GET /` 回退和 `run_stub_demo.py` banner 均从
+  `core.version.APP_VERSION` 导入；前端没有独立的对外版本 UI 展示。该声明等待独立验收从源码与运行
+  行为核实。
+
+### R2-13.1 开发侧版本测试与门禁
+
+| 门禁 | 命令（仓库根/对应 cwd） | 开发侧结果 | 退出码 |
+| --- | --- | --- | --- |
+| V2.0 冒烟（含版本断言） | `python _v20_smoke.py`（cwd backend） | PASS=20 FAIL=0 | **0** |
+| V2.0.1 可观测性验证（含版本断言） | `python _v201_validation.py`（cwd backend） | PASS=77 FAIL=0 | **0** |
+| 后端语法 | `python -m compileall main.py manage.py run_stub_demo.py fill_user_data.py api core database models prompts services` | PASS | **0** |
+| 前端正式构建 | `npm run build`（cwd frontend） | PASS（tsc -b + vite） | **0** |
+| 统一 precheck | `python scripts/precheck.py` | 阻断项通过 | **0** |
+| 包审计 | `python scripts/h8_package_audit.py --dir dist/ResumeAssistant` | PASS（marker_hits=0, forbidden=0） | **0** |
+
+开发侧同时报告 precheck 的非阻断基线为 ruff 523、pip-audit 9、ESLint 21、npm audit 4；不将这些
+开发结果表述为独立验收结论。
+
+### R2-13.2 新包与开发侧隔离运行结果
+
+- clean 重建：前端 `npm run build` →
+  `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+- 新包：onedir `dist/ResumeAssistant/`，**4045 files / 170,356,336 B**；EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`；前端 bundle
+  `index-BrAu-oeZ.js`。
+- 隔离版本端点：开发侧报告 `/api/health.status=ok`、`/api/health.version=2.2.0`、
+  `/api/system/status.version=2.2.0`、`openapi.info.version=2.2.0`。
+- 真实模型 E2E：开发侧报告 `REAL_E2E_EXIT=0`；P1→P4 全通，19 次 chat 与 1 次 embedding 均 200；
+  PDF.js `same_source=true` 且 `ui_hash16=pdf_sha16=173ec575386aaa25`；双下载一致；7 视口通过；
+  `winword` 泄漏为空。以上仍待独立 Acceptance Agent 在精确候选和精确包上复验。
+
+### R2-13.3 新候选身份
+
+- **当前唯一冻结候选 H**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`；唯一 parent 为
+  `a2f4f3a3325b46624f05ede48022b06c192903ed`。
+- **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；唯一 parent 为旧验收候选
+  `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`。
+- **批准 PLAN blob**：`e134703ce6e37a2f4d5df389662119f38638fae8`，Revision 2 未变。
+- **相对旧验收候选完整 diff**：`3e156bc..be59acd` = **4 files changed, 66 insertions(+),
+  3 deletions(-)**；其中源码提交本身为 3 files / 3 insertions / 3 deletions，其余为本节开发侧 RESULT。
+- `<current-workspace>` 的 `version/v2.2.0` 在接收时为 clean；本候选不继承旧验收结论。
+
+## R2-14. 新候选 Documentation Gate 与复验交接
+
+- **机械身份**：Documentation Agent 已在 canonical 获取并保护
+  `candidates/v2.2.0/be59acd` → `be59acd268dcfe88ba19fa02be2e12c62d476d77`；父链、PLAN blob、
+  分支和 clean 状态与 §R2-13 一致。
+- **包身份复核**：接收时现场包为 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，与开发交付一致。
+- **证据入口**：版本端点 JSON、真实模型 E2E JSON 和调用计数 JSON 均存在；它们位于 gitignored
+  `validation-artifacts/`，只作为待封存、待独立核实的入口，不因存在即证明声明真实。
+- **一次性文档收口**：Documentation Agent 保留旧 §R2-12 的候选绑定，修正顶部候选/包身份，将新
+  开发记录编号为 §R2-13，并区分源码 diff 与最终候选完整 diff；未因纯文档一致性问题退回开发。
+- **Documentation Gate**：`DOC_ALIGNED`。该结论只表示新 RESULT 已具备进入独立验收的条件，不表示
+  源码、运行、包或版本展示已经独立证明正确。
+- **独立验收对象**：review 必须 detached 到 `be59acd268dcfe88ba19fa02be2e12c62d476d77`；Acceptance
+  Agent 必须未参与本候选实现、自测或修复，并在验收前后核对同一 HEAD 与 clean 状态。
+- **复验范围**：核对版本单一真源及全部正式展示点；重跑受影响版本断言、precheck 与包审计；在精确
+  新包上核对所有版本端点为 2.2.0，并独立复验真实模型 P1→P4、PDF.js 同源、双下载、七视口和进程
+  清理。结论未返回前保持“待验收”，不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布。
