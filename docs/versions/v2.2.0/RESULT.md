@@ -963,7 +963,7 @@ artifact 链，不另建第二套。
 
 #### R2-T11 Falsification Check（主动伪造，未发现新反例）
 
-- **候选 1「JD 短输入能绕过生成」** → **已证伪（真实反例，已修复）**：对齐前前端 gate 为 30 字、后端 `freeze_input` 无下限（PLAN 要求 ≥60）。修复：前端两处升 60 字（[WorkbenchTaskContext.tsx](frontend/src/pages/workbench/WorkbenchTaskContext.tsx) validate、[StepIdentity.tsx](frontend/src/pages/workbench/StepIdentity.tsx) gate+hint），后端 `TaskService._require_jd` 作为 `freeze_input` 权威下限；断言：10 字拒绝（"JD 至少 60 字，当前 10 字"）、60 字放行、72 字放行（`python -c` 实测）；short 夹具全部抬到 ≥60 后 `_v22_t4` 27/27、`_v22_t5` 39/39、`_v22_t6` 23/23、`_v22_t9` 19/19 全过。未发现「仍能绕过 ≥60」的剩余开口。
+- **候选 1「JD 短输入能绕过生成」** → **已证伪（真实反例，已修复）**：对齐前前端 gate 为 30 字、后端 `freeze_input` 无下限（PLAN 要求 ≥60）。修复：前端两处升 60 字（[WorkbenchTaskContext.tsx](../../../frontend/src/pages/workbench/WorkbenchTaskContext.tsx) validate、[StepIdentity.tsx](../../../frontend/src/pages/workbench/StepIdentity.tsx) gate+hint），后端 `TaskService._require_jd` 作为 `freeze_input` 权威下限；断言：10 字拒绝（"JD 至少 60 字，当前 10 字"）、60 字放行、72 字放行（`python -c` 实测）；short 夹具全部抬到 ≥60 后 `_v22_t4` 27/27、`_v22_t5` 39/39、`_v22_t6` 23/23、`_v22_t9` 19/19 全过。未发现「仍能绕过 ≥60」的剩余开口。
 
 - **候选 2「viewer 内嵌渲染无取证（pdfjs-absent）」** → **已证伪（真实反例，已修复）**：此前探针 `pdfjs-absent`，viewer 独立于下载取证。修复：探针改为等 `.pdf-preview[data-state=ready]` + ≥1 `.pdf-page__canvas`，实测 `viewer_ready:true, pages:1`；再以同源闭环确认 viewer hash 与下载 PDF sha 一致（`ui_hash16=cbb2e521…` ⊇ 下载 sha 前 16 位）。未再发现 viewer 与下载分叉。
 
@@ -1041,9 +1041,9 @@ artifact 链，不另建第二套。
 
 ### R2-8.2 缺口 2：我的简历真实记录列表（不再只展示当前任务）
 
-- **实现**：新增只读列表端点 `GET /api/task/records`（[task.py](backend/api/routes/task.py)，声明在
+- **实现**：新增只读列表端点 `GET /api/task/records`（[task.py](../../../backend/api/routes/task.py)，声明在
   `GET /{task_id}` 之前避免路径参数捕获），`TaskRepository.list_records()` + `TaskService.list_records()`
-  只返回 `SUCCEEDED` 且已发布 DOCX 原件的任务；[RecordsPage.tsx](frontend/src/pages/RecordsPage.tsx)
+  只返回 `SUCCEEDED` 且已发布 DOCX 原件的任务；[RecordsPage.tsx](../../../frontend/src/pages/RecordsPage.tsx)
   改为拉取列表并按每条记录的 `published_docx_path / published_pdf_path` 渲染真实
   `/api/template/download` 下载链接（与工作台 P4 逐字同源），不再只展示当前任务、也不再伪造历史。
 - **验证**（`_v22_t8_records.py`，TestClient 真实 HTTP 层）：**12 通过 / 0 失败**，exit=0。断言：
@@ -1056,7 +1056,7 @@ artifact 链，不另建第二套。
 
 ### R2-8.3 缺口 3：失败范围重试操作证据（`_v22_range_retry_proof.py`，10/10，exit=0）
 
-- **实现**：在 [task_generation.py](backend/services/task_generation.py) P3 每个完成经历的
+- **实现**：在 [task_generation.py](../../../backend/services/task_generation.py) P3 每个完成经历的
   `update_subtask(SUCCEEDED)` 后新增 `db.commit()`（约 L362-365），使已完成经历的子任务与 Fact 事件
   在整次运行后续失败时不会被 worker 的 `local.rollback()` 回滚，从而被持久化保留。
 - **操作证据**（注入确定性 provider，exp-a 先完整完成并提交、exp-b 首 Fact 延迟 0.25s 后抛
@@ -1068,7 +1068,7 @@ artifact 链，不另建第二套。
     无额外成功产出。实测 `fact_calls=[fact(exp-a), fact(exp-b)]`、`reason_calls=[reason(exp-a/fa1)]`、
     `compact_calls=1`。
 - **现状边界（需决策，不静默缩小范围）**：同一任务「只重试失败范围、不全任务静默重跑」因
-  [core/task.py](backend/core/task.py) `TRANSITIONS[FAILED] = ∅`（FAILED 为终态）而**无法在同一任务上触发**
+  [core/task.py](../../../backend/core/task.py) `TRANSITIONS[FAILED] = ∅`（FAILED 为终态）而**无法在同一任务上触发**
   ——本证明覆盖「失败后已完成范围保留 + 调用仅限失败范围」。若要【同任务直接续跑失败范围】需 P.O. 决策：
   - 选项 A：允许 `RUNNING → FAILED → RUNNING` 复用，且 generate_task 跳过 SUCCEEDED 子任务、复用其
     `fact_results`，只重跑未完成经历（改动状态机 + 增量提交门禁）；
