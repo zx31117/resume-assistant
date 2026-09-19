@@ -36,7 +36,7 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 
 | 版本 | 定位 | 计划 | 结果 | 状态 |
 |---|---|---|---|---|
-| V2.2.0 | 任务连续性、渐进生成、性能优化与新工作流首轮应用 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | Revision 2 新候选 `be59acd` 已 `DOC_ALIGNED`；等待独立复验，尚不可发布 |
+| V2.2.0 | 任务连续性、渐进生成、性能优化与新工作流首轮应用 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | 候选 `be59acd` 独立验收通过后被 Product Owner 打回；RESULT 为“需修正”，尚不可发布 |
 
 ## 待审核发布列车草稿（非开发指令）
 
