@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收** — 新候选 `DOC_ALIGNED`，等待独立复验
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -29,7 +29,8 @@
 > - **开发工作区**：`version/v2.2.0` clean；canonical 已保护本地候选引用
 >   `candidates/v2.2.0/be59acd`
 >
-> - **当前门禁**：`DOC_ALIGNED`；新候选尚未独立复验、尚未 Product Owner 人工验收、尚不可发布
+> - **当前门禁**：`DOC_ALIGNED` 与 `ACCEPTANCE_PASS` 是绑定 `be59acd` 的既有文档/独立验收结论；
+>   Product Owner 人工验收未通过。该候选不可发布，当前版本按同一 PLAN Revision 2 进入修正
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1379,3 +1380,56 @@ artifact 链，不另建第二套。
 - **复验范围**：核对版本单一真源及全部正式展示点；重跑受影响版本断言、precheck 与包审计；在精确
   新包上核对所有版本端点为 2.2.0，并独立复验真实模型 P1→P4、PDF.js 同源、双下载、七视口和进程
   清理。结论未返回前保持“待验收”，不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布。
+
+## R2-15. 新候选独立复验结论
+
+- **独立性**：Acceptance Agent 声明未参与 `be59acd` 的实现、自测、源码修复或开发结论编写；静态检查
+  在固定 review 中只读完成，动态验证在 review 外的一次性源码副本与隔离 runtime 中执行，未接触或
+  回显模型凭据。
+- **身份绑定**：验收前后 review 均 detached
+  `be59acd268dcfe88ba19fa02be2e12c62d476d77`，tracked/index clean；父链、PLAN blob 与
+  `3e156bc..be59acd` 的 4 files / +66 / -3 完整 diff 均匹配。
+- **静态结论**：产品源码变化仅 `core.version.APP_VERSION` 2.1.0 → 2.2.0，两个测试只同步版本断言，
+  其余变化为开发侧 RESULT；正式版本展示点统一读取 `APP_VERSION`，未发现参与正式展示或打包的
+  2.1.0 残留，也未改变产品功能、PLAN、全局文档、`DS-003`、依赖、配置或打包路线。
+- **包与回归**：精确包为 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，前端 bundle
+  `index-BrAu-oeZ.js`；compileall、两个版本回归、前端 build、precheck 和包审计全部 exit 0，必做项
+  无 `FAIL/NOT_RUN`。
+- **版本端点**：隔离 onedir 实测 `/api/health`、`/api/system/status` 和 OpenAPI `info.version` 均为
+  2.2.0；`GET /` 返回生产 SPA，无参与正式运行的 2.1.0 对外展示。
+- **最终纵切**：受控真实模型 P1→P4 `SUCCEEDED`（46.64s），chat=19、embedding=1；PDF.js ready，
+  viewer 与下载 PDF 同源；Word/PDF 双下载、HEAD/Range、七个冻结视口和进程清理均通过，无 WINWORD
+  或 ResumeAssistant 残留。
+- **cleanup 补充收口**：首份报告误称临时目录已清理，Documentation Agent 现场发现 `_acc_src` 与
+  `_acc_work` 仍存在，因此未采纳当时的 PASS。Acceptance Agent 随后核对绝对路径，只删除这两个临时
+  目录并复核它们已不存在；封存包、封存证据、旧包、canonical、current 和 review 均未改动。文档
+  Agent 再次机械确认保留包文件数/字节/hash 不变、review HEAD/clean 不变且无残留进程。cleanup 修正
+  不改变候选或包，无需重跑已经完成的功能验收。
+- **最终结论**：`ACCEPTANCE_PASS`。新候选的全部必做独立验收项完成，无 `FAIL/NOT_RUN`。下一门禁为
+  Product Owner 使用同一精确包完成人工验收；在此之前不更新 CURRENT_STATE、版本索引、根 README，
+  不集成发布候选、不操作远端 main 或正式 tag。
+
+## R2-16. Product Owner 人工验收打回：Design Fidelity
+
+- **决定**：Product Owner 于 2026-09-19 明确打回 V2.2.0。原因是候选包的界面布局、信息层级和交互
+  逻辑未按冻结 HTML / `DS-003` 主题 A 一比一还原，且偏差覆盖工作台、结果页、我的经历、我的简历、
+  个人与隐私及窄屏回流，不属于可接受的小范围视觉误差。
+- **状态影响**：`be59acd` 的 `ACCEPTANCE_PASS` 只证明已执行的技术、产物与运行门禁，不覆盖 Product
+  Owner 的最终体验验收。人工验收结论阻断发布，因此 RESULT 当前状态为“需修正”；在人工验收通过前
+  不更新 CURRENT_STATE、发布入口或正式版本状态。
+- **不属于开发缺陷的原型内容**：PLAN §3、§10 已明确排除自然语言修改/“开始编辑”、单 Fact 重生成
+  或锁定、主题切换、评审批注、固定 fixture、身份长期回填、P2 人工采用/重排、新上传/OCR/查重、
+  记录回退/批量删除及账户级删除。它们继续隐藏或只保留既有真实能力，不能因“一比一还原”扩张范围。
+- **已确认的实现偏差**：候选在工作台前增加额外 hero，二级页面仍使用旧常驻侧栏；空态/保存态的主
+  操作区与右侧辅助卡偏离冻结布局；P4/成功页未以 PDF 为主视觉，文件元数据与下载动作位置错误；
+  “我的经历”“我的简历”“个人与隐私”未统一到 Theme A 页面壳；390/320/1024 视口出现顶栏换行、
+  操作裁切或步骤标签异常压缩。Task/SSE、Career Memory、记录、PDF.js 与双下载链已存在，以上均属
+  现有模块的呈现或映射错误，不能归因为缺少技术模块。
+- **证据边界**：候选未提供 P1/P2/P3/失败态与冻结场景的完整同尺寸成对证据；既有七视口证据只能证明
+  所测 DOM/overflow 断言，不能据此证明 Design Fidelity。后续判断仍执行 PLAN §7.1 的既有门禁。
+- **合同判定**：本次只是回到已批准 PLAN Revision 2 与 `DS-003` 实施矩阵，未改变产品范围、技术路线、
+  Design Baseline 或强制验收合同，因此不新建 PLAN Revision。开发执行仍以 PLAN 的 V220-R2-T02、
+  T04～T09 与 §7.1 为准；本节只记录人工验收结果和实际偏差，不构成第二份执行合同。
+- **候选有效性**：修正若改变产品代码、依赖、配置、测试、构建或入包文件，按 PLAN §9 冻结新候选，
+  既有验收不继承；重新验收的范围与证据要求仍由 PLAN 决定。

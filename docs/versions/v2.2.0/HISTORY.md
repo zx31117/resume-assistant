@@ -327,3 +327,36 @@
   `be59acd`，PLAN blob 一致且 tracked/index clean。
 - 下一步：由未参与实现、自测或修复的 Acceptance Agent 对精确候选与精确新包完成独立复验。复验通过
   前不进行 Product Owner 人工验收、全局文档收口或发布。
+
+## VH-017 版本元数据新候选完成独立复验
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 新候选独立复验 → 待 Product Owner 人工验收
+- 验收对象：`be59acd268dcfe88ba19fa02be2e12c62d476d77`；批准 PLAN blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8`；精确包 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`。
+- 独立结论：Acceptance Agent 未参与候选实现、自测、修复或开发结论编写；静态单一版本真源检查、
+  受影响回归、precheck、包审计、隔离版本端点、真实模型 P1→P4、PDF.js/双下载、七视口和进程清理
+  全部完成，无 `FAIL/NOT_RUN`，最终结论为 `ACCEPTANCE_PASS`。
+- cleanup 纠正：首份验收报告称临时副本和工作目录已清理，但 Documentation Agent 机械复核发现
+  `_acc_src` 与 `_acc_work` 仍在，因此没有直接采纳 PASS。Acceptance Agent 随后仅清理这两个已核定
+  临时目录；文档侧复核确认目录已不存在、封存包与证据 hash 未变、review 仍 detached 同一候选且
+  clean、相关进程无残留。该纠正不改变候选或包，不需要重复功能验收。
+- 下一步：Product Owner 使用同一精确包完成人工验收。人工验收通过前不更新 CURRENT_STATE、版本索引、
+  根 README，不将候选纳入 canonical 本地 main，也不操作远端 main 或正式 tag。
+
+## VH-018 Product Owner 因 Design Fidelity 打回 V2.2.0
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Product Owner 人工验收 → 打回开发
+- 决定：Product Owner 明确打回 `be59acd`。候选的页面壳、信息层级、P4/成功页、我的经历、我的简历、
+  个人与隐私以及窄屏回流未按冻结 HTML / `DS-003` Theme A 一比一还原，偏差规模超过可接受视觉误差。
+- 边界：独立 `ACCEPTANCE_PASS` 只说明已执行的技术、产物与运行门禁通过，不替代 Product Owner 体验
+  验收。RESULT 当前状态改为“需修正”，候选不可发布。
+- 分类：自然语言修改/“开始编辑”、单 Fact 重生成/锁定、主题切换、评审批注等仍按 PLAN 保持
+  `HIDDEN` 或 Design-only；除此之外，Task/SSE、Career Memory、记录、PDF.js 和下载链已经存在，相关
+  页面差异均按开发呈现错误处理，不得以技术模块缺失为理由保留。
+- 归档：实际差异与当前门禁收录在 RESULT §R2-16；本 HISTORY 只保留候选被打回这一重要事件。此次
+  未改变产品范围、技术路线、Design Baseline 或强制验收合同，不触发 PLAN Revision，也不新增执行文档。
+- 下一步：Development Agent 继续执行同一 PLAN Revision 2。产品代码或入包文件变化后按 PLAN §9 冻结
+  新候选并重新验收；此前不更新 CURRENT_STATE 或发布入口。
