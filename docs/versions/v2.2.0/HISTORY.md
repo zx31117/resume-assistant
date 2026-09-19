@@ -285,3 +285,78 @@
   `version/v2.2.0` 上继续；不得跟随 Design 工作稿，也不得把最终包真实纵切转给独立验收代跑。
 - 批准收口 commit：`e3c68ac7405abe3a70e807b22d51a25ddb80731f`；当前已批准 PLAN blob：
   `e134703ce6e37a2f4d5df389662119f38638fae8`。
+
+## VH-015 Revision 2 候选完成独立验收，发现发布版本元数据阻断
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 独立验收 → 待发布前处置
+- 候选身份：`3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`；批准 PLAN blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8`；Documentation Gate 为 `DOC_ALIGNED`。
+- 验收过程：首轮静态审计通过，但因最终包、真实模型凭据和 GUI/Word 环境不可用而
+  `ACCEPTANCE_BLOCKED`。环境解除后，同一独立 Acceptance Agent 在同一候选上补齐最终包身份、真实模型
+  纵切、PDF.js/双下载、七视口、Word COM 与 Integration/Release Gate，最终结论为
+  `ACCEPTANCE_PASS`；验收前后 review HEAD 未变化且 clean。
+- 验收事实：最终包为 4045 files / 170,356,413 B；EXE SHA-256
+  `9E6DF063E6056E7847A6FF78F4207BD903CD4A23CA97ACB40EF0D56841FAF9C6`；真实模型 P1→P4
+  `SUCCEEDED`；viewer 与下载 PDF 同源；Word/PDF 双下载、七视口和进程清理均通过。
+- 发布阻断：最终包对外版本元数据仍报告 `2.1.0`。该字段由 `core.version.APP_VERSION` 提供并进入产品包；
+  若改为 `2.2.0`，属于验收后入包源码/可执行元数据变化，当前验收按工作流自动失效。不得把版本 bump 当作
+  纯文档发布动作，也不得在当前包上继续人工验收或发布。
+- 下一步：由 Development Agent 在原 PLAN 范围内完成版本元数据单点修正、受影响回归与 clean onedir
+  重建，冻结新候选；Documentation Agent 重新完成机械接收，独立 Acceptance Agent 对新包复验。无需修改
+  PLAN，也不更新 CURRENT_STATE、版本索引、根 README、远端 main 或正式 tag。
+
+## VH-016 版本元数据候选冻结，旧验收结论不继承
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 发布阻断处置 → 新候选待独立复验
+- 开发交付：Development Agent 将 `core.version.APP_VERSION` 从 2.1.0 改为 2.2.0，并同步两个受影响
+  版本断言；未改变 PLAN、产品功能、全局文档或冻结设计。版本元数据源码提交为
+  `a2f4f3a3325b46624f05ede48022b06c192903ed`，最终开发侧 RESULT 候选为
+  `be59acd268dcfe88ba19fa02be2e12c62d476d77`，父链为 `be59acd → a2f4f3a → 3e156bc`。
+- 新包身份：4045 files / 170,356,336 B；EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`；开发侧报告版本端点均为
+  2.2.0，precheck、包审计和真实模型最终纵切 exit 0。
+- 身份影响：旧 §R2-12 的 `ACCEPTANCE_PASS` 只绑定 `3e156bc`，因入包源码与可执行元数据变化而不再
+  覆盖当前发布候选。该事件不改变 Revision 2 产品范围、技术路线、Design Baseline 或强制验收合同，
+  因此无需 PLAN Revision。
+- 文档收口：Documentation Agent 在 canonical 保护本地候选引用
+  `candidates/v2.2.0/be59acd`，一次性修正 RESULT 顶部身份、章节编号、源码/完整 diff 与包身份；
+  Documentation Gate 为 `DOC_ALIGNED`，不把开发自测升级为独立验收。
+- 验收准备：精确新包与三份开发证据已复制到独立验收暂存区并复核 hash；固定 review 已 detached 到
+  `be59acd`，PLAN blob 一致且 tracked/index clean。
+- 下一步：由未参与实现、自测或修复的 Acceptance Agent 对精确候选与精确新包完成独立复验。复验通过
+  前不进行 Product Owner 人工验收、全局文档收口或发布。
+
+## VH-017 版本元数据新候选完成独立复验
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 新候选独立复验 → 待 Product Owner 人工验收
+- 验收对象：`be59acd268dcfe88ba19fa02be2e12c62d476d77`；批准 PLAN blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8`；精确包 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`。
+- 独立结论：Acceptance Agent 未参与候选实现、自测、修复或开发结论编写；静态单一版本真源检查、
+  受影响回归、precheck、包审计、隔离版本端点、真实模型 P1→P4、PDF.js/双下载、七视口和进程清理
+  全部完成，无 `FAIL/NOT_RUN`，最终结论为 `ACCEPTANCE_PASS`。
+- cleanup 纠正：首份验收报告称临时副本和工作目录已清理，但 Documentation Agent 机械复核发现
+  `_acc_src` 与 `_acc_work` 仍在，因此没有直接采纳 PASS。Acceptance Agent 随后仅清理这两个已核定
+  临时目录；文档侧复核确认目录已不存在、封存包与证据 hash 未变、review 仍 detached 同一候选且
+  clean、相关进程无残留。该纠正不改变候选或包，不需要重复功能验收。
+- 下一步：Product Owner 使用同一精确包完成人工验收。人工验收通过前不更新 CURRENT_STATE、版本索引、
+  根 README，不将候选纳入 canonical 本地 main，也不操作远端 main 或正式 tag。
+
+## VH-018 Product Owner 因 Design Fidelity 打回 V2.2.0
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Product Owner 人工验收 → 打回开发
+- 决定：Product Owner 明确打回 `be59acd`。候选的页面壳、信息层级、P4/成功页、我的经历、我的简历、
+  个人与隐私以及窄屏回流未按冻结 HTML / `DS-003` Theme A 一比一还原，偏差规模超过可接受视觉误差。
+- 边界：独立 `ACCEPTANCE_PASS` 只说明已执行的技术、产物与运行门禁通过，不替代 Product Owner 体验
+  验收。RESULT 当前状态改为“需修正”，候选不可发布。
+- 分类：自然语言修改/“开始编辑”、单 Fact 重生成/锁定、主题切换、评审批注等仍按 PLAN 保持
+  `HIDDEN` 或 Design-only；除此之外，Task/SSE、Career Memory、记录、PDF.js 和下载链已经存在，相关
+  页面差异均按开发呈现错误处理，不得以技术模块缺失为理由保留。
+- 归档：实际差异与当前门禁收录在 RESULT §R2-16；本 HISTORY 只保留候选被打回这一重要事件。此次
+  未改变产品范围、技术路线、Design Baseline 或强制验收合同，不触发 PLAN Revision，也不新增执行文档。
+- 下一步：Development Agent 继续执行同一 PLAN Revision 2。产品代码或入包文件变化后按 PLAN §9 冻结
+  新候选并重新验收；此前不更新 CURRENT_STATE 或发布入口。

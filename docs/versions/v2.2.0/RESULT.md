@@ -1,32 +1,36 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**候选冻结（开发侧）** — `REV2_DEV_VERIFIED`（本轮唯一冻结候选 = `0cc444e`，见下）
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
-> 进入第二批实现，已收口至 `REV2_DEV_VERIFIED`（候选冻结，H2 形成）。
+> 进入第二批实现并形成冻结候选；旧候选已完成独立验收，但版本元数据修正形成了新冻结候选，
+> 旧 `ACCEPTANCE_PASS` 不继承。
 
-> **唯一冻结候选（候选，全部开发 Gate 完成并提交）**：
+> **当前唯一冻结候选**：
 >
-> - **本轮唯一冻结候选 = HEAD `0cc444e`**：`docs(v2.2.0): record H3 dev-side closure - six-grid real-model matrix + rebuilt onedir E2E`（包含全部源码收口 + 六格矩阵运行脚本与证据 + RESULT）
+> - **候选 commit**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`（包含版本元数据源码提交与开发侧 RESULT）
 >
-> - **源码候选（其父）** `b70d6e6`：`feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`（续试收口实现）
+> - **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；其 parent 为旧验收候选
+>   `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`
 >
-> - **唯一父提交**：`0cc444e` 的 parent = `b70d6e6`（`git cat-file` 仅 1 条 parent）
+> - **候选唯一父提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；候选历史为线性单父链
 >
-> - **相对 H（`47ae33e`）完整 diff**：**43 files changed, 5785 insertions(+), 162 deletions(-)**
->   （`47ae33e`→`0cc444e` 实测 `git diff --shortstat`；含续试实现、六格运行脚本与证据 JSON）
+> - **相对批准基线 H（`47ae33e`）完整 diff**：**46 files changed, 9773 insertions(+), 166 deletions(-)**；
+>   相对旧验收候选 `3e156bc` 为 **4 files changed, 66 insertions(+), 3 deletions(-)**
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
->   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
+>   `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`
 >
-> - **工作区**：clean（`git status --porcelain` 空）
+> - **开发工作区**：`version/v2.2.0` clean；canonical 已保护本地候选引用
+>   `candidates/v2.2.0/be59acd`
 >
-> - **顶部状态**：`REV2_DEV_VERIFIED`（开发侧全部交付项完成、候选冻结；不代表独立验收/可发布）
+> - **当前门禁**：`DOC_ALIGNED` 与 `ACCEPTANCE_PASS` 是绑定 `be59acd` 的既有文档/独立验收结论；
+>   Product Owner 人工验收未通过。该候选不可发布，当前版本按同一 PLAN Revision 2 进入修正
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -959,7 +963,7 @@ artifact 链，不另建第二套。
 
 #### R2-T11 Falsification Check（主动伪造，未发现新反例）
 
-- **候选 1「JD 短输入能绕过生成」** → **已证伪（真实反例，已修复）**：对齐前前端 gate 为 30 字、后端 `freeze_input` 无下限（PLAN 要求 ≥60）。修复：前端两处升 60 字（[WorkbenchTaskContext.tsx](frontend/src/pages/workbench/WorkbenchTaskContext.tsx) validate、[StepIdentity.tsx](frontend/src/pages/workbench/StepIdentity.tsx) gate+hint），后端 `TaskService._require_jd` 作为 `freeze_input` 权威下限；断言：10 字拒绝（"JD 至少 60 字，当前 10 字"）、60 字放行、72 字放行（`python -c` 实测）；short 夹具全部抬到 ≥60 后 `_v22_t4` 27/27、`_v22_t5` 39/39、`_v22_t6` 23/23、`_v22_t9` 19/19 全过。未发现「仍能绕过 ≥60」的剩余开口。
+- **候选 1「JD 短输入能绕过生成」** → **已证伪（真实反例，已修复）**：对齐前前端 gate 为 30 字、后端 `freeze_input` 无下限（PLAN 要求 ≥60）。修复：前端两处升 60 字（[WorkbenchTaskContext.tsx](../../../frontend/src/pages/workbench/WorkbenchTaskContext.tsx) validate、[StepIdentity.tsx](../../../frontend/src/pages/workbench/StepIdentity.tsx) gate+hint），后端 `TaskService._require_jd` 作为 `freeze_input` 权威下限；断言：10 字拒绝（"JD 至少 60 字，当前 10 字"）、60 字放行、72 字放行（`python -c` 实测）；short 夹具全部抬到 ≥60 后 `_v22_t4` 27/27、`_v22_t5` 39/39、`_v22_t6` 23/23、`_v22_t9` 19/19 全过。未发现「仍能绕过 ≥60」的剩余开口。
 
 - **候选 2「viewer 内嵌渲染无取证（pdfjs-absent）」** → **已证伪（真实反例，已修复）**：此前探针 `pdfjs-absent`，viewer 独立于下载取证。修复：探针改为等 `.pdf-preview[data-state=ready]` + ≥1 `.pdf-page__canvas`，实测 `viewer_ready:true, pages:1`；再以同源闭环确认 viewer hash 与下载 PDF sha 一致（`ui_hash16=cbb2e521…` ⊇ 下载 sha 前 16 位）。未再发现 viewer 与下载分叉。
 
@@ -1037,9 +1041,9 @@ artifact 链，不另建第二套。
 
 ### R2-8.2 缺口 2：我的简历真实记录列表（不再只展示当前任务）
 
-- **实现**：新增只读列表端点 `GET /api/task/records`（[task.py](backend/api/routes/task.py)，声明在
+- **实现**：新增只读列表端点 `GET /api/task/records`（[task.py](../../../backend/api/routes/task.py)，声明在
   `GET /{task_id}` 之前避免路径参数捕获），`TaskRepository.list_records()` + `TaskService.list_records()`
-  只返回 `SUCCEEDED` 且已发布 DOCX 原件的任务；[RecordsPage.tsx](frontend/src/pages/RecordsPage.tsx)
+  只返回 `SUCCEEDED` 且已发布 DOCX 原件的任务；[RecordsPage.tsx](../../../frontend/src/pages/RecordsPage.tsx)
   改为拉取列表并按每条记录的 `published_docx_path / published_pdf_path` 渲染真实
   `/api/template/download` 下载链接（与工作台 P4 逐字同源），不再只展示当前任务、也不再伪造历史。
 - **验证**（`_v22_t8_records.py`，TestClient 真实 HTTP 层）：**12 通过 / 0 失败**，exit=0。断言：
@@ -1052,7 +1056,7 @@ artifact 链，不另建第二套。
 
 ### R2-8.3 缺口 3：失败范围重试操作证据（`_v22_range_retry_proof.py`，10/10，exit=0）
 
-- **实现**：在 [task_generation.py](backend/services/task_generation.py) P3 每个完成经历的
+- **实现**：在 [task_generation.py](../../../backend/services/task_generation.py) P3 每个完成经历的
   `update_subtask(SUCCEEDED)` 后新增 `db.commit()`（约 L362-365），使已完成经历的子任务与 Fact 事件
   在整次运行后续失败时不会被 worker 的 `local.rollback()` 回滚，从而被持久化保留。
 - **操作证据**（注入确定性 provider，exp-a 先完整完成并提交、exp-b 首 Fact 延迟 0.25s 后抛
@@ -1064,7 +1068,7 @@ artifact 链，不另建第二套。
     无额外成功产出。实测 `fact_calls=[fact(exp-a), fact(exp-b)]`、`reason_calls=[reason(exp-a/fa1)]`、
     `compact_calls=1`。
 - **现状边界（需决策，不静默缩小范围）**：同一任务「只重试失败范围、不全任务静默重跑」因
-  [core/task.py](backend/core/task.py) `TRANSITIONS[FAILED] = ∅`（FAILED 为终态）而**无法在同一任务上触发**
+  [core/task.py](../../../backend/core/task.py) `TRANSITIONS[FAILED] = ∅`（FAILED 为终态）而**无法在同一任务上触发**
   ——本证明覆盖「失败后已完成范围保留 + 调用仅限失败范围」。若要【同任务直接续跑失败范围】需 P.O. 决策：
   - 选项 A：允许 `RUNNING → FAILED → RUNNING` 复用，且 generate_task 跳过 SUCCEEDED 子任务、复用其
     `fact_results`，只重跑未完成经历（改动状态机 + 增量提交门禁）；
@@ -1271,66 +1275,161 @@ artifact 链，不另建第二套。
 - 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收，不宣称 DOC_ALIGNED / 独立验收通过 / 可发布）。
   交付只报开发侧结果与证据。
 
+## R2-12. Documentation Gate 与独立验收结论
+
+- **Documentation Gate**：`DOC_ALIGNED`。Documentation Agent 只依据批准 PLAN、RESULT、机械身份与
+  证据入口完成交付审查；该结论表示候选具备进入独立验收的文档条件，不替代源码或运行真实性验证。
+- **独立性**：Acceptance Agent 声明未参与候选实现、自测、修复或开发结论编写；验收前后 review 均为
+  detached `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0` 且 tracked/index clean。
+- **首轮结论**：`ACCEPTANCE_BLOCKED`。静态审计通过，但因 review 当时无最终 onedir、受控 ARK Key 与
+  GUI/Word 环境，真实模型、七视口、viewer/双下载与 Integration/Release Gate 为 `NOT_RUN`；未发现代码缺陷。
+- **环境解除**：Documentation Agent 在 review 仓库外准备精确最终包，并核对 4045 files、
+  170,356,413 B、EXE SHA-256
+  `9E6DF063E6056E7847A6FF78F4207BD903CD4A23CA97ACB40EF0D56841FAF9C6`、前端 bundle
+  `index-BrAu-oeZ.js`，同时确认 Microsoft Word、Edge 与 Chrome 可用。
+- **补充运行验收**：同一独立 Acceptance Agent 对同一候选补齐全部 `NOT_RUN`：最终包身份逐项一致；
+  真实模型输入→P1→P4 在 46.6 秒内 `SUCCEEDED`；生成窗口 19 次 chat（`1+2F`）与 1 次 embedding；
+  PDF.js viewer ready 且 1 页 canvas；viewer hash 与下载 PDF SHA-256 前 16 位一致；Word/PDF 双下载、
+  MIME、HEAD=200、Range=206 全部通过；七个冻结视口全部 overflow=0、内部滚动、PDF ready、下载区固位；
+  WINWORD 泄漏与退出后残留进程均为 0。
+- **最终独立验收结论**：`ACCEPTANCE_PASS`。上一轮环境阻断已解除，必做项无 `FAIL/NOT_RUN`；验收结束后
+  HEAD 未变化，review clean，临时副本与隔离 runtime 已清理。
+- **非阻断验收观察**：开发 RESULT 顶部旧候选标签已由 Documentation Agent 在本节收口；最终包运行时
+  对外版本元数据仍报告 `2.1.0`。后者不影响本轮功能/运行验收结论，但属于 V2.2.0 发布阻断：
+  `APP_VERSION` 是入包源码与可执行元数据，任何修正都会按工作流使当前验收失效并要求重新冻结、重建包和
+  复验。故当前状态为“独立验收通过，待版本元数据处置和 Product Owner 人工验收”，不得直接发布。
+- **后续状态**：本节 `ACCEPTANCE_PASS` 仅绑定 `3e156bc`，作为历史验收记录保留。版本元数据源码提交
+  `a2f4f3a` 已使它不再覆盖当前发布候选；当前门禁见 §R2-13、§R2-14。
+
 ---
 
-## R2-12. 仅版本元数据候选（外部 APP_VERSION 2.1.0 → 2.2.0；不改产品功能 / PLAN / 全局文档 / 已冻结设计）
+## R2-13. 仅版本元数据候选（外部 APP_VERSION 2.1.0 → 2.2.0）
 
-> 范围纪律：本候选**只**把对外版本单一真源 `backend/core/version.py` 的 `APP_VERSION` 从 2.1.0 改为 2.2.0，
-> 并同步两个硬编码旧版本的版本元数据测试；**不修改任何产品功能、PLAN、全局文档或已冻结设计**。
-> 未宣称原 `ACCEPTANCE_PASS` 自动继承——新候选必须重新独立验收，本 RESULT 仅报开发侧结果与证据。
+> 本节承接 Development Agent 对新候选的交付声明。范围只包括对外版本单一真源与两个受影响版本断言；
+> 不修改产品功能、PLAN、全局文档或已冻结设计，也不宣称旧 `ACCEPTANCE_PASS` 自动继承。
 
-- **本次改动文件**（相对 3e156bc 完整 diff = **3 files changed, 3 insertions(+), 3 deletions(-)**）：
-  1. `backend/core/version.py` — `APP_VERSION = "2.1.0"` → `"2.2.0"`（唯一真源）；
+- **源码变更**（`3e156bc`→`a2f4f3a`：**3 files changed, 3 insertions(+), 3 deletions(-)**）：
+  1. `backend/core/version.py` — `APP_VERSION = "2.1.0"` → `"2.2.0"`；
   2. `backend/_v201_validation.py` — `/api/health` 版本断言 2.1.0 → 2.2.0；
   3. `backend/_v20_smoke.py` — `/api/health` 版本断言 2.1.0 → 2.2.0。
-- **版本单一真源核对**：`/api/health`、`/api/system/status`、OpenAPI `info.version`、FastAPI `app.version`、
-  `GET /` 回退、`run_stub_demo.py` banner 均从 `core.version.APP_VERSION` 导入；全仓其余 `2.1.0` 为历史注释 /
-  独立 V2.1.0 H6 stub 资产（`_v21_h6_stub.py`），非对外展示源，按约束一律不改。前端无对外版本 UI 展示。
+- **Development Agent 的单一真源声明**：`/api/health`、`/api/system/status`、OpenAPI
+  `info.version`、FastAPI `app.version`、`GET /` 回退和 `run_stub_demo.py` banner 均从
+  `core.version.APP_VERSION` 导入；前端没有独立的对外版本 UI 展示。该声明等待独立验收从源码与运行
+  行为核实。
 
-### R2-12.1 版本元数据测试 + 门禁（全部 exit 0）
+### R2-13.1 开发侧版本测试与门禁
 
-| 门禁 | 命令（仓库根/对应 cwd） | 结果 | 退出码 |
+| 门禁 | 命令（仓库根/对应 cwd） | 开发侧结果 | 退出码 |
 | --- | --- | --- | --- |
 | V2.0 冒烟（含版本断言） | `python _v20_smoke.py`（cwd backend） | PASS=20 FAIL=0 | **0** |
 | V2.0.1 可观测性验证（含版本断言） | `python _v201_validation.py`（cwd backend） | PASS=77 FAIL=0 | **0** |
 | 后端语法 | `python -m compileall main.py manage.py run_stub_demo.py fill_user_data.py api core database models prompts services` | PASS | **0** |
-| 前端正式构建 | `npm run build`（cwd frontend） | PASS（tsc -b + vite，exit 0） | **0** |
-| 统一 precheck | `python scripts/precheck.py` | 阻断全过（compile + 6 零密钥脚本含两版本测试 + 前端 build + lint:hooks） | **0** |
-| 包审计（新包） | `python scripts/h8_package_audit.py --dir dist/ResumeAssistant` | PASS（marker_hits=0 forbidden=0） | **0** |
+| 前端正式构建 | `npm run build`（cwd frontend） | PASS（tsc -b + vite） | **0** |
+| 统一 precheck | `python scripts/precheck.py` | 阻断项通过 | **0** |
+| 包审计 | `python scripts/h8_package_audit.py --dir dist/ResumeAssistant` | PASS（marker_hits=0, forbidden=0） | **0** |
 
-> precheck 的 4 项非阻断报告（ruff 523 / pip-audit 9 / ESLint 21 / npm audit 4）为已知开发基线，如实上报，不影响退出码。
-> `compileall` 在 precheck 内已作为阻断重复执行并 exit 0。
+开发侧同时报告 precheck 的非阻断基线为 ruff 523、pip-audit 9、ESLint 21、npm audit 4；不将这些
+开发结果表述为独立验收结论。
 
-### R2-12.2 新包 clean 重建身份
+### R2-13.2 新包与开发侧隔离运行结果
 
-- **本候选 from clean 源码重建**：前端 `npm run build` → `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
-- **新包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
-  `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`；
-  manifest：PyInstaller onedir，spec `packaging/resume_assistant.spec`，name=ResumeAssistant。
-- 相对重建前基线包（4045 files / 170,356,413 B，EXE `9E6DF063…`）仅字节变化 77B，吻合版本号内嵌变动。
+- clean 重建：前端 `npm run build` →
+  `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+- 新包：onedir `dist/ResumeAssistant/`，**4045 files / 170,356,336 B**；EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`；前端 bundle
+  `index-BrAu-oeZ.js`。
+- 隔离版本端点：开发侧报告 `/api/health.status=ok`、`/api/health.version=2.2.0`、
+  `/api/system/status.version=2.2.0`、`openapi.info.version=2.2.0`。
+- 真实模型 E2E：开发侧报告 `REAL_E2E_EXIT=0`；P1→P4 全通，19 次 chat 与 1 次 embedding 均 200；
+  PDF.js `same_source=true` 且 `ui_hash16=pdf_sha16=173ec575386aaa25`；双下载一致；7 视口通过；
+  `winword` 泄漏为空。以上仍待独立 Acceptance Agent 在精确候选和精确包上复验。
 
-### R2-12.3 新包隔离 runtime 验证（版本端点 + 真实模型 P1→P4 / PDF.js / 双下载 / 进程清理）
+### R2-13.3 新候选身份
 
-- **版本端点**（隔离 temp RESUME_DATA_DIR，剥离 ARK/sqlite/路径注入，直接运行 onedir EXE）：全部报告 **2.2.0**：
-  `/api/health.status=ok`、`/api/health.version=2.2.0`、`/api/system/status.version=2.2.0`、
-  `openapi.info.version=2.2.0`（FastAPI OpenAPI 无顶层 `version`，真源即 `info.version`=APP_VERSION）。
-- **真实模型 E2E**（`python scripts\h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`，隔离 runtime）：
-  **实际退出码 = 0（`REAL_E2E_EXIT=0`，命令级 `$LASTEXITCODE` 捕获）**：
-  - P1→P4 全通：import 4 经验、rebuild 10 embedding 全 VALID、ready=true、`ui_p4_reached`、生成窗口 19 次真实
-    `POST /chat/completions` + 1 次 embedding 均 200；
-  - PDF.js：`pdf_viewer_same_source.same_source=true`，`ui_hash16=pdf_sha16=173ec575386aaa25`（viewer 渲染 PDF 与下载 PDF 同源）；
-  - 双下载一致：`word_download_eq_disk_docx=true`、`pdf_download_eq_disk_pdf=true`、`no_4xx_5xx=true`；
-  - 7 视口 DOM 断言 + 截图全过（`docOv=0, bodyOv=0, pdf=ready, dlLinks=2`）；
-  - 进程清理：`winword` 前后均空、泄漏 `leaked=[]`；`http_health_final=200`。
-  - 产物：`validation-artifacts/h8/e2e/real_model_e2e.json`（gitignored）。
-- 结论：对外版本改为 2.2.0 **未破坏最终纵切**（版本元数据修正不影响产品功能）。
+- **当前唯一冻结候选 H**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`；唯一 parent 为
+  `a2f4f3a3325b46624f05ede48022b06c192903ed`。
+- **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；唯一 parent 为旧验收候选
+  `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`。
+- **批准 PLAN blob**：`e134703ce6e37a2f4d5df389662119f38638fae8`，Revision 2 未变。
+- **相对旧验收候选完整 diff**：`3e156bc..be59acd` = **4 files changed, 66 insertions(+),
+  3 deletions(-)**；其中源码提交本身为 3 files / 3 insertions / 3 deletions，其余为本节开发侧 RESULT。
+- `<current-workspace>` 的 `version/v2.2.0` 在接收时为 clean；本候选不继承旧验收结论。
 
-### R2-12.4 本候选提交身份
+## R2-14. 新候选 Documentation Gate 与复验交接
 
-- **版本元数据源码候选 = `a2f4f3a`**：`feat(v2.2.0): bump public APP_VERSION to 2.2.0 in core.version single source of truth and align version-metadata test assertions`
-  （3 files changed, 3 insertions(+), 3 deletions(-)）。
-- **唯一父提交**：`a2f4f3a` 的 parent = **`3e156bc`**（`git cat-file` 仅 1 条 parent）。
-- **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（Revision 2 未变）。
-- **相对 3e156bc 的完整架构性 diff** = 上述 3 个文件（3 insertions / 3 deletions）；本 RESULT 承载提交另含 R2-12 文档。
-- **澄清**：本候选未继承也不宣称原 `ACCEPTANCE_PASS`；为独立的新候选，必须重新独立验收，本 RESULT 只作开发侧记录。
+- **机械身份**：Documentation Agent 已在 canonical 获取并保护
+  `candidates/v2.2.0/be59acd` → `be59acd268dcfe88ba19fa02be2e12c62d476d77`；父链、PLAN blob、
+  分支和 clean 状态与 §R2-13 一致。
+- **包身份复核与封存**：接收时现场包为 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，与开发交付一致；已逐项复制到
+  `<acceptance-staging>/be59acd`，复制后文件数、总字节与 EXE hash 再次一致。
+- **证据入口封存**：版本端点 JSON、真实模型 E2E JSON 和调用计数 JSON 已从 gitignored
+  `validation-artifacts/` 复制到 `<acceptance-staging>/be59acd-evidence`；SHA-256 依次为
+  `1C03F45698223C44A15772EA45BE1F4E9D82943B109C7C9DF7F9A60E4E855EF0`、
+  `2BBDF0467FB88A82C922494183AD5E17E6DAF544A70907D6DC159E923E205543`、
+  `B05687033F4F90075453CA96CF6D20A938D3A80CAA2FFE7AE40D2B00951CA0D4`。封存只保证接收后身份稳定，
+  不因文件存在即证明开发声明真实。
+- **一次性文档收口**：Documentation Agent 保留旧 §R2-12 的候选绑定，修正顶部候选/包身份，将新
+  开发记录编号为 §R2-13，并区分源码 diff 与最终候选完整 diff；未因纯文档一致性问题退回开发。
+- **Documentation Gate**：`DOC_ALIGNED`。该结论只表示新 RESULT 已具备进入独立验收的条件，不表示
+  源码、运行、包或版本展示已经独立证明正确。
+- **独立验收对象**：固定 review 已 detached 到 `be59acd268dcfe88ba19fa02be2e12c62d476d77`，PLAN blob
+  为 `e134703ce6e37a2f4d5df389662119f38638fae8`，tracked/index clean；唯一 ignored 项 `.workbuddy/` 为
+  Agent 元数据，不参与产品执行。Acceptance Agent 必须未参与本候选实现、自测或修复，并在验收前后
+  核对同一 HEAD 与 clean 状态；会产生写入的验证仍须使用一次性副本和隔离 runtime。
+- **复验范围**：核对版本单一真源及全部正式展示点；重跑受影响版本断言、precheck 与包审计；在精确
+  新包上核对所有版本端点为 2.2.0，并独立复验真实模型 P1→P4、PDF.js 同源、双下载、七视口和进程
+  清理。结论未返回前保持“待验收”，不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布。
 
+## R2-15. 新候选独立复验结论
+
+- **独立性**：Acceptance Agent 声明未参与 `be59acd` 的实现、自测、源码修复或开发结论编写；静态检查
+  在固定 review 中只读完成，动态验证在 review 外的一次性源码副本与隔离 runtime 中执行，未接触或
+  回显模型凭据。
+- **身份绑定**：验收前后 review 均 detached
+  `be59acd268dcfe88ba19fa02be2e12c62d476d77`，tracked/index clean；父链、PLAN blob 与
+  `3e156bc..be59acd` 的 4 files / +66 / -3 完整 diff 均匹配。
+- **静态结论**：产品源码变化仅 `core.version.APP_VERSION` 2.1.0 → 2.2.0，两个测试只同步版本断言，
+  其余变化为开发侧 RESULT；正式版本展示点统一读取 `APP_VERSION`，未发现参与正式展示或打包的
+  2.1.0 残留，也未改变产品功能、PLAN、全局文档、`DS-003`、依赖、配置或打包路线。
+- **包与回归**：精确包为 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，前端 bundle
+  `index-BrAu-oeZ.js`；compileall、两个版本回归、前端 build、precheck 和包审计全部 exit 0，必做项
+  无 `FAIL/NOT_RUN`。
+- **版本端点**：隔离 onedir 实测 `/api/health`、`/api/system/status` 和 OpenAPI `info.version` 均为
+  2.2.0；`GET /` 返回生产 SPA，无参与正式运行的 2.1.0 对外展示。
+- **最终纵切**：受控真实模型 P1→P4 `SUCCEEDED`（46.64s），chat=19、embedding=1；PDF.js ready，
+  viewer 与下载 PDF 同源；Word/PDF 双下载、HEAD/Range、七个冻结视口和进程清理均通过，无 WINWORD
+  或 ResumeAssistant 残留。
+- **cleanup 补充收口**：首份报告误称临时目录已清理，Documentation Agent 现场发现 `_acc_src` 与
+  `_acc_work` 仍存在，因此未采纳当时的 PASS。Acceptance Agent 随后核对绝对路径，只删除这两个临时
+  目录并复核它们已不存在；封存包、封存证据、旧包、canonical、current 和 review 均未改动。文档
+  Agent 再次机械确认保留包文件数/字节/hash 不变、review HEAD/clean 不变且无残留进程。cleanup 修正
+  不改变候选或包，无需重跑已经完成的功能验收。
+- **最终结论**：`ACCEPTANCE_PASS`。新候选的全部必做独立验收项完成，无 `FAIL/NOT_RUN`。下一门禁为
+  Product Owner 使用同一精确包完成人工验收；在此之前不更新 CURRENT_STATE、版本索引、根 README，
+  不集成发布候选、不操作远端 main 或正式 tag。
+
+## R2-16. Product Owner 人工验收打回：Design Fidelity
+
+- **决定**：Product Owner 于 2026-09-19 明确打回 V2.2.0。原因是候选包的界面布局、信息层级和交互
+  逻辑未按冻结 HTML / `DS-003` 主题 A 一比一还原，且偏差覆盖工作台、结果页、我的经历、我的简历、
+  个人与隐私及窄屏回流，不属于可接受的小范围视觉误差。
+- **状态影响**：`be59acd` 的 `ACCEPTANCE_PASS` 只证明已执行的技术、产物与运行门禁，不覆盖 Product
+  Owner 的最终体验验收。人工验收结论阻断发布，因此 RESULT 当前状态为“需修正”；在人工验收通过前
+  不更新 CURRENT_STATE、发布入口或正式版本状态。
+- **不属于开发缺陷的原型内容**：PLAN §3、§10 已明确排除自然语言修改/“开始编辑”、单 Fact 重生成
+  或锁定、主题切换、评审批注、固定 fixture、身份长期回填、P2 人工采用/重排、新上传/OCR/查重、
+  记录回退/批量删除及账户级删除。它们继续隐藏或只保留既有真实能力，不能因“一比一还原”扩张范围。
+- **已确认的实现偏差**：候选在工作台前增加额外 hero，二级页面仍使用旧常驻侧栏；空态/保存态的主
+  操作区与右侧辅助卡偏离冻结布局；P4/成功页未以 PDF 为主视觉，文件元数据与下载动作位置错误；
+  “我的经历”“我的简历”“个人与隐私”未统一到 Theme A 页面壳；390/320/1024 视口出现顶栏换行、
+  操作裁切或步骤标签异常压缩。Task/SSE、Career Memory、记录、PDF.js 与双下载链已存在，以上均属
+  现有模块的呈现或映射错误，不能归因为缺少技术模块。
+- **证据边界**：候选未提供 P1/P2/P3/失败态与冻结场景的完整同尺寸成对证据；既有七视口证据只能证明
+  所测 DOM/overflow 断言，不能据此证明 Design Fidelity。后续判断仍执行 PLAN §7.1 的既有门禁。
+- **合同判定**：本次只是回到已批准 PLAN Revision 2 与 `DS-003` 实施矩阵，未改变产品范围、技术路线、
+  Design Baseline 或强制验收合同，因此不新建 PLAN Revision。开发执行仍以 PLAN 的 V220-R2-T02、
+  T04～T09 与 §7.1 为准；本节只记录人工验收结果和实际偏差，不构成第二份执行合同。
+- **候选有效性**：修正若改变产品代码、依赖、配置、测试、构建或入包文件，按 PLAN §9 冻结新候选，
+  既有验收不继承；重新验收的范围与证据要求仍由 PLAN 决定。
