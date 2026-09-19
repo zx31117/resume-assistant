@@ -1271,3 +1271,66 @@ artifact 链，不另建第二套。
 - 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收，不宣称 DOC_ALIGNED / 独立验收通过 / 可发布）。
   交付只报开发侧结果与证据。
 
+---
+
+## R2-12. 仅版本元数据候选（外部 APP_VERSION 2.1.0 → 2.2.0；不改产品功能 / PLAN / 全局文档 / 已冻结设计）
+
+> 范围纪律：本候选**只**把对外版本单一真源 `backend/core/version.py` 的 `APP_VERSION` 从 2.1.0 改为 2.2.0，
+> 并同步两个硬编码旧版本的版本元数据测试；**不修改任何产品功能、PLAN、全局文档或已冻结设计**。
+> 未宣称原 `ACCEPTANCE_PASS` 自动继承——新候选必须重新独立验收，本 RESULT 仅报开发侧结果与证据。
+
+- **本次改动文件**（相对 3e156bc 完整 diff = **3 files changed, 3 insertions(+), 3 deletions(-)**）：
+  1. `backend/core/version.py` — `APP_VERSION = "2.1.0"` → `"2.2.0"`（唯一真源）；
+  2. `backend/_v201_validation.py` — `/api/health` 版本断言 2.1.0 → 2.2.0；
+  3. `backend/_v20_smoke.py` — `/api/health` 版本断言 2.1.0 → 2.2.0。
+- **版本单一真源核对**：`/api/health`、`/api/system/status`、OpenAPI `info.version`、FastAPI `app.version`、
+  `GET /` 回退、`run_stub_demo.py` banner 均从 `core.version.APP_VERSION` 导入；全仓其余 `2.1.0` 为历史注释 /
+  独立 V2.1.0 H6 stub 资产（`_v21_h6_stub.py`），非对外展示源，按约束一律不改。前端无对外版本 UI 展示。
+
+### R2-12.1 版本元数据测试 + 门禁（全部 exit 0）
+
+| 门禁 | 命令（仓库根/对应 cwd） | 结果 | 退出码 |
+| --- | --- | --- | --- |
+| V2.0 冒烟（含版本断言） | `python _v20_smoke.py`（cwd backend） | PASS=20 FAIL=0 | **0** |
+| V2.0.1 可观测性验证（含版本断言） | `python _v201_validation.py`（cwd backend） | PASS=77 FAIL=0 | **0** |
+| 后端语法 | `python -m compileall main.py manage.py run_stub_demo.py fill_user_data.py api core database models prompts services` | PASS | **0** |
+| 前端正式构建 | `npm run build`（cwd frontend） | PASS（tsc -b + vite，exit 0） | **0** |
+| 统一 precheck | `python scripts/precheck.py` | 阻断全过（compile + 6 零密钥脚本含两版本测试 + 前端 build + lint:hooks） | **0** |
+| 包审计（新包） | `python scripts/h8_package_audit.py --dir dist/ResumeAssistant` | PASS（marker_hits=0 forbidden=0） | **0** |
+
+> precheck 的 4 项非阻断报告（ruff 523 / pip-audit 9 / ESLint 21 / npm audit 4）为已知开发基线，如实上报，不影响退出码。
+> `compileall` 在 precheck 内已作为阻断重复执行并 exit 0。
+
+### R2-12.2 新包 clean 重建身份
+
+- **本候选 from clean 源码重建**：前端 `npm run build` → `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec`，exit=0。
+- **新包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
+  `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`；
+  manifest：PyInstaller onedir，spec `packaging/resume_assistant.spec`，name=ResumeAssistant。
+- 相对重建前基线包（4045 files / 170,356,413 B，EXE `9E6DF063…`）仅字节变化 77B，吻合版本号内嵌变动。
+
+### R2-12.3 新包隔离 runtime 验证（版本端点 + 真实模型 P1→P4 / PDF.js / 双下载 / 进程清理）
+
+- **版本端点**（隔离 temp RESUME_DATA_DIR，剥离 ARK/sqlite/路径注入，直接运行 onedir EXE）：全部报告 **2.2.0**：
+  `/api/health.status=ok`、`/api/health.version=2.2.0`、`/api/system/status.version=2.2.0`、
+  `openapi.info.version=2.2.0`（FastAPI OpenAPI 无顶层 `version`，真源即 `info.version`=APP_VERSION）。
+- **真实模型 E2E**（`python scripts\h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`，隔离 runtime）：
+  **实际退出码 = 0（`REAL_E2E_EXIT=0`，命令级 `$LASTEXITCODE` 捕获）**：
+  - P1→P4 全通：import 4 经验、rebuild 10 embedding 全 VALID、ready=true、`ui_p4_reached`、生成窗口 19 次真实
+    `POST /chat/completions` + 1 次 embedding 均 200；
+  - PDF.js：`pdf_viewer_same_source.same_source=true`，`ui_hash16=pdf_sha16=173ec575386aaa25`（viewer 渲染 PDF 与下载 PDF 同源）；
+  - 双下载一致：`word_download_eq_disk_docx=true`、`pdf_download_eq_disk_pdf=true`、`no_4xx_5xx=true`；
+  - 7 视口 DOM 断言 + 截图全过（`docOv=0, bodyOv=0, pdf=ready, dlLinks=2`）；
+  - 进程清理：`winword` 前后均空、泄漏 `leaked=[]`；`http_health_final=200`。
+  - 产物：`validation-artifacts/h8/e2e/real_model_e2e.json`（gitignored）。
+- 结论：对外版本改为 2.2.0 **未破坏最终纵切**（版本元数据修正不影响产品功能）。
+
+### R2-12.4 本候选提交身份
+
+- **版本元数据源码候选 = `a2f4f3a`**：`feat(v2.2.0): bump public APP_VERSION to 2.2.0 in core.version single source of truth and align version-metadata test assertions`
+  （3 files changed, 3 insertions(+), 3 deletions(-)）。
+- **唯一父提交**：`a2f4f3a` 的 parent = **`3e156bc`**（`git cat-file` 仅 1 条 parent）。
+- **PLAN blob**：`docs/versions/v2.2.0/PLAN.md` = `e134703ce6e37a2f4d5df389662119f38638fae8`（Revision 2 未变）。
+- **相对 3e156bc 的完整架构性 diff** = 上述 3 个文件（3 insertions / 3 deletions）；本 RESULT 承载提交另含 R2-12 文档。
+- **澄清**：本候选未继承也不宣称原 `ACCEPTANCE_PASS`；为独立的新候选，必须重新独立验收，本 RESULT 只作开发侧记录。
+
