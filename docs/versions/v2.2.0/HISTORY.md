@@ -285,3 +285,23 @@
   `version/v2.2.0` 上继续；不得跟随 Design 工作稿，也不得把最终包真实纵切转给独立验收代跑。
 - 批准收口 commit：`e3c68ac7405abe3a70e807b22d51a25ddb80731f`；当前已批准 PLAN blob：
   `e134703ce6e37a2f4d5df389662119f38638fae8`。
+
+## VH-015 Revision 2 候选完成独立验收，发现发布版本元数据阻断
+
+- 日期：2026-09-19
+- 阶段：V2.2.0 Revision 2 独立验收 → 待发布前处置
+- 候选身份：`3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`；批准 PLAN blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8`；Documentation Gate 为 `DOC_ALIGNED`。
+- 验收过程：首轮静态审计通过，但因最终包、真实模型凭据和 GUI/Word 环境不可用而
+  `ACCEPTANCE_BLOCKED`。环境解除后，同一独立 Acceptance Agent 在同一候选上补齐最终包身份、真实模型
+  纵切、PDF.js/双下载、七视口、Word COM 与 Integration/Release Gate，最终结论为
+  `ACCEPTANCE_PASS`；验收前后 review HEAD 未变化且 clean。
+- 验收事实：最终包为 4045 files / 170,356,413 B；EXE SHA-256
+  `9E6DF063E6056E7847A6FF78F4207BD903CD4A23CA97ACB40EF0D56841FAF9C6`；真实模型 P1→P4
+  `SUCCEEDED`；viewer 与下载 PDF 同源；Word/PDF 双下载、七视口和进程清理均通过。
+- 发布阻断：最终包对外版本元数据仍报告 `2.1.0`。该字段由 `core.version.APP_VERSION` 提供并进入产品包；
+  若改为 `2.2.0`，属于验收后入包源码/可执行元数据变化，当前验收按工作流自动失效。不得把版本 bump 当作
+  纯文档发布动作，也不得在当前包上继续人工验收或发布。
+- 下一步：由 Development Agent 在原 PLAN 范围内完成版本元数据单点修正、受影响回归与 clean onedir
+  重建，冻结新候选；Documentation Agent 重新完成机械接收，独立 Acceptance Agent 对新包复验。无需修改
+  PLAN，也不更新 CURRENT_STATE、版本索引、根 README、远端 main 或正式 tag。

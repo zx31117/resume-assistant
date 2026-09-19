@@ -1,32 +1,32 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**候选冻结（开发侧）** — `REV2_DEV_VERIFIED`（本轮唯一冻结候选 = `0cc444e`，见下）
+> 当前状态：**独立验收通过，待 Product Owner 人工验收** — `ACCEPTANCE_PASS`
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
-> 进入第二批实现，已收口至 `REV2_DEV_VERIFIED`（候选冻结，H2 形成）。
+> 进入第二批实现并形成冻结候选；Documentation Gate 与独立源码/运行验收均已完成。
 
-> **唯一冻结候选（候选，全部开发 Gate 完成并提交）**：
+> **独立验收绑定的唯一冻结候选**：
 >
-> - **本轮唯一冻结候选 = HEAD `0cc444e`**：`docs(v2.2.0): record H3 dev-side closure - six-grid real-model matrix + rebuilt onedir E2E`（包含全部源码收口 + 六格矩阵运行脚本与证据 + RESULT）
+> - **候选 commit**：`3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`（包含全部产品源码、验证脚本、六格矩阵证据和开发侧 RESULT）
 >
-> - **源码候选（其父）** `b70d6e6`：`feat(v2.2.0): user-operable failed-scope continuation task (reuse done, retry only failed) + proof`（续试收口实现）
+> - **最后产品源码提交**：`b70d6e69b461907f837d365e6ce779b036e3ea80`；其后至 `3e156bc` 仅验证脚本、证据和 RESULT 变化，不改变产品源码或最终 onedir 内容
 >
-> - **唯一父提交**：`0cc444e` 的 parent = `b70d6e6`（`git cat-file` 仅 1 条 parent）
+> - **候选唯一父提交**：`fbfdea0aa328d1db5d76e6b8113daf3a74ebbfdc`；候选历史为线性单父链
 >
-> - **相对 H（`47ae33e`）完整 diff**：**43 files changed, 5785 insertions(+), 162 deletions(-)**
->   （`47ae33e`→`0cc444e` 实测 `git diff --shortstat`；含续试实现、六格运行脚本与证据 JSON）
+> - **相对批准基线 H（`47ae33e`）完整 diff**：**43 files changed, 9707 insertions(+), 163 deletions(-)**
+>   （`47ae33e`→`3e156bc` 实测 `git diff --shortstat`）
 >
 > - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,413 B**）；EXE SHA-256
 >   `9E6DF063E6056E78 47A6FF78F4207BD9 03CD4A23CA97ACB4 0EF0D56841FAF9C6`；前端 bundle `index-BrAu-oeZ.js`
 >
 > - **工作区**：clean（`git status --porcelain` 空）
 >
-> - **顶部状态**：`REV2_DEV_VERIFIED`（开发侧全部交付项完成、候选冻结；不代表独立验收/可发布）
+> - **验收状态**：`DOC_ALIGNED`、`ACCEPTANCE_PASS`；尚未进行 Product Owner 人工验收，尚不可发布
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1271,3 +1271,26 @@ artifact 链，不另建第二套。
 - 顶部状态：`REV2_DEV_VERIFIED`（候选冻结语义，非独立验收，不宣称 DOC_ALIGNED / 独立验收通过 / 可发布）。
   交付只报开发侧结果与证据。
 
+## R2-12. Documentation Gate 与独立验收结论
+
+- **Documentation Gate**：`DOC_ALIGNED`。Documentation Agent 只依据批准 PLAN、RESULT、机械身份与
+  证据入口完成交付审查；该结论表示候选具备进入独立验收的文档条件，不替代源码或运行真实性验证。
+- **独立性**：Acceptance Agent 声明未参与候选实现、自测、修复或开发结论编写；验收前后 review 均为
+  detached `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0` 且 tracked/index clean。
+- **首轮结论**：`ACCEPTANCE_BLOCKED`。静态审计通过，但因 review 当时无最终 onedir、受控 ARK Key 与
+  GUI/Word 环境，真实模型、七视口、viewer/双下载与 Integration/Release Gate 为 `NOT_RUN`；未发现代码缺陷。
+- **环境解除**：Documentation Agent 在 review 仓库外准备精确最终包，并核对 4045 files、
+  170,356,413 B、EXE SHA-256
+  `9E6DF063E6056E7847A6FF78F4207BD903CD4A23CA97ACB40EF0D56841FAF9C6`、前端 bundle
+  `index-BrAu-oeZ.js`，同时确认 Microsoft Word、Edge 与 Chrome 可用。
+- **补充运行验收**：同一独立 Acceptance Agent 对同一候选补齐全部 `NOT_RUN`：最终包身份逐项一致；
+  真实模型输入→P1→P4 在 46.6 秒内 `SUCCEEDED`；生成窗口 19 次 chat（`1+2F`）与 1 次 embedding；
+  PDF.js viewer ready 且 1 页 canvas；viewer hash 与下载 PDF SHA-256 前 16 位一致；Word/PDF 双下载、
+  MIME、HEAD=200、Range=206 全部通过；七个冻结视口全部 overflow=0、内部滚动、PDF ready、下载区固位；
+  WINWORD 泄漏与退出后残留进程均为 0。
+- **最终独立验收结论**：`ACCEPTANCE_PASS`。上一轮环境阻断已解除，必做项无 `FAIL/NOT_RUN`；验收结束后
+  HEAD 未变化，review clean，临时副本与隔离 runtime 已清理。
+- **非阻断验收观察**：开发 RESULT 顶部旧候选标签已由 Documentation Agent 在本节收口；最终包运行时
+  对外版本元数据仍报告 `2.1.0`。后者不影响本轮功能/运行验收结论，但属于 V2.2.0 发布阻断：
+  `APP_VERSION` 是入包源码与可执行元数据，任何修正都会按工作流使当前验收失效并要求重新冻结、重建包和
+  复验。故当前状态为“独立验收通过，待版本元数据处置和 Product Owner 人工验收”，不得直接发布。
