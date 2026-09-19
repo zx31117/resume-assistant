@@ -1359,16 +1359,23 @@ artifact 链，不另建第二套。
 - **机械身份**：Documentation Agent 已在 canonical 获取并保护
   `candidates/v2.2.0/be59acd` → `be59acd268dcfe88ba19fa02be2e12c62d476d77`；父链、PLAN blob、
   分支和 clean 状态与 §R2-13 一致。
-- **包身份复核**：接收时现场包为 4045 files / 170,356,336 B，EXE SHA-256
-  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，与开发交付一致。
-- **证据入口**：版本端点 JSON、真实模型 E2E JSON 和调用计数 JSON 均存在；它们位于 gitignored
-  `validation-artifacts/`，只作为待封存、待独立核实的入口，不因存在即证明声明真实。
+- **包身份复核与封存**：接收时现场包为 4045 files / 170,356,336 B，EXE SHA-256
+  `4C66F8B9464FF9835AB13E0AE22BCDE2BF7F5A5AA00EC2A3BC45BB232782156C`，与开发交付一致；已逐项复制到
+  `<acceptance-staging>/be59acd`，复制后文件数、总字节与 EXE hash 再次一致。
+- **证据入口封存**：版本端点 JSON、真实模型 E2E JSON 和调用计数 JSON 已从 gitignored
+  `validation-artifacts/` 复制到 `<acceptance-staging>/be59acd-evidence`；SHA-256 依次为
+  `1C03F45698223C44A15772EA45BE1F4E9D82943B109C7C9DF7F9A60E4E855EF0`、
+  `2BBDF0467FB88A82C922494183AD5E17E6DAF544A70907D6DC159E923E205543`、
+  `B05687033F4F90075453CA96CF6D20A938D3A80CAA2FFE7AE40D2B00951CA0D4`。封存只保证接收后身份稳定，
+  不因文件存在即证明开发声明真实。
 - **一次性文档收口**：Documentation Agent 保留旧 §R2-12 的候选绑定，修正顶部候选/包身份，将新
   开发记录编号为 §R2-13，并区分源码 diff 与最终候选完整 diff；未因纯文档一致性问题退回开发。
 - **Documentation Gate**：`DOC_ALIGNED`。该结论只表示新 RESULT 已具备进入独立验收的条件，不表示
   源码、运行、包或版本展示已经独立证明正确。
-- **独立验收对象**：review 必须 detached 到 `be59acd268dcfe88ba19fa02be2e12c62d476d77`；Acceptance
-  Agent 必须未参与本候选实现、自测或修复，并在验收前后核对同一 HEAD 与 clean 状态。
+- **独立验收对象**：固定 review 已 detached 到 `be59acd268dcfe88ba19fa02be2e12c62d476d77`，PLAN blob
+  为 `e134703ce6e37a2f4d5df389662119f38638fae8`，tracked/index clean；唯一 ignored 项 `.workbuddy/` 为
+  Agent 元数据，不参与产品执行。Acceptance Agent 必须未参与本候选实现、自测或修复，并在验收前后
+  核对同一 HEAD 与 clean 状态；会产生写入的验证仍须使用一次性副本和隔离 runtime。
 - **复验范围**：核对版本单一真源及全部正式展示点；重跑受影响版本断言、precheck 与包审计；在精确
   新包上核对所有版本端点为 2.2.0，并独立复验真实模型 P1→P4、PDF.js 同源、双下载、七视口和进程
   清理。结论未返回前保持“待验收”，不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布。

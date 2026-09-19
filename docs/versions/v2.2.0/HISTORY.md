@@ -323,5 +323,7 @@
 - 文档收口：Documentation Agent 在 canonical 保护本地候选引用
   `candidates/v2.2.0/be59acd`，一次性修正 RESULT 顶部身份、章节编号、源码/完整 diff 与包身份；
   Documentation Gate 为 `DOC_ALIGNED`，不把开发自测升级为独立验收。
-- 下一步：将固定 review detached 到 `be59acd`，由未参与实现、自测或修复的 Acceptance Agent 对精确
-  候选与精确新包完成独立复验。复验通过前不进行 Product Owner 人工验收、全局文档收口或发布。
+- 验收准备：精确新包与三份开发证据已复制到独立验收暂存区并复核 hash；固定 review 已 detached 到
+  `be59acd`，PLAN blob 一致且 tracked/index clean。
+- 下一步：由未参与实现、自测或修复的 Acceptance Agent 对精确候选与精确新包完成独立复验。复验通过
+  前不进行 Product Owner 人工验收、全局文档收口或发布。
