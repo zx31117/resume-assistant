@@ -20,6 +20,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import time
 from datetime import datetime as _dt
 from pathlib import Path
@@ -27,6 +28,176 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
+
+
+# ── 调用遥测（不修改产品源码；仅在本验证脚本进程内包裹 LLM 调用采集） ─────
+# 目标：每样本记录 cell/sample/status、F、逻辑调用数(==1+2F)、每逻辑调用的 HTTP attempt、
+#       重试原因(无则空数组)、embedding 调用数，以及每次请求的 completion token 上限；
+#       若 Ark 响应用例含 usage 则记录 prompt/completion/total，否则 usage_available=false
+#       并保留"响应确实无 usage"的原始字段证据（数据来源：llm_service.LLMCallRecord 已返回
+#       stage/attempts/retry_reasons/completion_tokens；raw usage 需在 build_task_llm 层捕获）。
+# 遥测累计使用模块级全局（跨线程共享）：run_generation 在独立 worker 线程发 LLM 调用，
+# 而 _tel_snapshot() 在主线程读取，故不能放在 threading.local() 上（各线程存储独立）。
+# _TEL_ROOT 仅保留"当前逻辑调用"追踪（worker 线程内嵌套调用，involve 捕获与 _wrapped_invoke_obs 同线程）。
+_TEL_ROOT = threading.local()
+_TEL_LOCK = threading.Lock()
+_TEL_CALLS: list = []          # 每逻辑调用：{stage, attempts, retry_reasons, completion_tokens, usage}
+_TEL_EMBED = 0                 # 每逻辑任务内 embedding HTTP 调用计数
+_TEL_DONE = {"v": False}
+
+
+def _install_telemetry():
+    """包裹 llm_service.invoke_observed_json + build_task_llm + embedding，采集调用遥测。
+
+    幂等；仅在本脚本进程（含 cold 子进程）生效，不改 product 源码。
+    """
+    if _TEL_DONE["v"]:
+        return
+    import services.llm_service as _llmsvc
+    import services.embedding_service as _emb
+
+    _orig_invoke_obs = _llmsvc.invoke_observed_json
+    _orig_build_task = _llmsvc.build_task_llm
+
+    class _TelCapturingLLM:
+        """委托真实 ChatOpenAI，仅在 invoke 返回后采集 usage_metadata。
+
+        注意不能对 ChatOpenAI 直接 `llm.invoke = fn` 赋值——它是 Pydantic 模型，
+        会抛 'ChatOpenAI object has no field "invoke"'。故以代理对象包装，把 invoke
+        委托给内部模型；LCEL `prompt | llm` 只要求可调用 .invoke，其余属性经 __getattr__ 透传。
+        """
+
+        def __init__(self, inner):
+            self.__inner = inner
+
+        # LCEL `prompt | llm` 会把 `llm` 经 coerce_to_runnable 归一化，只接受 Runnable /
+        # callable / dict；故实现 __call__，让代理以 callable 被包成 RunnableLambda 后调用。
+        def __call__(self, messages, *a, **k):
+            return self.invoke(messages, *a, **k)
+
+        def invoke(self, messages, *a, **k):
+            resp = self.__inner.invoke(messages, *a, **k)
+            um = getattr(resp, "usage_metadata", None) or {}
+            cur = getattr(_TEL_ROOT, "current", None)
+            if cur is not None:
+                cur.setdefault("raw_usage", []).append({
+                    "has_usage": bool(um),
+                    "usage_metadata": dict(um) if isinstance(um, dict) else
+                                      (um.model_dump() if hasattr(um, "model_dump") else str(um)),
+                })
+            return resp
+
+        def __getattr__(self, name):
+            return getattr(self.__inner, name)
+
+    def _wrapped_build_task(*, max_tokens: int, temperature: float = 0.0, timeout: float = 300):
+        llm = _orig_build_task(max_tokens=max_tokens, temperature=temperature, timeout=timeout)
+        return _TelCapturingLLM(llm)
+
+    def _finalize_invoke_rec(rec_entry: dict, rec) -> None:
+        """把 LLMCallRecord 与各 attempt 的原始 usage 落盘到 rec_entry（可调用后无法获得
+        LLMCallRecord 的失败路径也尽力保留已发 attempt 的 raw usage）；最后追加到遥测列表。"""
+        raws = rec_entry.pop("raw_usage", []) or []
+        rec_entry["attempts_done"] = len(raws)  # 实际发出的 HTTP attempt（成功即停）
+        if rec is not None:
+            rec_entry["attempts"] = rec.attempts
+            rec_entry["retry_reasons"] = list(rec.retry_reasons)
+            rec_entry["completion_tokens"] = rec.completion_tokens
+        elif not raws:
+            rec_entry["attempts"] = 0
+            rec_entry["retry_reasons"] = []
+            rec_entry["completion_tokens"] = 0
+        have = [r for r in raws if r.get("has_usage")]
+        if have:
+            rec_entry["usage_available"] = True
+            last = have[-1]
+            um = last.get("usage_metadata") or {}
+            rec_entry["usage"] = {
+                "prompt_tokens": um.get("input_tokens"),
+                "completion_tokens": um.get("output_tokens"),
+                "total_tokens": um.get("total_tokens"),
+            }
+        else:
+            rec_entry["usage_available"] = False
+            rec_entry["usage"] = None
+            # 保留"响应确实无 usage"证据：最后一次 attempt 的原始 usage_metadata 形态
+            rec_entry["no_usage_evidence"] = [r.get("usage_metadata") for r in raws[-3:]]
+        with _TEL_LOCK:
+            _TEL_CALLS.append(rec_entry)
+
+    def _wrapped_invoke_obs(system, user_template, *, max_tokens, budget, stage, variables=None,
+                            validate=None, embedder=None, provider=None):
+        rec_entry = {"stage": stage, "attempts": 0, "retry_reasons": [], "completion_tokens": 0,
+                     "max_tokens": max_tokens, "usage_available": False, "usage": None,
+                     "raw_usage": []}
+        prev = getattr(_TEL_ROOT, "current", None)
+        _TEL_ROOT.current = rec_entry
+        try:
+            data, rec = _orig_invoke_obs(system, user_template, max_tokens=max_tokens,
+                                         budget=budget, stage=stage, variables=variables,
+                                         validate=validate, embedder=embedder, provider=provider)
+        except BaseException:
+            _finalize_invoke_rec(rec_entry, None)
+            raise
+        finally:
+            _TEL_ROOT.current = prev
+        _finalize_invoke_rec(rec_entry, rec)
+        return data, rec
+
+    def _wrapped_embed(text):
+        global _TEL_EMBED
+        with _TEL_LOCK:
+            _TEL_EMBED += 1
+        return _orig_embed(text)
+
+    _llmsvc.invoke_observed_json = _wrapped_invoke_obs
+    _llmsvc.build_task_llm = _wrapped_build_task
+    _orig_embed = _emb._embed_text
+    _emb._embed_text = _wrapped_embed
+    _TEL_DONE["v"] = True
+
+
+def _tel_snapshot() -> dict:
+    """取当前任务遥测快照并复位，返回可序列化结构；按 completion 上限汇总。"""
+    global _TEL_CALLS, _TEL_EMBED
+    with _TEL_LOCK:
+        calls = list(_TEL_CALLS)
+        embed = _TEL_EMBED
+        _TEL_CALLS.clear()
+        _TEL_EMBED = 0
+    f_count = sum(1 for c in calls if c.get("stage") == "fact")
+    per_attempt_caps = [int(c.get("max_tokens") or 0) for c in calls]
+    completion = [int(c.get("completion_tokens") or 0) for c in calls]
+    return {
+        "F": f_count,
+        "logical_calls": len(calls),
+        "logical_calls_expected_1_plus_2F": 1 + 2 * f_count,
+        "logical_calls_eq_1_plus_2F": len(calls) == 1 + 2 * f_count,
+        "calls": [
+            {k: c[k] for k in ("stage", "attempts", "attempts_done", "retry_reasons",
+                               "max_tokens", "usage_available", "usage", "no_usage_evidence")
+             if k in c}
+            for c in calls
+        ],
+        "max_attempts_any_logical_call": max((int(c.get("attempts") or 0) for c in calls), default=0),
+        "attempts_all_le_3": all(int(c.get("attempts") or 0) <= 3 for c in calls),
+        # 成功响应后不得继续重试：retry_reasons 只在失败的 attempt 追加（llm_service 成功即返回）。
+        # 故每个逻辑调用重试次数必须严格小于 attempts（终末成功 attempt 上不可能记录任何重试）。
+        "no_retry_after_success": all(
+            len(c.get("retry_reasons") or []) < (int(c.get("attempts") or 1))
+            for c in calls),
+        # 交叉核对：每个逻辑调用实际发出的 HTTP attempt（raw usage 计数）须等于 llm_service 返回的 attempts
+        "attempts_done_eq_attempts": all(
+            int(c.get("attempts_done") or 0) == int(c.get("attempts") or 0) for c in calls),
+        "embedding_calls": embed,
+        "embedding_in_0_or_1": embed in (0, 1),
+        "completion_token_usage": sum(completion),
+        "completion_token_request_caps": {f"n={v}": per_attempt_caps.count(v) for v in sorted(set(per_attempt_caps))},
+        "completion_token_cap_per_call": {f"stage={c.get('stage')}": int(c.get("max_tokens") or 0) for c in calls},
+        "task_completion_limit_16k": 16 * 1024,
+        "completion_le_16k": sum(completion) <= 16 * 1024,
+    }
+
 
 _ENV_KEY = "RESUME_DATA_DIR"
 
@@ -133,6 +304,7 @@ def _jd(size: str) -> str:
 
 def _run_one(datadir: str, size: str, seed: bool) -> dict:
     os.environ[_ENV_KEY] = datadir
+    _install_telemetry()
     from database import migrations as mig
     from database.models import Task, TaskEvent, InputRevision
     from database.session import SessionLocal, engine
@@ -161,6 +333,10 @@ def _run_one(datadir: str, size: str, seed: bool) -> dict:
                      location="北京", jd=jd)
     svc.start_task(tid)
 
+    # 丢弃种子/重建阶段产生的 embedding 遥测（属于测试准备，不计入"生成期"），
+    # 使随后快照仅覆盖 run_generation 期间的 LLM 调用 + 在线 JD embedding（0 或 1 次）。
+    _tel_snapshot()
+
     t0 = _dt.utcnow().timestamp()   # 与事件 created_at(naive utc) 同基
     t0_ns = time.perf_counter_ns()
     svc.run_generation(tid)
@@ -182,9 +358,10 @@ def _run_one(datadir: str, size: str, seed: bool) -> dict:
             first_fact_s = round(e.created_at.timestamp() - t0, 2)
         if e.event_type == "reason.delta" and first_reason_s is None:
             first_reason_s = round(e.created_at.timestamp() - t0, 2)
+    tel = _tel_snapshot()
     db.close()
     return {"status": final, "first_fact_s": first_fact_s,
-            "first_reason_s": first_reason_s, "total_s": total_s}
+            "first_reason_s": first_reason_s, "total_s": total_s, "telemetry": tel}
 
 
 def _usage():

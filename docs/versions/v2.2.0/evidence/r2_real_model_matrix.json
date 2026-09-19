@@ -1,166 +1,3850 @@
 {
   "engine": "real-model deepseek-v4-pro-ga-260813 (credential-manager key)",
   "cells": 3,
-  "elapsed_s": 1367.3,
+  "elapsed_s": 674.1,
   "samples": [
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 10.67,
-      "first_reason_s": 12.78,
-      "total_s": 32.74,
+      "first_fact_s": 9.49,
+      "first_reason_s": 11.71,
+      "total_s": 25.52,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 132,
+              "total_tokens": 591
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 614,
+              "completion_tokens": 80,
+              "total_tokens": 694
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 376,
+              "completion_tokens": 45,
+              "total_tokens": 421
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 624,
+              "completion_tokens": 85,
+              "total_tokens": 709
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 53,
+              "total_tokens": 434
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 395,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
       "size": "short",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 11.0,
-      "first_reason_s": 13.32,
-      "total_s": 33.94,
+      "first_fact_s": 5.0,
+      "first_reason_s": 7.18,
+      "total_s": 18.08,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 124,
+              "total_tokens": 583
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 606,
+              "completion_tokens": 83,
+              "total_tokens": 689
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 58,
+              "total_tokens": 437
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 616,
+              "completion_tokens": 85,
+              "total_tokens": 701
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 52,
+              "total_tokens": 433
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 402,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
       "size": "short",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 11.26,
-      "first_reason_s": 13.23,
+      "first_fact_s": 5.44,
+      "first_reason_s": 7.48,
+      "total_s": 18.88,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 128,
+              "total_tokens": 587
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 610,
+              "completion_tokens": 79,
+              "total_tokens": 689
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 56,
+              "total_tokens": 431
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 620,
+              "completion_tokens": 85,
+              "total_tokens": 705
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 53,
+              "total_tokens": 434
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 401,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "short",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 5.6,
+      "first_reason_s": 8.18,
+      "total_s": 19.09,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 124,
+              "total_tokens": 583
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 606,
+              "completion_tokens": 91,
+              "total_tokens": 697
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 387,
+              "completion_tokens": 68,
+              "total_tokens": 455
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 616,
+              "completion_tokens": 85,
+              "total_tokens": 701
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 53,
+              "total_tokens": 434
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 421,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "short",
+      "mode": "warm",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 5.21,
+      "first_reason_s": 6.98,
+      "total_s": 18.09,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 133,
+              "total_tokens": 592
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 615,
+              "completion_tokens": 79,
+              "total_tokens": 694
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 56,
+              "total_tokens": 431
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 625,
+              "completion_tokens": 85,
+              "total_tokens": 710
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 56,
+              "total_tokens": 437
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 409,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "short",
+      "mode": "warm",
+      "sample": 2
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 5.87,
+      "first_reason_s": 8.23,
+      "total_s": 19.17,
+      "telemetry": {
+        "F": 2,
+        "logical_calls": 5,
+        "logical_calls_expected_1_plus_2F": 5,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 459,
+              "completion_tokens": 128,
+              "total_tokens": 587
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 610,
+              "completion_tokens": 90,
+              "total_tokens": 700
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 386,
+              "completion_tokens": 74,
+              "total_tokens": 460
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 620,
+              "completion_tokens": 85,
+              "total_tokens": 705
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 55,
+              "total_tokens": 436
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 432,
+        "completion_token_request_caps": {
+          "n=256": 2,
+          "n=800": 2,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "short",
+      "mode": "warm",
+      "sample": 3
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 6.5,
+      "first_reason_s": 8.39,
+      "total_s": 29.15,
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 221,
+              "total_tokens": 723
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 79,
+              "total_tokens": 785
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 716,
+              "completion_tokens": 87,
+              "total_tokens": 803
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 58,
+              "total_tokens": 438
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 61,
+              "total_tokens": 449
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 707,
+              "completion_tokens": 82,
+              "total_tokens": 789
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 711,
+              "completion_tokens": 83,
+              "total_tokens": 794
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 383,
+              "completion_tokens": 59,
+              "total_tokens": 442
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 384,
+              "completion_tokens": 67,
+              "total_tokens": 451
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 84,
+              "total_tokens": 790
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 726,
+              "completion_tokens": 95,
+              "total_tokens": 821
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 385,
+              "completion_tokens": 55,
+              "total_tokens": 440
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 396,
+              "completion_tokens": 65,
+              "total_tokens": 461
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 742,
+              "completion_tokens": 110,
+              "total_tokens": 852
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 411,
+              "completion_tokens": 69,
+              "total_tokens": 480
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1275,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 6.12,
+      "first_reason_s": 8.44,
+      "total_s": 30.15,
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 233,
+              "total_tokens": 735
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 718,
+              "completion_tokens": 79,
+              "total_tokens": 797
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 728,
+              "completion_tokens": 87,
+              "total_tokens": 815
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 50,
+              "total_tokens": 430
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 61,
+              "total_tokens": 449
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 719,
+              "completion_tokens": 77,
+              "total_tokens": 796
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 723,
+              "completion_tokens": 83,
+              "total_tokens": 806
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 378,
+              "completion_tokens": 72,
+              "total_tokens": 450
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 384,
+              "completion_tokens": 69,
+              "total_tokens": 453
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 718,
+              "completion_tokens": 88,
+              "total_tokens": 806
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 738,
+              "completion_tokens": 98,
+              "total_tokens": 836
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 399,
+              "completion_tokens": 64,
+              "total_tokens": 463
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 389,
+              "completion_tokens": 57,
+              "total_tokens": 446
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 754,
+              "completion_tokens": 110,
+              "total_tokens": 864
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 411,
+              "completion_tokens": 79,
+              "total_tokens": 490
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1307,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
+      "mode": "cold",
+      "sample": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "first_fact_s": 7.0,
+      "first_reason_s": 9.43,
       "total_s": 31.14,
-      "size": "short",
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 221,
+              "total_tokens": 723
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 716,
+              "completion_tokens": 87,
+              "total_tokens": 803
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 79,
+              "total_tokens": 785
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 61,
+              "total_tokens": 449
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 58,
+              "total_tokens": 438
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 711,
+              "completion_tokens": 83,
+              "total_tokens": 794
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 707,
+              "completion_tokens": 82,
+              "total_tokens": 789
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 384,
+              "completion_tokens": 69,
+              "total_tokens": 453
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 383,
+              "completion_tokens": 59,
+              "total_tokens": 442
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 85,
+              "total_tokens": 791
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 726,
+              "completion_tokens": 98,
+              "total_tokens": 824
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 386,
+              "completion_tokens": 55,
+              "total_tokens": 441
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 399,
+              "completion_tokens": 62,
+              "total_tokens": 461
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 742,
+              "completion_tokens": 110,
+              "total_tokens": 852
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 411,
+              "completion_tokens": 67,
+              "total_tokens": 478
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1276,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 9.12,
-      "first_reason_s": 11.48,
-      "total_s": 31.12,
-      "size": "short",
+      "first_fact_s": 6.64,
+      "first_reason_s": 9.06,
+      "total_s": 29.94,
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 209,
+              "total_tokens": 711
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 704,
+              "completion_tokens": 87,
+              "total_tokens": 791
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 694,
+              "completion_tokens": 79,
+              "total_tokens": 773
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 376,
+              "completion_tokens": 58,
+              "total_tokens": 434
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 384,
+              "completion_tokens": 74,
+              "total_tokens": 458
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 695,
+              "completion_tokens": 76,
+              "total_tokens": 771
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 699,
+              "completion_tokens": 83,
+              "total_tokens": 782
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 65,
+              "total_tokens": 445
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 373,
+              "completion_tokens": 69,
+              "total_tokens": 442
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 694,
+              "completion_tokens": 84,
+              "total_tokens": 778
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 714,
+              "completion_tokens": 95,
+              "total_tokens": 809
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 53,
+              "total_tokens": 434
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 392,
+              "completion_tokens": 55,
+              "total_tokens": 447
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 730,
+              "completion_tokens": 110,
+              "total_tokens": 840
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 407,
+              "completion_tokens": 51,
+              "total_tokens": 458
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1248,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
       "mode": "warm",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 10.15,
-      "first_reason_s": 11.98,
-      "total_s": 32.74,
-      "size": "short",
+      "first_fact_s": 6.59,
+      "first_reason_s": 8.83,
+      "total_s": 29.95,
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 210,
+              "total_tokens": 712
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 705,
+              "completion_tokens": 88,
+              "total_tokens": 793
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 695,
+              "completion_tokens": 84,
+              "total_tokens": 779
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 385,
+              "completion_tokens": 55,
+              "total_tokens": 440
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 52,
+              "total_tokens": 433
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 700,
+              "completion_tokens": 82,
+              "total_tokens": 782
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 696,
+              "completion_tokens": 81,
+              "total_tokens": 777
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 54,
+              "total_tokens": 433
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 378,
+              "completion_tokens": 52,
+              "total_tokens": 430
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 695,
+              "completion_tokens": 89,
+              "total_tokens": 784
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 715,
+              "completion_tokens": 94,
+              "total_tokens": 809
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 386,
+              "completion_tokens": 60,
+              "total_tokens": 446
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 391,
+              "completion_tokens": 65,
+              "total_tokens": 456
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 731,
+              "completion_tokens": 110,
+              "total_tokens": 841
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 407,
+              "completion_tokens": 77,
+              "total_tokens": 484
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1253,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
       "mode": "warm",
       "sample": 2
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 9.76,
-      "first_reason_s": 11.61,
-      "total_s": 30.93,
-      "size": "short",
+      "first_fact_s": 7.42,
+      "first_reason_s": 9.63,
+      "total_s": 32.34,
+      "telemetry": {
+        "F": 7,
+        "logical_calls": 15,
+        "logical_calls_expected_1_plus_2F": 15,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 502,
+              "completion_tokens": 221,
+              "total_tokens": 723
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 716,
+              "completion_tokens": 87,
+              "total_tokens": 803
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 79,
+              "total_tokens": 785
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 50,
+              "total_tokens": 430
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 61,
+              "total_tokens": 449
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 711,
+              "completion_tokens": 83,
+              "total_tokens": 794
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 707,
+              "completion_tokens": 82,
+              "total_tokens": 789
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 383,
+              "completion_tokens": 57,
+              "total_tokens": 440
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 384,
+              "completion_tokens": 68,
+              "total_tokens": 452
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 726,
+              "completion_tokens": 94,
+              "total_tokens": 820
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 706,
+              "completion_tokens": 84,
+              "total_tokens": 790
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 395,
+              "completion_tokens": 57,
+              "total_tokens": 452
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 385,
+              "completion_tokens": 55,
+              "total_tokens": 440
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 742,
+              "completion_tokens": 110,
+              "total_tokens": 852
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 411,
+              "completion_tokens": 105,
+              "total_tokens": 516
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1293,
+        "completion_token_request_caps": {
+          "n=256": 7,
+          "n=800": 7,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "typical",
       "mode": "warm",
       "sample": 3
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 11.35,
-      "first_reason_s": 13.41,
-      "total_s": 41.17,
-      "size": "typical",
+      "first_fact_s": 5.85,
+      "first_reason_s": 8.19,
+      "total_s": 41.0,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 241,
+              "total_tokens": 764
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 727,
+              "completion_tokens": 88,
+              "total_tokens": 815
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 717,
+              "completion_tokens": 79,
+              "total_tokens": 796
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 57,
+              "total_tokens": 445
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 60,
+              "total_tokens": 439
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 722,
+              "completion_tokens": 82,
+              "total_tokens": 804
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 718,
+              "completion_tokens": 75,
+              "total_tokens": 793
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 58,
+              "total_tokens": 440
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 54,
+              "total_tokens": 429
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 717,
+              "completion_tokens": 82,
+              "total_tokens": 799
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 737,
+              "completion_tokens": 98,
+              "total_tokens": 835
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 59,
+              "total_tokens": 441
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 398,
+              "completion_tokens": 65,
+              "total_tokens": 463
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 753,
+              "completion_tokens": 108,
+              "total_tokens": 861
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 719,
+              "completion_tokens": 80,
+              "total_tokens": 799
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 408,
+              "completion_tokens": 87,
+              "total_tokens": 495
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 64,
+              "total_tokens": 444
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 719,
+              "completion_tokens": 80,
+              "total_tokens": 799
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 63,
+              "total_tokens": 442
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 743,
+              "completion_tokens": 104,
+              "total_tokens": 847
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 404,
+              "completion_tokens": 66,
+              "total_tokens": 470
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1750,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "long",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 12.28,
-      "first_reason_s": 14.47,
-      "total_s": 44.38,
-      "size": "typical",
+      "first_fact_s": 7.05,
+      "first_reason_s": 9.28,
+      "total_s": 38.58,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 241,
+              "total_tokens": 764
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 717,
+              "completion_tokens": 79,
+              "total_tokens": 796
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 727,
+              "completion_tokens": 88,
+              "total_tokens": 815
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 60,
+              "total_tokens": 439
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 65,
+              "total_tokens": 453
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 718,
+              "completion_tokens": 75,
+              "total_tokens": 793
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 722,
+              "completion_tokens": 82,
+              "total_tokens": 804
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 54,
+              "total_tokens": 429
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 71,
+              "total_tokens": 453
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 737,
+              "completion_tokens": 98,
+              "total_tokens": 835
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 717,
+              "completion_tokens": 83,
+              "total_tokens": 800
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 398,
+              "completion_tokens": 56,
+              "total_tokens": 454
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 383,
+              "completion_tokens": 58,
+              "total_tokens": 441
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 719,
+              "completion_tokens": 80,
+              "total_tokens": 799
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 753,
+              "completion_tokens": 108,
+              "total_tokens": 861
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 66,
+              "total_tokens": 446
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 408,
+              "completion_tokens": 66,
+              "total_tokens": 474
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 719,
+              "completion_tokens": 80,
+              "total_tokens": 799
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 55,
+              "total_tokens": 434
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 743,
+              "completion_tokens": 104,
+              "total_tokens": 847
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 404,
+              "completion_tokens": 67,
+              "total_tokens": 471
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1736,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "long",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 11.58,
-      "first_reason_s": 14.32,
-      "total_s": 43.97,
-      "size": "typical",
+      "first_fact_s": 6.68,
+      "first_reason_s": 8.59,
+      "total_s": 38.37,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 250,
+              "total_tokens": 773
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 725,
+              "completion_tokens": 79,
+              "total_tokens": 804
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 735,
+              "completion_tokens": 88,
+              "total_tokens": 823
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 60,
+              "total_tokens": 439
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 64,
+              "total_tokens": 452
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 726,
+              "completion_tokens": 75,
+              "total_tokens": 801
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 730,
+              "completion_tokens": 82,
+              "total_tokens": 812
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 54,
+              "total_tokens": 429
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 56,
+              "total_tokens": 438
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 745,
+              "completion_tokens": 98,
+              "total_tokens": 843
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 725,
+              "completion_tokens": 81,
+              "total_tokens": 806
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 398,
+              "completion_tokens": 56,
+              "total_tokens": 454
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 58,
+              "total_tokens": 439
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 727,
+              "completion_tokens": 80,
+              "total_tokens": 807
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 761,
+              "completion_tokens": 109,
+              "total_tokens": 870
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 67,
+              "total_tokens": 447
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 409,
+              "completion_tokens": 85,
+              "total_tokens": 494
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 727,
+              "completion_tokens": 79,
+              "total_tokens": 806
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 54,
+              "total_tokens": 433
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 751,
+              "completion_tokens": 104,
+              "total_tokens": 855
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 404,
+              "completion_tokens": 67,
+              "total_tokens": 471
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1746,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "long",
       "mode": "cold",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 10.19,
-      "first_reason_s": 12.54,
-      "total_s": 42.35,
-      "size": "typical",
+      "first_fact_s": 6.46,
+      "first_reason_s": 8.14,
+      "total_s": 37.66,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 253,
+              "total_tokens": 776
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 728,
+              "completion_tokens": 79,
+              "total_tokens": 807
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 738,
+              "completion_tokens": 88,
+              "total_tokens": 826
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 54,
+              "total_tokens": 433
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 388,
+              "completion_tokens": 75,
+              "total_tokens": 463
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 729,
+              "completion_tokens": 76,
+              "total_tokens": 805
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 733,
+              "completion_tokens": 82,
+              "total_tokens": 815
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 376,
+              "completion_tokens": 67,
+              "total_tokens": 443
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 64,
+              "total_tokens": 446
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 748,
+              "completion_tokens": 97,
+              "total_tokens": 845
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 728,
+              "completion_tokens": 75,
+              "total_tokens": 803
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 397,
+              "completion_tokens": 59,
+              "total_tokens": 456
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 375,
+              "completion_tokens": 53,
+              "total_tokens": 428
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 730,
+              "completion_tokens": 80,
+              "total_tokens": 810
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 764,
+              "completion_tokens": 109,
+              "total_tokens": 873
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 55,
+              "total_tokens": 435
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 409,
+              "completion_tokens": 61,
+              "total_tokens": 470
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 730,
+              "completion_tokens": 79,
+              "total_tokens": 809
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 55,
+              "total_tokens": 434
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 754,
+              "completion_tokens": 105,
+              "total_tokens": 859
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 405,
+              "completion_tokens": 68,
+              "total_tokens": 473
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1734,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "long",
       "mode": "warm",
       "sample": 1
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 10.49,
-      "first_reason_s": 12.97,
-      "total_s": 41.98,
-      "size": "typical",
+      "first_fact_s": 6.19,
+      "first_reason_s": 8.44,
+      "total_s": 35.77,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 263,
+              "total_tokens": 786
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 739,
+              "completion_tokens": 79,
+              "total_tokens": 818
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 749,
+              "completion_tokens": 87,
+              "total_tokens": 836
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 59,
+              "total_tokens": 438
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 387,
+              "completion_tokens": 57,
+              "total_tokens": 444
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 740,
+              "completion_tokens": 76,
+              "total_tokens": 816
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 744,
+              "completion_tokens": 82,
+              "total_tokens": 826
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 376,
+              "completion_tokens": 52,
+              "total_tokens": 428
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 68,
+              "total_tokens": 450
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 759,
+              "completion_tokens": 96,
+              "total_tokens": 855
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 739,
+              "completion_tokens": 83,
+              "total_tokens": 822
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 396,
+              "completion_tokens": 58,
+              "total_tokens": 454
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 383,
+              "completion_tokens": 53,
+              "total_tokens": 436
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 741,
+              "completion_tokens": 80,
+              "total_tokens": 821
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 775,
+              "completion_tokens": 103,
+              "total_tokens": 878
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 380,
+              "completion_tokens": 70,
+              "total_tokens": 450
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 741,
+              "completion_tokens": 79,
+              "total_tokens": 820
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 403,
+              "completion_tokens": 61,
+              "total_tokens": 464
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 54,
+              "total_tokens": 433
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 765,
+              "completion_tokens": 104,
+              "total_tokens": 869
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 404,
+              "completion_tokens": 67,
+              "total_tokens": 471
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1731,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
+      "size": "long",
       "mode": "warm",
       "sample": 2
     },
     {
       "status": "SUCCEEDED",
-      "first_fact_s": 10.06,
-      "first_reason_s": 11.94,
-      "total_s": 41.96,
-      "size": "typical",
-      "mode": "warm",
-      "sample": 3
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 11.75,
-      "first_reason_s": 13.67,
-      "total_s": 50.81,
-      "size": "long",
-      "mode": "cold",
-      "sample": 1
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 12.88,
-      "first_reason_s": 15.36,
-      "total_s": 52.61,
-      "size": "long",
-      "mode": "cold",
-      "sample": 1
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 11.87,
-      "first_reason_s": 13.91,
-      "total_s": 50.8,
-      "size": "long",
-      "mode": "cold",
-      "sample": 1
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 10.14,
-      "first_reason_s": 12.34,
-      "total_s": 48.58,
-      "size": "long",
-      "mode": "warm",
-      "sample": 1
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 10.17,
-      "first_reason_s": 12.84,
-      "total_s": 48.78,
-      "size": "long",
-      "mode": "warm",
-      "sample": 2
-    },
-    {
-      "status": "SUCCEEDED",
-      "first_fact_s": 10.67,
-      "first_reason_s": 12.72,
-      "total_s": 49.39,
+      "first_fact_s": 6.75,
+      "first_reason_s": 9.05,
+      "total_s": 37.18,
+      "telemetry": {
+        "F": 10,
+        "logical_calls": 21,
+        "logical_calls_expected_1_plus_2F": 21,
+        "logical_calls_eq_1_plus_2F": true,
+        "calls": [
+          {
+            "stage": "compact_jd",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 1024,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 523,
+              "completion_tokens": 275,
+              "total_tokens": 798
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 750,
+              "completion_tokens": 79,
+              "total_tokens": 829
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 760,
+              "completion_tokens": 87,
+              "total_tokens": 847
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 387,
+              "completion_tokens": 65,
+              "total_tokens": 452
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 60,
+              "total_tokens": 439
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 755,
+              "completion_tokens": 82,
+              "total_tokens": 837
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 751,
+              "completion_tokens": 76,
+              "total_tokens": 827
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 56,
+              "total_tokens": 438
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 376,
+              "completion_tokens": 52,
+              "total_tokens": 428
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 750,
+              "completion_tokens": 82,
+              "total_tokens": 832
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 770,
+              "completion_tokens": 97,
+              "total_tokens": 867
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 382,
+              "completion_tokens": 55,
+              "total_tokens": 437
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 397,
+              "completion_tokens": 61,
+              "total_tokens": 458
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 786,
+              "completion_tokens": 108,
+              "total_tokens": 894
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 752,
+              "completion_tokens": 81,
+              "total_tokens": 833
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 381,
+              "completion_tokens": 60,
+              "total_tokens": 441
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 408,
+              "completion_tokens": 87,
+              "total_tokens": 495
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 752,
+              "completion_tokens": 79,
+              "total_tokens": 831
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 379,
+              "completion_tokens": 62,
+              "total_tokens": 441
+            }
+          },
+          {
+            "stage": "fact",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 800,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 776,
+              "completion_tokens": 104,
+              "total_tokens": 880
+            }
+          },
+          {
+            "stage": "reason",
+            "attempts": 1,
+            "attempts_done": 1,
+            "retry_reasons": [],
+            "max_tokens": 256,
+            "usage_available": true,
+            "usage": {
+              "prompt_tokens": 404,
+              "completion_tokens": 70,
+              "total_tokens": 474
+            }
+          }
+        ],
+        "max_attempts_any_logical_call": 1,
+        "attempts_all_le_3": true,
+        "no_retry_after_success": true,
+        "attempts_done_eq_attempts": true,
+        "embedding_calls": 1,
+        "embedding_in_0_or_1": true,
+        "completion_token_usage": 1778,
+        "completion_token_request_caps": {
+          "n=256": 10,
+          "n=800": 10,
+          "n=1024": 1
+        },
+        "completion_token_cap_per_call": {
+          "stage=compact_jd": 1024,
+          "stage=fact": 800,
+          "stage=reason": 256
+        },
+        "task_completion_limit_16k": 16384,
+        "completion_le_16k": true
+      },
       "size": "long",
       "mode": "warm",
       "sample": 3
@@ -169,50 +3853,50 @@
   "summary": {
     "short/cold": {
       "n": 3,
-      "first_fact_median_s": 11.0,
-      "first_fact_max_s": 11.26,
-      "total_median_s": 32.74,
-      "total_max_s": 33.94,
+      "first_fact_median_s": 5.44,
+      "first_fact_max_s": 9.49,
+      "total_median_s": 18.88,
+      "total_max_s": 25.52,
       "succeeded": 3
     },
     "short/warm": {
       "n": 3,
-      "first_fact_median_s": 9.76,
-      "first_fact_max_s": 10.15,
-      "total_median_s": 31.12,
-      "total_max_s": 32.74,
+      "first_fact_median_s": 5.6,
+      "first_fact_max_s": 5.87,
+      "total_median_s": 19.09,
+      "total_max_s": 19.17,
       "succeeded": 3
     },
     "typical/cold": {
       "n": 3,
-      "first_fact_median_s": 11.58,
-      "first_fact_max_s": 12.28,
-      "total_median_s": 43.97,
-      "total_max_s": 44.38,
+      "first_fact_median_s": 6.5,
+      "first_fact_max_s": 7.0,
+      "total_median_s": 30.15,
+      "total_max_s": 31.14,
       "succeeded": 3
     },
     "typical/warm": {
       "n": 3,
-      "first_fact_median_s": 10.19,
-      "first_fact_max_s": 10.49,
-      "total_median_s": 41.98,
-      "total_max_s": 42.35,
+      "first_fact_median_s": 6.64,
+      "first_fact_max_s": 7.42,
+      "total_median_s": 29.95,
+      "total_max_s": 32.34,
       "succeeded": 3
     },
     "long/cold": {
       "n": 3,
-      "first_fact_median_s": 11.87,
-      "first_fact_max_s": 12.88,
-      "total_median_s": 50.81,
-      "total_max_s": 52.61,
+      "first_fact_median_s": 6.68,
+      "first_fact_max_s": 7.05,
+      "total_median_s": 38.58,
+      "total_max_s": 41.0,
       "succeeded": 3
     },
     "long/warm": {
       "n": 3,
-      "first_fact_median_s": 10.17,
-      "first_fact_max_s": 10.67,
-      "total_median_s": 48.78,
-      "total_max_s": 49.39,
+      "first_fact_median_s": 6.46,
+      "first_fact_max_s": 6.75,
+      "total_median_s": 37.18,
+      "total_max_s": 37.66,
       "succeeded": 3
     }
   },

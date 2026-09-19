@@ -1172,19 +1172,20 @@ artifact 链，不另建第二套。
   单格脚本 `backend/_e2e_v22_matrix.py`；cold 每样本独立子进程 `--n 1`、warm 单进程 `--n 3`（规避 engine
   单例引发的 cold 多样本 UNIQUE 冲突）。
 - **模型**：`deepseek-v4-pro-ga-260813`（真实模型，credential-manager key）。
-- **结果**：**18/18 SUCCEEDED**，证据 `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`（elapsed 1367.3s）。
-  首完整 Fact 中位数+最大值（单调时钟，秒）：
+- **结果**：**18/18 SUCCEEDED**，证据 `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`
+  （本轮含调用遥测重跑；elapsed **674.1s**；`backend/_v22_sixgrid_run.py` **实际退出码 = 0**，命令级
+  `$LASTEXITCODE` 捕获 `SIXGRID_EXIT=0 failures=0`）。首完整 Fact 中位数+最大值（单调时钟，秒）：
 
   | cell | n | first_fact median | first_fact max | total median | total max |
   | --- | --- | --- | --- | --- | --- |
-  | short/cold | 3 | 11.00 | 11.26 | 32.74 | 33.94 |
-  | short/warm | 3 | 9.76 | 10.15 | 31.12 | 32.74 |
-  | typical/cold | 3 | 11.58 | 12.28 | 43.97 | 44.38 |
-  | typical/warm | 3 | 10.19 | 10.49 | 41.98 | 42.35 |
-  | long/cold | 3 | 11.87 | 12.88 | 50.81 | 52.61 |
-  | long/warm | 3 | 10.17 | 10.67 | 48.78 | 49.39 |
+  | short/cold | 3 | 5.44 | 9.49 | 18.88 | 25.52 |
+  | short/warm | 3 | 5.60 | 5.87 | 19.09 | 19.17 |
+  | typical/cold | 3 | 6.50 | 7.00 | 30.15 | 31.14 |
+  | typical/warm | 3 | 6.64 | 7.42 | 29.95 | 32.34 |
+  | long/cold | 3 | 6.68 | 7.05 | 38.58 | 41.00 |
+  | long/warm | 3 | 6.46 | 6.75 | 37.18 | 37.66 |
 
-- **门禁判定**：全部 18 样本首 Fact **max ≤ 12.88s < 15s**，满足 **V220-G04** 首 Fact≤15s 门禁（不再以
+- **门禁判定**：全部 18 样本首 Fact **max ≤ 9.49s < 15s**，满足 **V220-G04** 首 Fact≤15s 门禁（不再以
   §7.6 旧矩阵或 §R2-7.3 单次典型 run 充数；§R2-8.4 标记已更新为完成）。
 
 - **四格有基线格（typical/long × cold/warm）总耗时降幅与 ≥25% 判定**（降幅 = 1 − 本轮中位数/V2.1.0
@@ -1192,22 +1193,34 @@ artifact 链，不另建第二套。
 
   | cell | 本轮 total 中位数（s） | V2.1.0 基线（s） | V2.2 上限 75%（s） | 降幅 | 判定 |
   | --- | --- | --- | --- | --- | --- |
-  | typical/cold | 43.97 | 89.49 | 67.12 | 1 − 43.97/89.49 ≈ **50.9%** | **≥25% ✓**（≤上限 ✓） |
-  | typical/warm | 41.98 | 84.48 | 63.36 | 1 − 41.98/84.48 ≈ **50.3%** | **≥25% ✓**（≤上限 ✓） |
-  | long/cold | 50.81 | 94.32 | 70.74 | 1 − 50.81/94.32 ≈ **46.1%** | **≥25% ✓**（≤上限 ✓） |
-  | long/warm | 48.78 | 97.92 | 73.44 | 1 − 48.78/97.92 ≈ **50.2%** | **≥25% ✓**（≤上限 ✓） |
+  | typical/cold | 30.15 | 89.49 | 67.12 | 1 − 30.15/89.49 ≈ **66.3%** | **≥25% ✓**（≤上限 ✓） |
+  | typical/warm | 29.95 | 84.48 | 63.36 | 1 − 29.95/84.48 ≈ **64.5%** | **≥25% ✓**（≤上限 ✓） |
+  | long/cold | 38.58 | 94.32 | 70.74 | 1 − 38.58/94.32 ≈ **59.1%** | **≥25% ✓**（≤上限 ✓） |
+  | long/warm | 37.18 | 97.92 | 73.44 | 1 − 37.18/97.92 ≈ **62.0%** | **≥25% ✓**（≤上限 ✓） |
 
   → **4/4 有基线格中位数均 ≤ 基线上限 75% 且 ≥25% 降低**，满足 PLAN §V220-G04 的 total 门禁。
+  short 两格（无基线格）绝对总耗时 18.88/19.09s，全部 SUCCEEDED。
 
-- **调用 / attempt / Token 摘要**（PLAN §270 要求；按"实测 / 推断 / 未采集"分明记录）：
-  - **实测**：六格矩阵 **18/18 终态 SUCCEEDED**（状态机实测）；端到端 E2E 生成窗口 **19 次
-    `chat/completions` + 1 次 embedding 均 HTTP 200**、`provider_counts.calls_in_window` 含逐次
-    **resp_bytes**（字节数，非 Token）；调用路径 P1 compact→P3 fact+reason（并发 2）→P4 无 UI/SSE
-    重复调用。
-  - **推断**："18/18 SUCCEEDED ⇒ 无重试" 是**推断**而非实测 —— 六格矩阵为计时型证据，终态 SUCCEEDED
-    不能排除内部 retry 后仍成功；attempt 逐样本计数**未采集**，故不据终态断言 attempt=1。
-  - **未采集**：矩阵逐样本 **Token 计数未聚合**；E2E 仅记录 resp_bytes（响应字节），**不能折算为
-    Token 数**。单任务 completion ≤16k 为设计/调用上限声明，非本次采集值。
+- **调用遥测摘要**（`_e2e_v22_matrix.py` 在验证脚本内包裹 `invoke_observed_json` / `build_task_llm` /
+  `_embed_text` 采集；**全部为实测**，证据 JSON 每样本含 `telemetry` 块，**无"未采集"**）：
+  - **逻辑调用数**：每样本 `logical_calls`（short=5、typical=15、long=21）均等于 **1 + 2F**
+    （compact_jd×1 + fact×F + reason×F；F=short 2 / typical 7 / long 10），
+    `logical_calls_eq_1_plus_2F=true` **18/18**。
+  - **HTTP attempt**：每逻辑调用 `attempts` 均 **=1**（全部首试成功），`attempts_all_le_3=true` **18/18**；
+    `attempts_done`（实际收到响应的 attempt）与 `attempts` 一致。
+  - **重试**：`retry_reasons` **全部为空数组**（无重试）；`no_retry_after_success=true`（结构上
+    `retry_reasons` 只在失败 attempt 追加、成功即返回，故终末成功 attempt 上不可能记录重试）**18/18**。
+  - **Embedding**：每样本 `embedding_calls=1`（18/18，`embedding_in_0_or_1=true`），对应任务级在线
+    JD 向量单次查询；种子/重建阶段 embedding 已复位不计入。
+  - **Token（用法实测 + 请求侧上限证明）**：
+    - **实测**：Ark 响应含 usage，`usage_available=true`（18/18 全部调用），每调用记录
+      `prompt_tokens`/`completion_tokens`/`total_tokens`；单任务实测 completion 合计
+      **short ≤421 / typical ≤1307 / long ≤1778 token**，均 **≤ 16k**（`completion_le_16k=true` 18/18）。
+    - **配置上限证明（非 resp_bytes 推算）**：每逻辑调用请求侧 completion 上限固定为
+      `compact_jd=1024 / fact=800 / reason=256`（`completion_token_cap_per_call` 逐调用记录），
+      `completion_token_request_caps` 按上限值计数；单任务 completion ≤16k 亦由
+      `TaskTokenBudget.reserve/refund`（`TASK_LLM_COMPLETION_LIMIT=16*1024`）+ 各调用上限之和证明，
+      与实测一致。未用 resp_bytes 折算 Token。
 
 ### R2-10.3 收口二（续）：新候选 clean 源码重建 onedir + 真实模型 E2E
 
