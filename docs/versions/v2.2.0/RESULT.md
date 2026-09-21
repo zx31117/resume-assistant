@@ -1,36 +1,32 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**REV2_DEV_VERIFIED（待人工验收）**
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
-> 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
-> 进入第二批实现并形成冻结候选；旧候选已完成独立验收，但版本元数据修正形成了新冻结候选，
-> 旧 `ACCEPTANCE_PASS` 不继承。
+> 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`；Revision 2 旧候选 `be59acd` 虽完成独立验收，
+> 但 Product Owner 因 Design Fidelity 打回。开发已提交返工候选，当前 Documentation Gate 为
+> `DOC_RETURNED`，尚未进入新一轮独立验收。
 
-> **当前唯一冻结候选**：
+> **本轮返工候选（尚未通过 Documentation Gate）**：
 >
-> - **候选 commit**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`（包含版本元数据源码提交与开发侧 RESULT）
+> - **开发交付 commit**：`ecddb652532a1ab8f7c35c8c392b06ccb24d9679`
 >
-> - **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；其 parent 为旧验收候选
->   `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`
+> - **唯一父提交 / 返工基线**：`82c6af86219f3fd7c5cc5564c45f5a176b560537`
 >
-> - **候选唯一父提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；候选历史为线性单父链
+> - **相对返工基线完整 diff**：**17 files changed, 1747 insertions(+), 712 deletions(-)**
 >
-> - **相对批准基线 H（`47ae33e`）完整 diff**：**46 files changed, 9773 insertions(+), 166 deletions(-)**；
->   相对旧验收候选 `3e156bc` 为 **4 files changed, 66 insertions(+), 3 deletions(-)**
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,035 B**）；EXE SHA-256
+>   `3404F8A9D0C28DA69FDB367F5D20D498D48D4B7DDDF5DBCC1E3284F45DDC7611`；前端 bundle
+>   `index-D3ukLjg4.js`（640,841 B）
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
->   `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`
+> - **开发工作区**：`version/v2.2.0`；接收 `ecddb65` 时 tracked/index clean
 >
-> - **开发工作区**：`version/v2.2.0` clean；canonical 已保护本地候选引用
->   `candidates/v2.2.0/be59acd`
->
-> - **当前门禁**：`DOC_ALIGNED` 与 `ACCEPTANCE_PASS` 是绑定 `be59acd` 的既有文档/独立验收结论；
->   Product Owner 人工验收未通过。该候选不可发布，当前版本按同一 PLAN Revision 2 进入修正
+> - **当前门禁**：`DOC_RETURNED`。PLAN Revision 2 不变；`review` 继续保持旧候选 `be59acd`，
+>   不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1477,3 +1473,43 @@ artifact 链，不另建第二套。
 - **合同与交接**：本轮未修改 PLAN / HISTORY / CURRENT_STATE / 全局 README / `DS-003` 冻结设计；
   改动集中在代码 + 验证脚本，故既有 E2E / 视口 / 记录 / 回归 Gate 无需重跑。开发侧执行完毕，
   依据 §R2-16 人工验收结论与 PLAN §9 冻结新候选；**是否验收与可否发布以人工验收为准，不在此处断言**。
+
+## R2-18. 新返工候选 Documentation Gate：`DOC_RETURNED`
+
+- **日期**：2026-09-21。
+- **机械身份**：开发交付 `ecddb652532a1ab8f7c35c8c392b06ccb24d9679`，唯一 parent
+  `82c6af86219f3fd7c5cc5564c45f5a176b560537`；分支 `version/v2.2.0`，接收时 tracked/index clean；
+  PLAN blob `e134703ce6e37a2f4d5df389662119f38638fae8` 未变；相对 parent 为 17 files / +1747 / -712。
+- **包身份机械复核**：现场 `dist/ResumeAssistant/` 为 4045 files / 170,356,035 B；EXE 16,821,003 B，
+  SHA-256 `3404F8A9D0C28DA69FDB367F5D20D498D48D4B7DDDF5DBCC1E3284F45DDC7611`；入包 bundle
+  `index-D3ukLjg4.js` 为 640,841 B，与 §R2-17 声明一致。该核对只证明身份一致，不证明运行正确。
+- **结论**：`DOC_RETURNED`。本轮未改变产品范围、技术路线、Design Baseline 或强制验收合同，故继续
+  同一 PLAN Revision 2；当前交付未满足 PLAN §8 RESULT Delivery Contract 和 §9 冻结条件，暂不保护
+  新候选、不移动固定 review、不启动独立验收。
+- **一次性退回清单**：
+  1. §R2-17 未把 `ecddb65`、唯一 parent、branch/clean、完整 diff 和新包身份同步到 RESULT 顶部；本次
+     已机械修正。Development Agent 后续不得把 `REV2_DEV_VERIFIED` 写成顶部状态；顶部只使用
+     “待验收 / 需修正 / 已验收”。
+  2. §R2-17 没有针对本轮改动更新 V220-G01～G06、V220-R2-T01～T11 的交付映射，也未集中列出
+     API/schema/领域模型/模块职责/配置依赖/打包变化、Pre-mortem/Architecture/Falsification/Challenge
+     最终状态、建议进入全局文档的事实和本轮待独立验收问题。不得只引用旧候选映射代替新候选交付。
+  3. `fidelity/design_fidelity.json` 的 21 张截图实际只覆盖 experiences、records、privacy × 7 viewport；
+     workbench 只记录 320×568 的 empty/saved DOM 摘要，未形成 PLAN §7.1 要求的
+     empty/saved/P1/P2/P3/P4/failed/success 全状态设计对照。真实模型 E2E 的 7 张最终态截图不能替代
+     缺失状态。应补齐冻结 HTML / DS-003 对照、截图/DOM/交互结论和任何实际偏差。
+  4. §R2-17 声明 `ConnectionResetError [WinError 10054]` 时 `es.onerror` 关闭后没有 re-poll 兜底，
+     与 PLAN §7.2 的断流 fallback、缺口/缓冲过期恢复要求直接相关。不能因“既有问题”或重跑成功标为
+     全 PASS：须修复并给出断流恢复证据，或如实标记 FAIL/NOT_RUN；若现合同不可满足则打开
+     `CHALLENGE_OPEN`，不得冻结候选。
+  5. failure matrix 首跑发生 WINWORD 冷启动竞态并依赖人工强杀后重跑。须记录完整命令、首跑非零状态、
+     残留对象、清理路径和复跑结果，并证明脚本自身符合资源生命周期/cleanup 门禁；人工清理不能自动
+     把首跑失败升级为全 PASS。
+  6. §R2-17 未给出本轮统一 precheck、compileall、版本回归、Hooks、Revision 1 固定计数回归、六格真实
+     模型性能与 T11 Falsification 的新候选命令/退出码。PLAN §9 明确规定源码、测试和 bundle 变化后旧
+     验收失效；“既有 E2E / 视口 / 记录 / 回归 Gate 无需重跑”与合同冲突。适用门禁必须重跑并如实记录，
+     不适用项也需写明依据。
+  7. 交接顺序写反：开发完成后先由 Documentation Agent 给出 `DOC_ALIGNED`，再由独立 Acceptance Agent
+     验收，最后才由 Product Owner 人工验收。不得把“待人工验收”作为当前状态或绕过独立验收。
+- **返回开发的最小完成条件**：完成上述缺口后，在同一 RESULT 追加修正记录；所有适用开发 Gate 无
+  FAIL/NOT_RUN、无开放 Challenge、工作区 clean，并形成新的唯一候选 commit。Documentation Agent 将
+  从 PLAN 原合同重新做一次集中语义审查，不新增第四份文档或新验收标准。
