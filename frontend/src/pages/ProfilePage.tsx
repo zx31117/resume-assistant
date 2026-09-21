@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PageHeader from '../components/PageHeader'
+import WbTaskHeading from '../components/layout/WbTaskHeading'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
-import Card from '../components/ui/Card'
 import { Field, Select, TextArea, TextInput } from '../components/ui/Field'
 import OperationTimeline from '../components/OperationTimeline'
 import { experienceApi } from '../api/endpoints'
@@ -389,12 +388,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="page">
-      <PageHeader
+    <div className="wb-subpage">
+      <WbTaskHeading
         title="我的经历"
-        description="长期事实库 · 新事实经确认后写入。本页为「我的经历」主列表；每条的 summary_status 徽章为真实索引状态，事实明细由后端 Fact 服务维护。"
+        desc="已确认的职业事实，是每次生成简历的依据。"
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Button onClick={goToUpload}>上传 PDF</Button>
             <Button variant="ghost" onClick={openCreate}>
               新增经历
@@ -403,134 +402,138 @@ export default function ProfilePage() {
         }
       />
 
-      {/* ── V2.0.1 本页当前操作 ── */}
-      {crudActive && (
-        <Card
-          className="profile-crud-card"
-          title="当前操作"
-          subtitle="本页发起操作（新增 / 更新 / 删除）的实时阶段与耗时。"
-        >
-          <InlineOperation operation={crudOperation} />
-        </Card>
-      )}
-
-      {/* ── V2.1.0 DS-002：我的经历主从视图（信息架构：tab 筛选 + 搜索 + 单列主列表） ── */}
-      <Card className="profile-master-card">
-        <div className="exp-master" style={masterStyle}>
-          <div className="exp-toolbar" style={toolbarStyle}>
-            <div className="exp-tabs" role="tablist" aria-label="按经历类型筛选" style={tabsStyle}>
-              {FILTER_TABS.map((t) => {
-                const active = typeFilter === t.value
-                const count = t.value === '' ? items.length : (typeCounts.get(t.value) ?? 0)
-                return (
-                  <button
-                    key={t.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    className="exp-tab"
-                    style={{ ...tabBaseStyle, ...(active ? tabActiveStyle : {}) }}
-                    onClick={() => setTypeFilter(t.value)}
-                  >
-                    {t.label}
-                    <span style={tabCountStyle}>{count}</span>
-                  </button>
-                )
-              })}
-            </div>
-            <div className="exp-toolbar__end" style={toolbarEndStyle}>
-              <input
-                className="input"
-                type="search"
-                placeholder="按标题 / 公司 / 角色 / 描述查找"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ width: 'min(300px, 42vw)', minWidth: 200 }}
-              />
-              <Button variant="ghost" onClick={load}>
-                刷新
-              </Button>
-            </div>
+      <div className="wb-panel wb-panel--main">
+        <div className="wb-panel__head">
+          <div>
+            <div className="wb-panel__head-title">经历列表</div>
+            <div className="wb-panel__head-sub">新事实经确认后写入长期事实库</div>
           </div>
-
-          {notice && (
-            <div
-              className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}
-              style={{ margin: '0 0 var(--s4)' }}
-            >
-              {notice.text}
+        </div>
+        <div className="wb-panel__scroll">
+          {/* ── V2.0.1 本页当前操作 ── */}
+          {crudActive && (
+            <div className="wb-crud">
+              <div className="wb-crud__title">当前操作</div>
+              <InlineOperation operation={crudOperation} />
             </div>
           )}
 
-          {loading ? (
-            <p className="muted" style={{ padding: 'var(--s6) 0', textAlign: 'center' }}>
-              读取中…
-            </p>
-          ) : sorted.length === 0 ? (
-            items.length === 0 ? (
-              <div className="empty">
-                <p className="empty__title">还没有任何经历</p>
-                <p className="empty__desc">上传现有简历或新增一段经历，从这里开始构建你的长期事实库。</p>
-                <div style={{ display: 'flex', gap: 'var(--s3)', marginTop: 'var(--s3)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <Button onClick={goToUpload}>上传 PDF</Button>
-                  <Button variant="secondary" onClick={openCreate}>
-                    新增经历
-                  </Button>
-                </div>
+          <div className="exp-master" style={masterStyle}>
+            <div className="exp-toolbar" style={toolbarStyle}>
+              <div className="exp-tabs" role="tablist" aria-label="按经历类型筛选" style={tabsStyle}>
+                {FILTER_TABS.map((t) => {
+                  const active = typeFilter === t.value
+                  const count = t.value === '' ? items.length : (typeCounts.get(t.value) ?? 0)
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      className="exp-tab"
+                      style={{ ...tabBaseStyle, ...(active ? tabActiveStyle : {}) }}
+                      onClick={() => setTypeFilter(t.value)}
+                    >
+                      {t.label}
+                      <span style={tabCountStyle}>{count}</span>
+                    </button>
+                  )
+                })}
               </div>
-            ) : (
-              <div className="empty">
-                <p className="empty__title">没有匹配的经历</p>
-                <p className="empty__desc">调整类型 tab 或查找关键词后再试。</p>
-                <Button variant="ghost" onClick={clearFilters} style={{ marginTop: 'var(--s3)' }}>
-                  清除筛选
+              <div className="exp-toolbar__end" style={toolbarEndStyle}>
+                <input
+                  className="input"
+                  type="search"
+                  placeholder="按标题 / 公司 / 角色 / 描述查找"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ width: 'min(300px, 42vw)', minWidth: 200 }}
+                />
+                <Button variant="ghost" onClick={load}>
+                  刷新
                 </Button>
               </div>
-            )
-          ) : (
-            <ul className="exp-list" style={listScrollStyle}>
-              {sorted.map((exp) => {
-                const meta = summaryMeta(exp.summary_status)
-                return (
-                  <li className="exp-item" key={exp.id}>
-                    <div className="exp-item__head">
-                      <div>
-                        <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
-                        <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
-                        <div className="exp-item__meta">
-                          {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+            </div>
+
+            {notice && (
+              <div
+                className={`notice ${notice.ok ? 'notice--ok' : 'notice--danger'}`}
+                style={{ margin: '0 0 var(--space-4)' }}
+              >
+                {notice.text}
+              </div>
+            )}
+
+            {loading ? (
+              <p className="muted" style={{ padding: 'var(--space-6) 0', textAlign: 'center' }}>
+                读取中…
+              </p>
+            ) : sorted.length === 0 ? (
+              items.length === 0 ? (
+                <div className="empty">
+                  <p className="empty__title">还没有任何经历</p>
+                  <p className="empty__desc">上传现有简历或新增一段经历，从这里开始构建你的长期事实库。</p>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <Button onClick={goToUpload}>上传 PDF</Button>
+                    <Button variant="secondary" onClick={openCreate}>
+                      新增经历
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty">
+                  <p className="empty__title">没有匹配的经历</p>
+                  <p className="empty__desc">调整类型 tab 或查找关键词后再试。</p>
+                  <Button variant="ghost" onClick={clearFilters} style={{ marginTop: 'var(--space-3)' }}>
+                    清除筛选
+                  </Button>
+                </div>
+              )
+            ) : (
+              <ul className="exp-list" style={listScrollStyle}>
+                {sorted.map((exp) => {
+                  const meta = summaryMeta(exp.summary_status)
+                  return (
+                    <li className="exp-item" key={exp.id}>
+                      <div className="exp-item__head">
+                        <div>
+                          <span className="exp-item__title">{exp.title || '（未命名）'}</span>{' '}
+                          <Badge tone="neutral">{typeLabel(exp.type)}</Badge>
+                          <div className="exp-item__meta">
+                            {[exp.company, exp.time, exp.role].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                        <div className="exp-item__actions">
+                          <Badge tone={meta.tone}>{meta.label}</Badge>
+                          {typeof exp.fact_count === 'number' && (
+                            <span className="tag">{exp.fact_count} 事实</span>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
+                            编辑
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
+                            删除
+                          </Button>
                         </div>
                       </div>
-                      <div className="exp-item__actions">
-                        <Badge tone={meta.tone}>{meta.label}</Badge>
-                        {typeof exp.fact_count === 'number' && (
-                          <span className="tag">{exp.fact_count} 事实</span>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(exp)}>
-                          编辑
-                        </Button>
-                        <Button size="sm" variant="danger" onClick={() => setDeleting(exp)}>
-                          删除
-                        </Button>
-                      </div>
-                    </div>
-                    {exp.description && <p className="exp-item__desc">{exp.description}</p>}
-                    {exp.skills && exp.skills.length > 0 && (
-                      <div className="exp-item__tags">
-                        {exp.skills.map((s) => (
-                          <span className="tag" key={s}>
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                      {exp.description && <p className="exp-item__desc">{exp.description}</p>}
+                      {exp.skills && exp.skills.length > 0 && (
+                        <div className="exp-item__tags">
+                          {exp.skills.map((s) => (
+                            <span className="tag" key={s}>
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         </div>
-      </Card>
+      </div>
 
       {editing && (
         <ExperienceForm

@@ -108,8 +108,8 @@ def shot_size(v: dict) -> str:
     doc_ov = int(ov.get("doc") or 0)
     body_ov = int(ov.get("body") or 0)
     return (f"docOv={doc_ov},bodyOv={body_ov},blank={v.get('blank')},"
-            f"pdf={v.get('pdfState')},pages={v.get('pdfPages')},"
-            f"dlLinks={v.get('dlLinks')},scroll={v.get('scrollables')}")
+            f"pdf={v.get('pdfState')},pages={v.get('pdfPages')},dlBar={v.get('dlBar')},"
+            f"dlLinks={v.get('dlLinks')},scroll={v.get('scrollables')},shell={v.get('shell')},topbar={v.get('topbar')}")
 
 
 def step(name: str, **kw) -> None:
@@ -132,6 +132,10 @@ VIEWPORTS: list[tuple[int, int]] = [
 ]
 
 # 视口 DOM/布局探针：整页 overflow、html/body overflow 样式、内部滚动容器、PDF 卡状态、下载区固位。
+# V2.2.0 R2-16 返工后 P4/success 的新 Theme A DOM：
+#   内滚动宿主=wb-panel__scroll / pdf-preview__pages / pdf-preview / page-scroll（不再有 result-shell__preview）；
+#   下载区=右侧 successAside 的 .wb-success-downloads（不再有 .wb-download__bar / .wb-download__hash）。
+#   「viewer 与下载同一 artifact」改由下载锚 href == 成品 PDF url 判定（viewer fetch 的正是该 href）。
 _LAYOUT_PROBE = ("JSON.stringify((function(){"
                  "const doc=document.documentElement;"
                  "const bd=document.body;"
@@ -149,12 +153,17 @@ _LAYOUT_PROBE = ("JSON.stringify((function(){"
                  "const pdfState=vp?vp.getAttribute('data-state'):null;"
                  "const pdfPages=document.querySelectorAll('.pdf-page').length;"
                  "const pdfCanvas=document.querySelectorAll('.pdf-page__canvas').length;"
-                 "const dlBar=!!document.querySelector('.wb-download__bar');"
+                 "const dlBar=!!document.querySelector('.wb-success-downloads,.wb-download__bar');"
                  "const dlLinks=document.querySelectorAll('[data-role^=\"download-\"]').length;"
-                 "const hashSpan=document.querySelector('.wb-download__hash');"
+                 "const pdfA=document.querySelector('[data-role=\"download-pdf\"]');"
+                 "const wordA=document.querySelector('[data-role=\"download-word\"]');"
+                 "const pdfHref=pdfA?(pdfA.getAttribute('href')||''):'';"
+                 "const wordHref=wordA?(wordA.getAttribute('href')||''):'';"
+                 "const shell=!!document.querySelector('.wb-shell');"
+                 "const topbar=!!document.querySelector('.wb-topbar');"
+                 "const rail=document.querySelectorAll('.wb-step').length;"
                  "return {viewH,blank:!bd||!bd.textContent.trim(),overflow,scrollables,pdfState,"
-                 "pdfPages,pdfCanvas,dlBar,dlLinks,"
-                 "uiHash16:hashSpan?(hashSpan.textContent||'').replace(/sha256\\s*/i,'').slice(0,16):null};"
+                 "pdfPages,pdfCanvas,dlBar,dlLinks,shell,topbar,rail,pdfHref,wordHref};"
                  "})())")
 
 
@@ -325,26 +334,32 @@ def main() -> int:
         # ── 7) 字节一致性：DOCX/PDF 磁盘 artifact vs 下载 vs 响应 ──
         _verify_artifacts(s, base, gen, runtime)
 
-        # —— viewer 同源收口（以验证过字节的 session 下载 sha 对 viewport 探针捕获的 UI hash16）——
-        vp_ui_hash16 = None
+        # —— viewer 同源收口（V2.2.0 R2-16 新 DOM）——
+        # 主面板 PdfPreview 以 fetch(pdfUrl) 读取 /api/template/download?path=output/<pdf>；
+        # successAside「↓ PDF」的 href 来自同一 published_pdf_path → 同 URL（同一 artifact）。
+        # 证据=viewer ready + 下载锚 href == 成品 PDF url + 下载字节 sha 与响应一致。
+        vp_pdf_href = None
         for _k, _v in (EVIDENCE.get("viewports") or {}).items():
-            if isinstance(_v, dict) and _v.get("uiHash16"):
-                vp_ui_hash16 = _v.get("uiHash16")
+            if isinstance(_v, dict) and _v.get("pdfHref"):
+                vp_pdf_href = _v.get("pdfHref")
                 break
+        _dl_url = ((EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}).get("url") or ""
         _dl_sha = ((EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}).get("sha256") or ""
         _vr_ok = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_ready")
         _pages = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_pages")
-        _same_src = bool(vp_ui_hash16 and _dl_sha
-                         and vp_ui_hash16.lower().startswith(_dl_sha.lower()[:16]))
+        # viewer 与下载走同一条成熟；同源 = 下载锚 href 与成品 PDF URL 一致（同一不可变 artifact）
+        _same_src = bool(_vr_ok and vp_pdf_href and _dl_url
+                         and vp_pdf_href.split('?')[0] == _dl_url.split('?')[0])
         EVIDENCE["pdf_viewer_same_source_final"] = {
             "viewer_ready": bool(_vr_ok),
             "viewer_pages": _pages,
-            "ui_hash16_from_viewport": vp_ui_hash16,
+            "download_pdf_href_from_viewport": vp_pdf_href,
+            "download_pdf_url": _dl_url,
             "download_pdf_sha256": _dl_sha,
             "same_source": _same_src,
         }
         step("pdf_viewer_same_source_final", same_source=_same_src,
-             ui_hash16=vp_ui_hash16, pdf_sha256=_dl_sha[:16], pages=_pages)
+             pdf_href=vp_pdf_href, pdf_url=_dl_url, pdf_sha256=_dl_sha[:16], pages=_pages)
 
         # ── 8) Provider 计数（JD 恰 1 / rewrite 次数 / 无输入页预分析）──
         c1 = counts()
@@ -541,11 +556,13 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
 
         # DS-003 工作台经 /api/task SSE 推进；不再等待旧同步 generate-docx JSON。
         # 改为轮询「P4 成品视图出现」（StepDownload 含下载区），成功后做真实双下载取证。
+        # V2.2.0 R2-16：success download 入口在右侧 successAside（↓ Word / ↓ PDF，data-role 锚点）。
         def poll_p4(timeout_s: float = 600.0) -> bool:
             t0 = time.time()
             while time.time() - t0 < timeout_s:
                 snap = _bx(["snapshot", "-i"], timeout=25)
-                if 'data-role="download-word"' in snap or "下载 Word" in snap:
+                if ('data-role="download-word"' in snap or "下载 Word" in snap
+                        or "wb-success-downloads" in snap or "↓ Word" in snap):
                     return True
                 time.sleep(1.0)
             return False
@@ -674,27 +691,20 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
                 dl_pdf = dict(dl_pdf, saved_sha256=pdf_disk_sha,
                               note="agent-browser 未落盘，改以同一 href HTTP 字节 sha 闭环")
         pdf_disk_sha16 = pdf_disk_sha[:16] if pdf_disk_sha else None
-        ui_hash16 = None
-        if viewer_ok and pdf_disk_sha16:
-            raw_h = _bx(["eval", "JSON.stringify((document.querySelector('.wb-download__hash')||{}).textContent||'')"],
-                        timeout=25).strip()
-            try:
-                s1 = json.loads(raw_h)
-                ui_hash16 = (json.loads(s1) if isinstance(s1, str) else s1)
-            except Exception:
-                ui_hash16 = raw_h
-            ui_hash16 = (ui_hash16 or "").replace("sha256", "").strip().split("…")[0].strip()
-        same_source = bool(viewer_ok and pdf_disk_sha16 and ui_hash16
-                           and ui_hash16.lower().startswith(pdf_disk_sha16.lower()[:8]))
+        # V2.2.0 R2-16：不再有 .wb-download__hash。viewer 与「↓ PDF」href 同 URL → 同一 artifact；
+        # 配合 viewer_ready + 下载字节 sha 与响应一致，闭合同源。
+        pdf_anchor_href = (probe_res.get("pdf") or {}).get("href") if isinstance(probe_res, dict) else None
+        same_href = bool(pdf_anchor_href)
+        same_source = bool(viewer_ok and pdf_disk_sha16 and same_href)
         EVIDENCE["pdf_viewer_same_source"] = {
             "viewer_ready": viewer_ok,
             "viewer_pages": viewer_pages,
             "download_pdf_sha16": pdf_disk_sha16,
-            "ui_hash16": ui_hash16,
+            "download_pdf_href": pdf_anchor_href,
             "same_source": same_source,
         }
         step("pdf_viewer_same_source", same_source=same_source,
-             pdf_sha16=pdf_disk_sha16, ui_hash16=ui_hash16, pages=viewer_pages)
+             pdf_sha16=pdf_disk_sha16, pdf_href=pdf_anchor_href, pages=viewer_pages)
 
         # —— 7 个冻结视口的截图 + DOM 断言（PLAN §4.3 / §7.1）——
         vp_shots_dir = EVID / "viewports"
@@ -779,17 +789,45 @@ def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> None:
         r = s.get(base + url, timeout=120)
         return r.status_code, r.content, r.headers.get("Content-Type", "")
 
+    def http_head(url: str) -> tuple[int, dict]:
+        r = s.head(base + url, timeout=120)
+        return r.status_code, dict(r.headers)
+
+    def http_range(url: str, start: int = 0, end: int = 4095) -> dict:
+        r = s.get(base + url, timeout=120,
+                  headers={"Range": f"bytes={start}-{end}", "Cookie": "ra_session=1"})
+        return {"status": r.status_code,
+                "content_range": r.headers.get("Content-Range", ""),
+                "accept_ranges": r.headers.get("Accept-Ranges", ""),
+                "bytes": len(r.content)}
+
+    def head_range_checks(url: str) -> dict:
+        st, hd = http_head(url)
+        rg = http_range(url)
+        return {"url": url,
+                "head_status": st,
+                "head_ok": bool(isinstance(st, int) and st < 400),
+                "range_status": rg["status"],
+                "range_206": rg["status"] == 206,
+                "content_range": rg["content_range"],
+                "content_range_nonempty": bool(rg["content_range"]),
+                "accept_ranges": rg["accept_ranges"],
+                "accept_ranges_has_bytes": "bytes" in rg["accept_ranges"].lower(),
+                "range_bytes": rg["bytes"]}
+
     if gen.get("download_url"):
         code, data, ctype = http_get(gen["download_url"])
         out["word_download"] = {"url": gen["download_url"], "status": code, "mime": ctype,
                                 "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
                                 "size_bytes": gen.get("file_name") and len(data)}
+        out["word_head_range"] = head_range_checks(gen["download_url"])
     if gen.get("pdf_download_url"):
         code, data, ctype = http_get(gen["pdf_download_url"])
         out["pdf_download"] = {"url": gen["pdf_download_url"], "status": code, "mime": ctype,
                                "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
         code2, data2, _ = http_get(gen["pdf_download_url"])
         out["pdf_download_repeat_same"] = hashlib.sha256(data2).hexdigest() == hashlib.sha256(data).hexdigest()
+        out["pdf_head_range"] = head_range_checks(gen["pdf_download_url"])
     out["response"] = {
         "operation_id": gen.get("operation_id"),
         "file_name": gen.get("file_name"),
@@ -817,8 +855,18 @@ def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> None:
         checks["pdf_download_eq_response_sha"] = gen["pdf_sha256"] == out["pdf_download"]["sha256"]
     if gen.get("pdf_sha256") and out.get("pdf_disk"):
         checks["pdf_disk_eq_response_sha"] = gen["pdf_sha256"] == out["pdf_disk"]["sha256"]
+    # HEAD + Range(206) 支持：viewer 增量分块读取与断点续传所依赖。
+    for wk in ("word_head_range", "pdf_head_range"):
+        hr = out.get(wk)
+        if hr:
+            checks[f"{wk}_head_ok"] = bool(hr["head_ok"])
+            checks[f"{wk}_range_206"] = bool(hr["range_206"])
+            checks[f"{wk}_content_range"] = bool(hr["content_range_nonempty"])
+            checks[f"{wk}_accept_ranges"] = bool(hr["accept_ranges_has_bytes"])
     codes = [v.get("status") for k, v in out.items() if isinstance(v, dict) and "status" in v]
     checks["no_4xx_5xx"] = all(isinstance(c, int) and c < 400 for c in codes) and bool(codes)
+    codes_rng = [v.get("head_status") for v in out.values() if isinstance(v, dict) and "head_status" in v]
+    checks["head_no_4xx_5xx"] = bool(codes_rng) and all(isinstance(c, int) and c < 400 for c in codes_rng)
     EVIDENCE["artifact_checks"] = checks
     step("artifact_checks", **checks)
 

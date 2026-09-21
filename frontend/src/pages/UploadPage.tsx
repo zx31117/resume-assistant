@@ -919,6 +919,7 @@ export default function UploadPage() {
   // ====== 渲染 ======
   if (mode === 'idle') {
     return (
+      <div className="wb-subpage">
       <div className="page" style={{ gap: 'var(--s4)' }}>
         <div role="region" aria-label="上传现有简历" style={topbarStyle}>
           <span style={{ color: 'var(--ink-faint)' }}>第 1 步 · 准备经历</span>
@@ -1023,6 +1024,7 @@ export default function UploadPage() {
           </aside>
         </div>
       </div>
+      </div>
     )
   }
 
@@ -1032,6 +1034,7 @@ export default function UploadPage() {
   const viewPhaseSafe = phases[viewPhaseIdx] ?? viewPhase
 
   return (
+    <div className="wb-subpage">
     <div
       className="page"
       style={{ maxWidth: 1200, width: '100%', margin: '0 auto', alignItems: 'stretch' }}
@@ -1307,6 +1310,7 @@ export default function UploadPage() {
           )}
         </Card>
       )}
+    </div>
     </div>
   )
 }

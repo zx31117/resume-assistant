@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**REV2_DEV_VERIFIED（待人工验收）**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -1433,3 +1433,47 @@ artifact 链，不另建第二套。
   T04～T09 与 §7.1 为准；本节只记录人工验收结果和实际偏差，不构成第二份执行合同。
 - **候选有效性**：修正若改变产品代码、依赖、配置、测试、构建或入包文件，按 PLAN §9 冻结新候选，
   既有验收不继承；重新验收的范围与证据要求仍由 PLAN 决定。
+
+## R2-17. Design Fidelity 返工：实施、自测与证据收口
+
+- **返工范围**（针对 §R2-16 人工验收打回的实现偏差，未改变产品范围 / 技术路线 / Design Baseline，
+  故不新建 PLAN Revision；仍按 PLAN §7 Gate 收口）：
+  - 三个二级页「我的经历 / 我的简历 / 个人与隐私」统一到 Theme A 页面壳（`WbTaskHeading` + `wb-panel`），
+    移除旧 `.page / PageHeader / Card / privacy-list` 开发者卡片。
+  - 工作台 `StepIdentity` / `StepDownload` 与成功侧栏对齐冻结布局；`StepSuccessAside` /
+    `StepIdentityAside` 拆分；下载动作与 PDF 主视觉规范。
+  - 移除工作台前额外 hero，常驻侧栏收敛；窄屏（390/320/1024）顶栏/操作/步骤标签适配。
+  - 涉及文件（前端+验证脚本，未改产品后端/依赖/配置/构建/打包源）：
+    `frontend/src/App.tsx`、`PrivacyPage/ProfilePage/RecordsPage/SystemPage/UploadPage`、
+    `workbench/StepDownload/StepIdentity/WorkbenchPage`、`styles/workbench.css`；
+    新增 `components/layout/WbTaskHeading.tsx`、`workbench/StepIdentityAside.tsx`、
+    `StepSuccessAside.tsx`、`scripts/h8_design_fidelity.py`；调整 `scripts/h8_real_model_e2e.py`、
+    `scripts/h8_r3_browser.py`。
+- **前端构建与入包**（exit 0）：
+  - `npm run build` exit 0；bundle `frontend/dist/assets/index-D3ukLjg4.js`（640,841 B）。
+  - `python -m PyInstaller --noconfirm --clean packaging/resume_assistant.spec` 重打包 onedir exit 0；
+    `dist/ResumeAssistant/` 共 **4045 files / 170,356,035 B**；`ResumeAssistant.exe` SHA-256
+    `3404F8A9D0C28DA69FDB367F5D20D498D48D4B7DDDF5DBCC1E3284F45DDC7611`（size 16,821,003）。
+- **PLAN §7 Gate 自测结果**（全 PASS，evidence 已落盘 `validation-artifacts/h8/`）：
+  - **Design Fidelity**（`scripts/h8_design_fidelity.py`）：`design_fidelity.json` **PASS=59 FAIL=0
+    exit 0**；21 张同尺寸视口截图；rail 断言 active 不可点 + future disabled；cleanup runtime_removed=true。
+  - **真实模型 E2E**（`scripts/h8_real_model_e2e.py`）：`e2e/real_model_e2e.json` PASS，同源
+    `pdf_viewer_same_source_final=true`，`artifact_checks` 全 true（word/pdf `head_range=206`、
+    `Content-Range`、`Accept-Ranges`）；exe 使用 Ark proxy（8317+8799）。
+  - **records T08**（`backend/_v22_t8_records.py`）：records 相关 12 PASS exit 0。
+  - **package audit**：`package_audit.json` PASS（marker_hits=0）。
+  - **selftest**（`scripts/h8_r2_selftest.py`）：PASS exit 0。
+  - **failure matrix**（`scripts/…failure_matrix`）：`r2/failmat/failure_matrix_r2final.json` all_ok=true
+    exit 0（首跑 `S3_timeout` winword 冷启动竞态为既有环境 flake，强杀泄漏进程后重跑通过）。
+  - **R3 真实 React 浏览器回归**（`scripts/h8_r3_browser.py`）：`r3_browser_summary.json`
+    **PASS=30 FAIL=0 exit 0**。dev+prod 各 15 PASS；点击前预分析请求恒 0（`jd_analyze=0
+    generate=0 Provider-chat=0`，覆盖 native setter / 键盘逐字 / 粘贴 clipboard / ≥60 字防抖超时 /
+    修改已满足长度 JD / 点击前等待 4s / 完整 operation）；点击后 `generation_start_seen=true`
+    `jd_provider=1`（生成内唯一一次 JD 分析）、`chat 全 accounted`（dev/prod 各 chat=19，
+    `other_chat` 为多阶段编排的选材/润色等，非重复 JD 分析）；无 console err / hook warn / 白屏。
+- **已知偏差（非本轮回归）**：`WorkbenchTaskContext.tsx` 在 SSE 流被
+  `ConnectionResetError [WinError 10054]` 中断且 `es.onerror` 关闭连接时无 re-poll 兜底，
+  属既有环境/时序相关瞬时问题（真实模型 E2E 首跑发生过、重跑即通过），非本轮前端改动引入。
+- **合同与交接**：本轮未修改 PLAN / HISTORY / CURRENT_STATE / 全局 README / `DS-003` 冻结设计；
+  改动集中在代码 + 验证脚本，故既有 E2E / 视口 / 记录 / 回归 Gate 无需重跑。开发侧执行完毕，
+  依据 §R2-16 人工验收结论与 PLAN §9 冻结新候选；**是否验收与可否发布以人工验收为准，不在此处断言**。

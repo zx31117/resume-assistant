@@ -318,33 +318,74 @@
   font-size: 13px;
 }
 
-/* ═════════════════════════ 任务标题 ═════════════════════════ */
+/* ═════════════════════════ 任务标题 ═════════════════════════
 
+  .wb-task-heading 用作「二级页面」的页头（对应冻结设计 subpage 的 task-heading，
+  eyebrow「YOUR NEXT CHAPTER」+ h1 + desc + actions）；工作台首页（WorkbenchPage）
+  不在 work-grid 前渲染任何额外 hero，直接进入三栏网格。
+*/
 .wb-task-heading {
-  flex: 0 0 96px;
-  min-height: 96px;
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-5);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 .wb-task-heading__eyebrow {
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 1.4px;
   color: var(--muted);
-  letter-spacing: 0.3px;
+  font-weight: 600;
 }
 .wb-task-heading__h1 {
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ink);
-  line-height: 1.25;
+  line-height: 1.3;
+  margin: 4px 0;
 }
 .wb-task-heading__sub {
   font-size: 13px;
   color: var(--muted);
+  max-width: 60ch;
+}
+.wb-task-heading__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 二级页面宿主：在 WorkbenchShell 顶栏下方承接 .page，并作为单一滚动宿主。
+   固定 TaskA 页头（含 h1）在外，长内容在 .page-scroll / 卡内滚动。 */
+.wb-subpage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8) var(--space-6);
+}
+/* 二级页面面板：占满剩余高度，内容在 .wb-panel__scroll 内滚动，页头固定 */
+.wb-subpage > .wb-panel--main {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-column: auto;
+}
+@media (max-width: 850px) {
+  .wb-subpage {
+    padding: var(--space-4);
+  }
+  .wb-task-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-4);
+  }
 }
 
 /* ═════════════════════════ 工作区网格 ═════════════════════════ */
@@ -715,6 +756,183 @@
   font-size: 13px;
   color: var(--muted);
   line-height: 1.6;
+}
+
+/* —— 冻结 inputAside / successAside 结构（步骤 1 / P4 成功右卡）—— */
+.wb-aside-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.wb-aside-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.wb-aside-title {
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 7px 0 10px;
+  color: var(--ink);
+}
+.wb-aside-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.9;
+}
+
+.wb-aside-guide {
+  display: flex;
+  flex-direction: column;
+}
+.wb-aside-guide__row {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.wb-aside-guide__row:last-child {
+  border-bottom: 0;
+}
+.wb-aside-guide__num {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--subtle);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+}
+.wb-aside-guide__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.wb-aside-guide__body {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.wb-aside-note {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--subtle);
+  font-size: 12px;
+  line-height: 1.9;
+  margin-top: var(--space-5);
+  color: var(--muted);
+}
+.wb-aside-note strong {
+  color: var(--ink);
+}
+
+.wb-aside-foottext {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 55%;
+}
+
+.wb-aside-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.wb-aside-summary li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.wb-aside-summary__check {
+  flex-shrink: 0;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.wb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--tint);
+  color: var(--primary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.wb-badge--ok {
+  background: var(--wb-success-wash);
+  color: var(--success);
+}
+
+/* —— P4 成功右卡下载区（冻结 success-downloads，固位面板底部）—— */
+.wb-panel__foot.wb-success-downloads {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+.wb-success-downloads__missing {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  line-height: 1.2;
+}
+
+/* —— 步骤 1 主面板底部（fixed 生成 CTA）—— */
+.wb-panel__foot--generate {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.wb-footinfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.wb-footinfo__err {
+  font-size: 12px;
+  color: var(--error);
+}
+.wb-footactions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.wb-form-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 步骤 1 表单底部说明（主 CTA 已在页脚，给已冻结/进行中提示） */
+.wb-step-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* P4 成品说明（冻结 paper-caption） */
+.wb-download__caption {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 /* 占位说明（后续步骤/未实现区） */
@@ -1265,6 +1483,173 @@
 
 /* ═════════════════════════ 响应式 ═════════════════════════ */
 
+/* ═══════════════════ 二级页面内容（experiences/records/privacy Theme A 壳） ═══════════════════ */
+
+/* 泛型空态（records/privacy 复用） */
+.wb-empty {
+  max-width: var(--input-column-max);
+  margin: var(--space-10) auto;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.wb-empty__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: var(--control);
+  background: var(--subtle);
+  border: 1px solid var(--border);
+}
+.wb-empty__icon--spin {
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-top-color: var(--primary);
+  animation: wb-spin 0.9s linear infinite;
+  background: transparent;
+}
+.wb-empty__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.wb-empty__desc {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 52ch;
+}
+
+/* 记录列表（我的简历） */
+.wb-record-list {
+  list-style: none;
+  margin: var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.wb-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.wb-record__top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.wb-record__info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wb-record__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.wb-record__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.wb-record__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* 隐私说明（个人与隐私） */
+.wb-privacy {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.wb-privacy:first-child {
+  padding-top: var(--space-2);
+}
+.wb-privacy:last-child {
+  border-bottom: 0;
+}
+.wb-privacy__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+}
+.wb-privacy__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.wb-privacy__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.wb-privacy__term {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.wb-privacy__def {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.wb-privacy__link {
+  display: inline-block;
+  margin-left: var(--space-2);
+}
+.wb-privacy__link a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wb-privacy__link a:hover {
+  text-decoration: underline;
+}
+
+/* 经历页内 CRUD 状态块 */
+.wb-crud {
+  margin: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.wb-crud__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 经历列表在 Theme A 面板内留边距 */
+.exp-master {
+  padding: var(--space-4);
+}
+
 @media (max-width: 1100px) {
   .wb-work {
     grid-template-columns: 130px minmax(0, 1fr) 278px;
@@ -1272,6 +1657,65 @@
   }
   .wb-contact-grid {
     grid-template-columns: 1fr;
+  }
+  /* 1024 视口：步骤标签允许换行/收缩，避免被 130px 导轨压缩溢出 */
+  .wb-step {
+    gap: 10px;
+    padding: 11px 8px;
+  }
+  .wb-step > span {
+    min-width: 0;
+  }
+  .wb-step__label {
+    font-size: 13px;
+  }
+  .wb-step__sub {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 850px) {
+  /* 窄屏顶栏与步骤 1 主操作：避免 390 换行 / 320 裁切 */
+  .wb-panel__foot--generate {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .wb-footactions {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
+  .wb-topbar {
+    gap: var(--space-2);
+    padding: 0 var(--space-3);
+  }
+  .wb-avatar-btn__label {
+    display: none;
+  }
+  .wb-brand-name {
+    font-size: 14px;
+  }
+  .wb-brand-name small {
+    display: none;
+  }
+  .wb-brand-logo {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .wb-topbar__right .wb-btn--sm {
+    padding: 0 var(--space-2);
+    font-size: 12px;
+  }
+  .wb-topbar__center {
+    justify-content: flex-end;
   }
 }
 

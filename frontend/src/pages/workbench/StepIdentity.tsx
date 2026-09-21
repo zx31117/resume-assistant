@@ -1,41 +1,20 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useWorkbenchTask } from './WorkbenchTaskContext'
 
 /**
  * V2.2.0 T03：步骤 1 身份与 JD 表单（主面板内容）。
  * - name/jd 必填；target 为会话本地可选输入，不发送后端、刷新不持久；
  * - 保存经后端 /api/task PUT 确认后才标「已保存」；失败保留输入；
- * - 校验失败在 role=alert 展示并聚焦出错字段。
+ * - 主操作（生成岗位简历）固定在主面板 do底部 panel-foot，不随内容漂移；
+ * - 校验失败在 role=alert 展示并聚焦出错字段（id = wb-name / wb-jd，供页脚按钮定位）。
  */
 export default function StepOneIdentity() {
-  const { input, status, saveError, generateError, setInputField, saveNow, generate, generatePending } =
-    useWorkbenchTask()
+  const { input, status, saveError, generateError, setInputField, saveNow } = useWorkbenchTask()
   const [target, setTarget] = useState('')
-  const [localError, setLocalError] = useState<string | null>(null)
 
-  const nameRef = useRef<HTMLInputElement>(null)
-  const jdRef = useRef<HTMLTextAreaElement>(null)
-
-  const generatable = status === null || status === 'DRAFT' || status === 'READY'
   const editable = status === null || status === 'DRAFT'
-  const jdLen = input.jd.length
 
-  function onGenerate() {
-    setLocalError(null)
-    if (!input.name.trim()) {
-      setLocalError('请填写姓名。')
-      nameRef.current?.focus()
-      return
-    }
-    if (input.jd.trim().length < 60) {
-      setLocalError('请粘贴包含职责与任职要求的完整 JD（至少 60 字）。')
-      jdRef.current?.focus()
-      return
-    }
-    void generate()
-  }
-
-  const alertMsg = localError || saveError || generateError
+  const alertMsg = saveError || generateError
 
   // 失焦时立即排空待保存内容（与 750ms 防抖互补）
   function flushSave() {
@@ -52,7 +31,7 @@ export default function StepOneIdentity() {
             <path d="M12 8v4M12 16h.01" />
           </svg>
           <span className="wb-alert__msg">{alertMsg}</span>
-          {saveError && !localError && !generateError && (
+          {saveError && !generateError && (
             <button type="button" className="wb-alert__retry" onClick={saveNow}>
               重试保存
             </button>
@@ -68,7 +47,7 @@ export default function StepOneIdentity() {
               姓名 <span className="wb-field__req">*</span>
             </span>
             <input
-              ref={nameRef}
+              id="wb-name"
               className="wb-input"
               value={input.name}
               onChange={(e) => setInputField('name', e.target.value)}
@@ -138,7 +117,7 @@ export default function StepOneIdentity() {
         <div className="wb-form__section-title">目标岗位 JD</div>
         <div className="wb-jd-field">
           <textarea
-            ref={jdRef}
+            id="wb-jd"
             className="wb-textarea"
             value={input.jd}
             maxLength={12000}
@@ -147,23 +126,13 @@ export default function StepOneIdentity() {
             readOnly={!editable}
             placeholder="职位描述（JD）"
           />
-          <div className="wb-jd-count">{jdLen} / 12000</div>
+          <div className="wb-jd-count">{input.jd.length} / 12000</div>
         </div>
         <div className="wb-hint">JD 至少 60 字；输入阶段只保存草稿，点击生成后开始理解与匹配。</div>
       </section>
 
-      <div className="wb-form-actions">
-        <button
-          type="button"
-          className="wb-btn wb-btn--primary wb-form-actions__primary"
-          onClick={onGenerate}
-          disabled={!generatable || generatePending}
-        >
-          {generatePending ? '生成中…' : '生成岗位简历 →'}
-        </button>
-        {!generatable && (
-          <span className="wb-hint">当前任务已进入生成流程，请等待处理完成。</span>
-        )}
+      <div className="wb-step-hint">
+        {!editable ? '当前任务已进入生成流程，输入已冻结；请等待处理完成后操作。' : '下拉到底完成填写，页面底部固定「生成岗位简历」按钮。'}
       </div>
     </div>
   )

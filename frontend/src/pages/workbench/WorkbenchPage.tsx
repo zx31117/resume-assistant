@@ -7,12 +7,16 @@ import StepUnderstand from './StepUnderstand'
 import StepMatch from './StepMatch'
 import StepCheckout from './StepCheckout'
 import StepDownload from './StepDownload'
+import StepIdentityAside from './StepIdentityAside'
+import StepSuccessAside from './StepSuccessAside'
 import type { TaskStatus } from '../../api/types'
 
 /**
- * V2.2.0 T02/T03/T04：工作台主体 —— 任务标题 + 三栏 work-grid。
- * 左：步骤导轨；中：主面板（当前步骤或历史回看）；右：说明栏。
+ * V2.2.0 T02/T03/T04/T06：工作台主体 —— 三栏 work-grid。
+ * 左：步骤导轨；中：主面板（当前步骤或历史回看）；右：随步骤切换的说明卡。
+ * 冻结 DS-003：工作台首页不在 work-grid 前渲染额外 hero（接下来直接是三栏网格）。
  * T04：历史回看 —— 点击已 done 步骤可回看其权威快照结果，不回暂停后台生成。
+ * T06：P4 成功后主面板以真实 PDF viewer 为主视觉；下载在右侧说明卡固位。
  */
 
 /** 由 status + snapshotPhase 推导“当前实时步骤”(0 基)。RUNNING→快照阶段；SUCCEEDED→第 4 步；其余→第 1 步。 */
@@ -30,11 +34,12 @@ function liveStep(status: TaskStatus | null, phase: string): number {
 }
 
 export default function WorkbenchPage() {
-  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError, generatePending, continueScope } =
+  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError, generatePending, continueScope, generate } =
     useWorkbenchTask()
   const current = liveStep(status, snapshotPhase)
   const [selected, setSelected] = useState(current)
   const [reviewStep, setReviewStep] = useState<number | null>(null)
+  const [step1Error, setStep1Error] = useState<string | null>(null)
 
   // 未在回看时：主面板自动跟随实时步骤（生成推进时自动前进/追平）
   useEffect(() => {
@@ -178,77 +183,119 @@ export default function WorkbenchPage() {
     )
   }
 
-  return (
-    <>
-      <div className="wb-task-heading">
-        <div className="wb-task-heading__eyebrow">简历助手 · 生成工作台</div>
-        <h1 className="wb-task-heading__h1">撰写针对目标岗位的简历</h1>
-        <div className="wb-task-heading__sub">从身份与岗位描述开始，系统完成理解、匹配、修改与导出。</div>
-      </div>
+  /** 步骤 1 主操作：校验并触发真实生成（保持在 foot，不随内容漂移）。 */
+  const step1Generatable = status === null || status === 'DRAFT' || status === 'READY'
+  function handleGenerate() {
+    setStep1Error(null)
+    if (!input.name.trim()) {
+      setStep1Error('请填写姓名。')
+      document.getElementById('wb-name')?.focus()
+      return
+    }
+    if (input.jd.trim().length < 60) {
+      setStep1Error('请粘贴包含职责与任职要求的完整 JD（至少 60 字）。')
+      document.getElementById('wb-jd')?.focus()
+      return
+    }
+    void generate()
+  }
 
-      <div className="wb-work">
-        <StepRail selected={selected} onSelect={handleSelect} />
-
-        {/* 主面板 */}
-        <div className="wb-panel wb-panel--main">
-          <div className="wb-panel__head">
-            <div>
-              <div className="wb-panel__head-title">
-                步骤 {activeIdx + 1} · {WB_STEPS[activeIdx].label}
-              </div>
-              <div className="wb-panel__head-sub">{WB_STEPS[activeIdx].sub}</div>
+  /** 右栏说明卡：随步骤 / 阶段切换（冻结 inputAside / successAside / 通用任务说明）。 */
+  function asideContent(): React.ReactNode {
+    if (status === 'SUCCEEDED' && activeIdx === 3) return <StepSuccessAside />
+    if (activeIdx === 0) return <StepIdentityAside />
+    return (
+      <>
+        <div className="wb-panel__head">
+          <div>
+            <div className="wb-panel__head-title">任务说明</div>
+            <div className="wb-panel__head-sub">真实流程 · 无占位成功</div>
+          </div>
+        </div>
+        <div className="wb-panel__scroll">
+          <div className="wb-aside-block">
+            <div className="wb-aside-block__title">保存与恢复</div>
+            <div className="wb-aside-block__body">
+              <p>
+                姓名与 JD 填写后草稿自动保存在本机；刷新页面可恢复。只有后端返回确认后才显示「已保存」，不会伪造保存成功。
+              </p>
+              <p style={{ marginTop: 8 }}>
+                目标岗位字段仅用于本次输入提示，不会上传；求职意向始终以 JD 分析为准。
+              </p>
             </div>
           </div>
-          {reviewing && (
-            <div className="wb-review-banner" role="status">
-              <span className="wb-review-banner__text">↶ 正在回看已完成结果</span>
-              <button type="button" className="wb-review-banner__back" onClick={returnToLive}>
-                返回当前阶段
+          <div className="wb-aside-block" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="wb-aside-block__title">生成可信度</div>
+            <div className="wb-aside-block__body">
+              <p>每次生成基于真实经历与事实；失败会明确告知并保留你已输入的字段。</p>
+            </div>
+          </div>
+        </div>
+        {(loadState === 'error' || input.jd.length === 0) && (
+          <div className="wb-panel__foot" style={{ minHeight: 'auto', paddingTop: 12, paddingBottom: 12 }}>
+            {loadState === 'error' ? (
+              <button type="button" className="wb-btn wb-btn--ghost wb-btn--sm" onClick={retryLoad}>
+                重试加载任务
+              </button>
+            ) : null}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <div className="wb-work">
+      <StepRail selected={selected} onSelect={handleSelect} />
+
+      {/* 主面板 */}
+      <div className="wb-panel wb-panel--main">
+        <div className="wb-panel__head">
+          <div>
+            <div className="wb-panel__head-title">
+              步骤 {activeIdx + 1} · {WB_STEPS[activeIdx].label}
+            </div>
+            <div className="wb-panel__head-sub">{WB_STEPS[activeIdx].sub}</div>
+          </div>
+        </div>
+        {reviewing && (
+          <div className="wb-review-banner" role="status">
+            <span className="wb-review-banner__text">↶ 正在回看已完成结果</span>
+            <button type="button" className="wb-review-banner__back" onClick={returnToLive}>
+              返回当前阶段
+            </button>
+          </div>
+        )}
+        <div className="wb-panel__scroll">{mainContent()}</div>
+        {activeIdx === 0 && !(status === 'FAILED' || status === 'CANCELLED') ? (
+          <div className="wb-panel__foot wb-panel__foot--generate">
+            <div className="wb-footinfo">
+              <span className="wb-form-hint">姓名必填；未填写的联系方式不进入简历。</span>
+              {step1Error && (
+                <span className="wb-footinfo__err" role="alert">
+                  {step1Error}
+                </span>
+              )}
+            </div>
+            <div className="wb-footactions">
+              {saveIndicator()}
+              <button
+                type="button"
+                className="wb-btn wb-btn--primary wb-form-actions__primary"
+                onClick={handleGenerate}
+                disabled={!step1Generatable || generatePending}
+              >
+                {generatePending ? '正在生成…' : '生成岗位简历 →'}
               </button>
             </div>
-          )}
-          <div className="wb-panel__scroll">{mainContent()}</div>
+          </div>
+        ) : (
           <div className="wb-panel__foot">{saveIndicator()}</div>
-        </div>
-
-        {/* 说明栏 */}
-        <div className="wb-panel wb-panel--aside">
-          <div className="wb-panel__head">
-            <div>
-              <div className="wb-panel__head-title">任务说明</div>
-              <div className="wb-panel__head-sub">真实流程 · 无占位成功</div>
-            </div>
-          </div>
-          <div className="wb-panel__scroll">
-            <div className="wb-aside-block">
-              <div className="wb-aside-block__title">保存与恢复</div>
-              <div className="wb-aside-block__body">
-                <p>
-                  姓名与 JD 填写后草稿自动保存在本机；刷新页面可恢复。只有后端返回确认后才显示「已保存」，不会伪造保存成功。
-                </p>
-                <p style={{ marginTop: 8 }}>
-                  目标岗位字段仅用于本次输入提示，不会上传；求职意向始终以 JD 分析为准。
-                </p>
-              </div>
-            </div>
-            <div className="wb-aside-block" style={{ borderTop: '1px solid var(--border)' }}>
-              <div className="wb-aside-block__title">生成可信度</div>
-              <div className="wb-aside-block__body">
-                <p>每次生成基于真实经历与事实；失败会明确告知并保留你已输入的字段。</p>
-              </div>
-            </div>
-          </div>
-          {(loadState === 'error' || input.jd.length === 0) && (
-            <div className="wb-panel__foot" style={{ minHeight: 'auto', paddingTop: 12, paddingBottom: 12 }}>
-              {loadState === 'error' ? (
-                <button type="button" className="wb-btn wb-btn--ghost wb-btn--sm" onClick={retryLoad}>
-                  重试加载任务
-                </button>
-              ) : null}
-            </div>
-          )}
-        </div>
+        )}
       </div>
-    </>
+
+      {/* 说明栏 */}
+      <div className="wb-panel wb-panel--aside">{asideContent()}</div>
+    </div>
   )
 }

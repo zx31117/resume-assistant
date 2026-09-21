@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import PageHeader from '../components/PageHeader'
-import Badge from '../components/ui/Badge'
-import Card from '../components/ui/Card'
+import WbTaskHeading from '../components/layout/WbTaskHeading'
 import { taskApi } from '../api/endpoints'
 import type { TaskRecordOut } from '../api/types'
 
@@ -55,48 +53,60 @@ export default function RecordsPage() {
   const loading = records === null && error === null
 
   return (
-    <div className="page">
-      <PageHeader
+    <div className="wb-subpage">
+      <WbTaskHeading
         title="我的简历"
-        description="已生成的简历与导出文件。列表来自后端记录查询，只展示真实发布产物，不做伪造。"
+        desc="每一份简历，都是面向一个具体岗位的表达。列表只展示真实发布的产物，不做伪造。"
       />
-
-      <div className="page-scroll">
-        <Card title="已生成记录" subtitle="来自后端 GET /api/task/records 的真实发布记录">
+      <div className="wb-panel wb-panel--main">
+        <div className="wb-panel__head">
+          <div>
+            <div className="wb-panel__head-title">已生成的简历</div>
+            <div className="wb-panel__head-sub">已成功发布 Word / PDF 的真实生成记录</div>
+          </div>
+        </div>
+        <div className="wb-panel__scroll">
           {error ? (
-            <div className="empty" style={{ margin: 'var(--s4) 0' }}>
-              <p className="empty__title">记录加载失败</p>
-              <p className="empty__desc">{error}</p>
-              <div style={{ marginTop: 'var(--s3)' }}>
-                <button
-                  className="btn btn--primary btn--sm"
-                  onClick={() => {
-                    setError(null)
-                    setRecords(null)
-                    taskApi.records().then(setRecords).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-                  }}
-                >
-                  重新加载
-                </button>
+            <div className="wb-empty">
+              <div className="wb-empty__icon" aria-hidden="true">
+                !
               </div>
+              <h3 className="wb-empty__title">记录加载失败</h3>
+              <p className="wb-empty__desc">{error}</p>
+              <button
+                className="wb-btn wb-btn--primary wb-btn--sm"
+                onClick={() => {
+                  setError(null)
+                  setRecords(null)
+                  taskApi
+                    .records()
+                    .then(setRecords)
+                    .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+                }}
+              >
+                重新加载
+              </button>
             </div>
           ) : loading ? (
-            <p className="muted" style={{ margin: 'var(--s4) 0' }}>正在加载记录…</p>
+            <div className="wb-empty">
+              <div className="wb-empty__icon wb-empty__icon--spin" aria-hidden="true" />
+              <p className="wb-empty__desc">正在加载记录…</p>
+            </div>
           ) : records!.length === 0 ? (
-            <div className="empty" style={{ margin: 'var(--s4) 0' }}>
-              <p className="empty__title">还没有已生成的记录</p>
-              <p className="empty__desc">
-                当前没有已发布 Word / PDF 的生成记录。前往工作台填写身份与岗位描述并开始生成，
-                完成后这里会列出该任务发布的可下载 Word / PDF。
-              </p>
-              <div style={{ marginTop: 'var(--s3)' }}>
-                <Link className="btn btn--primary btn--md" to="/">
-                  返回生成工作台
-                </Link>
+            <div className="wb-empty">
+              <div className="wb-empty__icon" aria-hidden="true">
+                ▧
               </div>
+              <h3 className="wb-empty__title">还没有已生成的记录</h3>
+              <p className="wb-empty__desc">
+                前往工作台填写身份与岗位描述并开始生成，完成后这里会列出发布的可下载 Word / PDF。
+              </p>
+              <Link className="wb-btn wb-btn--primary wb-btn--sm" to="/">
+                返回生成工作台
+              </Link>
             </div>
           ) : (
-            <div className="stack" style={{ marginTop: 'var(--s3)' }}>
+            <ul className="wb-record-list">
               {records!.map((rec) => {
                 const name = rec.latest_input?.name?.trim()
                 const jdLen = rec.latest_input?.jd_len ?? 0
@@ -104,61 +114,49 @@ export default function RecordsPage() {
                 const pdfRel = rec.published_pdf_path
                 const pdfAvailable = !!pdfRel
                 return (
-                  <div className="privacy-list" key={rec.task_id} style={{ marginBottom: 'var(--s3)' }}>
-                    <div className="privacy-row">
-                      <span className="privacy-row__title">
-                        {name || '未命名'}
-                      </span>
-                      <span className="privacy-row__desc">
-                        <span className="muted" style={{ marginRight: 'var(--s2)' }}>
-                          更新于 {fmtDate(rec.updated_at)}
-                        </span>
-                        <Badge tone="ok">已发布</Badge>
-                        {jdLen > 0 && <span className="muted">JD {jdLen} 字</span>}
+                  <li className="wb-record" key={rec.task_id}>
+                    <div className="wb-record__top">
+                      <div className="wb-record__info">
+                        <span className="wb-record__title">{name || '未命名'}</span>
+                        <span className="wb-badge wb-badge--ok">已发布</span>
+                      </div>
+                      <span className="wb-record__meta">
+                        {jdLen > 0 && `JD ${jdLen} 字`}
+                        {jdLen > 0 && ' · '}更新于 {fmtDate(rec.updated_at)}
                       </span>
                     </div>
-                    <div className="privacy-row">
-                      <span className="privacy-row__title">Word 文档</span>
-                      <span className="privacy-row__desc">
-                        {docxRel ? (
-                          <a
-                            className="btn btn--primary btn--sm"
-                            style={{ marginTop: 'var(--s2)', display: 'inline-block' }}
-                            href={artifactUrl(docxRel)}
-                            download={basename(docxRel)}
-                            data-role="download-word-record"
-                          >
-                            下载 {basename(docxRel)}
-                          </a>
-                        ) : (
-                          <span className="muted">无 Word 产物</span>
-                        )}
-                      </span>
+                    <div className="wb-record__actions">
+                      {docxRel ? (
+                        <a
+                          className="wb-btn wb-btn--ghost wb-btn--sm"
+                          href={artifactUrl(docxRel)}
+                          download={basename(docxRel)}
+                          data-role="download-word-record"
+                        >
+                          下载 Word
+                        </a>
+                      ) : (
+                        <span className="wb-success-downloads__missing">无 Word 产物</span>
+                      )}
+                      {pdfAvailable ? (
+                        <a
+                          className="wb-btn wb-btn--primary wb-btn--sm"
+                          href={artifactUrl(pdfRel!)}
+                          download={basename(pdfRel!)}
+                          data-role="download-pdf-record"
+                        >
+                          下载 PDF
+                        </a>
+                      ) : (
+                        <span className="wb-success-downloads__missing">（本次未生成 PDF，Word 仍可用）</span>
+                      )}
                     </div>
-                    <div className="privacy-row">
-                      <span className="privacy-row__title">PDF 文档</span>
-                      <span className="privacy-row__desc">
-                        {pdfAvailable ? (
-                          <a
-                            className="btn btn--ghost btn--sm"
-                            style={{ marginTop: 'var(--s2)', display: 'inline-block' }}
-                            href={artifactUrl(pdfRel!)}
-                            download={basename(pdfRel!)}
-                            data-role="download-pdf-record"
-                          >
-                            下载 PDF
-                          </a>
-                        ) : (
-                          <span className="muted">（本次未生成 PDF，Word 仍可用）</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   )

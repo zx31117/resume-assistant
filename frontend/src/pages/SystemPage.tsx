@@ -301,11 +301,11 @@ export default function SystemPage() {
   const providerBadge = keyMeta?.configured ? `Key ${keyMeta.masked}` : 'Key 未配置'
 
   return (
-    <>
+    <div className="wb-subpage">
       <div className="page page-scroll">
         <PageHeader
           title="开发者后台"
-          description="普通导航中隐藏本页，仅经侧栏脚注进入。本页管理 Provider 配置、本地数据库与索引，并提供运行活动与脱敏日志诊断；所有写操作仅作用于本机。"
+          description="本页在当前安装中隐藏导航入口。管理 Provider 配置、本地数据库与索引，并提供运行活动与脱敏日志诊断；所有写操作仅作用于本机。"
         />
 
         <div className="sys-grid">
@@ -720,7 +720,7 @@ export default function SystemPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
 
