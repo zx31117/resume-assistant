@@ -58,34 +58,67 @@ GENERIC_DEV_SUBSTRINGS = (
 # 项目绝对路径。用户目录/临时目录/fixture/测试注入/禁止目录/旧 bundle 检测由其余逻辑保留。
 _PROJECT_TREE_IDENT = "resume-assistant"
 _IDENT_B = _PROJECT_TREE_IDENT.encode("utf-8")
-# 路径条目终止/边界字符（不会出现在合法 Windows 路径条目内部的定界符）
-_PATH_EXIT = frozenset(map(ord, " \t\r\n\x00\x0b\x0c\"'\"`,;()[]{}<>|=!"))
-# 绝对路径头：盘符（X:\\ / X:/）或 UNC（\\\\ / //）。用于在条目内定位真实起点，
-# 即使条目被长前缀前缀（路径族元素前方超过 260 字节的无分割路径字符）淹没也不会漏检。
-_ABS_HEAD_RE = re.compile(rb"[A-Za-z]:[\\/]|\\\\|//")
+# 路径条目终止/边界字符（不会出现在合法 Windows 路径条目内部的定界符）。
+# 注意：space（0x20）**故意不在** 边界集内——真实 Windows 路径的路径段可含空格
+# （如 `D:\\work dir\\resume-assistant\\current`），空格应作为路径字符保留，不能截断条目。
+_PATH_EXIT = frozenset(map(ord, "\t\r\n\x00\x0b\x0c\"'\"`,;()[]{}<>|=!"))
+# URI scheme 归一化：`scheme://`（如 http/https/ftp/s3/file 等）在字节流中被整体中性化为
+# 等长空格。目的是让 URL 的 `X:/`/`://` **绝不**被误判为盘符/UNC 头，从根上消除 URL 误报；
+# URL 是否带 `.git`、`/blob/`、查询串、片段或业务路径都不影响其「非文件系统路径」判定。
+_URI_SCHEME_RE = re.compile(rb"[A-Za-z][A-Za-z0-9+\-.]*://")
+# 驱动器头：`X:\\` 或 `X:/`（单字母 + 冒号 + 单个分隔符）。驱动器头可在条目内任意位置出现
+# （支持长前缀淹没），因为 URL 已被中性化，剩余 `X:` 极低概率为误匹配。
+_DRIVE_HEAD_RE = re.compile(rb"[A-Za-z]:[\\/]")
+
+
+def _neutralize_uris(data: bytes) -> bytes:
+    """把 URI scheme（`scheme://`）替换为等长空格，返回归一化后的字节流。
+
+    保持字节长度不变，以便标识偏移计算与后续无窗口行走仍成立。
+    """
+    return _URI_SCHEME_RE.sub(lambda m: b" " * len(m.group(0)), data)
 
 
 def _path_char(byte: int) -> bool:
-    """该字节是否为路径条目可含字符（可打印，且非条目终止/边界定界符）。"""
+    """该字节是否为路径条目可含字符（可打印，且非条目终止/边界定界符，含空格）。"""
     return 32 <= byte <= 126 and byte not in _PATH_EXIT
 
 
-def _entry_head_pos(entry: bytes) -> int:
-    """返回 `entry` 内最后一个绝对路径头（盘符/UNC）的起点偏移；不存在则返回 -1。
+def _governing_head(entry: bytes, ident_off: int) -> int:
+    """返回 `entry` 中**严格位于标识之后句前**（偏移<ident_off）且**最近**的有效文件系统头偏移；
+    不存在返回 -1。
 
-    在条目内选择「最后一个」绝对头：真正的盘符/UNC 头是该路径段的起点，位于条目最前；
-    若条目因长前缀被淹没，绝对头仍会被正则捕获。
+    有效 FS 头：
+      - 驱动器头 `[A-Za-z]:[\\/]`：可在条目内任意位置（长前缀/多路径场景仍可定位）；
+      - UNC 头 `\\`/`//`：仅当处于条目**起点**（token 起点）时有效——因此 JSON 双反斜杠
+        `E:\\w\\...` 内部的 `\\`（前方是驱动器）不会被误当 UNC 头，杜绝了 H5 时代
+        「取最后一个头选中路径中部 `\\` 导致负偏移 IndexError」的崩溃。
+
+    取「最近」（=最大的严格小于 ident_off 的有效头偏移），使分类总以**该标识自身**的路径段为准；
+    任何命中都在标识左侧，`_next_segment` 不会出现负偏移。
     """
-    last = -1
-    for m in _ABS_HEAD_RE.finditer(entry):
-        last = m.start()
-    return last
+    best = -1
+    # 驱动器头（任意位置）
+    for m in _DRIVE_HEAD_RE.finditer(entry):
+        if m.start() < ident_off and m.start() > best:
+            best = m.start()
+    # UNC 头（仅条目起点；起点天然 < ident_off，只要标识在起点之后）
+    if (entry.startswith(b"\\\\") or entry.startswith(b"//")) and 0 < ident_off:
+        if 0 > best:
+            best = 0
+    return best
 
 
 def _next_segment(entry: bytes, ident_off: int) -> str:
-    """返回条目中位于项目标识之后的下一路径段（脱敏类别）。"""
+    """返回条目中位于项目标识之后的下一路径段（脱敏类别）。
+
+    驱动式边界：保证 ident_off 在有效范围内才读取，越界/负偏移一律返回 unknown，绝不崩溃。
+    段内容保留空格（空格为路径段合法字符，如 `my docs`），只在遇到下一个 `\\`/`/` 分隔符处结束。
+    """
     i = ident_off + len(_IDENT_B)
     n = len(entry)
+    if not (0 <= ident_off < n):
+        return "unknown"
     while i < n and entry[i] in (ord("\\"), ord("/")):
         i += 1
     seg_start = i
@@ -98,9 +131,16 @@ def _next_segment(entry: bytes, ident_off: int) -> str:
 def _find_project_tree_abs(data: bytes) -> list[str]:
     """扫描字节流，返回命中的项目树路径条目类别（去重保序）。
 
-    以项目标识 `resume-assistant` 作路径段为锚点；命中后向两侧无窗口行走还原条目，校验
-    绝对路径开头；仅当「属于 ResumeAssistant 项目树 + 绝对路径」成立才判命中。只回类别。
+    步骤：
+      1. 归一化：把 URI scheme 中性化为空格外来区分 URL 与文件系统；
+      2. 以项目标识 `resume-assistant` 作路径段为锚点逐次扫描；
+      3. 每次命中向其两侧**无窗口**行走还原条目（空格为路径段合法字符）；
+      4. 在条目内取**严格位于标识左侧最近**的有效 FS 头（盘符任意位置 / UNC 仅起点）；
+      5. 分类取标识之后下一路径段；只回类别，不回显完整路径/用户名/机器路径。
+
+    仅当「属于 ResumeAssistant 项目树 + 绝对路径」成立才判命中。返回类别保序去重。
     """
+    data = _neutralize_uris(data)
     n = len(data)
     pos = 0
     categories: list[str] = []
@@ -122,7 +162,7 @@ def _find_project_tree_abs(data: bytes) -> list[str]:
                  and (is_end_boundary or is_sep_after) ):
             pos = last
             continue
-        # 无窗口行走：向两侧逐字节扩展至条目边界（不依赖固定窗口/前置对齐）。
+        # 无窗口行走：向两侧逐字节扩展至条目边界（空格为路径字符，不截断）。
         s = k
         while s > 0 and _path_char(data[s - 1]):
             s -= 1
@@ -130,17 +170,17 @@ def _find_project_tree_abs(data: bytes) -> list[str]:
         while e < n and _path_char(data[e]):
             e += 1
         entry = data[s:e]
-        # 条目可能被长前缀（路径族元素前方超 260 字节的无分割路径字符）淹没，须定位其真实
-        # 绝对路径起点后再校验，避免漏检。
-        head_off = _entry_head_pos(entry)
+        # 取严格位于标识左侧最近的有效 FS 头；不存在则跳过（相对路径/纯文本文本）
+        head_off = _governing_head(entry, k - s)
         if head_off < 0:
-            pos = e
+            pos = last
             continue
         cat = _next_segment(entry[head_off:], k - s - head_off)
         if cat not in seen:
             seen.add(cat)
             categories.append(cat)
-        pos = e
+        # pos=last 而非 pos=e：同一文本含多个绝对路径时可逐个独立判定；分类按各自标识取段。
+        pos = last
     return categories
 
 
@@ -226,7 +266,15 @@ def main() -> int:
             for dp in scan_paths:
                 if dp.encode("utf-8") in low:
                     hits.append({"file": str(rel), "marker": f"dev_path:{dp}"})
-            for fam in _find_project_tree_abs(low):
+            # 异常封闭：项目树路径扫描绝不因任意输入（含 malformed/binary/畸形转义）抛出未捕获
+            # 异常导致审计中断。防御式解析已保证不崩溃，此处再做一层兜底，命中记录为可判定的
+            # scan_error 类别，审计仍产出结构化结果（pass 依 hits 判定）。
+            try:
+                fams = _find_project_tree_abs(low)
+            except Exception as e:  # noqa: BLE001
+                fams = []
+                hits.append({"file": str(rel), "marker": f"scan_error:{type(e).__name__}"})
+            for fam in fams:
                 hits.append({"file": str(rel), "marker": f"project_tree_abs:{fam}"})
 
     # 持久化路径一律相对仓库或取文件名，不落本机工作区绝对路径
