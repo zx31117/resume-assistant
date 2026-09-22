@@ -13,8 +13,9 @@
 > 与其指向的证据入口完成集中审查，§R2-20 结论为 `DOC_RETURNED`：强制门禁仍不完整，且两组证据
 > 与 RESULT 声明直接冲突 → 三项实质缺口。开发随后提交 §R2-21 新候选 `bfcab15`（唯一父
 > `db87c17`），完整重跑门禁、真实构造 Design Fidelity 全状态、统一并绑定新候选的 failure matrix
-> 权威摘要。PLAN Revision 2（blob
-> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，尚未进入独立验收。
+> 权威摘要。Documentation Agent 已在 §R2-22 完成一次性机械与语义复查，结论为 `DOC_ALIGNED`。
+> PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变；下一门禁为绑定
+> H2-HANDOFF `53fbc6f` 的独立验收。
 
 > **本轮返工交付（§R2-21；§R2-20 已 `DOC_RETURNED`）**：
 >
@@ -33,9 +34,12 @@
 >
 > - **开发工作区**：`version/v2.2.0`；接收 `bfcab15` 时 tracked/index clean
 >
-> - **当前门禁**：等待 Documentation Agent 对 §R2-21 集中复查。PLAN Revision 2 不变；`review`
->   继续保持旧候选 `be59acd`，不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入独立验收或
->   Product Owner 人工验收
+> - **文档完整 handoff**：`53fbc6f37016b25b803a73a37570df92cc8179fe`；相对源码候选
+>   `bfcab15` 只修改本 RESULT
+>
+> - **当前门禁**：`DOC_ALIGNED`。PLAN Revision 2 不变；固定 `review` 已 detached 到 H2-HANDOFF
+>   `53fbc6f` 且 clean。旧 `be59acd` 的 `ACCEPTANCE_PASS` 不覆盖本轮返工；尚未开始或通过本轮独立
+>   验收，不得进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1720,3 +1724,41 @@ artifact 链，不另建第二套。
 - 全部必做项实测退出码 0，无 FAIL / NOT_RUN、无开放 Challenge。
 - 形成新的唯一候选 `bfcab15`（唯一父 `db87c17`），tracked/index clean。
 - 停机待 Documentation Agent 按 PLAN 原合同重做集中审查；`review` 保持 `be59acd`，不移动。
+
+## R2-22. Documentation Gate 复查与独立验收 handoff
+
+- **日期**：2026-09-22。
+- **审查边界**：Documentation Agent 只依据批准 PLAN、RESULT、机械身份和 RESULT 指向的证据入口
+  判断交付完整性与内部一致性；本节不读取源码、不把开发自测升级为独立结论，也不声明实现正确。
+- **冻结身份**：
+  - H2-SRC：`bfcab15c172804fc32b9a11761be7da5077eba20`，唯一 parent
+    `db87c17f3ee62311206368b55ba6259c0aaae009`；相对 parent 为 3 files / +871 / -933；
+  - H2-DEV：`4754ba5ad2cd45d43a870e2455f2caf4e90514f3`，相对 H2-SRC 仅修改本 RESULT；
+  - H2-HANDOFF：`53fbc6f37016b25b803a73a37570df92cc8179fe`，相对 H2-SRC 仍仅修改本 RESULT；
+  - 分支 `version/v2.2.0`、接收时 tracked/index clean；PLAN blob
+    `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- **文档侧一次性校正**：§R2-21 原始摘要把六格 first Fact 最大值误写为 11.26 s，实际证据为
+  12.02 s，仍满足 ≤15 s；同时缺少六格和最终纵切的精确命令、V2.1.0 基线降幅、调用/attempt/Token、
+  SSE/回看增量及 artifact/viewer/hash 摘要。上述内容已从既有证据入口机械补齐，没有改变产品实现、
+  测试、包或 PLAN，不再退回开发。
+- **交付一致性**：
+  - 六格真实性能为 18/18 SUCCEEDED、每格 n=3；首 Fact、total、4 格基线降幅、调用/attempt/Token
+    摘要均已覆盖，全部门槛满足；最终 onedir 真实模型纵切、viewer 同源与双下载证据入口存在；
+  - Design Fidelity 摘要为 pass=116 / fail=0 / exit=0；failed 为真实 FAILED，P1～P3
+    `reviewing=true`，P4 七视口截图与 DOM 摘要齐全；
+  - 两个 failure matrix 入口均为 `first_run_exit=0`、`cleanup_gate_ok=true`、
+    `final_pass=true`，不再冲突；R3 有效入口为 `validation-artifacts/h8/r3_browser_summary.json`，
+    PASS=32、fails=[]；
+  - 现场包与 RESULT 一致：4045 files / 170,356,115 B；EXE 16,821,078 B；SHA-256
+    `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；bundle
+    `index-B-lz2__h.js`。
+- **Documentation Gate 结论：`DOC_ALIGNED`。** 这只表示 RESULT 已具备进入独立验收的条件；不表示
+  Design Fidelity、集成、失败路径、真实性能、artifact、资源清理或包已经被独立证明正确。
+- **保护与交接**：canonical 本地候选引用 `candidates/v2.2.0/53fbc6f` 已保护 H2-HANDOFF；固定
+  `review` 已 detached 到同一 `53fbc6f` 且 clean。精确包已封存到
+  `<acceptance-staging>/53fbc6f`，复制前后均为 4045 files / 170,356,115 B 且 EXE SHA-256 一致；
+  证据入口封存于 `<acceptance-staging>/53fbc6f-evidence`。
+- **下一门禁**：由未参与 H2 实现、自测、修复或开发结论编写的 Acceptance Agent 在隔离副本与上述
+  精确包上完成 PLAN §9 的 Design Fidelity、Integration、失败矩阵、真实性能、artifact、资源清理与
+  包审计；结论必须绑定 H2-HANDOFF `53fbc6f`，源码结论同时绑定 H2-SRC `bfcab15`。独立结论返回前
+  保持“待验收”，不进入 Product Owner 人工验收或发布收口。

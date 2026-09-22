@@ -374,3 +374,18 @@
 - 门禁影响：Documentation Agent 结论为 `DOC_RETURNED`，PLAN Revision 2 不变。该候选未被保护，固定
   `review` 继续保持旧候选 `be59acd`，不得进入独立验收、人工验收、CURRENT_STATE 收口或发布。
 - 当前执行缺口以 RESULT §R2-20 为准；本 HISTORY 只记录候选失效事件，不构成开发指令。
+
+## VH-020 `bfcab15` 通过 Documentation Gate
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 Design Fidelity 二次返工 → 独立验收准备
+- 候选身份：H2-SRC 为 `bfcab15c172804fc32b9a11761be7da5077eba20`，H2-HANDOFF 为
+  `53fbc6f37016b25b803a73a37570df92cc8179fe`；二者之间只有 RESULT 文档变化。PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 门禁结果：§R2-20 的三项实质缺口已闭合；Documentation Agent 对 RESULT 的数值和摘要缺项完成一次性
+  机械校正后给出 `DOC_ALIGNED`。该结论只表示交付可进入独立验收，不表示源码或运行已经验收通过。
+- 包与交接：精确包为 4045 files / 170,356,115 B，EXE SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；canonical 已保护 handoff，
+  固定 review 已 detached 到 `53fbc6f` 且 clean，包和证据已封存至对应 acceptance-staging 目录。
+- 下一步：由未参与本候选实现、自测或修复的 Acceptance Agent 绑定同一 H2-HANDOFF 与精确包完成独立
+  验收。旧 `be59acd` 的通过结论不继承；本轮独立结论返回前不得进入人工验收、全局文档收口或发布。
