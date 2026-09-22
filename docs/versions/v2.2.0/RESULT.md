@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -9,14 +9,15 @@
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`；Revision 2 旧候选 `be59acd` 虽完成独立验收，
 > 但 Product Owner 因 Design Fidelity 打回。§R2-18 Documentation Gate 又退回 `ecddb65` 候选并列出
-> 7 项缺口；开发已在 §R2-19 全部修复并重跑适用门禁，形成新候选 `ac36edf`，等待 Documentation
-> Agent 从 PLAN 原合同重新集中审查（`DOC_ALIGNED`），其后才进入独立验收与人工验收。
+> 7 项缺口；开发随后提交 §R2-19 候选 `ac36edf`。Documentation Agent 按 PLAN、RESULT、机械身份
+> 与其指向的证据入口完成集中审查，§R2-20 结论为 `DOC_RETURNED`：强制门禁仍不完整，且两组证据
+> 与 RESULT 声明直接冲突。PLAN Revision 2 不变，尚未进入独立验收。
 
-> **本轮返工候选（§R2-19，等待 Documentation Gate 复查）**：
+> **本轮返工交付（§R2-19；§R2-20 已 `DOC_RETURNED`）**：
 >
-> - **开发交付 commit**：`ac36edf012d29bcddfeee64047e86cbca5f81f67`
+> - **开发交付 commit（机械校正）**：`ac36edf49e4f0e0331781e86d5e9cc6b5e42956d`
 >
-> - **唯一父提交 / 返工基线**：`d5449d6e40a13554527a90380e53d109a9f18448`
+> - **唯一父提交 / 返工基线（机械校正）**：`d5449d6090e7a71f49a9aa28d14367a167490bde`
 >   （= §R2-18 `DOC_RETURNED` 记录所在提交）
 >
 > - **相对返工基线完整 diff**（`ac36edf` vs `d5449d6`）：**6 files changed, 933 insertions(+),
@@ -28,8 +29,8 @@
 >
 > - **开发工作区**：`version/v2.2.0`；接收 `ac36edf` 时 tracked/index clean
 >
-> - **当前门禁**：待 Document Agent `DOC_ALIGNED`。PLAN Revision 2 不变；`review` 继续保持旧候选
->   `be59acd`，不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入 Product Owner 人工验收
+> - **当前门禁**：`DOC_RETURNED`。PLAN Revision 2 不变；`review` 继续保持旧候选 `be59acd`，不得
+>   用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入独立验收或 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1587,3 +1588,40 @@ artifact 链，不另建第二套。
 - **结论**：`ac36edf` 满足 §R2-18 返回开发的最小完成条件——7 项缺口全部修复，适用开发 Gate 无
   FAIL/NOT_RUN、无开放 Challenge、工作区 clean，已形成唯一候选 commit。是否 `DOC_ALIGNED` 及后续
   独立/人工验收由 Documentation Agent / 用户依据 PLAN 原合同决定，开发不在此处断言发布。
+
+## R2-20. Documentation Gate 集中审查（`ac36edf`）
+
+- **日期**：2026-09-22。
+- **审查边界**：只依据批准 PLAN、RESULT、机械身份和 RESULT 指向的证据入口判断交付完整性与内部
+  一致性；未读取源码或替代 Acceptance 判断运行真实性。
+- **机械复核**：实际候选为 `ac36edf49e4f0e0331781e86d5e9cc6b5e42956d`，唯一 parent 为
+  `d5449d6090e7a71f49a9aa28d14367a167490bde`，分支 `version/v2.2.0` 且 tracked/index clean；相对
+  parent 为 6 files / +933 / -16；PLAN blob 仍为
+  `e134703ce6e37a2f4d5df389662119f38638fae8`。现场包确为 4045 files / 170,356,136 B，EXE
+  16,821,099 B，SHA-256
+  `EE106DBCCE994F75EB5EDFDB75B6FA7EBA2A0B4F2C18FB53899FAE8BFF4E483D`，bundle
+  `index-B-lz2__h.js`。§R2-19 的两条完整 commit SHA、R3 证据路径及“与 R2-18 包身份一致”均为
+  纯文档错误；本节已按现场机械事实校正，不再要求开发重复处理。
+- **结论**：`DOC_RETURNED`。当前交付仍有以下完整缺口，不能保护候选或移动固定 review：
+
+  1. PLAN §7.4 / §9 的新候选门禁不完整。前端产品源码已变化，RESULT 却把 type/build/Hooks 列为
+     “不适用”，也未给出从该候选 clean 源码执行前端正式 build、PyInstaller clean 重建的命令与退出码；
+     短/典型/长 × cold/warm、每格 `n>=3` 的六格真实模型性能也未重跑，现有证据仍绑定 2026-09-19
+     的旧候选。`precheck exit 0`、包审计和单次真实模型 E2E 不能替代这些明确必做项。
+  2. Design Fidelity 声明与所引证据直接冲突。`design_fidelity.json` 的 `failed.terminal` 为
+     `SUCCEEDED`，并明确写着真实失败路径未稳定构造；P1/P2/P3 条目均为 `reviewing=false`、
+     `stepDone=4`，没有证明 RESULT 所称的 P1～P3 回看状态。该证据不能支持“empty/saved/P1-P4/
+     failed/success 全状态已覆盖”。
+  3. failure matrix 的两个被引用入口互相矛盾：仓库根 `failure_matrix_result.json` 为
+     `first_run_exit=1`、`cleanup_gate_ok=false`、`rerun_exit=1`、`final_pass=false`；
+     `validation-artifacts/h8/r2/r2_2_r2_19_failure_matrix.json` 则为 `first_run_exit=0`、
+     `cleanup_gate_ok=true`、未发生 rerun、`final_pass=true`。RESULT 不能同时引用二者并声明同一结论，
+     必须形成一个绑定新候选、无冲突的权威摘要。
+  4. R3 的有效现场入口实际为 `validation-artifacts/h8/r3_browser_summary.json`，其摘要为
+     PASS=32、fails=[]；§R2-19 所写 `validation-artifacts/h8/r3/r3_browser_summary.json` 不存在。
+     本项属于路径笔误，已在此校正，不单独构成返工。
+
+- **重新交付条件**：在同一 PLAN Revision 2 下补齐上述三项实质缺口，使用一致且绑定新候选的证据
+  入口；更新同一 RESULT 的候选/唯一父提交、完整 diff、全部必做命令与退出码、新包身份及偏差，确认
+  无 FAIL/NOT_RUN、无开放 Challenge、工作区 clean 后形成新的唯一候选。Documentation Agent 将按
+  PLAN 原合同重新做一次集中审查；此前固定 `review` 保持 `be59acd`，不进入独立或人工验收。

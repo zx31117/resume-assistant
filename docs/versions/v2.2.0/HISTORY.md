@@ -360,3 +360,17 @@
   未改变产品范围、技术路线、Design Baseline 或强制验收合同，不触发 PLAN Revision，也不新增执行文档。
 - 下一步：Development Agent 继续执行同一 PLAN Revision 2。产品代码或入包文件变化后按 PLAN §9 冻结
   新候选并重新验收；此前不更新 CURRENT_STATE 或发布入口。
+
+## VH-019 `ac36edf` 未通过 Documentation Gate
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 Design Fidelity 返工 → Documentation Gate
+- 交付身份：实际开发候选为 `ac36edf49e4f0e0331781e86d5e9cc6b5e42956d`，唯一 parent 为
+  `d5449d6090e7a71f49a9aa28d14367a167490bde`；现场包为 4045 files / 170,356,136 B，EXE SHA-256
+  `EE106DBCCE994F75EB5EDFDB75B6FA7EBA2A0B4F2C18FB53899FAE8BFF4E483D`。
+- 失效原因：RESULT 记录了错误的完整 commit 身份；新候选未交付 §7.4 强制的前端 type/build/Hooks、
+  clean 重建和六格真实性能完整重跑；Design Fidelity 证据未形成所声明的 failed 与 P1～P3 状态；
+  failure matrix 的两个证据入口给出互相冲突的 PASS/FAIL 结论。
+- 门禁影响：Documentation Agent 结论为 `DOC_RETURNED`，PLAN Revision 2 不变。该候选未被保护，固定
+  `review` 继续保持旧候选 `be59acd`，不得进入独立验收、人工验收、CURRENT_STATE 收口或发布。
+- 当前执行缺口以 RESULT §R2-20 为准；本 HISTORY 只记录候选失效事件，不构成开发指令。
