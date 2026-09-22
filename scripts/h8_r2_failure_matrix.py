@@ -139,18 +139,58 @@ def _corrupt_docx() -> Path:
     return p
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--exe", required=True, help="冻结 onedir 的 ResumeAssistant.exe（F1 用）")
-    ap.add_argument("--out", required=True, help="证据 JSON 输出")
-    args = ap.parse_args()
+# ── R2-18：资源生命周期自证（首跑/残留/清理/复跑门禁）───────────── #
+def _taskkill_pid(pid: int) -> None:
+    try:
+        subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                       capture_output=True, timeout=10, creationflags=_NO_WINDOW)
+    except Exception:  # noqa: BLE001
+        pass
 
+
+def _cleanup_temp_dirs() -> list[str]:
+    """回收本矩阵可能留下的临时目录（h8r2_fm_/h8r2_s1_/h8r2_f1_）。"""
+    cleaned: list[str] = []
+    tmp = Path(tempfile.gettempdir())
+    try:
+        for prefix in ("h8r2_fm_", "h8r2_s1_", "h8r2_f1_"):
+            for d in tmp.glob(f"{prefix}*"):
+                try:
+                    for f in d.rglob("*"):
+                        if f.is_file():
+                            f.unlink(missing_ok=True)
+                    d.rmdir()
+                    cleaned.append(str(d))
+                except Exception:  # noqa: BLE001
+                    pass  # 被占用则留给复跑后再次清
+    except Exception:  # noqa: BLE001
+        pass
+    return cleaned
+
+
+def residual_scan(baseline_ww: set[int],
+                  baseline_vis: set[tuple[int, str, str]]) -> dict:
+    """相对 `baseline` 残留对象枚举：WINWORD 进程 + 新增可见控制台/Word 顶层窗口。"""
+    now_ww = _winword_pids()
+    now_vis = set(w for w in _visible_windows() if w[1] in CONSOLE_CLASSES or w[1] in WORD_CLASSES)
+    return {
+        "winword_leaked": sorted(now_ww - baseline_ww),
+        "new_console_or_word_windows": sorted(now_vis - baseline_vis, key=lambda x: x[0]),
+    }
+
+
+def run_matrix(exe: str) -> tuple[int, dict]:
+    """单次失败矩阵：launch→run→finalize，返回 (退出码, 该次 evidence)。
+
+    S1/F1 等场景在 no-console 父进程下驱动生产 worker；窗口自证在函数内收尾。
+    """
     sys.path.insert(0, str(BACKEND))
     from services import docx_to_pdf  # noqa: E402  生产父模块（含 CREATE_NO_WINDOW 修复）
 
     evid: dict = {"scenarios": [], "win_snapshot": {}}
     ww_before = _winword_pids()
-    vis_before = set(win for win in _visible_windows() if win[1] in CONSOLE_CLASSES or win[1] in WORD_CLASSES)
+    vis_before = set(win for win in _visible_windows()
+                     if win[1] in CONSOLE_CLASSES or win[1] in WORD_CLASSES)
     t0 = time.time()
 
     def record(name: str, ok: bool, **kw) -> None:
@@ -158,7 +198,7 @@ def main() -> int:
         evid["scenarios"].append(rec)
         try:
             print(f"[{name}] ok={ok} " + json.dumps(kw, ensure_ascii=False)[:400], flush=True)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     # ── S1 Word/COM 缺失（worker 级：win32com 导入失败）───────────── #
@@ -266,7 +306,7 @@ def main() -> int:
         env["H8_CONV_DOCX"] = str(corrupt)
         env["H8_CONV_OUT"] = str(out_pdf)
         env["H8_CONV_META"] = str(meta)
-        p = subprocess.run([str(args.exe)], capture_output=True, timeout=60,
+        p = subprocess.run([str(exe)], capture_output=True, timeout=60,
                            creationflags=_NO_WINDOW, env=env)
         m = {}
         if meta.is_file():
@@ -293,14 +333,108 @@ def main() -> int:
     }
     all_ok = all(s["ok"] for s in evid["scenarios"]) and not new_win and not winword_leak
     evid["all_ok"] = all_ok
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(evid, ensure_ascii=False, indent=2), encoding="utf-8")
     try:
         print(f"[matrix] all_ok={all_ok} scenarios={len(evid['scenarios'])} "
               f"new_console_or_word={len(new_win)} winword_leaked={len(winword_leak)}", flush=True)
     except Exception:
         pass
-    return 0 if all_ok else 1
+    return (0 if all_ok else 1, evid)
+
+
+def main() -> int:
+    """R2-18 生命周期自证编排：首跑 → 残留扫描 → 显式清理 → （失败则）复跑。
+
+    原则：首跑非零状态如实写入 JSON，不吞掉；最终 PASS 依据「清理干净且复跑通过」，
+    而不是人工强杀后把首跑失败静默升级为全 PASS。
+    """
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--exe", required=True, help="冻结 onedir 的 ResumeAssistant.exe（F1 用）")
+    ap.add_argument("--out", required=True, help="证据 JSON 输出")
+    args = ap.parse_args()
+    exe = str(args.exe)
+
+    def _log(m: str) -> None:
+        try:
+            print(m, flush=True)
+        except Exception:  # noqa: BLE001
+            pass
+
+    _log(f"[lifecycle] exe={exe}")
+
+    # 资源基线（全程唯一，跨首跑/清理/复跑）
+    baseline_ww = _winword_pids()
+    baseline_vis = set(w for w in _visible_windows()
+                       if w[1] in CONSOLE_CLASSES or w[1] in WORD_CLASSES)
+
+    # ── 首跑 ─────────────────────────────────────────────── #
+    _log("[lifecycle] first run: launch→run→finalize")
+    first_rc, first_evid = run_matrix(exe)
+    first_failed = first_rc != 0
+    residue_after_first = residual_scan(baseline_ww, baseline_vis)
+    _log(f"[lifecycle] first_run_exit={first_rc} first_run_failed={first_failed} "
+         f"residue={residue_after_first}")
+
+    # ── 显式清理（等价于文档验收中的人工强杀，这里由脚本自证并记录路径） ── #
+    cleanup: list[str] = []
+    for pid in residue_after_first["winword_leaked"]:
+        _taskkill_pid(pid)
+        cleanup.append(f"taskkill WINWORD pid={pid}")
+    cleanup.extend(f"rmdir {d}" for d in _cleanup_temp_dirs())
+    _log("[lifecycle] cleanup steps: " + ("; ".join(cleanup) if cleanup else "none"))
+    residue_after_cleanup = residual_scan(baseline_ww, baseline_vis)
+
+    # ── 首跑非零 → 复跑（首跑全 PASS 则不再复跑，保住既有单跑 exit 0 语义） ── #
+    rerun_rc = None
+    rerun_evid = None
+    rerun_failed = None
+    residue_after_rerun = residue_after_cleanup
+    if first_failed:
+        _log("[lifecycle] first_run_failed，触发复跑（cleanup 后重试）")
+        rerun_rc, rerun_evid = run_matrix(exe)
+        rerun_failed = rerun_rc != 0
+        residue_after_rerun = residual_scan(baseline_ww, baseline_vis)
+        _log(f"[lifecycle] rerun_exit={rerun_rc} rerun_failed={rerun_failed} "
+             f"residue_after_rerun={residue_after_rerun}")
+
+    # ── 门禁判定：真清理 + 真通过 ─────────────────────────── #
+    cleanup_gate_ok = (
+        not residue_after_cleanup["winword_leaked"]
+        and not residue_after_cleanup["new_console_or_word_windows"]
+        and not residue_after_rerun["winword_leaked"]
+        and not residue_after_rerun["new_console_or_word_windows"]
+        and (not first_failed if rerun_failed is None else rerun_rc == 0)
+    )
+    final_pass = (not first_failed and residue_after_first == residue_after_cleanup
+                  and residue_after_cleanup == {
+                      "winword_leaked": [], "new_console_or_word_windows": []})
+    if first_failed:
+        # 首跑失败后的最终结论严格以复跑为准，且必须真的清理干净
+        final_pass = (
+            rerun_rc == 0
+            and not rerun_failed
+            and not residue_after_rerun["winword_leaked"]
+            and not residue_after_rerun["new_console_or_word_windows"]
+        )
+
+    evid = {
+        "first_run_exit": first_rc,
+        "first_run_failed": first_failed,
+        "first_evid": first_evid,
+        "residual_objs": residue_after_first,
+        "cleanup_path": cleanup,
+        "cleanup_gate_ok": cleanup_gate_ok,
+        "rerun_exit": rerun_rc,
+        "rerun_evid": rerun_evid,
+        "rerun_failed": rerun_failed,
+        "residual_after_cleanup": residue_after_cleanup,
+        "residual_after_rerun": residue_after_rerun,
+        "final_pass": final_pass,
+    }
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(evid, ensure_ascii=False, indent=2), encoding="utf-8")
+    _log(f"[lifecycle] final_pass={final_pass} cleanup_gate_ok={cleanup_gate_ok} "
+         f"rerun={rerun_rc if rerun_rc is not None else 'not-run'} → exit={'0' if final_pass else '1'}")
+    return 0 if final_pass else 1
 
 
 if __name__ == "__main__":

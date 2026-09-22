@@ -132,9 +132,21 @@ def hook_warns(warns) -> list[str]:
 
 
 # ── fake Provider：计数 /chat/completions 与 embeddings ──────────
+FP_PORT = 8791                                # fake provider 固定端口
 FP_STATE = {"chat": 0, "jd": 0, "rewrite": 0, "content": 0, "other_chat": 0, "emb": 0}
 FP_LOCK = threading.Lock()
 FP_FILE: Path | None = None
+
+# ── SSE 断流（R2-19 §R2-18 修复）持住控制 ──────────────────────
+# 为 sse_stream_break 场景制造「流在线且 provider 静止」的可控窗口：
+# 当某个 kind(默认 jd) 的 chat 请求到达时，把它在回复前 hold 若干秒，
+# 从而保证断流 re-poll 期间不会产生新的 LLM/Embedding 调用（provider 增量必须为 0）。
+# 注：新工作台多阶段编排中 rewrite 不再单独分类（并入 other_chat），而 jd_analyze（jd）
+# 在每个生成 /start 后 RUNNING 阶段恰好触发 1 次、流已在线，是唯一稳定可达的 hold 靶点。
+# 由脚本通过 POST /__h8control {"stall_s": N, "stall_kind": "jd"} 打开；一次性（触发后自动清零）。
+FP_STALL_KIND = "jd"
+FP_STALL_S = 0.0
+SSE_BREAK_STALL_S = 15.0
 
 _JD_FIXTURE = {
     "position": "高级后端研发工程师", "industry": "互联网",
@@ -278,12 +290,36 @@ class FPHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self._body()
         path = self.path.split("?")[0]
+        global FP_STALL_S, FP_STALL_KIND
+        if path.endswith("/__h8control"):
+            # SSE 断流控制的 provider 面：脚本用它布防/关闭 hold（默认 jd），不改产品后端。
+            try:
+                ctrl = json.loads(body.decode("utf-8", "replace"))
+                val = max(0.0, float(ctrl.get("stall_s") or ctrl.get("rewrite_stall_s") or 0))
+                kind = str(ctrl.get("stall_kind") or FP_STALL_KIND)
+            except Exception:  # noqa: BLE001
+                val = 0.0
+                kind = FP_STALL_KIND
+            with FP_LOCK:
+                FP_STALL_S = val
+                FP_STALL_KIND = kind
+            self._send({"ok": True})
+            return
         if path.endswith("/chat/completions"):
             kind = _classify(body)
             with FP_LOCK:
                 FP_STATE["chat"] += 1
                 FP_STATE[kind] += 1
             _fp_dump()
+            # 一次性持住：target kind 抵达后 hold 响应，制造「流在线且 provider 静止」窗口
+            stall_kind = FP_STALL_KIND
+            if kind == stall_kind:
+                with FP_LOCK:
+                    delay = FP_STALL_S
+                    FP_STALL_S = 0.0
+                    FP_STALL_KIND = ""
+                if delay > 0:
+                    time.sleep(delay)
             self._send(_chat_body(_fixture_content(kind, body)))
         elif path.endswith("/embeddings/multimodal"):
             with FP_LOCK:
@@ -303,6 +339,17 @@ def start_fake_provider(port: int, out: Path) -> ThreadingHTTPServer:
     th.start()
     log(f"[fp] fake provider 127.0.0.1:{port} → counts {out.name}")
     return srv
+
+
+def fp_stall(seconds: float) -> None:
+    """打开/关闭 fake provider 的 hold（默认 jd；SSE 断流场景使用；不触产品后端）。"""
+    try:
+        st, _ = _api(FP_PORT, "POST", "/__h8control",
+                     {"stall_s": seconds, "stall_kind": FP_STALL_KIND}, timeout=10)
+        log(f"[fp] {FP_STALL_KIND} stall_s → {seconds} (rc={st})")
+    except Exception as e:  # noqa: BLE001
+        log(f"[fp] {FP_STALL_KIND} stall_s 设置失败：{e}")
+        bad("fp-stall-control", f"{e}")
 
 
 # ── 进程/端口工具 ─────────────────────────────────────────────
@@ -809,6 +856,166 @@ def s7_full_operation(port: int, base: str, label: str, expect_pre: bool) -> Non
     })
 
 
+def sse_stream_break(port: int, base: str, label: str) -> None:
+    """R2-19 §R2-18 修复证据：SSE 断流 → es.onerror → 幂等权威 re-poll。
+
+    关键证据（白盒：refresh 只 GET /api/task/{id} 并 applyView，绝不触发生成）：
+      1) 断流后前端重新取得权威快照（页面通过 GET /api/task/{id} re-poll）；
+      2) 阶段状态不丢失（快照 phase 在断流前后一致，UI 仍显示原步骤文本）；
+      3) LLM/Embedding 增量 0（fp_snapshot() 在断流前后的 chat/jd/rewrite/other_chat/emb
+         相对增量必须为 0 —— 这正是 refresh 只 GET 不生成的 key 证据）。
+
+    断流注入方式（经 agent-browser 实机验证选定）：
+      - agent-browser `network route ... --abort` 与 `set offline` 都只作用于【新】请求，
+        无法切断【已建立】的 EventSource 长连接；
+      - 因此采用「route 拦 /api/task/*/stream + reload」：reload 后页面重建 EventSource，
+        该 /stream 请求被 route 拦掉 → 触发 es.onerror（走修复后的
+        setStreamEnded(true); close(); void refresh() 分支）；GET /api/task/{id} 不在
+        route 内 → re-poll 成功。此即真实「断流后重建连接失败 → 权威快照恢复」等价路径。
+
+    provider 静止窗口保证 delta==0：
+      在点击生成前通过 /__h8control 布防 rewrite 持住（SSE_BREAK_STALL_S 秒），
+      当 run 抵 P3 时 rewrite 请求已到达并被 hold —— 此刻流在线、provider 静止，
+      reload + re-poll 期间后端不再产生新的 LLM/Embedding 调用 → 增量必为 0。
+    """
+    open_page(base, label)
+    bx(["eval", _R3_INJECT])
+    # 1) 填写姓名 + JD（新 UI 受控组件：原生 value setter + input/change，轮询 __h8fill 落盘）
+    bx(["eval",
+        "(()=>{"
+        "const setV=(el,v)=>{"
+        "  const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
+        "  const setter=Object.getOwnPropertyDescriptor(proto,'value').set;"
+        "  setter.call(el,v);"
+        "  el.dispatchEvent(new Event('input',{bubbles:true}));"
+        "  el.dispatchEvent(new Event('change',{bubbles:true}));"
+        "};"
+        "const ni=document.querySelector('#wb-name')||document.querySelector('input[placeholder=\"请输入姓名\"]');"
+        "const nj=document.querySelector('#wb-jd')||document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
+        "if(ni)setV(ni,'测试用户SSE');"
+        "if(nj)setV(nj," + json.dumps(JD_FULL, ensure_ascii=False) + ");"
+        "setTimeout(()=>{"
+        "  window.__h8fill=JSON.stringify({"
+        "  nameOk:!!(ni&&ni.value.trim()),"
+        "  jdLen:nj?nj.value.length:0"
+        "  });},400);"
+        "return 'ok';})()"], timeout=25)
+    fv = None
+    for _ in range(10):
+        time.sleep(0.3)
+        raw = bx(["eval", "window.__h8fill||'{}'"], timeout=25).strip()
+        try:
+            cand = json.loads(raw)
+            cand = json.loads(cand) if isinstance(cand, str) else cand
+        except Exception:
+            continue
+        if cand.get("nameOk") and (cand.get("jdLen") or 0) >= 60:
+            fv = cand
+            break
+    if fv is None:
+        bad(label + "-sse-break", "姓名/JD 未进入受控 state，无法驱动生成")
+        return
+    time.sleep(0.5)
+    snap = bx(["snapshot", "-i"])
+    gb = re.search(r'button "生成岗位简历[^\n]*?ref=([a-z0-9]+)', snap)
+    if not gb:
+        bad(label + "-sse-break", "未找到「生成岗位简历」按钮")
+        return
+    # 2) 布防 jd 持住，制造「流在线且 provider 静止」窗口
+    fp_stall(SSE_BREAK_STALL_S)
+    fb0 = fp_snapshot()
+    bx(["click", f"@{gb.group(1)}"], timeout=25)
+    # 3) 等待 jd 请求到达并被 hold => RUNNING 流在线（jd_analyze 在 /start 后 RUNNING 恰好 1 次）
+    stall_arrived = False
+    t0 = time.time()
+    while time.time() - t0 < 20:
+        if fp_snapshot()["jd"] - fb0["jd"] >= 1:
+            stall_arrived = True
+            break
+        time.sleep(0.5)
+    if not stall_arrived:
+        fp_stall(0.0)
+        EVIDENCE["scenarios"].append({
+            "label": label, "injection": "network-route-abort-stream+reload",
+            "injectable": False,
+            "reason": "无法进入受控流窗口（jd 未在 20s 内被 hold，可能生成已瞬达终态）",
+        })
+        bad(label + "-sse-break", "无法进入受控流窗口（injectable=false，未虚假 PASS）")
+        return
+    # 4) 记录断流前的最新权威快照阶段 + provider 计数
+    # task_id 必须取本轮点击后真实发出的 /api/task/{id}/start（宿 session 可能残留旧 id）。
+    task_id = ""
+    pg = collect_page()
+    for _ in range(20):
+        for u in (pg or {}).get("reqs") or []:
+            m = re.search(r"/api/task/([0-9a-zA-Z-]+)/start", u)
+            if m:
+                task_id = m.group(1)
+                break
+        if task_id:
+            break
+        time.sleep(0.4)
+        pg = collect_page()
+    if not task_id:
+        fp_stall(0.0)
+        bad(label + "-sse-break", "无法取得 task_id（本轮 /start 请求未捕获），断流证据不可用")
+        return
+    phase_at = None
+    if task_id:
+        _st, tv = _api(port, "GET", f"/api/task/{task_id}")
+        phase_at = (tv or {}).get("snapshot", {}).get("phase") if isinstance(tv, dict) else None
+    fp_before = fp_snapshot()
+    # 5) 注入断流：route 拦 /stream + reload -> es.onerror -> close + refresh()
+    bx(["network", "requests", "--clear"])
+    bx(["network", "route", "**/api/task/*/stream", "--abort"], timeout=20)
+    bx(["reload"], timeout=30)
+    # 等待页面就绪并恢复出原步骤（阶段不丢失的 UI 证据）
+    ui_kept = (wait_contains("匹配经历", 40) or wait_contains("理解岗位", 40))
+    # re-poll 证据：network 层捕获 reload 后的 GET /api/task/{id}
+    reqs_raw = bx(["network", "requests", "--filter", "api/task", "--method", "GET", "--json"],
+                  timeout=20) or ""
+    repoll_seen = f"/api/task/{task_id}" in reqs_raw
+    if not repoll_seen:
+        # 兜底：reload 后再注入 hook 观察（捕获可能较晚到达的 onerror-refresh GET）
+        bx(["eval", _R3_INJECT])
+        for _ in range(6):
+            time.sleep(0.4)
+            p = collect_page()
+            if any(f"/api/task/{task_id}" == u.split("?")[0] for u in p["reqs"]):
+                repoll_seen = True
+                break
+    time.sleep(1.0)  # 让 re-poll 稳定，provider 增量窗口收敛
+    fp_after = fp_snapshot()
+    phase_after = None
+    if task_id:
+        _st, tv = _api(port, "GET", f"/api/task/{task_id}")
+        phase_after = (tv or {}).get("snapshot", {}).get("phase") if isinstance(tv, dict) else None
+    bx(["network", "unroute"], timeout=20)
+    fp_stall(0.0)
+    # 6) 断言
+    delta = {k: fp_after[k] - fp_before[k] for k in ("chat", "jd", "rewrite", "other_chat", "emb")}
+    delta_zero = all(v == 0 for v in delta.values())
+    phase_kept = (phase_after == phase_at) and ui_kept
+    checks = [("re-poll-GET", repoll_seen), ("provider-delta-zero", delta_zero),
+              ("phase-kept", phase_kept)]
+    failed = [k for k, v in checks if not v]
+    if not failed:
+        ok(label + "-sse-break",
+           f"repoll={repoll_seen} phase={phase_at}→{phase_after} provider_delta={delta}")
+    else:
+        bad(label + "-sse-break",
+            f"断言失败 {failed} repoll={repoll_seen} phase={phase_at}→{phase_after} "
+            f"delta_zero={delta_zero} delta={delta} ui_kept={ui_kept}")
+    EVIDENCE["scenarios"].append({
+        "label": label, "injection": "network-route-abort-stream+reload",
+        "injectable": True, "task_id": task_id,
+        "phase_at_break": phase_at, "phase_after_repoll": phase_after,
+        "repoll_get_seen": repoll_seen, "ui_phase_kept": ui_kept,
+        "provider_delta": delta, "provider_delta_zero": delta_zero,
+        "provider_before": fp_before, "provider_after": fp_after,
+    })
+
+
 SCENARIOS = (
     ("s1", s1_native_setter), ("s2", s2_keyboard), ("s3", s3_paste),
     ("s4", s4_reach60_wait), ("s5", s5_modify_satisfying),
@@ -824,6 +1031,9 @@ def run_phase(port: int, base: str, tag: str, expect_pre: bool) -> None:
             fn(port, base, f"{tag}-{name}", True if expect_pre else False)
         else:
             fn(base, f"{tag}-{name}", expect_pre)
+    if not expect_pre:
+        # R2-19 §R2-18：正向阶段末尾追加 SSE 断流恢复证据（需真实后端 port + 运行时注入）
+        sse_stream_break(port, base, tag + "-sse-stream-break")
 
 
 # ── 旧候选负向（H8-SRC 前端构建） ─────────────────────────────
@@ -919,11 +1129,11 @@ def main() -> int:
             bad("env-port8000", "8000 已被占用")
             return 2
 
-        fp = start_fake_provider(8791, evout)
-        if not wait_port(8791, 20):
+        fp = start_fake_provider(FP_PORT, evout)
+        if not wait_port(FP_PORT, 20):
             bad("env-fp", "fake provider 未就绪")
             return 2
-        log(f"[r3] runtime={runtime} fp=8791")
+        log(f"[r3] runtime={runtime} fp={FP_PORT}")
 
         backend = start_backend(runtime, 8791, 8000, "backend.log")
         if not wait_port(8000, 120):

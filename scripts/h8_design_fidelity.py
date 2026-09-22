@@ -155,8 +155,380 @@ def probe(base: str) -> dict:
         return {"_raw": raw[:200]}
 
 
+# ── 全状态 Design Fidelity 对照（PLAN §7.1）──────────────────────── #
+# 纪律（用户硬约束）：
+#   - P1–P4 只跑一次真实成功任务；P1/P2/P3 在成功后用 reviewStep（点击已 done 步骤）回看采集，
+#     不重复调用模型；
+#   - 7 个冻结 viewport 沿用同一已就绪成功态切换 viewport 截图，不因 viewport 变化重新生成；
+#   - failed 用隔离 runtime 的真实失败路径（触发真实生成并轮询 FAILED），不用固定 UI fixture；
+#     若该失败路径在隔离 runtime 不易稳定构造，则如实标记，不虚假 PASS。
+TEST_NAME = "全状态保真测试"
+TEST_JD = ("高级后端研发工程师（Java）：负责电商平台交易链路设计、编码与线上稳定性，主导订单支付库存模块"
+           "演进与高并发优化。要求 5 年+ Java、Spring Boot、MySQL、Redis，有分布式/消息队列实践优先，"
+           "base 杭州，可尽快到岗。")
+
+# 全状态 DOM/布局探针：整页 overflow + Theme A 壳 + 步骤轨道 class 计数 + PDF viewer + 下载区固位 + 旧 dev 卡。
+_STATE_PROBE = ("JSON.stringify((function(){\n"
+                "const doc=document.documentElement,bd=document.body;\n"
+                "const n=s=>{try{return document.querySelectorAll(s).length}catch(e){return -1}};\n"
+                "const vp=document.querySelector('.pdf-preview');\n"
+                "return {\n"
+                " viewport:(window.innerWidth||0)+'x'+(window.innerHeight||0),\n"
+                " docOv:Math.max(0,Math.ceil(doc.scrollHeight-doc.clientHeight)),\n"
+                " bodyOv:Math.max(0,Math.ceil(bd.scrollHeight-bd.clientHeight)),\n"
+                " wbShell:n('.wb-shell'),wbTopbar:n('.wb-topbar'),panelMain:n('.wb-panel--main'),rail:n('.wb-steps'),\n"
+                " stepTotal:n('.wb-step'),stepActive:n('.wb-step.is-active'),stepDone:n('.wb-step.is-done'),\n"
+                " stepFailed:n('.wb-step.is-failed'),stepFuture:n('.wb-step.is-future'),\n"
+                " reviewBanner:n('.wb-review-banner'),failedPanel:n('.wb-failed'),\n"
+                " pdfState:vp?(vp.getAttribute('data-state')||''):'',\n"
+                " pdfPages:n('.pdf-page'),pdfCanvas:n('.pdf-page__canvas'),\n"
+                " dlBar:n('.wb-success-downloads'),dlLinks:n('[data-role^=download-]'),\n"
+                " oldSidebar:n('.app-sidebar'),oldPage:n('.page-head'),oldCard:n('.card__title')\n"
+                "};\n})())")
+
+
+def _capture_state(base: str, key: str, vp_dir: Path, shot_png: Path,
+                   viewport: tuple[int, int] | None = None, chk_shell: bool = True) -> dict:
+    """对当前已就绪 DOM 设定 viewport → probe → 截图 → 断言，并把记录写入 EVIDENCE["workbench"][key]。"""
+    if viewport is not None:
+        bx(["set", "viewport", str(viewport[0]), str(viewport[1])], timeout=20)
+        time.sleep(1.0)
+    raw = bx(["eval", _STATE_PROBE], timeout=25).strip()
+    p: dict = {}
+    if raw:
+        try:
+            s1 = json.loads(raw)
+            p = json.loads(s1) if isinstance(s1, str) else s1
+        except Exception:
+            p = {"_raw": raw[:200]}
+    vp_dir.mkdir(parents=True, exist_ok=True)
+    bx(["screenshot", str(shot_png)], timeout=60)
+    vpl = f"{viewport[0]}x{viewport[1]}" if viewport else str(p.get("viewport"))
+    rec = {"viewport": vpl, "docOv": p.get("docOv"), "bodyOv": p.get("bodyOv"),
+           "stepTotal": p.get("stepTotal"), "stepActive": p.get("stepActive"),
+           "stepDone": p.get("stepDone"), "stepFailed": p.get("stepFailed"),
+           "stepFuture": p.get("stepFuture"), "reviewing": bool(p.get("reviewBanner")),
+           "failedPanel": p.get("failedPanel"), "pdfState": p.get("pdfState"),
+           "pdfPages": p.get("pdfPages"), "pdfCanvas": p.get("pdfCanvas"),
+           "dlBar": p.get("dlBar"), "dlLinks": p.get("dlLinks"),
+           "oldSidebar": p.get("oldSidebar"), "oldPage": p.get("oldPage"), "oldCard": p.get("oldCard"),
+           "shot": shot_png.name, "shot_exists": shot_png.exists(), "_probe": p}
+    EVIDENCE.setdefault("workbench", {}).setdefault(key, {})["@" + vpl] = rec
+    dov = int(p.get("docOv") or 0); bov = int(p.get("bodyOv") or 0)
+    if dov == 0 and bov == 0:
+        ok(f"wb.{key}@{vpl} overflow=0", f"docOv={dov} bodyOv={bov}")
+    else:
+        bad(f"wb.{key}@{vpl} overflow", f"docOv={dov} bodyOv={bov}")
+    if shot_png.exists():
+        ok(f"wb.{key}@{vpl} screenshot", shot_png.name)
+    else:
+        bad(f"wb.{key}@{vpl} screenshot", "png 未落盘")
+    if chk_shell and (p.get("wbShell") and p.get("wbTopbar") and p.get("panelMain") and p.get("rail")):
+        ok(f"wb.{key}@{vpl} themeA-shell",
+           f"shell={p.get('wbShell')} topbar={p.get('wbTopbar')} panel={p.get('panelMain')} rail={p.get('rail')}")
+    elif chk_shell:
+        bad(f"wb.{key}@{vpl} themeA-shell",
+            f"shell={p.get('wbShell')} topbar={p.get('wbTopbar')} panel={p.get('panelMain')} rail={p.get('rail')}")
+    if not (p.get("oldSidebar") or p.get("oldPage") or p.get("oldCard")):
+        ok(f"wb.{key}@{vpl} no old dev card",
+           f"sidebar={p.get('oldSidebar')} page={p.get('oldPage')} card={p.get('oldCard')}")
+    else:
+        bad(f"wb.{key}@{vpl} no old dev card",
+            f"sidebar={p.get('oldSidebar')} page={p.get('oldPage')} card={p.get('oldCard')}")
+    return rec
+
+
+def _fill_workbench(base: str, name: str, jd: str) -> dict:
+    """用 React 兼容方式填受控输入（原生 value setter + input/change），并回读 window.__h8fill 验证。"""
+    js_name = json.dumps(name); js_jd = json.dumps(jd)
+    bx(["eval",
+        ("(()=>{const setV=(el,v)=>{const p=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
+         "Object.getOwnPropertyDescriptor(p,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));"
+         "el.dispatchEvent(new Event('change',{bubbles:true}));};"
+         "const ni=document.querySelector('input[placeholder=\"请输入姓名\"]');"
+         "const nj=document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
+         "if(ni)setV(ni," + js_name + ");if(nj)setV(nj," + js_jd + ");"
+         "setTimeout(()=>{const gb=document.querySelector('.wb-panel__foot--generate button.wb-btn--primary')"
+         "||document.querySelector('button.wb-form-actions__primary');"
+         "window.__h8fill=JSON.stringify({nameOk:!!(ni&&ni.value.trim()),jdLen:nj?nj.value.length:0,"
+         "btnDisabled:gb?!!gb.disabled:null});},500);return 'ok';})()")], timeout=25)
+    last = "{}"
+    for _ in range(10):
+        time.sleep(0.3)
+        raw = bx(["eval", "window.__h8fill||'{}'"], timeout=25).strip()
+        if raw:
+            last = raw
+        try:
+            s1 = json.loads(raw)
+            c = json.loads(s1) if isinstance(s1, str) else s1
+            if c.get("nameOk") and int(c.get("jdLen", 0)) >= 60:
+                return c
+        except Exception:
+            pass
+    return {"raw": last[:300]}
+
+
+def _click_generate(base: str) -> str:
+    """点击主 CTA「生成岗位简历」（P1 触发真实生成；返回 clicked/no-btn/disabled）。"""
+    return bx(["eval",
+               "(function(){const b=document.querySelector('.wb-panel__foot--generate button.wb-btn--primary')"
+               "||document.querySelector('button.wb-form-actions__primary');"
+               "if(!b)return 'no-btn';if(b.disabled)return 'disabled';b.click();return 'clicked';})()"],
+              timeout=20).strip().strip('"')
+
+
+def _wait_p4_reached(base: str, timeout_s: float = 600.0) -> bool:
+    """轮询 P4 成品视图（成功传入 /api/task SSE 推进到成功态 → 下载区出现）。
+
+    DOM 快照与后端任务终态双通道：真实生成已达 SUCCEEDED（API 为准）即视为到达，
+    避免隔离 runtime 中 DOM 尚未刷新下载区但任务其实已成功时误判。
+    """
+    t0 = time.time()
+    tid = ""
+    while time.time() - t0 < timeout_s:
+        snap = bx(["snapshot", "-i"], timeout=25)
+        if ('data-role="download-word"' in snap or 'data-role="download-pdf"' in snap
+                or "wb-success-downloads" in snap):
+            return True
+        if not tid:
+            tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
+                     timeout=20).strip().strip('"')
+        if tid:
+            try:
+                code, body = http_json(base, f"/api/task/{tid}")
+                if code == 200 and isinstance(body, dict):
+                    task = body.get("task") if isinstance(body.get("task"), dict) else body
+                    if task.get("status") == "SUCCEEDED":
+                        return True
+                    if task.get("status") in ("FAILED", "CANCELLED"):
+                        EVIDENCE["workbench"]["_p4_terminal"] = task.get("status")
+                        return False
+            except Exception:
+                pass
+        time.sleep(1.5)
+    return False
+
+
+def _wait_pdf_ready(base: str, timeout_s: float = 90.0) -> dict:
+    """等待 PDF.js viewer 渲染 ready + ≥1 页 canvas（P4/success 主证据前置）。"""
+    t0 = time.time()
+    while time.time() - t0 < timeout_s:
+        raw = bx(["eval", "JSON.stringify({ready:!!document.querySelector('.pdf-preview[data-state=\"ready\"]'),"
+                 "pages:document.querySelectorAll('.pdf-page').length,canvas:document.querySelectorAll('.pdf-page__canvas').length})"],
+                 timeout=25).strip()
+        try:
+            s1 = json.loads(raw)
+            v = json.loads(s1) if isinstance(s1, str) else s1
+            if v.get("ready") and int(v.get("canvas") or 0) >= 1:
+                return v
+        except Exception:
+            pass
+        time.sleep(1.0)
+    return {}
+
+
+def _review_phase(base: str, idx: int, key: str, vp_dir: Path, viewport: tuple[int, int]) -> dict:
+    """reviewStep 回看第 idx 个已 done 步骤（P1/P2/P3），截图+probe；不做任何新生成请求。"""
+    bx(["eval", f"(()=>{{const s=document.querySelectorAll('.wb-step.is-done')[{idx}];"
+        "if(s){s.click();return 'clicked';}return 'missing';}})()"], timeout=20)
+    time.sleep(1.2)
+    return _capture_state(base, key, vp_dir, vp_dir / f"{key}_{viewport[0]}x{viewport[1]}.png",
+                          viewport=viewport)
+
+
+def _return_live(base: str) -> str:
+    """回到实时视图：优先点回看横幅「返回当前阶段」，其次点 active 步骤。"""
+    return bx(["eval", "(function(){const b=document.querySelector('.wb-review-banner__back');"
+               "if(b){b.click();return 'back';}const cur=document.querySelector('.wb-step.is-active');"
+               "if(cur){cur.click();return 'live-step';}return 'none';})()"], timeout=20).strip().strip('"')
+
+
+def _drive_failed(base: str, vp_dir: Path) -> None:
+    """隔离 runtime 真实失败路径：全新任务 + 合法输入 + 触发真实生成，轮询是否进入 FAILED。
+
+    允许策略：若隔离 runtime 的 ARK Key 取自凭据库导致真实生成成功（terminal=SUCCEEDED），
+    或任务持续 RUNNING 不失败，则如实记录日志与 EVIDENCE，不虚假 PASS，留待可复现 runtime 取证。
+    """
+    bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
+    time.sleep(2.5)
+    fv = _fill_workbench(base, TEST_NAME, TEST_JD)
+    EVIDENCE["workbench"]["_fill_verify_failed"] = fv
+    gen = _click_generate(base)
+    EVIDENCE["workbench"]["_failed_generate_click"] = gen
+    if gen != "clicked":
+        log(f"[wb.full][info] failed 路径生成按钮未点动（gen={gen}）；如实记录，不判定 PASS")
+        EVIDENCE["workbench"]["failed"] = {"note": "generate click failed", "_fill": fv}
+        return
+    # 轮询终端状态：优先 DOM（.wb-failed 面板），次 API status（http_json，ra_session cookie）。
+    tid = ""
+    t0 = time.time()
+    terminal: str | None = None
+    while time.time() - t0 < 300.0:
+        raw = bx(["eval", "JSON.stringify({failed:!!document.querySelector('.wb-failed'),"
+                 "suc:!!document.querySelector('.pdf-preview[data-state=\"ready\"]')})"], timeout=25).strip()
+        st: dict = {}
+        try:
+            s1 = json.loads(raw)
+            st = json.loads(s1) if isinstance(s1, str) else s1
+        except Exception:
+            st = {"raw": raw[:120]}
+        if st.get("failed"):
+            terminal = "FAILED"
+            break
+        if not tid:
+            tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
+                     timeout=20).strip().strip('"')
+        if tid:
+            try:
+                code, body = http_json(base, f"/api/task/{tid}")
+                if code == 200 and isinstance(body, dict):
+                    task = body.get("task") if isinstance(body.get("task"), dict) else body
+                    status = task.get("status")
+                    if status == "FAILED":
+                        terminal = "FAILED"
+                        break
+                    if status == "SUCCEEDED":
+                        st["suc"] = True
+                        terminal = "SUCCEEDED"
+                        break
+            except Exception:
+                pass
+        time.sleep(2.0)
+    if terminal == "FAILED":
+        # 重新打开 workbench 展示失败面板，截图取证（同已就绪失败态）。
+        bx(["open", base + "/"], timeout=15)
+        time.sleep(2.0)
+        rec = _capture_state(base, "failed", vp_dir, vp_dir / "failed_1920x1080.png", viewport=VIEWPORTS[0])
+        if rec.get("failedPanel") and int(rec.get("stepFailed") or 0):
+            ok("wb.failed real failed panel",
+               f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')} stepDone={rec.get('stepDone')}")
+        else:
+            bad("wb.failed real failed panel",
+                f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')}（DOM 未同步呈现失败面板）")
+    else:
+        log(f"[wb.full][info] failed 真实失败路径未在此隔离 runtime 复现（terminal={terminal}）。"
+            f"按硬约束如实记录，不虚假 PASS。")
+        EVIDENCE["workbench"]["failed"] = {
+            "note": "真实失败路径未稳定构造（终端未进入 FAILED/或生成成功）。规避虚假 PASS，留待可复现 runtime 取证。",
+            "terminal": terminal,
+        }
+
+
+def workbench_full_states(base: str, exe, runtime) -> None:
+    """PLAN §7.1 全状态 Design Fidelity 对照（empty/saved 在 main 已就绪并复用；此处 P1–P4/failed）。
+
+    * 一次真实成功任务（P1–P4 → SUCCEEDED）；成功后 P1/P2/P3 用 reviewStep 回看已 done 步骤采集，
+      不再重复触发模型；
+    * P4/success：真实 PDF viewer + 下载区固位 + 7 个冻结 viewport（沿用同一已就绪成功态切换截图）；
+    * failed：隔离 runtime 真实失败路径，不稳定则如实标记。
+    """
+    wb = EVIDENCE.setdefault("workbench", {})
+    # 复用已有 empty/saved 证据（不计入新增 PASS）：
+    wb["empty"] = {"reuse": "secondary.workbench_empty",
+                   "src": EVIDENCE.get("secondary", {}).get("workbench_empty") or {}}
+    wb["saved"] = {"reuse": "saved", "src": EVIDENCE.get("saved") or {}}
+    wb["_ctx"] = {"base": base, "runtime": str(runtime) if runtime else None,
+                  "assert_note": "P1/P2/P3 = 成功后 reviewStep 回看已 done 步骤采集，不重复调用模型"}
+    vp_dir = EVID / "states"
+
+    # ── 1) 一次真实成功任务（P1–P4 → SUCCEEDED）──
+    bx(["open", base + "/"], timeout=15)
+    time.sleep(1.8)
+    bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
+    time.sleep(2.5)
+    fv = _fill_workbench(base, TEST_NAME, TEST_JD)
+    EVIDENCE["workbench"]["_fill_verify_success"] = fv
+    log(f"[wb.full] fill verify={fv}")
+    if not (isinstance(fv, dict) and fv.get("nameOk") and int(fv.get("jdLen", 0)) >= 60):
+        bad("wb.success real-generation setup", "受控输入未进入 React state")
+        return
+    gen = _click_generate(base)
+    if gen != "clicked":
+        bad("wb.success generate click", f"got={gen}")
+        return
+    if not _wait_p4_reached(base):
+        bad("wb.success P4 reached", "任务未推进到 P4 成品视图（隔离 runtime 真实生成未到 SUCCEEDED）")
+        EVIDENCE["workbench"]["_success_reached"] = False
+        return
+    EVIDENCE["workbench"]["_success_reached"] = True
+    log("[wb.full] P4 SUCCEEDED 到达（一次真实任务，后续均靠回看不重复生成）")
+
+    # P4/success 主证据：真实 PDF viewer ready + 下载区固位 + 7 视口。
+    v = _wait_pdf_ready(base)
+    EVIDENCE["workbench"]["_pdf_ready"] = v
+    if v.get("ready"):
+        ok("wb.P4 pdf viewer ready", f"pages={v.get('pages')} canvas={v.get('canvas')}")
+    else:
+        bad("wb.P4 pdf viewer ready", f"raw={v}")
+    rec0 = _capture_state(base, "P4", vp_dir, vp_dir / "P4_1920x1080.png", viewport=VIEWPORTS[0])
+    if int(rec0.get("pdfCanvas") or 0) >= 1 and int(rec0.get("dlBar") or 0):
+        ok("wb.P4 download area pinned",
+           f"pdfCanvas={rec0.get('pdfCanvas')} dlBar={rec0.get('dlBar')} dlLinks={rec0.get('dlLinks')}")
+    else:
+        bad("wb.P4 download area pinned",
+            f"pdfCanvas={rec0.get('pdfCanvas')} dlBar={rec0.get('dlBar')} dlLinks={rec0.get('dlLinks')}")
+    for (vw, vh) in VIEWPORTS:
+        _capture_state(base, "P4", vp_dir, vp_dir / f"P4_{vw}x{vh}.png", viewport=(vw, vh))
+
+    # ── 2) P1/P2/P3：reviewStep 回看已 done 步骤（不重复生成）──
+    _review_phase(base, 0, "P1", vp_dir, VIEWPORTS[0]); _return_live(base); time.sleep(0.8)
+    _review_phase(base, 1, "P2", vp_dir, VIEWPORTS[0]); _return_live(base); time.sleep(0.8)
+    _review_phase(base, 2, "P3", vp_dir, VIEWPORTS[0]); _return_live(base); time.sleep(0.8)
+
+    # ── 3) failed：隔离 runtime 真实失败路径 ──
+    _drive_failed(base, vp_dir)
+
+
+# P4 真实生成所需数据种子（隔离 runtime 无任何经历数据，须先导入经历并重建 embedding，
+# 否则 P1–P4 生成无可选经历、任务悬停无法到达 SUCCEEDED——R3/e2e 的隔离 runtime 均如此播种）。
+_FID_EXPERIENCES = [
+    {"type": "work", "title": "后端研发工程师", "company": "示例科技有限公司",
+     "time": "2022.03-2025.06", "role": "后端研发工程师",
+     "description": "负责示例电商平台订单域的后端研发与稳定性建设。",
+     "achievements": [
+         "主导订单创建链路重构，将核心接口 P99 从 820ms 降到 210ms",
+         "搭建库存扣减幂等与对账机制，超卖事故从月均 3 起降为 0"],
+     "skills": ["Java", "Spring Boot", "MySQL", "Redis", "Kafka"],
+     "raw_text": "示例科技有限公司 后端研发工程师 2022.03-2025.06"},
+    {"type": "project", "title": "订单对账系统", "company": "示例科技有限公司",
+     "time": "2024.05-2024.11", "role": "负责人",
+     "description": "面向示例业务的订单对账与差异定位系统。",
+     "achievements": [
+         "设计差异定位算法，对账工单平均处理时长从 45 分钟降到 8 分钟",
+         "实现对账任务调度，日处理账单量 200 万条"],
+     "skills": ["Java", "Kafka", "MySQL"],
+     "raw_text": "订单对账系统 负责人 2024.05-2024.11"},
+    {"type": "education", "title": "计算机科学与技术", "company": "示例大学",
+     "time": "2016.09-2020.06", "role": "",
+     "description": "计算机科学与技术 本科", "achievements": [], "skills": [],
+     "raw_text": "示例大学 计算机科学与技术 本科 2016.09-2020.06"},
+]
+
+
+def _seed_experiences(base: str) -> str | None:
+    """导入经历种子并重建 embedding；返回错误串或 None。"""
+    try:
+        import requests
+        s = requests.Session()
+        s.get(f"{base}/api/system/status", timeout=30)
+        ids = []
+        for exp in _FID_EXPERIENCES:
+            r = s.post(f"{base}/api/experience/", json=exp, timeout=120)
+            if r.status_code != 200:
+                return f"import exp: {r.status_code} {r.text[:160]}"
+            ids.append(r.json().get("id"))
+        r = s.post(f"{base}/api/system/rebuild", timeout=600)
+        if r.status_code != 200:
+            return f"rebuild: {r.status_code} {r.text[:160]}"
+        EVIDENCE["seed"] = {"experience_ids": ids,
+                            "rebuild": s.get(f"{base}/api/system/status", timeout=30).json()}
+        return None
+    except Exception as e:  # noqa: BLE001
+        return repr(e)
+
+
 def _boot_app(exe: Path, port: int, runtime: Path) -> tuple[subprocess.Popen | None, str | None]:
-    """隔离启动 onedir app（仓库外 runtime，剥 Key/路径注入），migrate 后常驻供浏览器断言。"""
+    """隔离启动 onedir app（仓库外 runtime，剥 Key/路径注入），migrate+seed 后常驻供浏览器断言。"""
     env = dict(os.environ)
     env.pop("ARK_API_KEY", None)
     env.pop("H8_CONV_WORKER", None)
@@ -179,6 +551,9 @@ def _boot_app(exe: Path, port: int, runtime: Path) -> tuple[subprocess.Popen | N
             return app, f"migrate {r.status_code}"
     except Exception as e:  # noqa: BLE001
         return app, repr(e)
+    seed_err = _seed_experiences(base)
+    if seed_err:
+        return app, f"seed: {seed_err}"
     return app, None
 
 
@@ -329,6 +704,10 @@ def main() -> int:
         ok("saved input survives reload", snapn[:100])
     else:
         log(f"  [info] saved reload input={snapn[:100]} (refresh restore may be task-session based)")
+
+    # ── 全状态 Design Fidelity 对照（PLAN §7.1：empty/saved 上面已就绪并复用；P1–P4/failed 在此）──
+    # 一次真实成功任务 + reviewStep 回看 P1/P2/P3（不重复生成）+ P4/success 7 视口 + failed 真实失败路径。
+    workbench_full_states(base, args.exe, runtime)
 
     # 汇总
     summary = {"pass": PASS, "fail": len(FAILS), "exit": 0 if not FAILS else 1,

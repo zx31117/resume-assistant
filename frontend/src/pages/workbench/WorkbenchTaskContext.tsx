@@ -506,9 +506,11 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
       void refresh()
     }
     es.onerror = () => {
-      // 断连：如实标记，已显示内容保留
+      // 断流/缺口：如实标记并关闭连接，再做幂等的权威快照 re-poll 恢复
+      // （refresh 仅 GET 权威快照并 applyView，不触发生成，保证增量 0 不变）
       setStreamEnded(true)
       close()
+      void refresh()
     }
     return close
   }, [taskId, status, refresh])
