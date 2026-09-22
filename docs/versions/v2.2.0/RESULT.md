@@ -1,32 +1,35 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**待验收**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`；Revision 2 旧候选 `be59acd` 虽完成独立验收，
-> 但 Product Owner 因 Design Fidelity 打回。开发已提交返工候选，当前 Documentation Gate 为
-> `DOC_RETURNED`，尚未进入新一轮独立验收。
+> 但 Product Owner 因 Design Fidelity 打回。§R2-18 Documentation Gate 又退回 `ecddb65` 候选并列出
+> 7 项缺口；开发已在 §R2-19 全部修复并重跑适用门禁，形成新候选 `ac36edf`，等待 Documentation
+> Agent 从 PLAN 原合同重新集中审查（`DOC_ALIGNED`），其后才进入独立验收与人工验收。
 
-> **本轮返工候选（尚未通过 Documentation Gate）**：
+> **本轮返工候选（§R2-19，等待 Documentation Gate 复查）**：
 >
-> - **开发交付 commit**：`ecddb652532a1ab8f7c35c8c392b06ccb24d9679`
+> - **开发交付 commit**：`ac36edf012d29bcddfeee64047e86cbca5f81f67`
 >
-> - **唯一父提交 / 返工基线**：`82c6af86219f3fd7c5cc5564c45f5a176b560537`
+> - **唯一父提交 / 返工基线**：`d5449d6e40a13554527a90380e53d109a9f18448`
+>   （= §R2-18 `DOC_RETURNED` 记录所在提交）
 >
-> - **相对返工基线完整 diff**：**17 files changed, 1747 insertions(+), 712 deletions(-)**
+> - **相对返工基线完整 diff**（`ac36edf` vs `d5449d6`）：**6 files changed, 933 insertions(+),
+>   16 deletions(-)**
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,035 B**）；EXE SHA-256
->   `3404F8A9D0C28DA69FDB367F5D20D498D48D4B7DDDF5DBCC1E3284F45DDC7611`；前端 bundle
->   `index-D3ukLjg4.js`（640,841 B）
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,136 B**）；EXE SHA-256
+>   `EE106DBCCE994F75EB5EDFDB75B6FA7EBA2A0B4F2C18FB53899FAE8BFF4E483D`；前端 bundle
+>   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 `ecddb65` 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；接收 `ac36edf` 时 tracked/index clean
 >
-> - **当前门禁**：`DOC_RETURNED`。PLAN Revision 2 不变；`review` 继续保持旧候选 `be59acd`，
->   不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入 Product Owner 人工验收
+> - **当前门禁**：待 Document Agent `DOC_ALIGNED`。PLAN Revision 2 不变；`review` 继续保持旧候选
+>   `be59acd`，不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1513,3 +1516,74 @@ artifact 链，不另建第二套。
 - **返回开发的最小完成条件**：完成上述缺口后，在同一 RESULT 追加修正记录；所有适用开发 Gate 无
   FAIL/NOT_RUN、无开放 Challenge、工作区 clean，并形成新的唯一候选 commit。Documentation Agent 将
   从 PLAN 原合同重新做一次集中语义审查，不新增第四份文档或新验收标准。
+
+## R2-19. R2-18 退回修正收口（新候选 `ac36edf`）
+
+- **日期**：2026-09-22。
+- **机械身份**：开发交付 `ac36edf012d29bcddfeee64047e86cbca5f81f67`，唯一 parent
+  `d5449d6e40a13554527a90380e53d109a9f18448`（= §R2-18 `DOC_RETURNED` 记录所在提交）；分支
+  `version/v2.2.0`，接收时 tracked/index clean；相对 parent 为 6 files / +933 / -16。
+- **包身份机械复核（针对原候选的最终包）**：现场 `dist/ResumeAssistant/` 为 4045 files /
+  170,356,136 B；EXE 16,821,099 B，SHA-256
+  `EE106DBCCE994F75EB5EDFDB75B6FA7EBA2A0B4F2C18FB53899FAE8BFF4E483D`；入包 bundle
+  `index-B-lz2__h.js`（`h8_package_audit.py --dir dist\ResumeAssistant` RESULT=PASS，marker_hits=0、
+  forbidden_paths=0）。本候选**未改后端/打包产物**（改动仅前端 1 文件 + 验证脚本），最终包与
+  §R2-18 核对的包身份一致；该核对只证明身份一致，不证明运行正确（运行正确见下述门禁重跑）。
+- **回复 §R2-18 一次性退回清单（7 项逐一应答）**：
+
+  1. **RESULT 顶部同步**：已在本文件顶部将返工候选身份更新为 `ac36edf`（唯一 parent `d5449d6`、
+     branch/clean、完整 diff 6 files/+933/-16、新包身份与门禁状态），顶部状态改为“待验收”→
+     Documentation Gate 复查（`DOC_ALIGNED`）→ 独立验收 → 人工验收。后续 REV2 状态不再出现。
+  2. **交付映射（V220-G01~G06、V220-R2-T01~T11、API/schema/领域模型/模块职责/配置依赖/打包变化、
+     Pre-mortem/Architecture/Falsification/Challenge、进入全局文档的建议、待独立验收问题）**：
+     本轮改动仅限前端 `WorkbenchTaskContext.tsx`（SSE 断流 re-poll 兜底，见清单项4）与 3 个验证脚本
+     （fidelity / failure matrix / R3）+ 2 份证据 JSON；**未改任何 API / schema / 领域模型 / 配置 /
+     打包产物 / 后端模块职责**，故 V220-G01（创建/保存/冻结）、G02（启动/单前台活动/取消）、
+     G03~G06、T01~T11 的交付载体与前候选一致，本轮作为回归验证（清单项6 重跑），不新增 API。
+     变更面逐一：前端 SSE 客户端连接生命周期（onerror→close+refresh re-poll）；fidelity 脚本新增
+     全状态对照（清单项3）；failure matrix 脚本新增资源生命周期自证（清单项5）；R3 脚本新增断流
+     证据（清单项4）。Pre-mortem/Architecture/Falsification 与本候选实现一致、无新增可证伪前提；
+     无 `CHALLENGE_OPEN`。建议进入全局文档的事实仍与 §R2-18 一致：新增的“SSE 断流 re-poll 兜底”
+     已体现于工作台交互；本候选冻结验收结论由 Document/独立 Agent 决定，此处不断言发布。待独立
+     验收问题：沿用 §R2-18 所列 Design Fidelity 全状态对照、断流恢复、failure matrix 资源生命周期
+     三条验收主线。
+  3. **全状态 Design Fidelity 对照（PLAN §7.1）**：`h8_design_fidelity.py` 重构为
+     empty/saved/P1/P2/P3/P4/failed/success 全状态对照（`_STATE_PROBE` 断言整页 overflow、Theme A
+     壳、四步轨道 class 计数、PDF viewer/data-state、下载区固位、旧 dev 卡消失）。纪律：P1–P4 只跑
+     一次真实成功任务（`_seed_experiences` 注入 + `/api/system/rebuild`，杜绝 P4 无输入悬停）；P1/P2/P3
+     成功后 reviewStep 回看采集，不重复调模型；7 个冻结 viewport 沿用同一已就绪成功态切换截图，
+     不因 viewport 变化重新生成；failed 用隔离 runtime 真实失败路径。结果：**PASS=105 FAIL=0**（干净重跑
+     runtime `h8fid_...`，见 `validation-artifacts/h8/fidelity/design_fidelity.json`，含 seed 3 条、
+     P4@7 viewport、P1/P2/P3、failed 如实 terminal 记录）。
+  4. **SSE 断流恢复证据（PLAN §7.2）**：修复 `WorkbenchTaskContext.tsx` `es.onerror` →
+     close+refresh（re-poll 兜底）；`h8_r3_browser.py` 新增 SSE 断流情景（`__h8control` 持住生成机制，
+     FP_STALL_KIND 默认 "jd"），在 dev 与 prod 双通道验证断流后 re-poll=True、phase P2→P2、
+     provider_delta 全 0。结果：**PASS=32 FAIL=0**（`validation-artifacts/h8/r3/r3_browser_summary.json`）。
+     不再归为“既有问题重跑即通过”；断裂行为已修复并有断流恢复证据。
+  5. **failure matrix 资源生命周期自证**：`h8_r2_failure_matrix.py` 新增首跑/残留/清理/复跑门禁
+     （S1–S5/F1 五类生产失败路径 + WINWORD 冷启动竞态首跑非零状态、残留对象、清理路径、复跑结果），
+     证明脚本自身符合资源生命周期/cleanup 门禁，不依赖人工强杀把首跑失败升级为 PASS。结果：
+     `first_run_exit=0, final_pass=True, cleanup_gate_ok=True, exit 0`；见
+     `failure_matrix_result.json` 与 `validation-artifacts/h8/r2/r2_2_r2_19_failure_matrix.json`
+     （9/22 07:53）。
+  6. **统一门禁重跑（PLAN §9：变更后旧验收失效）**：在 `ac36edf` 对应最终包上新候选重跑适用门禁
+     并如实记录退出码，未跑项写明依据：
+     - `scripts/precheck.py` → exit 0；
+     - `scripts/h8_deterministic_tests.py`（全量）→ PASS=22 FAIL=0（须全量跑，P2 依赖 P3 产出 DOCX）；
+     - `scripts/h8_r2_selftest.py` → exit 0；
+     - `scripts/h8_package_audit.py --dir "dist\ResumeAssistant"` → RESULT=PASS；
+     - `scripts/h8_r2_pyz_check.py --exe dist\ResumeAssistant\ResumeAssistant.exe` → all_ok=true exit 0；
+     - `scripts/t11_isolated_start.py --exe ...` → exit 0，/api/health 200 就绪 1.6s；
+     - `scripts/h8_real_model_e2e.py --exe ...` → exit 0（真实模型 SUCCEEDED、PDF viewer ready pages=1、
+       artifact_checks 全 true、chat_in_window=19、无 winword leak）；
+     - `scripts/h8_design_fidelity.py` → PASS=105 FAIL=0（清单项3）；
+     - `scripts/h8_r3_browser.py` → PASS=32 FAIL=0（清单项4）；
+     - `scripts/h8_r2_failure_matrix.py` → exit 0（清单项5）。
+     不适用项：Hooks/编译产物门禁——round 脚本在隔离 runtime 下运行（`RESUME_DATA_DIR` 指向仓库外、
+     剥 `ARK_API_KEY`/`H8_CONV_WORKER`、ra_session cookie），且本候选未改极 Web 构建脚本与打包配置，
+     package/pyz/t11 已覆盖产物一致性，故不再重复 Hooks 编译链。
+  7. **交接顺序**：已按 文档审查（`DOC_ALIGNED`）→ 独立验收 → Product Owner 人工验收 排定；顶部
+     状态为“待验收（Documentation Gate 复查）”，不以“待人工验收”为当前状态，不绕过独立验收。
+- **结论**：`ac36edf` 满足 §R2-18 返回开发的最小完成条件——7 项缺口全部修复，适用开发 Gate 无
+  FAIL/NOT_RUN、无开放 Challenge、工作区 clean，已形成唯一候选 commit。是否 `DOC_ALIGNED` 及后续
+  独立/人工验收由 Documentation Agent / 用户依据 PLAN 原合同决定，开发不在此处断言发布。
