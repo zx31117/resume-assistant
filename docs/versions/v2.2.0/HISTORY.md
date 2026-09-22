@@ -421,3 +421,21 @@
   继承 H2 的独立通过结论。
 - 下一步：由未参与卫生修改、自测或开发结论编写的 Acceptance Agent 完成脚本检测能力、证据脱敏、
   package audit、failure matrix、包身份及 clean/cleanup 的定向独立复核；通过前不进入人工验收或发布。
+
+## VH-023 H3 定向独立复核因检测能力回退失败
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生修正 → 定向独立复核失败
+- 验收对象：H3-HANDOFF `6822f4acc788f75c8afdb5903c7db3d50c048f54`、H3-SRC
+  `5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`；PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 失败原因：package audit 将项目树固定前缀替换为脚本所在仓库根后，在强制的一次性源码副本运行方式
+  下不能识别指向真实开发、canonical 或 review 检出的项目树绝对路径；独立 A/B 探针证明该类别相对
+  基线净收窄，开发侧“等价且更强”声明不成立。
+- 未受影响事实：H3 仍只修改两份验证脚本、两份证据与 RESULT；产品源码、bundle、依赖、配置和精确包
+  未变化。语法、当前包审计、失败矩阵、证据脱敏、包身份、clean 与 cleanup 均独立通过，H2 产品行为
+  `ACCEPTANCE_PASS` 继续仅作为绑定旧对象的历史事实。
+- 文档处置：当前状态改为“需修正”；RESULT 中非必要本机路径字面已由 Documentation Agent 统一替换为
+  语义占位，并在 RESULT §R2-26 集中记录独立失败与最小返工边界。本次不修改 PLAN。
+- 下一步：Development Agent 只恢复位置无关的项目树路径族检测并更新受影响证据，形成新 clean 候选；
+  重新经过 Documentation Gate 与定向独立复核前，不进入人工验收或发布。

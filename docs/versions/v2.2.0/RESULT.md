@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -11,9 +11,9 @@
 > 发布卫生复核随后发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，因此没有进入
 > Product Owner 人工验收。Development Agent 已在 §R2-24 形成卫生候选 `5dc16d8`：只修改两份
 > 验证脚本和两份持久化证据，产品源码、bundle、依赖、配置及精确包均未变化。Documentation Agent
-> 在 §R2-25 给出 `DOC_ALIGNED`；PLAN Revision 2（blob
-> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一门禁为绑定 H3-HANDOFF `6822f4a` 的
-> 定向独立复核。
+> 在 §R2-25 给出 `DOC_ALIGNED`，但绑定 H3-HANDOFF `6822f4a` 的定向独立复核在 §R2-26 判定
+> `ACCEPTANCE_FAIL`：package audit 对项目树路径族的检测相对基线发生位置依赖回退。PLAN Revision 2
+> （blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H3 不得进入人工验收或发布。
 
 > **本轮卫生交付（§R2-24；§R2-23 要求最小修正）**：
 >
@@ -36,8 +36,9 @@
 > - **文档完整 handoff**：`6822f4acc788f75c8afdb5903c7db3d50c048f54`；相对卫生候选
 >   `5dc16d8` 只修改本 RESULT
 >
-> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H3-HANDOFF `6822f4a` 且 clean；
->   卫生候选完成定向独立复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 保持 detached 到失败对象 H3-HANDOFF `6822f4a`
+>   且 clean；Development Agent 形成恢复检测能力的新候选并重新通过 Documentation Gate 与定向独立
+>   复核前，不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -388,7 +389,7 @@ runtime 隔离哨兵一致，退出码 0。非阻断四项仅报告不阻断：r
 
 - **Plan Revision / 批准基线**：Revision 1，blob `324302a0ef6d81214c752d12281c221f2550f320`（HISTORY VH-010）
 
-- **<current-workspace>** **/ branch**：`d:\demo\resume-assistant\current` / `version/v2.2.0`
+- **<current-workspace>** **/ branch**：`<current-workspace>` / `version/v2.2.0`
 
 - **产品基线**：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 
@@ -1788,9 +1789,9 @@ artifact 链，不另建第二套。
   `published_pdf_path`，下载 PDF hash 可复现且同源成立；本项不改变验收结论，留作后续产品改进观察。
 - **Documentation Agent 发布卫生复核**：
   1. tracked `dist_package_audit.json` 仍记录旧包 170,356,136 B、旧 EXE hash `ee106dbc…` 和
-     `D:\demo\resume-assistant\current\dist\ResumeAssistant`，不是本轮权威包审计；
-  2. tracked `failure_matrix_result.json` 的 `cleanup_path` 含 `C:\Users\31117\...`；
-  3. tracked `scripts/h8_package_audit.py` 还把 `c:\users\31117\appdata\local\temp` 写为固定扫描标记。
+     `<current-workspace>\dist\ResumeAssistant`，不是本轮权威包审计；
+  2. tracked `failure_matrix_result.json` 的 `cleanup_path` 含 `<user-temp>\...`；
+  3. tracked `scripts/h8_package_audit.py` 还把 `<user-temp>` 写为固定扫描标记。
   以上不影响已验收包的功能与隐私扫描，但违反 `HUMAN_AI_WORKFLOW` §8.5 的公开源码脱敏要求，不能
   静默带入最终发布候选。
 - **当前处置：需修正，PLAN Revision 2 不变。** Development Agent 只需形成最小化证据卫生候选：
@@ -1818,15 +1819,16 @@ artifact 链，不另建第二套。
 
 ### R2-24.1 缺口 1：移除 `scripts/h8_package_audit.py` 用户特定硬编码
 
-- 移除原 `DEV_PATHS` 中固定 `c:\users\31117\appdata\local\temp`。
+- 移除原 `DEV_PATHS` 中固定 `<user-temp>`。
 - 改为运行时动态 + 环境无关两层检测：
   - `_runtime_dev_paths()`：由 `tempfile.gettempdir()`、`os.path.expanduser("~")`、
     `Path(__file__).resolve().parents[1]`（仓库根）在运行时取用户临时目录/用户目录/工作区根，去重后
     作为环境特有扫描前缀，不落用户特定硬编码；
   - `GENERIC_DEV_SUBSTRINGS`：仅保留环境无关占位子串 `%userprofile%` 与自有构建标记
     `dev-recovery-20260908`（不含用户名/机器名/工作区绝对路径）。
-- 未削弱扫描能力：BLOCK_MARKERS（fixture/测试注入/旧 bundle/H6/`h8e2e_`）与 `FORBID_SUFFIX`/
-  `FORBID_DIRS`（Key/DB/output 目录）不变；用户目录/临时目录/仓库根检测改由运行时动态覆盖，等价且更强。
+- **开发侧原声明（已被 §R2-26 独立复核推翻）**：BLOCK_MARKERS（fixture/测试注入/旧 bundle/H6/
+  `h8e2e_`）与 `FORBID_SUFFIX`/`FORBID_DIRS`（Key/DB/output 目录）不变；用户目录和临时目录检测增强，
+  但仓库根改为脚本所在副本根后，对真实项目树路径族形成位置依赖漏检，不能声明“等价且更强”。
 - 说明：不引入 `appdata\local\temp`、`%temp%` 这类通用 Windows 路径片段作明文标记，避免误报
   第三方预打包 C 扩展（`.pyd`）与 win32com 自带路径常量（实测会命中 3 个 vendored `.pyd` 与
   `win32com\test\testPersist.py`，与本次卫生无关，也不应把它们当开发注入判失败）。
@@ -1864,8 +1866,8 @@ artifact 链，不另建第二套。
 
 - 临时扫描脚本置于 gitignored `validation-artifacts`（未入候选举），运行后删除。
 - **命令 / 退出码**：`python validation-artifacts\_scratch_h8r24_desanitscan.py` → **exit 0**。
-- 范围：`git ls-files` 全部 tracked 文件（302 个），正则扫描 Windows 用户目录、本机用户名
-  `31117`、当前开发工作区绝对路径、`appdata\local\temp` 片段、`%TEMP%`/`%USERPROFILE%`、凭据
+- 范围：`git ls-files` 全部 tracked 文件（302 个），正则扫描 Windows 用户目录、本机用户名、当前
+  开发工作区绝对路径、`appdata\local\temp` 片段、`%TEMP%`/`%USERPROFILE%`、凭据
   （ARK_API_KEY 赋值/`sk-`）与 Token URL。
 - **结论**：`TOTAL_TRACKED_FILES=302`、`HIT_FILES=22`。
   - **当前 V2.2 验证脚本与证据**：零用户路径命中。`dist_package_audit.json` 与 `failure_matrix_result.json`
@@ -1932,3 +1934,40 @@ artifact 链，不另建第二套。
   matrix 与 tracked 脱敏扫描；核对证据一致、cleanup/进程/窗口无泄漏、review 前后同一 HEAD 且 clean。
   若发现产品源码、bundle、依赖、配置或包变化，立即恢复完整独立验收；否则可把 H2 已完成的产品行为
   验收作为绑定旧对象的历史事实，并对 H3 给出卫生限定的 PASS/FAIL/BLOCKED。结论返回前不进入人工验收。
+
+## R2-26. H3 定向独立复核失败与返工边界
+
+- **日期**：2026-09-22。
+- **独立性与对象**：Acceptance Agent 声明未参与 H3 卫生修改、开发自测、脚本修复或 RESULT 结论
+  编写；静态检查只读，一次性副本来自 `git archive 6822f4a`，运行输出位于隔离临时目录。验收对象为
+  H3-HANDOFF `6822f4acc788f75c8afdb5903c7db3d50c048f54`，H3-SRC 为
+  `5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`，PLAN blob 为
+  `e134703ce6e37a2f4d5df389662119f38638fae8`。
+- **身份与范围**：`7f58468..5dc16d8` 严格为两份验证脚本和两份 evidence JSON，`5dc16d8..6822f4a`
+  只修改本 RESULT；产品源码、bundle、依赖、配置、构建和入包文件未变化，因此本轮维持卫生限定验收，
+  不恢复完整产品行为验收。
+- **通过且无需返工的部分**：两份脚本 `py_compile` 均 exit 0；冻结包 package audit 为 pass=true、
+  marker/forbidden 均为 0；failure matrix 的 S1～S5/F1 全部 ok，`first_run_exit=0`、
+  `cleanup_gate_ok=true`、`final_pass=true`，无新增进程或窗口泄漏；四件 H3 工件脱敏、封存证据实质字段、
+  包身份及 review 前后 HEAD/clean 均一致。精确包仍为 4045 files / 170,356,115 B，EXE 16,821,078 B，
+  SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- **阻断问题**：独立 A/B 探针证明 `h8_package_audit.py` 把项目树固定前缀改为
+  `Path(__file__).resolve().parents[1]` 后，检测结果依赖脚本运行位置。在强制的一次性源码副本中，它只
+  覆盖副本根，不能再发现包内指向真实开发、canonical 或 review 检出的项目树绝对路径；基线判据可以
+  发现这些路径。用户目录、临时目录、fixture/测试注入、禁止目录等检测未回退，但“项目树路径族”这一
+  明确要求发生净收窄，故 §R2-24.1 的“等价且更强”声明不成立。
+- **文档卫生收口**：Documentation Agent 已把本 RESULT 中非必要的本机工作区、用户目录及用户名字面
+  改为 `<current-workspace>`、`<user-temp>` 等语义占位，并在 §R2-24.1 明确原开发声明已被独立证据
+  推翻；这是隐私与结论纠正，不改变 H3、精确包或验收对象。公开 GitHub URL和归档 commit/hash 保留。
+- **既存观察**：两版 package audit 均没有通用内容级 Key/Token URL 扫描，且对文件名字面 `.env` 的
+  后缀判定有限；独立宽扫描已确认冻结包无真实凭据。本项不是 H3 引入的回退，不在本次最小返工中静默
+  扩张范围，后续如需增强应单独明确合同。
+- **最终结论：`ACCEPTANCE_FAIL`。** H3 的 `DOC_ALIGNED` 保留为曾完成的文档门禁事实，但不能升级为
+  独立通过，也不得继承 H2 的 `ACCEPTANCE_PASS`；当前状态改为“需修正”，不得进入 Product Owner
+  人工验收、CURRENT_STATE 收口或发布。
+- **下一候选的最小返工要求**：恢复在脚本从一次性副本运行时仍能识别真实项目树路径族的、位置无关的
+  检测能力；由 Development Agent 自行选择实现，不把 Acceptance 建议写成指定技术方案。用正向、
+  反向 A/B 探针证明开发/current、canonical、review 类路径均被检出，同时保留用户目录、临时目录、
+  fixture/测试注入、禁止路径和旧 bundle 检测，并确认冻结包仍零真实命中；重新生成受影响 package
+  audit 证据，保持产品源码、bundle、依赖、配置和精确包不变。形成新 clean 候选后重新执行
+  Documentation Gate 与同口径定向独立复核；若产品或入包对象变化，则恢复完整独立验收。
