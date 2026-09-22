@@ -489,3 +489,22 @@
 - 下一步：由未参与 H5 实现、自测或开发结论编写的 Acceptance Agent 独立覆盖项目路径、同名目录、
   URL/UNC、空格、转义和长上下文边界，并复核 package audit、脱敏、包身份及 clean/cleanup；通过前不
   进入人工验收或发布。
+
+## VH-027 H5 定向独立复核因路径词法与归一化缺陷失败
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核失败
+- 验收对象：H5-HANDOFF `ce78436336c92800c42f5b173197155a54b7b327`、H5-SRC
+  `175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`；PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 失败原因：H5 已修复 H4 的普通同名目录误报和固定窗口漏检，但文件系统路径词法与归一化仍不完整：
+  JSON 双反斜杠路径会触发未捕获 `IndexError` 并中断审计；HTTP(S) URL 会因盘符/UNC 头混淆被误判为
+  项目树绝对路径；含空格 Windows 项目路径会因条目过早截断而漏检。
+- 未受影响事实：H5 仅修改 package audit 与 RESULT；项目标识完整路径元素、普通同名目录反例、长上下文
+  处理等已独立确认。语法、冻结包审计、脱敏、failure matrix 未变、精确包身份、clean 与 cleanup 均通过；
+  产品源码、bundle、依赖、配置、构建、failure matrix 和精确包均未变化。
+- 文档处置：当前状态改为“需修正”，统一阻断根因、已通过边界和 H6 最小返工要求集中记录在 RESULT
+  §R2-32；不修改 PLAN，不把 §R2-31 的 `DOC_ALIGNED` 解释为验收通过。
+- 下一步：Development Agent 仅修复路径词法、归一化与异常封闭，补齐 JSON 转义、URL/UNC、含空格路径
+  及 malformed/binary 正反向探针并更新受影响证据；重新经过 Documentation Gate 与同口径定向独立
+  复核前，不进入 Product Owner 人工验收或发布。

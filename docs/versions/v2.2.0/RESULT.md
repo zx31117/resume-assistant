@@ -1,8 +1,9 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
-> 当前候选：H5-SRC `175eedd`（仅修改 package audit，见 §R2-30；产品源码、bundle、依赖、配置、
+> 当前状态：**需修正**
+> 当前验收对象：H5-HANDOFF `ce78436`（H5-SRC `175eedd`；定向独立复核 `ACCEPTANCE_FAIL`，见
+> §R2-32；H5 仅修改 package audit；产品源码、bundle、依赖、配置、
 > 构建、failure matrix 与精确包均未变化，冻结包仍为 4045 files / 170,356,115 B / EXE SHA-256
 > `133A1394…B12`，marker_hits=0、forbidden_paths=0、pass=true）
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
@@ -12,11 +13,13 @@
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：H2-HANDOFF `53fbc6f` 的完整产品行为 `ACCEPTANCE_PASS` 只作为绑定旧对象的历史事实；H3
 > 和 H4 的卫生修正分别因位置依赖回退、同名目录误报与嵌入路径漏检被定向独立复核判定
-> `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-30 形成 H5-SRC `175eedd`，只修改 package audit
-> 的项目身份判别与路径条目解析；产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
-> 变化。Documentation Agent 在 §R2-31 给出 `DOC_ALIGNED`；PLAN Revision 2（blob
-> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一门禁为绑定 H5-HANDOFF `ce78436` 的
-> 定向独立复核。
+> `ACCEPTANCE_FAIL`。Development Agent 在 §R2-30 形成的 H5-SRC `175eedd` 已修复 H4 的普通同名
+> 目录误报与固定窗口漏检，但绑定 H5-HANDOFF `ce78436` 的定向独立复核在 §R2-32 发现文件系统路径
+> 词法与归一化仍不完整：JSON 双反斜杠输入会触发未捕获异常、HTTP(S) URL 会被误作绝对文件系统
+> 路径、含空格 Windows 项目路径会漏检。产品源码、bundle、依赖、配置、构建、failure matrix 与精确包
+> 均未变化。§R2-31 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实；当前门禁为
+> `ACCEPTANCE_FAIL`。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一步为
+> §R2-32 规定的最小卫生返工，重经 Documentation Gate 与同口径定向独立复核后方可进入人工验收。
 
 > **本轮卫生返工交付（§R2-30；§R2-29 要求最小修正）**：
 >
@@ -38,8 +41,9 @@
 > - **文档完整 handoff**：`ce78436336c92800c42f5b173197155a54b7b327`；开发侧 RESULT 记录 commit
 >   为 `c250ef71cca9f1a4733c1f124607b70fc97de6d0`，H5-SRC 至 H5-HANDOFF 只修改本 RESULT
 >
-> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H5-HANDOFF `ce78436` 且 clean；H5
->   完成定向独立复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 继续 detached 到失败对象 H5-HANDOFF
+>   `ce78436` 且 clean；完成最小卫生返工并重新通过 Documentation Gate 与定向独立复核前，不进入
+>   Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2293,3 +2297,66 @@ artifact 链，不另建第二套。
   做反向样本，确认 `//` 不把 URL 误作 UNC，命中 marker 不回显路径。重跑 `py_compile`、冻结包 package
   audit 与相关脱敏扫描，核对包身份、证据、cleanup、review 前后 HEAD/clean。failure matrix 与产品行为
   因文件/hash 不变不要求重复执行；若发现变化则恢复相应验收。结论返回前不进入人工验收或发布。
+
+## R2-32. H5 定向独立复核失败与下一返工边界
+
+- **日期**：2026-09-22。
+- **独立性与对象**：Acceptance Agent 声明未参与 H5 实现、开发探针、自测、修复或 RESULT 编写；静态
+  检查在 review 只读完成，运行验证位于 review 外的一次性源码副本和隔离临时目录。唯一验收对象为
+  H5-HANDOFF `ce78436336c92800c42f5b173197155a54b7b327`，对应 H5-SRC
+  `175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`，基线
+  `4af57c0cbde93529302355474244ab9624cc84be`；`7fe492a` 仅是 Documentation Gate 后续记录，不是
+  验收对象。
+- **身份与范围复核**：`175eedd` 的唯一 parent 为 `4af57c0`；`4af57c0..175eedd` 仅修改
+  `scripts/h8_package_audit.py`，1 file / +95 / -68；`175eedd..ce78436` 仅修改本 RESULT。PLAN Revision
+  2 blob 为 `e134703ce6e37a2f4d5df389662119f38638fae8`。产品源码、bundle、依赖、配置、构建、failure
+  matrix 和精确包均未变化。
+- **已独立确认、无需回退的修正**：H5 已不再以 current/canonical/review 等通用目录名作为项目身份；
+  `resume-assistant` 按完整路径元素匹配，`resume-assistant-backup` 与 `my-resume-assistant` 不误报；普通
+  同名绝对目录、相对路径、相似目录名、第三方构建路径和普通文本不误报；超过 300 字节长上下文不再
+  受固定窗口限制；marker 不回显完整路径。用户目录、临时目录、fixture、测试注入、禁止目录和旧 bundle
+  检测仍保留。`py_compile` exit 0。
+- **统一阻断根因：文件系统路径词法与归一化不完整。** 独立正向探针 21 项中 19 项通过、1 项崩溃、
+  1 项漏检；反向探针 16 项中 11 项通过、5 项误报。具体表现为：
+  1. JSON 双反斜杠转义路径使解析器选择项目标识之后的 `\\` 作为最后一个绝对头，产生负偏移并触发
+     未捕获 `IndexError`；进程以 traceback 退出且不产生结构化审计结果。
+  2. `http://` / `https://` 的 `X:/` 与 `//` 被无条件解释为盘符头或 UNC 头，导致含
+     `resume-assistant` 的 URL（包括仓库根、`/blob/` 和业务路径）被误判为项目树绝对路径；`.git`
+     URL 未命中只是偶然结果，不能视为机制正确。
+  3. 空格被当作路径条目终止符，导致 `D:\My Projects\resume-assistant\...` 一类有效 Windows 项目路径
+     被截断后漏检；项目路径后段包含空格时也会产生错误分类。
+- **边界复核结果**：单/双引号、`path=` / `root=`、冒号、同一文本多路径、大小写变化、盘符/UNC、
+  正反斜杠及长上下文中的已通过样本成立；但空格、JSON 双反斜杠以及 URL/UNC/盘符区分三项不成立，
+  因此不能以局部通过替代核心判定。
+- **运行与产物未受影响**：冻结包 package audit exit 0，结果仍为 `pass=true`、
+  `block_marker_hits=[]`、`forbidden_paths=[]`；包身份仍为 4045 files / 170,356,115 B、EXE
+  16,821,078 B、SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+  H5 变更文件、活动 V2.2 文档和四份 JSON 证据的脱敏扫描未发现真实本机路径；封存的开发辅助脚本仅作
+  内部线索，不作为公开入包对象。`h5_probe_report.json` 与 `h5_package_audit.json` 的封存 SHA 分别仍为
+  `CFBA4ECA41B1C30C1FCF8276EB2200D85B6DB0C045A3EAC7F6FA9B27DE5537FD` 和
+  `1843D81DB2EEDD731CABB5A070D184AF9918FBF517179A706D67A373D07FA86B`，但不继承其 PASS。
+- **未变门禁与 cleanup**：failure matrix 脚本、failure matrix 证据与 tracked package audit 证据相对 H4
+  的 blob 均未变化，故未重跑完整矩阵。验收前后 review 均 detached 在 `ce78436` 且 clean；一次性
+  副本、独立探针、输出和日志已删除，无新增应用、控制台或 Word 窗口/进程残留。
+- **最终结论：`ACCEPTANCE_FAIL`。** §R2-31 的 `DOC_ALIGNED` 只表示 H5 当时具备进入独立复核的文档
+  条件，不可升级为验收通过。H5 不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布；H2 的
+  产品行为 `ACCEPTANCE_PASS` 仍只作为绑定旧对象的历史事实。
+- **下一轮最小返工边界**：Development Agent 只修复 `scripts/h8_package_audit.py` 的文件系统路径词法、
+  归一化与异常封闭，更新受影响 package audit 证据和本 RESULT；不得修改 PLAN/HISTORY、产品源码、
+  bundle、依赖、配置、构建、failure matrix 或冻结精确包。实现必须达到以下结果，不限定具体算法：
+  1. 任意输入均不得产生未捕获异常；JSON 双反斜杠路径须在一致坐标系内完成归一化与偏移计算，并产生
+     正常结构化结果。
+  2. HTTP(S) 及其他 URI scheme 必须与盘符、UNC 文件系统路径可靠区分；不得因 `X:/`、`//`、
+     `/blob/`、查询串或是否带 `.git` 而偶然改变 URL 的非文件系统判定。
+  3. 引号内及可判定为同一路径条目的空格须保留，盘符/UNC、正反斜杠、JSON 转义、键值、引号、多路径
+     和长上下文均须稳定解析；同时保留 H4/H5 已通过的普通同名目录反例、项目标识完整路径元素和无固定
+     窗口行为。
+  4. 独立于旧开发探针重新建立正向、反向与 malformed/binary 输入矩阵，至少覆盖双反斜杠 JSON、含
+     空格路径、UNC、同文多路径，以及带/不带 `.git`、`/blob/`、查询串和业务路径的 HTTP(S) URL；
+     所有用例须以正常退出和可判定结构化输出区分“命中”与“崩溃”。
+  5. 重跑 `py_compile`、完整探针、冻结包 package audit、受影响对象脱敏扫描和包身份复核。若范围仍仅
+     为卫生脚本与证据，则不要求重 build、完整产品行为、真实模型、Design Fidelity 或 failure matrix；
+     一旦发现产品或入包对象变化，立即恢复完整验收。
+- **后续门禁**：H6-SRC 与开发侧 RESULT 记录必须可机械区分；Documentation Agent 完成语义审查与必要
+  规范化后再固定 H6-HANDOFF。随后由未参与实现、自测或开发结论编写的 Acceptance Agent 按本节同口径
+  定向复核；通过前不得进入人工验收或发布。
