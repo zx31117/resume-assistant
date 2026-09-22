@@ -455,3 +455,20 @@
   不表示新增脚本逻辑已独立通过。
 - 下一步：由未参与 H4 实现、自测或开发结论编写的 Acceptance Agent 定向复核位置无关检测、正反向
   探针、脱敏、package audit、包身份及 clean/cleanup；通过前不进入人工验收或发布。
+
+## VH-025 H4 定向独立复核因项目树误判与漏检失败
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核失败
+- 验收对象：H4-HANDOFF `c9dfa0ea4cbc51a065b46732b32e80f32d19b7ef`、H4-SRC
+  `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`；PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 失败原因：H4 恢复了 current/canonical/review 三类正向检出，但只以“绝对路径 + 同名目录元素”判断
+  项目树，导致普通同名绝对目录系统性误报；同时因固定 260 字节窗口与前置字符对齐，漏检带键名、
+  引号或长前缀的真实项目路径。独立探针因此判定核心要求不成立。
+- 未受影响事实：H4 仅修改 package audit 与 RESULT；产品源码、bundle、依赖、配置、构建、failure
+  matrix 和精确包均未变化。语法、冻结包审计、脱敏、封存证据、包身份、clean 与 cleanup 均独立通过；
+  H2 产品行为 `ACCEPTANCE_PASS` 继续仅作为绑定旧对象的历史事实。
+- 文档处置：当前状态改为“需修正”，独立失败与最小返工边界集中记录在 RESULT §R2-29，不修改 PLAN。
+- 下一步：Development Agent 只修复项目树身份判别与路径条目解析，补齐误报/漏检正反向探针并更新
+  受影响证据；重新经过 Documentation Gate 与定向独立复核前，不进入人工验收或发布。

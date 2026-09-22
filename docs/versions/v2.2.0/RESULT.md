@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -11,9 +11,10 @@
 > 因 package audit 的项目树路径族检测发生位置依赖回退，在 §R2-26 被定向独立复核判定
 > `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-27 形成 H4-SRC `b378490`，只修改 package audit
 > 验证脚本以恢复位置无关检测，产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
-> 变化。Documentation Agent 在 §R2-28 给出 `DOC_ALIGNED`；PLAN Revision 2（blob
-> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一门禁为绑定 H4-HANDOFF `c9dfa0e` 的
-> 定向独立复核。
+> 变化。Documentation Agent 在 §R2-28 给出 `DOC_ALIGNED`，但绑定 H4-HANDOFF `c9dfa0e` 的定向
+> 独立复核在 §R2-29 判定 `ACCEPTANCE_FAIL`：新增规则把任意同名绝对目录误判为项目树，同时漏检
+> 带键名、引号或长前缀的真实项目路径。PLAN Revision 2（blob
+> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H4 不得进入人工验收或发布。
 
 > **本轮卫生返工交付（§R2-27；§R2-26 要求最小修正）**：
 >
@@ -35,8 +36,9 @@
 > - **文档完整 handoff**：`c9dfa0ea4cbc51a065b46732b32e80f32d19b7ef`；开发侧 RESULT 记录 commit
 >   为 `dcb1ef0f5426651bb48ac8a212267d0df7f348be`，H4-SRC 至 H4-HANDOFF 只修改本 RESULT
 >
-> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H4-HANDOFF `c9dfa0e` 且 clean；H4
->   完成定向独立复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 保持 detached 到失败对象 H4-HANDOFF `c9dfa0e`
+>   且 clean；Development Agent 形成可靠识别项目树身份和路径条目边界的新候选并重新通过
+>   Documentation Gate 与定向独立复核前，不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2102,3 +2104,36 @@ artifact 链，不另建第二套。
   `py_compile`、冻结包 package audit 和 tracked 脱敏扫描，核对包身份、证据、cleanup、review 前后
   HEAD/clean。failure matrix 与产品行为因文件/hash 不变不要求重复执行；若发现这些对象变化则恢复相应
   验收。结论返回前不进入人工验收或发布。
+
+## R2-29. H4 定向独立复核失败与下一返工边界
+
+- **日期**：2026-09-22。
+- **独立性与对象**：Acceptance Agent 声明未参与 H4 实现、开发探针、自测、修复或 RESULT 编写；静态
+  检查只读，动态检查在 review 外由 `git archive c9dfa0e` 形成的一次性副本与隔离临时目录中完成。
+  验收对象为 H4-HANDOFF `c9dfa0ea4cbc51a065b46732b32e80f32d19b7ef`，H4-SRC 为
+  `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`，PLAN blob 为
+  `e134703ce6e37a2f4d5df389662119f38638fae8`。
+- **身份与范围**：`98eccec..b378490` 仅新增 `scripts/h8_package_audit.py` 80 行，
+  `b378490..c9dfa0e` 只修改本 RESULT；产品源码、bundle、依赖、配置、构建、failure matrix 和精确包
+  未变化，故维持卫生限定验收，不恢复完整产品行为验收。Documentation Gate 记录 `00e07c8` 晚于验收
+  对象且只含文档，不要求存在于冻结 review。
+- **通过且无需返工的部分**：机械身份、PLAN blob、`py_compile`、三类项目目录正向检出、路径元素子串
+  边界、用户/临时路径与既有 marker 回归、冻结包 package audit、脱敏扫描、封存证据 hash、failure
+  matrix 未变证明、包身份及 review 前后 HEAD/clean、cleanup 均独立通过。精确包仍为 4045 files /
+  170,356,115 B，EXE 16,821,078 B，SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- **阻断问题一——系统性误报**：新增规则只要求“Windows 绝对路径 + 某个目录元素恰为
+  current/canonical/review”，没有证明该路径属于 ResumeAssistant 项目树。独立反向探针中的普通文档、
+  工作、媒体及网络共享同名目录 7/7 被阻断；因此实现检测的是通用目录名，不是项目树身份。
+- **阻断问题二——同源漏检**：真实项目路径前带 `path=`、引号，或族元素距离扫描窗口起点超过 260
+  字节时未检出。当前算法依赖固定窗口与前置字符对齐，不能稳定提取嵌入文本中的完整绝对路径条目。
+  §R2-27 的开发反向探针没有覆盖普通同名绝对目录及上述嵌入形式，`overall_pass=true` 不足以证明目标。
+- **最终结论：`ACCEPTANCE_FAIL`。** H4 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实，不能升级为
+  独立通过；当前状态改为“需修正”，不得进入 Product Owner 人工验收、CURRENT_STATE 收口或发布。
+- **下一候选的最小返工要求**：可靠区分“属于 ResumeAssistant 项目树的绝对路径”与任意同名目录，并
+  从带键名、引号、分隔符或长前缀的字节上下文中识别完整路径条目，不使用会造成对齐依赖的固定回看
+  窗口。Development Agent 自行选择显式可信根输入、稳定项目标识或其他可验证方案，不把 Acceptance
+  建议固化为唯一技术路线。正向探针必须覆盖盘符/UNC、正反斜杠、键值/引号/长前缀与三类仓库；反向
+  探针必须覆盖普通同名绝对目录、相似子串、相对路径及第三方构建路径。保持用户/临时路径、fixture、
+  测试注入、禁止目录和旧 bundle 检测，确认冻结包继续零真实命中，重新生成受影响证据。产品及入包
+  对象不得变化；形成新 clean 候选后重新执行 Documentation Gate 与同口径定向独立复核。
