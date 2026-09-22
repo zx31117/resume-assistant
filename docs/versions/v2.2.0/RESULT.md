@@ -7,39 +7,32 @@
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
-> 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`；Revision 2 旧候选 `be59acd` 虽完成独立验收，
-> 但 Product Owner 因 Design Fidelity 打回。§R2-18 Documentation Gate 退回 `ecddb65` 候选并列出
-> 7 项缺口；§R2-19 提交候选 `ac36edf`。Documentation Agent 按 PLAN、RESULT、机械身份
-> 与其指向的证据入口完成集中审查，§R2-20 结论为 `DOC_RETURNED`：强制门禁仍不完整，且两组证据
-> 与 RESULT 声明直接冲突 → 三项实质缺口。开发随后提交 §R2-21 新候选 `bfcab15`（唯一父
-> `db87c17`），完整重跑门禁、真实构造 Design Fidelity 全状态、统一并绑定新候选的 failure matrix
-> 权威摘要。Documentation Agent 在 §R2-22 给出 `DOC_ALIGNED`，独立 Acceptance Agent 随后绑定
-> H2-HANDOFF `53fbc6f` 完成全部必做项并给出 `ACCEPTANCE_PASS`。§R2-23 收录该结论；文档侧发布
-> 卫生复核同时发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，当前转为最小化证据
-> 卫生修正。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。
+> 语义交接：Revision 2 的 H2-HANDOFF `53fbc6f` 已完成独立 `ACCEPTANCE_PASS`；§R2-23 的文档侧
+> 发布卫生复核随后发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，因此没有进入
+> Product Owner 人工验收。Development Agent 已在 §R2-24 形成卫生候选 `5dc16d8`：只修改两份
+> 验证脚本和两份持久化证据，产品源码、bundle、依赖、配置及精确包均未变化。PLAN Revision 2
+> （blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，当前等待 Documentation Gate 复查。
 
-> **本轮返工交付（§R2-21；§R2-20 已 `DOC_RETURNED`）**：
+> **本轮卫生交付（§R2-24；§R2-23 要求最小修正）**：
 >
-> - **开发交付 commit（机械校正）**：`bfcab15c172804fc32b9a11761be7da5077eba20`
+> - **开发交付 commit**：`5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`
 >
-> - **唯一父提交 / 返工基线（机械校正）**：`db87c17f3ee62311206368b55ba6259c0aaae009`
->   （= §R2-20 `DOC_RETURNED` 记录所在提交）
+> - **唯一父提交 / 卫生基线**：`7f58468312be8902894a10ce050405447e08127a`
+>   （= §R2-23 验收结论与卫生处置记录所在提交）
 >
-> - **相对返工基线完整 diff**（`bfcab15` vs `db87c17`）：**3 files changed, 871 insertions(+),
->   933 deletions(-)**
+> - **相对卫生基线完整 diff**（`5dc16d8` vs `7f58468`）：**4 files changed, 59 insertions(+),
+>   17 deletions(-)**；仅 `scripts/h8_package_audit.py`、`scripts/h8_r2_failure_matrix.py`、
+>   `dist_package_audit.json`、`failure_matrix_result.json`
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
+> - **精确包身份（未变化）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
 >   16,821,078 B；SHA-256
 >   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
 >   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 `bfcab15` 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；接收 `5dc16d8` 时 tracked/index clean
 >
-> - **文档完整 handoff**：`53fbc6f37016b25b803a73a37570df92cc8179fe`；相对源码候选
->   `bfcab15` 只修改本 RESULT
->
-> - **当前门禁**：H2-HANDOFF `53fbc6f` 已独立 `ACCEPTANCE_PASS`，但发布卫生复核为“需修正”。固定
->   `review` 仍 detached 到 `53fbc6f` 且 clean；在最小化证据卫生候选形成并完成相应复核前，不进入
+> - **当前门禁**：等待 Documentation Agent 对 §R2-24 集中复查。固定 `review` 暂留上一已验收
+>   H2-HANDOFF `53fbc6f` 且 clean；卫生候选完成 Documentation Gate 和定向独立复核前，不进入
 >   Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
