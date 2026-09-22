@@ -33,8 +33,9 @@
 >
 > - **开发工作区**：`version/v2.2.0`；接收 `bfcab15` 时 tracked/index clean
 >
-> - **当前门禁**：`DOC_RETURNED`。PLAN Revision 2 不变；`review` 继续保持旧候选 `be59acd`，不得
->   用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入独立验收或 Product Owner 人工验收
+> - **当前门禁**：等待 Documentation Agent 对 §R2-21 集中复查。PLAN Revision 2 不变；`review`
+>   继续保持旧候选 `be59acd`，不得用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入独立验收或
+>   Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1659,13 +1660,28 @@ artifact 链，不另建第二套。
 | 内嵌 PYZ 核验 | `python scripts/h8_r2_pyz_check.py --exe dist\ResumeAssistant\ResumeAssistant.exe --out validation-artifacts\h8\r2\reg\pyz_check.json` | 0 | `all_ok=true`；3 生产模块均含 `CREATE_NO_WINDOW`、无 `cmd`/`rd` 常量 |
 | T11 隔离启动 | `python scripts/t11_isolated_start.py --exe dist\ResumeAssistant\ResumeAssistant.exe --port 8123` | 0 | `/api/health` 200 就绪于 2.7s（isolated runtime，未注入 Key/路径） |
 | 统一 precheck | `python scripts/precheck.py` | **0** | 阻断检查全部通过；6 个 Revision 1 固定计数回归全 PASS + 编译 + 前端 build + Hooks 全通过；哨兵 runtime 快照一致。非阻断（ruff/ESLint/pip-audit/npm audit）仅报告、不参与退出码 |
-| 六格真实模型性能 | 六格矩阵（→ `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`） | 0 | 18/18，每格 `n=3`、`succeeded=3`；medians 短/冷 23.29、短/暖 22.48、典型/冷 33.53、典型/暖 34.12、长/冷 43.55、长/暖 46.97 s；first_fact ≤11.26 s |
-| 最终包真实模型纵切 | 真实模型 input→P1-P4→viewer→DOCX/PDF 双下载（→ `validation-artifacts/h8/e2e/real_model_e2e.json`） | 0 | P4 ready、pdf viewer ready+1 页、`/api/health` 全程 200、succeeded=10 failed=0、DOCX/PDF 双下载成功 |
+| 六格真实模型性能 | `python backend/_v22_sixgrid_run.py`（→ `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`） | 0 | 18/18，每格 `n=3`、`succeeded=3`；total medians 短/冷 23.29、短/暖 22.48、典型/冷 33.53、典型/暖 34.12、长/冷 43.55、长/暖 46.97 s；first_fact 全样本最大值 12.02 s |
+| 最终包真实模型纵切 | `python scripts/h8_real_model_e2e.py --exe dist\ResumeAssistant\ResumeAssistant.exe`（→ `validation-artifacts/h8/e2e/real_model_e2e.json`） | 0 | P4 ready、PDF viewer ready+1 页、`/api/health` 200、DOCX/PDF 双下载成功且与落盘产物一致；viewer/download `same_source=true` |
 
 > precheck 退出码说明：`scripts/precheck.py` 退出码仅由阻断检查决定（`return 1 if failures else 0`，
 > `failures` 只由阻断 `_Failure` 填充）。本轮 precheck **阻断检查全部通过，总退出码 0**（`PRECHECK_EXIT=0`
 > 实测）。非阻断报告（pip-audit 9 漏洞 / npm audit 4 / ruff 523 / ESLint 22）均不参与退出码，属
 > 既有环境基线，照实记录，不改写为假绿。
+
+- **六格门禁补充摘要（Documentation Agent 按证据入口机械校正）**：全部 18 个样本
+  `SUCCEEDED`；六格 first Fact 最大值依次为 10.09 / 9.54 / 12.02 / 11.02 / 11.55 / 11.00 s，
+  全部 ≤15 s。相对 V2.1.0 同格基线 89.49 / 84.48 / 94.32 / 97.92 s，typical/cold、
+  typical/warm、long/cold、long/warm 的 total 中位数降幅分别约为 **62.5% / 59.6% / 53.8% /
+  52.0%**，4/4 均 ≥25%；short 两格 23.29 / 22.48 s，6/6 成功。
+- **调用、attempt 与 Token 摘要**：short/typical/long 每样本逻辑调用数分别为 5/15/21，18/18
+  等于 `1+2F`；全部逻辑调用首试成功、attempt ≤3、成功后无重试；Embedding 均为 1；单任务
+  completion token 最大值分别为 406/1306/1774，均 ≤16k。R3 断流 re-poll 的 dev/prod
+  `provider_delta` 均为 0；Design Fidelity 的 P1～P3 回看及七视口复用同一成功任务，不增加模型调用。
+- **artifact/viewer/hash 摘要**：最终包纵切记录 19 次 chat + 1 次 embedding，均为 200；DOCX/PDF
+  下载与落盘产物一致，HEAD=200、Range=206；PDF viewer ready、1 页且
+  `pdf_viewer_same_source_final.same_source=true`，下载 PDF SHA-256 为
+  `5aa79eaecdac28ae244926344f4ddccce08725a39207d16463dd67a2ceb0c906`；WINWORD 无新增泄漏，隔离
+  runtime 已删除。
 
 ### R2-21.2 缺口 2：Design Fidelity 全状态真实证据（→ `validation-artifacts/h8/fidelity/design_fidelity.json`）
 
