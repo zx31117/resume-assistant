@@ -17,33 +17,33 @@
 > 目录误报与固定窗口漏检，但绑定 H5-HANDOFF `ce78436` 的定向独立复核在 §R2-32 发现文件系统路径
 > 词法与归一化仍不完整：JSON 双反斜杠输入会触发未捕获异常、HTTP(S) URL 会被误作绝对文件系统
 > 路径、含空格 Windows 项目路径会漏检。产品源码、bundle、依赖、配置、构建、failure matrix 与精确包
-> 均未变化。§R2-31 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实；当前门禁为
-> `ACCEPTANCE_FAIL`。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一步为
-> §R2-32 规定的最小卫生返工，重经 Documentation Gate 与同口径定向独立复核后方可进入人工验收。
+> 均未变化。§R2-31 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实。Development Agent 已按 §R2-32
+> 形成 H6-SRC `c57e903`，只修复 package audit 的路径词法、归一化与异常封闭，并在 §R2-33 提交开发
+> 记录 `459bd65`；PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。当前下一门禁为
+> H6 Documentation Gate；完成 `DOC_ALIGNED` 与同口径定向独立复核前，不进入人工验收或发布。
 
-> **本轮卫生返工交付（§R2-30；§R2-29 要求最小修正）**：
+> **本轮卫生返工交付（§R2-33；§R2-32 要求最小修正）**：
 >
-> - **H5-SRC**：`175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`
+> - **H6-SRC**：`c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`
 >
-> - **唯一父提交 / 返工基线**：`4af57c0cbde93529302355474244ab9624cc84be`
->   （= §R2-29 H4 定向独立验收失败与返工边界所在提交）
+> - **唯一父提交 / 返工基线**：`592ad0cc40604f8ee1581458c4cb6dc40a6f3d6d`
+>   （= §R2-32 H5 定向独立验收失败与返工边界所在提交）
 >
-> - **相对返工基线完整 diff**（`4af57c0..175eedd`）：**1 file changed, 95 insertions(+),
->   68 deletions(-)**；仅 `scripts/h8_package_audit.py`
+> - **相对返工基线完整 diff**（`592ad0c..c57e903`）：**1 file changed, 72 insertions(+),
+>   24 deletions(-)**；仅 `scripts/h8_package_audit.py`
 >
 > - **精确包身份（未变化）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
 >   16,821,078 B；SHA-256
 >   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
 >   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 H5-SRC 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；提交 H6-SRC 与开发记录后 tracked/index clean
 >
-> - **文档完整 handoff**：`ce78436336c92800c42f5b173197155a54b7b327`；开发侧 RESULT 记录 commit
->   为 `c250ef71cca9f1a4733c1f124607b70fc97de6d0`，H5-SRC 至 H5-HANDOFF 只修改本 RESULT
+> - **开发侧 RESULT 记录**：`459bd6586632d6e1a8b77c6ff7d5068a5be21f5b`；相对 H6-SRC 只修改本
+>   RESULT。H6-HANDOFF 由 Documentation Agent 完成语义审查与必要规范化后固定
 >
-> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 继续 detached 到失败对象 H5-HANDOFF
->   `ce78436` 且 clean；完成最小卫生返工并重新通过 Documentation Gate 与定向独立复核前，不进入
->   Product Owner 人工验收
+> - **当前门禁**：待 H6 Documentation Gate。固定 `review` 暂留失败对象 H5-HANDOFF `ce78436` 且
+>   clean；H6 未形成 `DOC_ALIGNED` 和冻结 handoff 前不得移动 review，也不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2401,7 +2401,7 @@ artifact 链，不另建第二套。
 - **验证命令与退出码**：
   - `python -m py_compile scripts/h8_package_audit.py` → **exit 0**
   - `python validation-artifacts/h6_probe.py` → **exit 0**（55/55 PASS）
-  - `python scripts/h8_package_audit.py --dir D:\demo\resume-assistant\acceptance-staging\53fbc6f --json
+  - `python scripts/h8_package_audit.py --dir <acceptance-staging>/53fbc6f --json
     validation-artifacts\h6_package_audit.json` → **exit 0**
 - **冻结包 package audit（隔离目录 `validation-artifacts` 输出）**：`pass=true`、
   `block_marker_hits=[]`、`forbidden_paths=[]`、`4045 files`、`170,356,115 B`、EXE `16,821,078 B`、
