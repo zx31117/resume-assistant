@@ -1,9 +1,9 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
-> 当前验收对象：H5-HANDOFF `ce78436`（H5-SRC `175eedd`；定向独立复核 `ACCEPTANCE_FAIL`，见
-> §R2-32；H5 仅修改 package audit；产品源码、bundle、依赖、配置、
+> 当前状态：**待验收**
+> 当前验收对象：H6-SRC `c57e903`（唯一父提交 `592ad0c`；§R2-32 规定的最小卫生返工，见
+> §R2-33；H6 仅修改 `scripts/h8_package_audit.py`；产品源码、bundle、依赖、配置、
 > 构建、failure matrix 与精确包均未变化，冻结包仍为 4045 files / 170,356,115 B / EXE SHA-256
 > `133A1394…B12`，marker_hits=0、forbidden_paths=0、pass=true）
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
@@ -2360,3 +2360,63 @@ artifact 链，不另建第二套。
 - **后续门禁**：H6-SRC 与开发侧 RESULT 记录必须可机械区分；Documentation Agent 完成语义审查与必要
   规范化后再固定 H6-HANDOFF。随后由未参与实现、自测或开发结论编写的 Acceptance Agent 按本节同口径
   定向复核；通过前不得进入人工验收或发布。
+
+## §R2-33 — H6 最小卫生返工：文件系统路径词法与归一化（H5 定向独立复核失败后的最小修正）
+
+- **日期**：2026-09-22。
+- **开发侧记录与对象边界**：本开发任务形成候选 `H6-SRC`。开发侧记录仅更新本 RESULT（顶部状态复位为
+  「待验收」并追加本节）；Documentation Gate 语义审查与 H6-HANDOFF 固定不在本轮。
+- **H6-SRC 与唯一父提交**：`c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`；唯一 parent
+  `592ad0cc40604f8ee1581458c4cb6dc40a6f3d6d`（= §R2-32 规定的返工边界，即 H5-HANDOFF `ce78436`
+  与 RESULT §R2-32 所在基线）。
+- **精确 diff（`592ad0c..c57e903`）**：**1 file changed, 72 insertions(+), 24 deletions(-)**，仅
+  `scripts/h8_package_audit.py`；不包含本 RESULT。
+- **修复内容（统一根因：文件系统路径词法与归一化不完整；不修改产品行为）**：
+  1. **URI scheme 归一化**：`_neutralize_uris()` 将 `scheme://`（http/https/ftp/s3/file 等）中性化为等长
+     空格，从根上消除 URL 的 `X:/`/`//` 被误作盘符/UNC；URL 带/不带 `.git`、`/blob/`、查询串、片段或
+     业务路径均不影响其「非文件系统路径」判定。
+  2. **FS 头严格区分**：UNC 头 `\\`/`//` 仅在条目起点有效；盘符头 `X:\`/`X:/` 在条目内任意位置，且
+     只取**严格位于标识左侧最近**的头（`_governing_head`），任何命中都在标识左侧，杜绝 H5 时代
+     「JSON 双反斜杠路径触发未捕获 IndexError」的负偏移崩溃。
+  3. **空格路径保留**：`space`（0x20）不再作为路径终止符，路径前段/后段含空格的真实 Windows 项目路径
+     （如 `D:\work dir\resume-assistant\current`）可完整还原；`_next_segment` 增加驱动式边界（越界/负偏移
+     返回 `unknown`，绝不崩溃），main() 再以 `scan_error:<type>` 异常封闭兜底，任意输入不产生未捕获异常。
+  保留 H4/H5 已通过能力：普通同名目录反例、项目标识完整路径元素匹配、无固定窗口、脱敏不回显完整
+  路径/机器路径。
+- **独立探针矩阵**（`validation-artifacts/h6_probe.py`，gitignored 隔离，非公开入包对象）——共 **55
+  用例，0 失败，0 异常崩溃，`python validation-artifacts/h6_probe.py` exit 0**：
+  - **正向 22 项全 PASS**：盘符 `D:\` 与 UNC `\\`、`//`；正斜杠与反斜杠；current / canonical / review；
+    `path=` / `root=` 键值；单引号、双引号；普通 JSON、双反斜杠 JSON（含转义引号）；路径前段含空格
+    （`D:\work dir\...`）与后段含空格（`my docs`）；超过 300 字节长上下文（`long_ctx_300`）；同一文本
+    多个绝对路径（`multi_paths` 类别去重保序）；`RESUME-ASSISTANT` 大小写变化；用户目录、临时目录、
+    fixture、测试注入、禁止目录、旧 bundle。
+  - **反向 25 项全 PASS（返回空）**：普通同名绝对目录（`D:\documents\review` 等）；相对路径；
+    `current_backup` / `preview` / `canonicalized`；`resume-assistant-backup`、`my-resume-assistant`、
+    `resume-assistant.old`、`resume-assistant-helper`、`resume assistant`（相似子串）；第三方 `.pyd`
+    构建路径；普通文本中的 current / review / canonical；HTTP(S) URL（仓库根、带/不带 `.git`、
+    `/blob/`、查询串、片段、业务路径）；其他 `ftp://` / `s3://` 等带 scheme 的 URI。
+  - **malformed / binary 8 项全 PASS（无崩溃）**：空、NUL 字节、高字节、截断反斜杠、尾缀标识、未闭合
+    JSON、孤立盘符、随机二进制。探针每个用例以 try/except 独立区分「审计命中」与「异常崩溃」，崩溃
+    即 FAIL，绝不把 traceback 的退出码误记为正常命中。
+- **验证命令与退出码**：
+  - `python -m py_compile scripts/h8_package_audit.py` → **exit 0**
+  - `python validation-artifacts/h6_probe.py` → **exit 0**（55/55 PASS）
+  - `python scripts/h8_package_audit.py --dir D:\demo\resume-assistant\acceptance-staging\53fbc6f --json
+    validation-artifacts\h6_package_audit.json` → **exit 0**
+- **冻结包 package audit（隔离目录 `validation-artifacts` 输出）**：`pass=true`、
+  `block_marker_hits=[]`、`forbidden_paths=[]`、`4045 files`、`170,356,115 B`、EXE `16,821,078 B`、
+  SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`，与基线精确一致。本轮
+  仅修卫生脚本，产品或入包对象未变化；若变化会立即停止，未发生。
+- **脱敏扫描**：对变更文件 `scripts/h8_package_audit.py`（未发现本机绝对路径/用户名/机器路径）、新证据
+  `validation-artifacts/h6_probe.py`（仅含合成测试路径，如虚构用户 alice、`D:\proj`/`D:\w`，无真实
+  用户/工作区路径）、本 RESULT §R2-33 与活动 V2.2 文档执行，未发现真实本机绝对路径泄漏。
+- **证据 SHA-256**（均位于 gitignored `validation-artifacts/`）：
+  - `h6_package_audit.json` → `665804C2FC4153C6F6A35CEDE436271929DE1D9902C285A942242E606F0CC11A`
+  - `h6_probe.py` → `7714D6191819C98EF1F0F11149B7323274A10E71F504BE249AF098E8FF2CD987`
+- **未改对象**：PLAN.md、HISTORY.md、产品源码、前端 bundle、依赖、配置、构建与打包逻辑、failure
+  matrix 脚本或证据、冻结精确包、canonical、review、远端与任何 tag。RESULT 顶部状态复位为「待验收」。
+- **已知偏差**：探针与审计输出置于 gitignored `validation-artifacts/` 隔离目录，不进入公开入包对象；
+  按 §R2-32 在后门禁界定，范围仅为卫生脚本与证据，故未重跑 build、完整产品行为、真实模型、Design
+  Fidelity 或 failure matrix；一旦发现产品或入包对象变化即恢复完整验收。
+- **门禁声明**：本节不声明 `DOC_ALIGNED`，不声明 `ACCEPTANCE_PASS`，不进入人工验收。已保持
+  tracked/index clean，开发侧记录独立提交，交回 Documentation Agent 固定 H6-HANDOFF。
