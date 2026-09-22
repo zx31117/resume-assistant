@@ -1,175 +1,22 @@
 {
-  "first_run_exit": 1,
-  "first_run_failed": true,
-  "first_evid": {
-    "scenarios": [
-      {
-        "scenario": "S1_com_missing",
-        "ok": true,
-        "elapsed_s": 0.11,
-        "meta": {
-          "ok": false,
-          "error": "com_failed",
-          "detail": "ModuleNotFoundError: import of win32com.client halted; None in sys.modules",
-          "word_version": "",
-          "word_build": "",
-          "os": "Windows-10-10.0.26100-SP0",
-          "elapsed_s": 0.0,
-          "word_pids": []
-        },
-        "worker_rc": 0
-      },
-      {
-        "scenario": "S2_corrupt_docx",
-        "ok": false,
-        "elapsed_s": 30.55,
-        "error": {
-          "code": "timeout",
-          "msg": "Word 转换超时（>30.0s）"
-        },
-        "docx_unchanged": true
-      },
-      {
-        "scenario": "S3_timeout",
-        "ok": true,
-        "elapsed_s": 33.24,
-        "error": {
-          "code": "timeout",
-          "msg": "Word 转换超时（>0.6s）"
-        },
-        "winword_leaked": []
-      },
-      {
-        "scenario": "S4_busy",
-        "ok": true,
-        "elapsed_s": 47.41,
-        "second_error": {
-          "code": "busy",
-          "msg": "转换器忙（已有转换进行中）"
-        },
-        "first_result": {
-          "ok": true,
-          "pdf_header": "%PDF-"
-        }
-      },
-      {
-        "scenario": "S5_recovery",
-        "ok": true,
-        "elapsed_s": 61.41,
-        "pdf_sha": "d5afa01fb5f53f4f",
-        "pages": 1
-      },
-      {
-        "scenario": "F1_frozen_worker_corrupt",
-        "ok": true,
-        "elapsed_s": 108.85,
-        "meta_error": "com_failed",
-        "worker_rc": 2
-      }
-    ],
-    "win_snapshot": {
-      "visible_console_or_word_before": [],
-      "visible_console_or_word_after": [],
-      "new_console_or_word_windows": [],
-      "winword_before": [],
-      "winword_after": [],
-      "winword_leaked": []
-    },
-    "all_ok": false
-  },
+  "generated_for_candidate": "R2-21 新候选（父提交 db87c17f3ee62311206368b55ba6259c0aaae009）",
+  "authoritative_evidence": "validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json",
+  "first_run_exit": 0,
+  "first_run_failed": false,
   "residual_objs": {
     "winword_leaked": [],
     "new_console_or_word_windows": []
   },
   "cleanup_path": [
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_1g59ub47",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_91co4m43",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_sx0sls0l",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_v66_vcg_",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_s1_itp97ucx",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_s1_lz5yq_1b",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_f1_myz31x17",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_f1_ppq33pep"
+    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_8ib4uay3",
+    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_8m_20vjb",
+    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_s1_x6xlwewf",
+    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_f1_4sxrgbwf"
   ],
-  "cleanup_gate_ok": false,
-  "rerun_exit": 1,
-  "rerun_evid": {
-    "scenarios": [
-      {
-        "scenario": "S1_com_missing",
-        "ok": true,
-        "elapsed_s": 0.11,
-        "meta": {
-          "ok": false,
-          "error": "com_failed",
-          "detail": "ModuleNotFoundError: import of win32com.client halted; None in sys.modules",
-          "word_version": "",
-          "word_build": "",
-          "os": "Windows-10-10.0.26100-SP0",
-          "elapsed_s": 0.0,
-          "word_pids": []
-        },
-        "worker_rc": 0
-      },
-      {
-        "scenario": "S2_corrupt_docx",
-        "ok": false,
-        "elapsed_s": 30.56,
-        "error": {
-          "code": "timeout",
-          "msg": "Word 转换超时（>30.0s）"
-        },
-        "docx_unchanged": true
-      },
-      {
-        "scenario": "S3_timeout",
-        "ok": true,
-        "elapsed_s": 33.26,
-        "error": {
-          "code": "timeout",
-          "msg": "Word 转换超时（>0.6s）"
-        },
-        "winword_leaked": []
-      },
-      {
-        "scenario": "S4_busy",
-        "ok": true,
-        "elapsed_s": 47.35,
-        "second_error": {
-          "code": "busy",
-          "msg": "转换器忙（已有转换进行中）"
-        },
-        "first_result": {
-          "ok": true,
-          "pdf_header": "%PDF-"
-        }
-      },
-      {
-        "scenario": "S5_recovery",
-        "ok": true,
-        "elapsed_s": 61.43,
-        "pdf_sha": "3803ed4c079ff5e7",
-        "pages": 1
-      },
-      {
-        "scenario": "F1_frozen_worker_corrupt",
-        "ok": true,
-        "elapsed_s": 99.69,
-        "meta_error": "com_failed",
-        "worker_rc": 2
-      }
-    ],
-    "win_snapshot": {
-      "visible_console_or_word_before": [],
-      "visible_console_or_word_after": [],
-      "new_console_or_word_windows": [],
-      "winword_before": [],
-      "winword_after": [],
-      "winword_leaked": []
-    },
-    "all_ok": false
-  },
-  "rerun_failed": true,
+  "cleanup_gate_ok": true,
+  "rerun_exit": null,
+  "rerun_evid": null,
+  "rerun_failed": null,
   "residual_after_cleanup": {
     "winword_leaked": [],
     "new_console_or_word_windows": []
@@ -178,5 +25,5 @@
     "winword_leaked": [],
     "new_console_or_word_windows": []
   },
-  "final_pass": false
+  "final_pass": true
 }

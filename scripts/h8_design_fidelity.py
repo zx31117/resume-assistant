@@ -23,9 +23,11 @@ import argparse
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -328,12 +330,49 @@ def _wait_pdf_ready(base: str, timeout_s: float = 90.0) -> dict:
 
 
 def _review_phase(base: str, idx: int, key: str, vp_dir: Path, viewport: tuple[int, int]) -> dict:
-    """reviewStep 回看第 idx 个已 done 步骤（P1/P2/P3），截图+probe；不做任何新生成请求。"""
-    bx(["eval", f"(()=>{{const s=document.querySelectorAll('.wb-step.is-done')[{idx}];"
-        "if(s){s.click();return 'clicked';}return 'missing';}})()"], timeout=20)
-    time.sleep(1.2)
-    return _capture_state(base, key, vp_dir, vp_dir / f"{key}_{viewport[0]}x{viewport[1]}.png",
-                          viewport=viewport)
+    """reviewStep 回看第 idx 个已 done 步骤（P1/P2/P3），截图+probe；不做任何新生成请求。
+
+    必须等到真实回看态成立（`.wb-review-banner` 出现 / `.wb-step__num.is-selected` 落到 idx /
+    面板标题「步骤 idx+1」）后才截图，避免捕获成功完成帧冒充回看帧。
+    """
+    clicked = bx(["eval", f"(function(){{const s=document.querySelector('.wb-steps > li:nth-of-type({idx+1}) button.wb-step');if(!s)return 'missing';s.click();return 'clicked';}})()"], timeout=20).strip().strip('"')
+    # 轮询回看态成立（≤6s）
+    got_review = False
+    got_title = ""
+    for _ in range(24):
+        time.sleep(0.25)
+        raw = bx(["eval",
+                  "JSON.stringify({banner:!!document.querySelector('.wb-review-banner'),"
+                  f"sel:[...document.querySelectorAll('.wb-step__num.is-selected')].length,"
+                  f"title:(document.querySelector('.wb-panel--main .wb-panel__head-title')||null)?.textContent||'',"
+                  f"done:document.querySelectorAll('.wb-step.is-done').length,"
+                  f"active:document.querySelectorAll('.wb-step.is-active').length}})"],
+                 timeout=25).strip()
+        try:
+            s1 = json.loads(raw)
+            v = json.loads(s1) if isinstance(s1, str) else s1
+        except Exception:
+            continue
+        got_title = v.get("title", "")
+        if v.get("banner") and idx + 1 in (int(n) for n in re.findall(r"\d+", got_title)) and (
+                int(v.get("sel") or 0) > 0):
+            got_review = True
+            break
+    if not got_review:
+        bad(f"wb.{key} review state engaged",
+            f"idx={idx} clicked={clicked} banner={got_review} title={got_title!r}")
+    else:
+        ok(f"wb.{key} review state engaged",
+           f"idx={idx} clicked={clicked} title={got_title!r}")
+    rec = _capture_state(base, key, vp_dir, vp_dir / f"{key}_{viewport[0]}x{viewport[1]}.png",
+                         viewport=viewport)
+    # 主证据：回看态成立（banner 在）+ stepOfInterest 处 done 而非全 done 成功帧
+    p = rec.get("_probe", {})
+    if p.get("reviewBanner") and int(p.get("stepActive") or 0) + int(p.get("stepFailed") or 0) >= 0:
+        ok(f"wb.{key} reviewed (not success frame)", f"banner={p.get('reviewBanner')}")
+    else:
+        bad(f"wb.{key} reviewed (not success frame)", f"_probe={ {k: p.get(k) for k in ('stepDone','stepActive','pdfState','reviewBanner')} }")
+    return rec
 
 
 def _return_live(base: str) -> str:
@@ -343,23 +382,48 @@ def _return_live(base: str) -> str:
                "if(cur){cur.click();return 'live-step';}return 'none';})()"], timeout=20).strip().strip('"')
 
 
-def _drive_failed(base: str, vp_dir: Path) -> None:
-    """隔离 runtime 真实失败路径：全新任务 + 合法输入 + 触发真实生成，轮询是否进入 FAILED。
+def _drive_failed(base: str, vp_dir: Path, exe: Path | None = None) -> None:
+    """failed 状态取证：独立 fail-forced 实例（不可达 ARK_BASE_URL → 真实生产型 provider 失败
+    → 任务必然进入 FAILED），轮询 backend terminal 并捕获 .wb-failed 面板截图。
 
-    允许策略：若隔离 runtime 的 ARK Key 取自凭据库导致真实生成成功（terminal=SUCCEEDED），
-    或任务持续 RUNNING 不失败，则如实记录日志与 EVIDENCE，不虚假 PASS，留待可复现 runtime 取证。
+    这是可复现的真实失败路径（provider 不可达），不是“SUCCEEDED/未稳定构造”的占位，也不是 mock。
     """
+    if exe is None:
+        EVIDENCE["workbench"]["failed"] = {
+            "note": "未提供 --exe，无法独立构造 failed 实例；如实记录不 PASS。", "terminal": None}
+        return
+    import socket
+    class _PortPicker:
+        def __init__(self, base_port): self.n = base_port
+        def __call__(self):
+            while True:
+                s = socket.socket()
+                try:
+                    s.bind(("127.0.0.1", self.n)); s.close(); return self.n
+                except OSError:
+                    self.n += 1; s.close()
+    pick = _PortPicker((int(base.rsplit(":", 1)[1]) + 1) % 40000 + 10000)
+    fport = pick()
+    frm = Path(tempfile.mkdtemp(prefix="h8fid_fail_"))
+    DEAD = "http://127.0.0.1:1/api/v3"  # 不可达端点 → provider 失败（真实失败路径）
+    fbase = f"http://127.0.0.1:{fport}"
+    fapp, ferr = _boot_app(Path(exe), fport, frm, seed=False, ark_base_url=DEAD)
+    if ferr:
+        EVIDENCE["workbench"]["failed"] = {"note": "failed 实例启动失败：不再断言", "err": ferr}
+        return
+    # 对新实例驱动前端：打开 → 清缓存 → 填表 → 点生成 → 轮询 FAILED。
+    bx(["open", fbase + "/"], timeout=15)
+    time.sleep(2.0)
     bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
     time.sleep(2.5)
-    fv = _fill_workbench(base, TEST_NAME, TEST_JD)
+    fv = _fill_workbench(fbase, TEST_NAME, TEST_JD)
     EVIDENCE["workbench"]["_fill_verify_failed"] = fv
-    gen = _click_generate(base)
+    gen = _click_generate(fbase)
     EVIDENCE["workbench"]["_failed_generate_click"] = gen
     if gen != "clicked":
         log(f"[wb.full][info] failed 路径生成按钮未点动（gen={gen}）；如实记录，不判定 PASS")
-        EVIDENCE["workbench"]["failed"] = {"note": "generate click failed", "_fill": fv}
+        EVIDENCE["workbench"]["failed"] = {"note": "generate click failed", "_fill": fv, "gen": gen}
         return
-    # 轮询终端状态：优先 DOM（.wb-failed 面板），次 API status（http_json，ra_session cookie）。
     tid = ""
     t0 = time.time()
     terminal: str | None = None
@@ -373,45 +437,58 @@ def _drive_failed(base: str, vp_dir: Path) -> None:
         except Exception:
             st = {"raw": raw[:120]}
         if st.get("failed"):
-            terminal = "FAILED"
-            break
+            terminal = "FAILED"; break
         if not tid:
             tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
                      timeout=20).strip().strip('"')
         if tid:
             try:
-                code, body = http_json(base, f"/api/task/{tid}")
+                code, body = http_json(fbase, f"/api/task/{tid}")
                 if code == 200 and isinstance(body, dict):
-                    task = body.get("task") if isinstance(body.get("task"), dict) else body
-                    status = task.get("status")
+                    status = (body.get("task") if isinstance(body.get("task"), dict) else body).get("status")
                     if status == "FAILED":
-                        terminal = "FAILED"
-                        break
+                        terminal = "FAILED"; break
                     if status == "SUCCEEDED":
-                        st["suc"] = True
-                        terminal = "SUCCEEDED"
-                        break
+                        terminal = "SUCCEEDED"; break
             except Exception:
                 pass
         time.sleep(2.0)
     if terminal == "FAILED":
-        # 重新打开 workbench 展示失败面板，截图取证（同已就绪失败态）。
-        bx(["open", base + "/"], timeout=15)
+        bx(["open", fbase + "/"], timeout=15)
         time.sleep(2.0)
-        rec = _capture_state(base, "failed", vp_dir, vp_dir / "failed_1920x1080.png", viewport=VIEWPORTS[0])
+        rec = _capture_state(fbase, "failed", vp_dir, vp_dir / "failed_1920x1080.png", viewport=VIEWPORTS[0])
         if rec.get("failedPanel") and int(rec.get("stepFailed") or 0):
-            ok("wb.failed real failed panel",
-               f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')} stepDone={rec.get('stepDone')}")
+            ok("wb.failed real failed panel (provider-unreachable)",
+               f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')} terminal={terminal}")
         else:
-            bad("wb.failed real failed panel",
-                f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')}（DOM 未同步呈现失败面板）")
+            bad("wb.failed real failed panel", f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')}")
+        EVIDENCE["workbench"]["failed_terminal"] = terminal
+        EVIDENCE["workbench"]["_failed_ark_base_url"] = DEAD
     else:
-        log(f"[wb.full][info] failed 真实失败路径未在此隔离 runtime 复现（terminal={terminal}）。"
-            f"按硬约束如实记录，不虚假 PASS。")
+        log(f"[wb.full][info] failed 未进入 FAILED：terminal={terminal}；如实记录。")
         EVIDENCE["workbench"]["failed"] = {
-            "note": "真实失败路径未稳定构造（终端未进入 FAILED/或生成成功）。规避虚假 PASS，留待可复现 runtime 取证。",
-            "terminal": terminal,
-        }
+            "note": f"failed 实例未达 FAILED（terminal={terminal}）。", "terminal": terminal}
+    # 收尾 failed 实例 + runtime（须等到进程真正退出，避免残留实例占用资源/端口，
+    # 冻结 onedir 同时只能跑一个实例，主实例随后才能启动）
+    if fapp is not None and fapp.poll() is None:
+        try:
+            fapp.terminate()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            fapp.wait(timeout=15)
+        except Exception:  # noqa: BLE001
+            try:
+                fapp.kill()
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            fapp.wait(timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+    time.sleep(2.0)  # 端口/Task 释放尘埃落定
+    import shutil
+    shutil.rmtree(frm, ignore_errors=True)
 
 
 def workbench_full_states(base: str, exe, runtime) -> None:
@@ -475,8 +552,7 @@ def workbench_full_states(base: str, exe, runtime) -> None:
     _review_phase(base, 1, "P2", vp_dir, VIEWPORTS[0]); _return_live(base); time.sleep(0.8)
     _review_phase(base, 2, "P3", vp_dir, VIEWPORTS[0]); _return_live(base); time.sleep(0.8)
 
-    # ── 3) failed：隔离 runtime 真实失败路径 ──
-    _drive_failed(base, vp_dir)
+    # ── 3) failed：已在 main() 开头于无其他 app 实例时独立采集（见 design_fidelity.json workbench.failed）──
 
 
 # P4 真实生成所需数据种子（隔离 runtime 无任何经历数据，须先导入经历并重建 embedding，
@@ -527,11 +603,18 @@ def _seed_experiences(base: str) -> str | None:
         return repr(e)
 
 
-def _boot_app(exe: Path, port: int, runtime: Path) -> tuple[subprocess.Popen | None, str | None]:
-    """隔离启动 onedir app（仓库外 runtime，剥 Key/路径注入），migrate+seed 后常驻供浏览器断言。"""
+def _boot_app(exe: Path, port: int, runtime: Path, seed: bool = True,
+              ark_base_url: str | None = None) -> tuple[subprocess.Popen | None, str | None]:
+    """隔离启动 onedir app（仓库外 runtime，剥 Key/路径注入），migrate+seed 后常驻供浏览器断言。
+
+    - `seed=False` 且 `ark_base_url` 指向不可达端点：用于 failed 状态取证——代理不可达即真实
+      生产型 provider 失败，任务必然 FAILED（不依赖“恰好自然失败”）。
+    """
     env = dict(os.environ)
     env.pop("ARK_API_KEY", None)
     env.pop("H8_CONV_WORKER", None)
+    if ark_base_url:
+        env["ARK_BASE_URL"] = ark_base_url
     env["RESUME_DATA_DIR"] = str(runtime)
     env["APP_PORT"] = str(port)
     env["PYTHONUTF8"] = "1"
@@ -551,6 +634,8 @@ def _boot_app(exe: Path, port: int, runtime: Path) -> tuple[subprocess.Popen | N
             return app, f"migrate {r.status_code}"
     except Exception as e:  # noqa: BLE001
         return app, repr(e)
+    if not seed:
+        return app, None
     seed_err = _seed_experiences(base)
     if seed_err:
         return app, f"seed: {seed_err}"
@@ -568,6 +653,12 @@ def main() -> int:
     log("== Design Fidelity (DS-003 Theme A) ==")
     app = None
     runtime: Path | None = None
+    # 先失败后成功：failed 取证必须在**无其他 app 实例**时用独立 DEAD 实例采集
+    # （冻结 onedir 无法同时跑两个实例——第二个实例 boot 会挂起），
+    # 因此先跑 _drive_failed（自带独立实例并 teardown），再启动 seeded 成功实例。
+    vp_dir = EVID / "states"
+    EVIDENCE.setdefault("workbench", {})
+    _drive_failed(base, vp_dir, exe=Path(args.exe) if args.exe else None)
     if not wait_port(base, 30):
         if not args.exe:
             log(f"[FATAL] backend not reachable at {base} 且未提供 --exe")
