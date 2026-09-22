@@ -389,3 +389,19 @@
   固定 review 已 detached 到 `53fbc6f` 且 clean，包和证据已封存至对应 acceptance-staging 目录。
 - 下一步：由未参与本候选实现、自测或修复的 Acceptance Agent 绑定同一 H2-HANDOFF 与精确包完成独立
   验收。旧 `be59acd` 的通过结论不继承；本轮独立结论返回前不得进入人工验收、全局文档收口或发布。
+
+## VH-021 `53fbc6f` 独立验收通过，发布卫生要求形成最小修正候选
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 独立验收 → 发布卫生修正
+- 验收结论：未参与实现、自测或修复的 Acceptance Agent 绑定 H2-HANDOFF `53fbc6f`、H2-SRC
+  `bfcab15c` 与精确包完成 Design Fidelity、Integration、失败矩阵、真实性能、artifact、资源清理和
+  包审计；全部必做项无 FAIL/NOT_RUN，最终结论为 `ACCEPTANCE_PASS`。验收前后 review HEAD 未变化且
+  clean，一次性副本和隔离 runtime 已清理。
+- 后置卫生复核：已验收包不含 Key、开发路径或测试注入，但 tracked 根包审计摘要仍指向旧包，根 failure
+  matrix 证据含用户临时目录，package audit 验证脚本还硬编码用户特定临时路径。该问题不推翻
+  `53fbc6f` 的产品验收事实，但不符合公开源码脱敏规则。
+- 身份影响：当前状态改为“需修正”，PLAN Revision 2 不变；固定 review 暂留已验收的 `53fbc6f`。
+  Development Agent 形成仅限验证脚本与证据卫生的新候选后，重新执行 Documentation Gate 和定向独立
+  复核；不得以旧 PASS 自动覆盖新候选，也不得在修正前进入人工验收或发布。
+- 当前执行细节以 RESULT §R2-23 为准；本 HISTORY 只记录验收通过与候选后置失效原因，不构成开发指令。

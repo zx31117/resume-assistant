@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
+> 当前状态：**需修正**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -13,9 +13,10 @@
 > 与其指向的证据入口完成集中审查，§R2-20 结论为 `DOC_RETURNED`：强制门禁仍不完整，且两组证据
 > 与 RESULT 声明直接冲突 → 三项实质缺口。开发随后提交 §R2-21 新候选 `bfcab15`（唯一父
 > `db87c17`），完整重跑门禁、真实构造 Design Fidelity 全状态、统一并绑定新候选的 failure matrix
-> 权威摘要。Documentation Agent 已在 §R2-22 完成一次性机械与语义复查，结论为 `DOC_ALIGNED`。
-> PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变；下一门禁为绑定
-> H2-HANDOFF `53fbc6f` 的独立验收。
+> 权威摘要。Documentation Agent 在 §R2-22 给出 `DOC_ALIGNED`，独立 Acceptance Agent 随后绑定
+> H2-HANDOFF `53fbc6f` 完成全部必做项并给出 `ACCEPTANCE_PASS`。§R2-23 收录该结论；文档侧发布
+> 卫生复核同时发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，当前转为最小化证据
+> 卫生修正。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。
 
 > **本轮返工交付（§R2-21；§R2-20 已 `DOC_RETURNED`）**：
 >
@@ -37,9 +38,9 @@
 > - **文档完整 handoff**：`53fbc6f37016b25b803a73a37570df92cc8179fe`；相对源码候选
 >   `bfcab15` 只修改本 RESULT
 >
-> - **当前门禁**：`DOC_ALIGNED`。PLAN Revision 2 不变；固定 `review` 已 detached 到 H2-HANDOFF
->   `53fbc6f` 且 clean。旧 `be59acd` 的 `ACCEPTANCE_PASS` 不覆盖本轮返工；尚未开始或通过本轮独立
->   验收，不得进入 Product Owner 人工验收
+> - **当前门禁**：H2-HANDOFF `53fbc6f` 已独立 `ACCEPTANCE_PASS`，但发布卫生复核为“需修正”。固定
+>   `review` 仍 detached 到 `53fbc6f` 且 clean；在最小化证据卫生候选形成并完成相应复核前，不进入
+>   Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1762,3 +1763,43 @@ artifact 链，不另建第二套。
   精确包上完成 PLAN §9 的 Design Fidelity、Integration、失败矩阵、真实性能、artifact、资源清理与
   包审计；结论必须绑定 H2-HANDOFF `53fbc6f`，源码结论同时绑定 H2-SRC `bfcab15`。独立结论返回前
   保持“待验收”，不进入 Product Owner 人工验收或发布收口。
+
+## R2-23. 独立验收结论与发布卫生处置
+
+- **日期**：2026-09-22。
+- **独立性与绑定**：Acceptance Agent 声明未参与 H2 实现、自测、修复、验证脚本修改或开发结论编写；
+  全程只读。验收对象为 H2-HANDOFF `53fbc6f37016b25b803a73a37570df92cc8179fe`、H2-SRC
+  `bfcab15c172804fc32b9a11761be7da5077eba20`、PLAN blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 和精确包 4045 files / 170,356,115 B、EXE
+  SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- **身份与隔离**：验收前后 review 均 detached 到 `53fbc6f` 且 tracked/index clean；H2-SRC 是
+  H2-HANDOFF 祖先，二者之间只修改本 RESULT。动态验证在 review 外一次性源码副本和隔离 runtime
+  完成；临时副本、验收脚本与证据目录已清理，无 ResumeAssistant 残留；WINWORD 21984 为验收前已存在
+  实例，验收未新增泄漏。
+- **独立结果摘要**：
+  - compileall、V2.0 20/0、V2.0.1 77/0、统一 precheck、包审计均 exit 0；版本端点均为 2.2.0，
+    精确包无 Key、开发路径、fixture/测试注入、旧 bundle 或 ReportLab；
+  - Design Fidelity 的 empty/saved/P1/P2/P3/P4/failed/success、三个二级页和七视口均独立实测通过；
+    P1～P3 回看不增加模型调用，failed 真实进入 FAILED；
+  - 真实模型 P1→P4 SUCCEEDED，19 chat + 1 embedding 均 200；PDF.js ready、1 页/1 canvas，DOCX/PDF
+    双下载成功且 MIME 正确；失败矩阵 S1～S5/F1 为 6/6 ok，cleanup 与进程/窗口残留门禁通过；
+  - 六格为 18/18 SUCCEEDED，首 Fact 最大值 12.02 s；四个有基线格降幅 62.5% / 59.6% / 53.8% /
+    52.0%，调用、attempt、Embedding 和 Token 门禁全部满足。
+- **独立验收最终结论：`ACCEPTANCE_PASS`。** 全部必做项完成，无 FAIL/NOT_RUN。该结论只绑定上述
+  H2-HANDOFF、H2-SRC 与精确包；旧候选结论不继承，新候选发生测试或实现变化后也不得自动继承。
+- **独立非阻断观察**：viewer 的 `.wb-download__hash` 显示元素为空，但 viewer 与下载仍同读
+  `published_pdf_path`，下载 PDF hash 可复现且同源成立；本项不改变验收结论，留作后续产品改进观察。
+- **Documentation Agent 发布卫生复核**：
+  1. tracked `dist_package_audit.json` 仍记录旧包 170,356,136 B、旧 EXE hash `ee106dbc…` 和
+     `D:\demo\resume-assistant\current\dist\ResumeAssistant`，不是本轮权威包审计；
+  2. tracked `failure_matrix_result.json` 的 `cleanup_path` 含 `C:\Users\31117\...`；
+  3. tracked `scripts/h8_package_audit.py` 还把 `c:\users\31117\appdata\local\temp` 写为固定扫描标记。
+  以上不影响已验收包的功能与隐私扫描，但违反 `HUMAN_AI_WORKFLOW` §8.5 的公开源码脱敏要求，不能
+  静默带入最终发布候选。
+- **当前处置：需修正，PLAN Revision 2 不变。** Development Agent 只需形成最小化证据卫生候选：
+  移除验证脚本中的用户特定固定路径、让持久化验证证据使用环境无关/脱敏路径、用本轮精确包重新生成
+  当前权威 package audit，并确认全仓新增/当前 V2.2 交付不含本机用户名、凭据或非必要绝对路径。
+  不得修改产品源码、bundle、依赖、配置或精确包；若这些对象变化，必须重跑完整独立验收。若差异严格
+  限于验证脚本与证据卫生，则新候选仍须重新经过 Documentation Gate，并由独立 Acceptance Agent 至少
+  复核脱敏、脚本可执行性、package audit、failure matrix、候选/包身份和 clean/cleanup；原产品行为
+  PASS 可作为已绑定 `53fbc6f` 的历史结论保留，但不自动覆盖新候选。
