@@ -375,11 +375,18 @@ def main() -> int:
          f"residue={residue_after_first}")
 
     # ── 显式清理（等价于文档验收中的人工强杀，这里由脚本自证并记录路径） ── #
+    # 实际清理仍使用真实临时路径；持久化到 JSON 的 cleanup_path 用环境无关占位符
+    # `<temp>` 代替本机临时目录前缀，不落用户名/用户目录。仅脱敏证据，不改 S1~F1 语义。
+    tmp_base = os.path.normpath(tempfile.gettempdir())
+
+    def _redact_tmp(s: str) -> str:
+        return s.replace(tmp_base, "<temp>")
+
     cleanup: list[str] = []
     for pid in residue_after_first["winword_leaked"]:
         _taskkill_pid(pid)
         cleanup.append(f"taskkill WINWORD pid={pid}")
-    cleanup.extend(f"rmdir {d}" for d in _cleanup_temp_dirs())
+    cleanup.extend(f"rmdir {_redact_tmp(os.path.normpath(d))}" for d in _cleanup_temp_dirs())
     _log("[lifecycle] cleanup steps: " + ("; ".join(cleanup) if cleanup else "none"))
     residue_after_cleanup = residual_scan(baseline_ww, baseline_vis)
 

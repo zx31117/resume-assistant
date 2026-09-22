@@ -1,9 +1,9 @@
 {
-  "dir": "D:\\demo\\resume-assistant\\current\\dist\\ResumeAssistant",
+  "dir": "dist\\ResumeAssistant",
   "files": 4045,
-  "total_bytes": 170356136,
-  "exe": "D:\\demo\\resume-assistant\\current\\dist\\ResumeAssistant\\ResumeAssistant.exe",
-  "exe_sha256": "ee106dbcce994f75eb5edfdb75b6fa7eba2a0b4f2c18fb53899fae8bff4e483d",
+  "total_bytes": 170356115,
+  "exe": "dist\\ResumeAssistant\\ResumeAssistant.exe",
+  "exe_sha256": "133a1394189bf008afefccadd5b27f626ab49ca1e6a9bd4f2de15255f6486b12",
   "block_marker_hits": [],
   "forbidden_paths": [],
   "pass": true

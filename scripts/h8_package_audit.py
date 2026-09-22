@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 # 高信号阻断标记（大小写不敏感）
@@ -28,11 +29,35 @@ BLOCK_MARKERS = (
     "h6_fixtures", "v21h6_stub_runtime", "stub_posts.log", "h6_stub_runtime_dir",
     "h8e2e_", "maybeinjecth6",
 )
-# 开发机绝对路径（当前工作机）
-DEV_PATHS = (
-    "d:\\demo\\resume-assistant", "dev-recovery-20260908",
-    "c:\\users\\31117\\appdata\\local\\temp",
+# 环境无关的通用开发痕迹子串（不含用户名/机器名/工作区绝对路径，也不包含会误伤第三方
+# 预打包 C 扩展/win32com 的通用 Windows 路径片段）。任何命中即视为包内携带开发机痕迹。
+# 用户目录/临时目录/仓库根的**用户特定**检测由 `_runtime_dev_paths()` 运行时动态覆盖，
+# 不落任何用户特定硬编码。
+GENERIC_DEV_SUBSTRINGS = (
+    "%userprofile%",
+    "dev-recovery-20260908",
 )
+
+
+def _runtime_dev_paths() -> tuple[str, ...]:
+    """运行时动态取得当前用户目录 / 临时目录 / 仓库根，去重后作为环境特有扫描前缀。
+
+    只追加、不削弱对「开发路径、用户目录、临时目录、仓库绝对路径」的检测；由调用方在
+    遍历前一次性计算，避免每次比对重复解析。返回小写规范化后的唯一前缀元组。
+    """
+    seen: list[str] = []
+    for s in (
+            tempfile.gettempdir(),
+            os.path.expanduser("~"),
+            str(Path(__file__).resolve().parents[1]),  # 仓库根（当前工作区）
+    ):
+        try:
+            norm = os.path.normpath(s).lower().rstrip("\\")
+        except Exception:  # noqa: BLE001
+            continue
+        if norm and norm not in seen:
+            seen.append(norm)
+    return tuple(seen)
 # 允许的常见子串（避免误报）：仅用于解释，不改变判定
 FORBID_SUFFIX = (".env", ".db", ".sqlite", ".sqlite3")
 FORBID_DIRS = ("output", "logs", "cache", "database")
@@ -53,6 +78,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.dir).resolve()
+    repo = Path(__file__).resolve().parents[1]
     if not root.is_dir():
         print(f"[fatal] 目录不存在：{root}")
         return 2
@@ -63,6 +89,8 @@ def main() -> int:
     forbidden: list[str] = []
     exe = None
     exe_sha = ""
+    # 运行时一次性组合：环境无关通用子串 + 当前机器环境特有前缀（含用户目录/临时目录/仓库根）
+    scan_paths = GENERIC_DEV_SUBSTRINGS + _runtime_dev_paths()
     for dirpath, dirs, names in os.walk(root):
         rel_dir = Path(dirpath).relative_to(root)
         for dname in list(dirs):
@@ -90,15 +118,22 @@ def main() -> int:
             for m in BLOCK_MARKERS:
                 if m.encode("utf-8") in low:
                     hits.append({"file": str(rel), "marker": m})
-            for dp in DEV_PATHS:
+            for dp in scan_paths:
                 if dp.encode("utf-8") in low:
                     hits.append({"file": str(rel), "marker": f"dev_path:{dp}"})
 
+    # 持久化路径一律相对仓库或取文件名，不落本机工作区绝对路径
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(repo))
+        except ValueError:
+            return p.name
+
     result = {
-        "dir": str(root),
+        "dir": _rel(root),
         "files": files,
         "total_bytes": total_bytes,
-        "exe": exe,
+        "exe": _rel(Path(exe)) if exe else "",
         "exe_sha256": exe_sha,
         "block_marker_hits": hits,
         "forbidden_paths": forbidden,

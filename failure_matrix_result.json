@@ -1,5 +1,5 @@
 {
-  "generated_for_candidate": "R2-21 新候选（父提交 db87c17f3ee62311206368b55ba6259c0aaae009）",
+  "generated_for_candidate": "R2-24 卫生候选（父提交 7f58468312be8902894a10ce050405447e08127a）",
   "authoritative_evidence": "validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json",
   "first_run_exit": 0,
   "first_run_failed": false,
@@ -8,10 +8,10 @@
     "new_console_or_word_windows": []
   },
   "cleanup_path": [
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_8ib4uay3",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_fm_8m_20vjb",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_s1_x6xlwewf",
-    "rmdir C:\\Users\\31117\\AppData\\Local\\Temp\\h8r2_f1_4sxrgbwf"
+    "rmdir <temp>\\h8r2_fm_3digdz8m",
+    "rmdir <temp>\\h8r2_fm_qfvb3jr8",
+    "rmdir <temp>\\h8r2_s1_pnhqrhr1",
+    "rmdir <temp>\\h8r2_f1_aw2l1ew9"
   ],
   "cleanup_gate_ok": true,
   "rerun_exit": null,
