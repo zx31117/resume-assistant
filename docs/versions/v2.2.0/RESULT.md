@@ -2,8 +2,8 @@
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
 > 当前状态：**待验收**
-> 当前验收对象：H6-SRC `c57e903`（唯一父提交 `592ad0c`；§R2-32 规定的最小卫生返工，见
-> §R2-33；H6 仅修改 `scripts/h8_package_audit.py`；产品源码、bundle、依赖、配置、
+> 当前验收对象：H6-HANDOFF `81bf8c2`（H6-SRC `c57e903`，唯一父提交 `592ad0c`；§R2-32 规定的
+> 最小卫生返工，见 §R2-33～§R2-34；H6 仅修改 `scripts/h8_package_audit.py`；产品源码、bundle、依赖、配置、
 > 构建、failure matrix 与精确包均未变化，冻结包仍为 4045 files / 170,356,115 B / EXE SHA-256
 > `133A1394…B12`，marker_hits=0、forbidden_paths=0、pass=true）
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
@@ -19,8 +19,9 @@
 > 路径、含空格 Windows 项目路径会漏检。产品源码、bundle、依赖、配置、构建、failure matrix 与精确包
 > 均未变化。§R2-31 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实。Development Agent 已按 §R2-32
 > 形成 H6-SRC `c57e903`，只修复 package audit 的路径词法、归一化与异常封闭，并在 §R2-33 提交开发
-> 记录 `459bd65`；PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。当前下一门禁为
-> H6 Documentation Gate；完成 `DOC_ALIGNED` 与同口径定向独立复核前，不进入人工验收或发布。
+> 记录 `459bd65`。Documentation Agent 在 §R2-34 给出 `DOC_ALIGNED` 并固定 H6-HANDOFF `81bf8c2`；
+> PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。当前下一门禁为绑定
+> H6-HANDOFF 的同口径定向独立复核；通过前不进入人工验收或发布。
 
 > **本轮卫生返工交付（§R2-33；§R2-32 要求最小修正）**：
 >
@@ -40,10 +41,13 @@
 > - **开发工作区**：`version/v2.2.0`；提交 H6-SRC 与开发记录后 tracked/index clean
 >
 > - **开发侧 RESULT 记录**：`459bd6586632d6e1a8b77c6ff7d5068a5be21f5b`；相对 H6-SRC 只修改本
->   RESULT。H6-HANDOFF 由 Documentation Agent 完成语义审查与必要规范化后固定
+>   RESULT
 >
-> - **当前门禁**：待 H6 Documentation Gate。固定 `review` 暂留失败对象 H5-HANDOFF `ce78436` 且
->   clean；H6 未形成 `DOC_ALIGNED` 和冻结 handoff 前不得移动 review，也不进入 Product Owner 人工验收
+> - **文档完整 handoff**：`81bf8c27583675133f9ac3e2ec3efd623fe31131`；相对 H6-SRC 仅修改本
+>   RESULT，产品与验证脚本范围不再变化
+>
+> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H6-HANDOFF `81bf8c2` 且 clean；H6
+>   完成定向独立复核前，不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2420,3 +2424,48 @@ artifact 链，不另建第二套。
   Fidelity 或 failure matrix；一旦发现产品或入包对象变化即恢复完整验收。
 - **门禁声明**：本节不声明 `DOC_ALIGNED`，不声明 `ACCEPTANCE_PASS`，不进入人工验收。已保持
   tracked/index clean，开发侧记录独立提交，交回 Documentation Agent 固定 H6-HANDOFF。
+
+## R2-34. H6 Documentation Gate 与定向复核 handoff
+
+- **日期**：2026-09-23。
+- **审查边界**：Documentation Agent 只依据批准 PLAN、RESULT、机械身份和证据入口，判断 H6 是否完整
+  回应 §R2-32。路径词法、URI/文件系统区分、空格路径和异常封闭是否真实正确，仍由独立 Acceptance
+  Agent 从源码和运行行为证明；本节不继承开发探针 PASS。
+- **冻结身份**：
+  - 返工基线：`592ad0cc40604f8ee1581458c4cb6dc40a6f3d6d`；
+  - H6-SRC：`c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`，唯一 parent 为返工基线；相对 parent 仅
+    `scripts/h8_package_audit.py`，1 file / +72 / -24；
+  - H6-DEV：`459bd6586632d6e1a8b77c6ff7d5068a5be21f5b`，相对 H6-SRC 仅修改本 RESULT；
+  - H6-HANDOFF：`81bf8c27583675133f9ac3e2ec3efd623fe31131`，相对 H6-DEV 仍仅修改本 RESULT；
+    H6-SRC 至 H6-HANDOFF 合计仅修改本 RESULT，1 file / +78 / -18；
+  - 分支 `version/v2.2.0`、handoff 形成后 tracked/index clean；PLAN Revision 2 blob
+    `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- **RESULT 完整性**：§R2-33 将 H5 的三项独立阻断统一映射为 URI scheme 与文件系统头区分、JSON 双
+  反斜杠偏移安全、空格路径保留及异常封闭；同时声明保留项目标识完整路径元素、普通同名目录反例和
+  无固定窗口行为。正向 22、反向 25、malformed/binary 8 项开发探针、`py_compile`、冻结包 audit、
+  脱敏、包身份、未改对象和未重跑门禁理由均有明确入口与结果。
+- **Documentation Agent 一次性规范化**：把 §R2-33 验证命令中的真实本机冻结包路径替换为
+  `<acceptance-staging>/53fbc6f`，并把顶部当前身份、交接语义和 Gate 更新到 H6；未修改开发事实、源码、
+  测试、证据内容或 PLAN/HISTORY。
+- **证据入口与封存**：开发探针 `h6_probe.py` SHA-256
+  `7714D6191819C98EF1F0F11149B7323274A10E71F504BE249AF098E8FF2CD987`；冻结包 audit
+  `h6_package_audit.json` SHA-256
+  `665804C2FC4153C6F6A35CEDE436271929DE1D9902C285A942242E606F0CC11A`。二者已封存于
+  `<acceptance-staging>/81bf8c2-evidence`，仅作线索，不继承其 PASS。
+- **未变对象与机械复核**：failure matrix 脚本、failure matrix 证据和 tracked package audit 证据相对
+  H5 文档基线的 blob 均未变化；产品源码、bundle、依赖、配置、构建、打包逻辑和精确包均未变化。精确
+  包只读复核仍为 4045 files / 170,356,115 B，EXE 16,821,078 B，SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- **Documentation Gate 结论：`DOC_ALIGNED`。** 该结论只表示 H6 的身份、范围声明、开发证据入口和待
+  独立问题具备进入定向复核的条件，不表示新增解析逻辑已经独立证明正确，也不继承 H2～H5 的验收结论。
+- **保护与交接**：canonical 本地候选引用 `candidates/v2.2.0/81bf8c2` 已保护 H6-HANDOFF；固定
+  `review` 已 detached 到 `81bf8c2` 且 clean。后续 current 的 Gate 记录不属于验收对象，不得移动
+  review 或继承其状态。
+- **定向独立复核范围**：Acceptance Agent 须先确认未参与 H6 实现、开发探针、自测、修复或 RESULT
+  编写；静态检查可在 review 只读完成，运行验证必须位于 review 外的一次性副本和隔离临时目录。独立
+  设计正向、反向和 malformed/binary 用例，重点确认：JSON 双反斜杠不崩溃且产生正常结构化判定；
+  HTTP(S) 及其他 URI scheme 不因 `.git`、`/blob/`、查询串、片段或业务路径被误作盘符/UNC；项目根
+  前后含空格的有效 Windows 路径不漏检；普通同名目录、相似项目名、相对路径、第三方构建路径和纯文本
+  不误报；长上下文、多路径、引号、键值、斜杠变化和大小写行为不回退。重跑 `py_compile`、冻结包
+  package audit、受影响对象脱敏和包身份复核，并确认 failure matrix 与产品对象未变、cleanup 完成及
+  review 前后 HEAD/clean。若发现产品或入包对象变化，恢复完整验收；通过前不进入人工验收或发布。

@@ -508,3 +508,20 @@
 - 下一步：Development Agent 仅修复路径词法、归一化与异常封闭，补齐 JSON 转义、URL/UNC、含空格路径
   及 malformed/binary 正反向探针并更新受影响证据；重新经过 Documentation Gate 与同口径定向独立
   复核前，不进入 Product Owner 人工验收或发布。
+
+## VH-028 H6 形成路径词法与异常封闭候选并进入定向复核
+
+- 日期：2026-09-23
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核
+- 候选身份：H6-SRC `c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`、H6-HANDOFF
+  `81bf8c27583675133f9ac3e2ec3efd623fe31131`；二者之间只修改 RESULT。PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 返工边界：相对 §R2-32 文档基线只修改 package audit 验证脚本；开发声明统一修复 URI/文件系统头
+  区分、JSON 双反斜杠偏移、含空格路径和异常封闭，并保留项目标识边界、同名目录反例与无固定窗口
+  行为。产品源码、bundle、依赖、配置、构建、failure matrix 和精确包均未变化。
+- 门禁结果：Documentation Agent 完成机械身份、RESULT 映射和证据入口复核，对 RESULT 中一处真实本机
+  冻结包路径作一次性脱敏后给出 `DOC_ALIGNED`；canonical 已保护 H6-HANDOFF，固定 review 已 detached
+  到 `81bf8c2` 且 clean，H6 证据已封存。该结论不表示新增解析逻辑已独立通过。
+- 下一步：由未参与 H6 实现、自测或开发结论编写的 Acceptance Agent 按 RESULT §R2-34 定向复核 JSON
+  转义、URL/UNC、空格路径、malformed/binary、既有反例、package audit、脱敏、包身份及 clean/cleanup；
+  通过前不进入人工验收或发布。
