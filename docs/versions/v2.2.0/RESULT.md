@@ -7,38 +7,35 @@
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
-> 语义交接：Revision 2 的 H2-HANDOFF `53fbc6f` 已完成独立 `ACCEPTANCE_PASS`；§R2-23 的文档侧
-> 发布卫生复核随后发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，因此没有进入
-> Product Owner 人工验收。Development Agent 已在 §R2-24 形成卫生候选 `5dc16d8`：只修改两份
-> 验证脚本和两份持久化证据，产品源码、bundle、依赖、配置及精确包均未变化。Documentation Agent
-> 在 §R2-25 给出 `DOC_ALIGNED`，但绑定 H3-HANDOFF `6822f4a` 的定向独立复核在 §R2-26 判定
-> `ACCEPTANCE_FAIL`：package audit 对项目树路径族的检测相对基线发生位置依赖回退。PLAN Revision 2
-> （blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H3 不得进入人工验收或发布。
+> 语义交接：H2-HANDOFF `53fbc6f` 的完整产品行为 `ACCEPTANCE_PASS` 只作为绑定旧对象的历史事实；H3
+> 因 package audit 的项目树路径族检测发生位置依赖回退，在 §R2-26 被定向独立复核判定
+> `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-27 形成 H4-SRC `b378490`，只修改 package audit
+> 验证脚本以恢复位置无关检测，产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
+> 变化。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H4 等待
+> Documentation Gate。
 
-> **本轮卫生交付（§R2-24；§R2-23 要求最小修正）**：
+> **本轮卫生返工交付（§R2-27；§R2-26 要求最小修正）**：
 >
-> - **开发交付 commit**：`5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`
+> - **H4-SRC**：`b378490a0f9429931c18d7f63ecc5acce3f5b8fc`
 >
-> - **唯一父提交 / 卫生基线**：`7f58468312be8902894a10ce050405447e08127a`
->   （= §R2-23 验收结论与卫生处置记录所在提交）
+> - **唯一父提交 / 返工基线**：`98eccecf62a8dcc608ab058502c35709214f649f`
+>   （= §R2-26 H3 定向独立验收失败与返工边界所在提交）
 >
-> - **相对卫生基线完整 diff**（`5dc16d8` vs `7f58468`）：**4 files changed, 59 insertions(+),
->   17 deletions(-)**；仅 `scripts/h8_package_audit.py`、`scripts/h8_r2_failure_matrix.py`、
->   `dist_package_audit.json`、`failure_matrix_result.json`
+> - **相对返工基线完整 diff**（`98eccec..b378490`）：**1 file changed, 80 insertions(+),
+>   0 deletions(-)**；仅 `scripts/h8_package_audit.py`
 >
 > - **精确包身份（未变化）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
 >   16,821,078 B；SHA-256
 >   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
 >   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 `5dc16d8` 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；接收 H4-SRC 时 tracked/index clean
 >
-> - **文档完整 handoff**：`6822f4acc788f75c8afdb5903c7db3d50c048f54`；相对卫生候选
->   `5dc16d8` 只修改本 RESULT
+> - **开发侧 RESULT 记录 commit**：`dcb1ef0f5426651bb48ac8a212267d0df7f348be`；相对 H4-SRC
+>   只修改本 RESULT
 >
-> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 保持 detached 到失败对象 H3-HANDOFF `6822f4a`
->   且 clean；Development Agent 形成恢复检测能力的新候选并重新通过 Documentation Gate 与定向独立
->   复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：等待 Documentation Gate。H4 重新通过 Documentation Gate 与定向独立复核前，不
+>   进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1982,7 +1979,7 @@ artifact 链，不另建第二套。
   已独立通过且证据不变的 failure matrix（脚本与 `failure_matrix_result.json`）不触碰。
 - **新唯一候选（机械身份）**：H4-SRC `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`，
   唯一父 `98eccecf62a8dcc608ab058502c35709214f649f`，分支 `version/v2.2.0`；
-  相对 `98eccec` 完整 diff：`1 file changed`，`scripts/h8_package_audit.py`（+80, 0 deletions。
+  相对 `98eccec` 完整 diff：`1 file changed`，`scripts/h8_package_audit.py`（+80, 0 deletions；
   提交后 track/index clean）。PLAN Revision 2 blob 不变：
   `e134703ce6e37a2f4d5df389662119f38638fae8`。
   - 受影响证据 `dist_package_audit.json` 重新执行后与已提交版本**逐字一致**，无 diff 需提交。
