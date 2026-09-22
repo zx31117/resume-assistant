@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**待验收**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -1803,3 +1803,101 @@ artifact 链，不另建第二套。
   限于验证脚本与证据卫生，则新候选仍须重新经过 Documentation Gate，并由独立 Acceptance Agent 至少
   复核脱敏、脚本可执行性、package audit、failure matrix、候选/包身份和 clean/cleanup；原产品行为
   PASS 可作为已绑定 `53fbc6f` 的历史结论保留，但不自动覆盖新候选。
+
+## R2-24. 公开源码证据卫生（§R2-23 卫生处置收口）
+
+- **日期**：2026-09-22。
+- **边界**：本轮只处理 §R2-23 列出的三项公开源码/证据卫生问题，**不修改产品源码、bundle、依赖、
+  配置或精确包**，不触碰 PLAN/HISTORY/canonical/review，不推送远端，不自行写 `DOC_ALIGNED`，不继承
+  旧 `ACCEPTANCE_PASS`（其仍只绑定 `53fbc6f`/`bfcab15`）。精确包与验收对象逐字节不变。
+- **新唯一候选（机械身份，提交后 track/index clean）**：
+  - 实际候选完整 SHA：`5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`
+  - 唯一父提交 / 卫生基线：`7f58468312be8902894a10ce050405447e08127a`
+  - 分支：`version/v2.2.0`
+  - 相对 `7f58468` 完整 diff：**4 files changed, 59 insertions(+), 17 deletions(-)**
+    （`scripts/h8_package_audit.py`、`scripts/h8_r2_failure_matrix.py`、`failure_matrix_result.json`、
+    `dist_package_audit.json`）
+  - PLAN Revision 2 blob 不变：`e134703ce6e37a2f4d5df389662119f38638fae8`
+
+### R2-24.1 缺口 1：移除 `scripts/h8_package_audit.py` 用户特定硬编码
+
+- 移除原 `DEV_PATHS` 中固定 `c:\users\31117\appdata\local\temp`。
+- 改为运行时动态 + 环境无关两层检测：
+  - `_runtime_dev_paths()`：由 `tempfile.gettempdir()`、`os.path.expanduser("~")`、
+    `Path(__file__).resolve().parents[1]`（仓库根）在运行时取用户临时目录/用户目录/工作区根，去重后
+    作为环境特有扫描前缀，不落用户特定硬编码；
+  - `GENERIC_DEV_SUBSTRINGS`：仅保留环境无关占位子串 `%userprofile%` 与自有构建标记
+    `dev-recovery-20260908`（不含用户名/机器名/工作区绝对路径）。
+- 未削弱扫描能力：BLOCK_MARKERS（fixture/测试注入/旧 bundle/H6/`h8e2e_`）与 `FORBID_SUFFIX`/
+  `FORBID_DIRS`（Key/DB/output 目录）不变；用户目录/临时目录/仓库根检测改由运行时动态覆盖，等价且更强。
+- 说明：不引入 `appdata\local\temp`、`%temp%` 这类通用 Windows 路径片段作明文标记，避免误报
+  第三方预打包 C 扩展（`.pyd`）与 win32com 自带路径常量（实测会命中 3 个 vendored `.pyd` 与
+  `win32com\test\testPersist.py`，与本次卫生无关，也不应把它们当开发注入判失败）。
+- **命令 / 退出码**：`python -m py_compile scripts/h8_package_audit.py` → **0**（语法通过）。
+
+### R2-24.2 缺口 2：failure matrix 持久化证据脱敏
+
+- `scripts/h8_r2_failure_matrix.py`：实际 cleanup 仍用真实临时路径；写入公开 JSON 的 `cleanup_path`
+  把本机临时目录前缀替换为环境无关占位符 `<temp>`（`_redact_tmp`），不落用户名/用户目录。仅改证据
+  序列化，**不改 S1~S5/F1 测试语义**。
+- **命令 / 退出码**：以 `pythonw.exe`（无控制台，与冻结 onedir GUI 同构）经 `Start-Process` 执行
+  `scripts/h8_r2_failure_matrix.py --exe dist\ResumeAssistant\ResumeAssistant.exe --out
+  validation-artifacts\h8\r2\r2_2_r2_21_failure_matrix.json` → **exit 0**。
+- 重新生成权威 artifact `validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json`：
+  `first_run_exit=0`、`first_run_failed=false`、`all_ok=true`、`cleanup_gate_ok=true`、`rerun_exit=null`
+  （首跑即通过）、`final_pass=true`；`cleanup_path` 现为 `rmdir <temp>\h8r2_*` 4 条，**无用户路径**；
+  `winword_leaked=[]`、`new_console_or_word_windows=[]`。
+- 根 `failure_matrix_result.json` 同步为同一脱敏结论（`generated_for_candidate=R2-24 卫生候选（父
+  提交 7f58468…）`、`authoritative_evidence=validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json`、
+  `first_run_exit=0`、`cleanup_gate_ok=true`、`rerun_exit=null`、`final_pass=true`、`cleanup_path=<temp>\…`）。
+  二者结论一致，**无用户路径**。
+- 语法：`python -m py_compile scripts/h8_r2_failure_matrix.py` → **0**。
+
+### R2-24.3 缺口 3：以本轮精确包重生成权威 package audit 证据
+
+- **命令 / 退出码**：`python scripts/h8_package_audit.py --dir dist\ResumeAssistant --json
+  dist_package_audit.json` → **exit 0**（`marker_hits=0`、`forbidden_paths=0`、`RESULT=PASS`）。
+- 重新生成 tracked `dist_package_audit.json`：`files=4045`、`total_bytes=170356115`、`exe_sha256=
+  133a1394189bf008afefccadd5b27f626ab49ca1e6a9bd4f2de15255f6486b12`；`dir`/`exe` 改为相对仓库
+  (`dist\ResumeAssistant` / `dist\ResumeAssistant\ResumeAssistant.exe`)，**不再写本机工作区绝对路径**，
+  **不再保留旧包 `ee106dbc…`**。
+- 本地证据 `validation-artifacts/h8/r2/package_audit_r2.json` 已同步复制同结论。
+
+### R2-24.4 脱敏扫描（全 tracked 文件）
+
+- 临时扫描脚本置于 gitignored `validation-artifacts`（未入候选举），运行后删除。
+- **命令 / 退出码**：`python validation-artifacts\_scratch_h8r24_desanitscan.py` → **exit 0**。
+- 范围：`git ls-files` 全部 tracked 文件（302 个），正则扫描 Windows 用户目录、本机用户名
+  `31117`、当前开发工作区绝对路径、`appdata\local\temp` 片段、`%TEMP%`/`%USERPROFILE%`、凭据
+  （ARK_API_KEY 赋值/`sk-`）与 Token URL。
+- **结论**：`TOTAL_TRACKED_FILES=302`、`HIT_FILES=22`。
+  - **当前 V2.2 验证脚本与证据**：零用户路径命中。`dist_package_audit.json` 与 `failure_matrix_result.json`
+    两证据零命中；`scripts/h8_package_audit.py` 仅含 `%userprofile%` 作为扫描占位标记、
+    `scripts/h6_browser_matrix.md` 仅含 `%TEMP%` 占位（均环境无关占位，非用户路径）。
+  - **单列的公开 URL / 归档历史事实（非本机用户路径泄漏）**：
+    - README.md L138 `git clone https://github.com/ZX31117/resume-assistant.git`＝公开 GitHub URL
+      （`31117` 为公开仓库用户名）；L192 `ARK_API_KEY=<your-ark-api-key>`＝占位示例，非真实凭据；
+    - 产品/配置代码中 `ARK_API_KEY`＝环境变量**名称**（core/config、config_resolver、.env.example、
+      api/schemas、embedding_service、frontend types/SystemPage 等），非真实 Key；
+    - 归档版本文档（v1.4.x/v2.0.x/v2.1.0）中 `%TEMP%` 占位与历史用户名/工作区记录＝已归档历史事实；
+    - V2.2 RESULT §R2-23 中的字面路径＝本卫生评审发现的历史记录（归档事实），§R2-24 本身以占位描述。
+- 全局文档（README 等）依既有约束由用户 / Document Agent 处置，Development Agent 不越权修改。
+
+### R2-24.5 验证、产品不变性与包身份
+
+- **产品源码 / 前端 bundle / 依赖 / 配置 / 精确包未变化**：git diff 严格限于上述 4 个卫生文件；
+  精确包复测 identity 不变。
+- **无进程/窗口泄漏**：`Get-Process ResumeAssistant`＝0；WINWORD 仅既有 PID 21984（验收前已存在），
+  验收/运行时无新增泄漏；failure matrix `winword_leaked=[]`、`new_console_or_word_windows=[]`；
+  cleanup_path `<temp>` 占位完成。
+- **精确包 identity（逐字节不变）**：`dist/ResumeAssistant/` 4045 files / 170,356,115 B；
+  EXE 16,821,078 B；SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；
+  前端 bundle `index-B-lz2__h.js`。
+
+### R2-24.6 收口状态
+
+- 顶部当前状态为「待验收」；未自行写 `DOC_ALIGNED`，不继承旧 `ACCEPTANCE_PASS`。
+- 全部必做项 exit 0，无 FAIL/NOT_RUN、无开放 Challenge。
+- 形成新的唯一候选 `5dc16d8`（唯一父 `7f58468`），tracked/index clean。
+- 停机待 Documentation Agent 与独立 Acceptance Agent 复核（脱敏、脚本可执行性、package audit、
+  failure matrix、候选/包身份、clean/cleanup）。
