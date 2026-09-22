@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**待验收**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -1971,3 +1971,97 @@ artifact 链，不另建第二套。
   fixture/测试注入、禁止路径和旧 bundle 检测，并确认冻结包仍零真实命中；重新生成受影响 package
   audit 证据，保持产品源码、bundle、依赖、配置和精确包不变。形成新 clean 候选后重新执行
   Documentation Gate 与同口径定向独立复核；若产品或入包对象变化，则恢复完整独立验收。
+
+## R2-27. H3 位置无关项目树路径族检测修复（最小卫生返工）
+
+- **日期**：2026-09-22。
+- **边界**：本轮为 H3 §R2-26 `ACCEPTANCE_FAIL` 后的**最小返工**，只恢复 package audit 的
+  「项目树路径族」检测能力。**不修改产品源码、前端 bundle、依赖、配置、构建文件和
+  `dist/ResumeAssistant` 精确包**；不重 build、不重打包、不重跑真实模型或完整产品验收。
+  不修改 PLAN/HISTORY/canonical/review，不推送远端，不写 `DOC_ALIGNED` 或 `ACCEPTANCE_PASS`。
+  已独立通过且证据不变的 failure matrix（脚本与 `failure_matrix_result.json`）不触碰。
+- **新唯一候选（机械身份）**：H4-SRC `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`，
+  唯一父 `98eccecf62a8dcc608ab058502c35709214f649f`，分支 `version/v2.2.0`；
+  相对 `98eccec` 完整 diff：`1 file changed`，`scripts/h8_package_audit.py`（+80, 0 deletions。
+  提交后 track/index clean）。PLAN Revision 2 blob 不变：
+  `e134703ce6e37a2f4d5df389662119f38638fae8`。
+  - 受影响证据 `dist_package_audit.json` 重新执行后与已提交版本**逐字一致**，无 diff 需提交。
+
+### R2-27.1 实现语义
+
+- **根因**：上一版把项目树前缀改为 `Path(__file__).resolve().parents[1]`（脚本所在仓库根）。
+  从一次性源码副本运行时该前缀变为副本根，无法再发现包内指向真实项目树
+  （开发/current、canonical、review 检出）的绝对路径，相对基线产生净收窄。
+- **本轮方案（稳定派生规则，位置无关/环境无关）**：在 `scripts/h8_package_audit.py` 新增
+  `_find_project_tree_abs()` 与 `_PROJECT_TREE_FAMILIES = ("current","canonical","review")`：
+  - 扫描文件字节流，定位路径元素恰好等于 `current`/`canonical`/`review`（前后被 `\` 或 `/`
+    包围，过滤子串），再回溯确认其前存在 Windows 绝对路径开头（盘符 `X:\`/`X:/` 或 UNC `\\`）；
+  - 仅当「绝对路径开头 + 项目树族元素」同时成立才判定命中，标记为
+    `project_tree_abs:<family>`；
+  - **不依赖脚本运行位置**（前缀不写死任何工作区/用户名/机器名）、**环境无关**；相对路径
+    （如包内合法的 `_internal\current\...`）天然不满足绝对路径开头、不误报；`.pyd` 上游编译
+    路径多为相对或非项目树形态，不命中。
+- **保留的既有检测**：`GENERIC_DEV_SUBSTRINGS`（`%userprofile%`、`dev-recovery-20260908`）、
+  `_runtime_dev_paths()`（用户目录/临时目录/仓库根运行时前缀）、`BLOCK_MARKERS`
+  （fixture/测试注入/旧 bundle/H6/h8e2e）、`FORBID_SUFFIX`/`FORBID_DIRS`（Key/DB/output）全部保留。
+
+### R2-27.2 位置无关 A/B 探针（隔离临时目录，一次性副本）
+
+- 探针在隔离临时目录构造合成 onedir，并把 audit 脚本复制到与真实项目根不同的**一次性源码副本**
+  后运行，输出以 `<temp>`、`<probe>` 占位，不落本机真实路径；探针脚本为一次性、置于 gitignored
+  的 `validation-artifacts`，运行后删除，本地结论报告
+  `validation-artifacts/h4_probe_report.json`（gitignored，本地证据入口）。
+- **命令 / 退出码**：`python validation-artifacts\h4_probe.py` → **exit 0**，`overall_pass=true`。
+- **A 正向（副本位置）**：`A_project_tree_all_three_found=true`，暴露 `current`/`canonical`/`review`
+  三类项目树路径族全部检出；`A_user_temp_paths_found=true`、`A_fixture_found=true`、
+  `A_old_bundle_found=true`、`A_forbidden_found=true`（该次退出码 1＝命中阻断，符合预期）；
+  `A_clean_sample_not_in_project_family=true`（clean.log 不被标为项目树族）。
+- **B 反向**：相对路径 `_internal\current\x` 与 `.pyd` 上游相对路径，`project_in_single=[]`
+  （`B_relative_current_not_flagged=true`），干净单文件树退出码 **0**。
+- **C 冻结精确包**：`C_frozen_exit=0`、`C_frozen_marker_hits=0`、`C_frozen_forbidden=0`、
+  `C_frozen_pass=true`、`C_frozen_files=4045`、`C_frozen_identity_hash_ok=true`。
+
+### R2-27.3 重新生成受影响 package audit 证据
+
+- **命令 / 退出码**：`python scripts\h8_package_audit.py --dir dist\ResumeAssistant --json
+  dist_package_audit.json` → **exit 0**（`marker_hits=0`、`forbidden_paths=0`、`RESULT=PASS`）。
+- `dist_package_audit.json` 与已提交版本逐字一致（`files=4045`、`total_bytes=170356115`、
+  `exe_sha256=133a1394…`、`dir/exe` 相对仓库、`pass=true`），故无 JSON 变更需提交；本地权威
+  evidence `validation-artifacts/h8/r2/package_audit_r2.json` 同步同结论。
+- failure matrix 及其 `failure_matrix_result.json` **未改动**（沿用已通过结论）。
+
+### R2-27.4 tracked 脱敏扫描
+
+- **命令 / 退出码**：`python validation-artifacts\h4_desanitscan.py` → **exit 0**；结果
+  `validation-artifacts/h4_desanit_scan.json`（gitignored 本地证据）。
+- 范围：`git ls-files` 全部 tracked 文件（302 个）。正则扫描 Windows 用户目录、本机项目绝对路径、
+  appdata temp 片段、凭据（`ARK_API_KEY=`/`sk-`）与 Token URL。
+- **结论**：`TOTAL_TRACKED=302`、`HIT_FILES=23`，全部为良性，轮改动文件零用户路径/凭据/Token URL：
+  - `scripts/h8_package_audit.py` 仅含 `%userprofile%`、`%TEMP%`（环境变量占位，非用户路径），
+    零 `appdata\local\temp`/`c:\users`/`demo\resume-assistant` 字面量；
+  - `dist_package_audit.json` / `failure_matrix_result.json` 零命中；
+  - 其余命中为：`%TEMP%`/`%USERPROFILE%` 等环境占位、`ARK_API_KEY` 环境变量**名称**、
+    README/README.v2.1 公开 GitHub URL `github.com/ZX31117/resume-assistant`、归档历史版本文档
+    （`_v14_*`、`_v201_*` 等为已归档历史事实，非本轮改动）。
+
+### R2-27.5 验证、产品不变性与包身份
+
+- **命令 / 退出码**：`python -m py_compile scripts/h8_package_audit.py` → **0**。
+- **产品/依赖/配置/bundle/精确包未变化**：`git diff` 严格限于
+  `scripts/h8_package_audit.py`；`dist_package_audit.json` 无 diff；failure matrix 未触碰；
+  无 `ResumeAssistant` 进程泄漏（`Get-Process ResumeAssistant`＝0）。
+- **精确包 identity（逐字节不变）**：`dist/ResumeAssistant/` 4045 files / 170,356,115 B；
+  EXE 16,821,078 B；SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；
+  前端 bundle `index-B-lz2__h.js`。
+
+### R2-27.6 收口状态
+
+- 顶部当前状态为「待验收」；未自行写 `DOC_ALIGNED`，**不继承** §R2-23/§R2-25 曾写的历史
+  `ACCEPTANCE_PASS` 或 §R2-26 的 `ACCEPTANCE_FAIL`。
+- 全部必做项 exit 0，无 FAIL/NOT_RUN、无开放 Challenge。
+- 形成新的唯一候选 **H4-SRC `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`**（唯一父 `98eccec`，
+  分支 `version/v2.2.0`，相对父 1 file +80/0），提交后 `git status --porcelain` 为空
+  （track/index clean）。
+- 待 Documentation Agent 重新执行 Documentation Gate、再由独立 Acceptance Agent 按同口径定向
+  复核（位置无关检测、脱敏、探针、package audit、候选/包身份、clean/cleanup 与产品不变性）；
+  复核结论返回前不进入人工验收、不移动 review、不触碰 canonical/远端。
