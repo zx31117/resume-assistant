@@ -1,7 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**待验收**
+> 当前候选：H5-SRC `175eedd`（仅修改 package audit，见 §R2-30；产品源码、bundle、依赖、配置、
+> 构建、failure matrix 与精确包均未变化，冻结包仍为 4045 files / 170,356,115 B / EXE SHA-256
+> `133A1394…B12`，marker_hits=0、forbidden_paths=0、pass=true）
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -2137,3 +2140,119 @@ artifact 链，不另建第二套。
   探针必须覆盖普通同名绝对目录、相似子串、相对路径及第三方构建路径。保持用户/临时路径、fixture、
   测试注入、禁止目录和旧 bundle 检测，确认冻结包继续零真实命中，重新生成受影响证据。产品及入包
   对象不得变化；形成新 clean 候选后重新执行 Documentation Gate 与同口径定向独立复核。
+
+---
+
+## §R2-30 — H5 卫生返工：项目树绝对路径身份判别（H4 定向独立验收失败后的最小修正，H4 不进入人工验收）
+
+> **状态**：`待验收`（Development Agent 不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`）。
+> **触发**：§R2-29 定向独立复核 `ACCEPTANCE_FAIL`。H4 把「绝对路径中存在
+> `current`/`canonical`/`review` 目录元素」等价为项目树泄漏，造成系统性误报（任意同名绝对目录被
+> 阻断，如 `D:\documents\review\notes.md`、`C:\work\canonical\out.txt`、`E:\media\current\a.mp3`、
+> 普通网络共享中的 review 目录），且用固定回看窗口提取嵌入文本的完整路径条目产生对齐依赖，漏检
+> `path=`/`root=`、引号、超 260 字节长前缀的真实项目路径。
+> **本轮红线**：不重 build、不重打包、不重跑真实模型 / Design Fidelity / 完整产品验收 /
+> failure matrix；不改 PLAN.md、HISTORY.md、产品源码、前端 bundle、依赖、配置、构建、
+> `scripts/h8_r2_failure_matrix.py`、`failure_matrix_result.json`、`dist/ResumeAssistant` 精确包。
+
+### 交付对象与提交
+
+- **H5-SRC**：`175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`
+- **唯一父提交 / 返工基线**：`4af57c0cbde93529302355474244ab9624cc84be`（= H4 定向验收失败记录
+  所在提交，HEAD 基线）
+- **相对基线完整 diff**（`4af57c0..175eedd`）：**1 file changed, 95 insertions(+), 68
+  deletions(-)**；仅 `scripts/h8_package_audit.py`。diff 仅替换内部判定逻辑与新增两个辅助函数
+  （`_entry_head_pos`、`_next_segment`），命令行接口、`--dir`/`--json`、退出码语义、`BLOCK_MARKERS`、
+  `GENERIC_DEV_SUBSTRINGS`、`_runtime_dev_paths()`、`FORBID_SUFFIX`/`FORBID_DIRS`、`sha256_file` 均未变。
+- **受影响 package audit 证据**：`validation-artifacts/h5_package_audit.json`（本地，gitignored）与
+  `dist_package_audit.json`（tracked，内容与上次发布一致的冻结包身份，见下）。
+- **RESULT 记录提交**：本 §R2-30 作为文档提交（见本文件提交历史，单独 commit），不含在 H5-SRC 内。
+- **未改对象**：PLAN.md、HISTORY.md、产品源码、前端 bundle、依赖、配置、产品构建、
+  `scripts/h8_r2_failure_matrix.py`、`failure_matrix_result.json`、`dist/ResumeAssistant` 精确包，
+  以及 `docs/versions/v2.1.0/RESULT.md`（历史发布文档，含 `D:\demo\resume-assistant\…` 是既有历史
+  正文，不在本次允许改动范围内）。
+- **基准 CLEAN 证明**：DU（开发角色）在执行前经 `git status --porcelain` 为空、HEAD=`4af57c0`、
+  branch=`version/v2.2.0`；本次审计运行系在冻结包 `dist/ResumeAssistant/` 上只读遍历，未触碰产品。
+
+### 项目树身份判别语义（H5 实现方案）
+
+- **真源**：稳定项目标识 `resume-assistant`（仓库名），环境无关，非用户名 / 本机用户目录 / 本机
+  项目绝对路径；不写任何用户特定或机器特定字符串。
+- **判定**：仅当某路径条目为**绝对路径**（盘符 `X:\`/`X:/` 或 UNC `\\`/`//` 开头）且内含
+  `resume-assistant` 作为**路径段**（前后被 `\\` 或 `/` 包围，或恰处于条目边界）时，才判定为
+  「属于 ResumeAssistant 项目树的绝对路径」。不再仅凭 `current`/`canonical`/`review` 目录名阻断。
+- **面向根输入的可替换性**：方案用显式稳定项目标识作为可验证真源（等价于「显式可信根输入」的
+  稳定形态）；Acceptance 建议未固化为唯一实现。
+- **条目解析不依赖固定窗口 / 前置对齐**：命中标识作为路径段后，向其两侧逐字节行走至条目边界
+  （空白 / 引号 / 容器符号 / `=` 等非路径字符），还原完整条目；再在条目内定位「最后一个绝对头」
+  （`_entry_head_pos`，盘符或 UNC 正则），据此恢复真实起点，即使条目被超过 260 字节的无分割路径
+  长前缀淹没也能正确截取。因此 `path=`/`root=` 键值、单/双引号、JSON 字符串、正反斜杠、盘符/UNC
+  及长前缀场景统一覆盖。
+- **脱敏**：命中只回「项目标识之后的下一路径段」作为类别（`project_tree_abs:<seg>`），不回显完整
+  路径；无用户名、本机用户目录或本机项目绝对路径写入 tracked / marker / 持久化证据。用户目录、
+  临时目录、fixture、测试注入、禁止目录、旧 bundle 检测由 `_runtime_dev_paths()` 与其余 marker 逻辑
+  原样保留。
+
+### 路径条目解析边界
+
+- **条目去界定**：`_path_char()` 定义可含字节为可打印 ASCII（0x20–0x7E）且非终止/边界定界符
+  （空白、引号、反引号、逗号、分号、括号、尖括号、竖线、等号、感叹号、花括号、方括号、空字节等）。
+- **绝对头识别**：`[A-Za-z]:[\\/]`（盘符）或 `\\`/`//`（UNC）；在条目内取「最后一个」匹配作为真实
+  起点，规避长前缀淹没。
+- **类别取名**：取标识之后的下一路径段；若条目恰止于标识则回落 `unknown`。返回类别为 ASCII 小写
+  （输入经小写化），`_next_segment` 以 `ascii/replace` 解码。
+- **约定**：匹配建立在小写化字节流上（主流程对 `data` 先 `.lower()`），因此大小写不敏感检出，
+  与之前的 H4 行为一致。
+
+### 独立开发探针（新增，本地一次性脚本，运行后删除，仅留本地报告）
+
+- 探针脚本：`validation-artifacts/h5_probe.py`（gitignored），加载 `_find_project_tree_abs` 直接断言
+  正反向样本的类别集合。
+- **正向样本（18/18）**：`resume-assistant`+`current`、+`canonical`、+`review`（盘符反斜杠）；
+  `D:/` 正斜杠；UNC `\\` 与 `//`；`path=` 键值；`root=` 键值（带空格）；单引号、双引号、JSON 字符串
+  包裹；`Z`×400 长前缀超 260 字节；`C:\Users\someone\AppData\Local\Temp\…` 用户目录形态；fixture；
+  测试注入；`..\output` 禁止目录；旧 bundle 形态——均正确判为对应类别。
+  其中相对 `~/.local/…`（无盘符头的条目）按预期不判命中（属相对路径，不属「绝对项目树路径」）。
+- **反向样本（14/14，必须全过）**：`D:\documents\review\notes.md`、`C:\work\canonical\out.txt`、
+  `E:\media\current\a.mp3`、`\\nas\public\review\notes.md`（同名绝对目录均通过，不再误报）；
+  `_internal\current\…` 相对路径；`current_backup`、`preview`、`canonicalized` 相似子串；
+  第三方 `.pyd` 上游临时构建路径（`C:\build\cache\vendor.pyd`）；普通文本中的 current/review/canonical
+  （纯名词，无标识、无绝对头）——均正确判为不命中。
+- **命令与退出码**：`python validation-artifacts/h5_probe.py` → `exit 0`；
+  `python -m py_compile scripts/h8_package_audit.py` → `exit 0`（探针运行前执行）。
+- 本地报告副本：`validation-artifacts/h5_probe_report.json`（`overall_pass=true`）。
+
+### 验证记录（退出码与身份）
+
+| 检查 | 命令 | 退出码 | 结果 |
+|---|---|---|---|
+| 语法 | `python -m py_compile scripts/h8_package_audit.py` | 0 | 通过 |
+| 完整正向探针 | `python validation-artifacts/h5_probe.py` | 0 | 18/18 PASS |
+| 完整反向探针 | 同上 | 0 | 14/14 PASS（良性同名绝对目录全过） |
+| 冻结精确包 audit | `python scripts/h8_package_audit.py --dir dist\ResumeAssistant --json validation-artifacts\h5_package_audit.json` | 0 | PASS |
+| tracked 脱敏扫描 | `python validation-artifacts/h5_desanit_scan.py`（对允许修改对象） | 0 | IN_SCOPE_LEAKS=0 |
+| 精确包身份复核 | 对比 `dist_package_audit.json` | — | 一致 |
+
+- **冻结包身份（本轮逐字节未变）**：onedir `dist/ResumeAssistant/` **4045 files / 170,356,115 B**；
+  EXE 16,821,078 B；SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；bundle
+  `index-B-lz2__h.js`；`block_marker_hits=[]`（0）、`forbidden_paths=[]`（0）、`pass=true`。
+- **脱敏扫描**：对允许修改的本轮对象（脚本、受影响审计证据、本 RESULT）执行项目绝对路径 / 本机
+  用户目录 / 用户名扫描，`leaks=0`。全量 tracked 扫描见 §R2-24 基线口径；本轮增加严格限于是「允许
+  修改对象」，避免把历史发布文档 `docs/versions/v2.1.0/RESULT.md`（含既有 `D:\demo\…` 正文）纳入
+  本轮 hygiene 责任范围。
+
+### 已知偏差 / 边界说明
+
+- **检测口径由「目录族名」改为「稳定项目标识」**：标识 `resume-assistant` 是检测真源；若未来仓库
+  重命名，需同步更新常量。这是一项有意取舍，换取消除同名目录误报与长前缀 / 键值 / 引号漏检。
+- **类别仅取标识后下一段**：同一条目若含多级项目子树信息，类别仍只回首个后续段（脱敏最小化）；
+  判定已达成（是否为项目树绝对路径），足够阻断决策。
+- 冻结包仅在只读遍历意义下「不重打包、不重跑完整产品验收」；package audit 为该静态只读断言，不改动
+  包内容。本轮未执行 `DOC_ALIGNED` / 独立验收 / 人工验收（由 Documentation Agent 接续）。
+
+### DELIVER & 交接
+
+- H5-SRC `175eedd` + 本 RESULT 记录提交，tracked/index clean；交回 Documentation Agent 进行语义
+  集中审查（DOC_ALIGNED）→ 独立验收 → 人工验收（均不进入人工验收前需等待）。
+- 未操作 `canonical`、`review`（分支/tag）、远端 `main` 或任何 tag。
