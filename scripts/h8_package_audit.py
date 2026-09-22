@@ -38,6 +38,84 @@ GENERIC_DEV_SUBSTRINGS = (
     "dev-recovery-20260908",
 )
 
+# 项目树路径族：开发 / canonical / review 检出的顶层子目录名。
+#
+# H3 独立回测发现：若仅以「脚本所在仓库根」为前缀，当脚本从一次性源码副本运行时前缀即变成
+# 副本根，包内指向真实项目树（开发/current、canonical、review 检出）的绝对路径将无法被发现，
+# 相对基线产生「项目树路径族」检测能力净收窄。因此这里采用**稳定的派生规则**：
+#   识别「Windows 绝对路径（盘符:\\\\… 或 \\\\\\\\…）」内、其路径元素恰好等于这三个顶层
+#   子目录名的字节切片。
+# 该规则**不依赖脚本运行位置**（不在前缀中写死任何工作区/用户名/机器名）、**环境无关**，
+# 只要求路径是绝对路径（以盘符或 UNC 开头）且元素属于项目树路径族，即可从任意一次性副本
+# 检出。相对路径（如包内合法的 `_internal\\current\\x`）天然不满足「绝对路径开头」，不会误报。
+#
+# `.pyd` 内上游编译路径多为相对或非项固路径，不命中「盘符+项目树族元素」形态；通用临时目录
+# 片段（如 `%TEMP%` 展开后的具体绝对路径）仍不在此处引入（由 `_runtime_dev_paths()` 运行时覆盖），
+# 避免误报第三方预编译 C 扩展。
+_PROJECT_TREE_FAMILIES = ("current", "canonical", "review")
+
+
+def _find_project_tree_abs(data: bytes) -> list[str]:
+    """扫描字节流，返回命中的项目树路径族元素（去重、保序）。
+
+    位置无关判定：先找到路径元素恰好为 `current`/`canonical`/`review` 的位置，再回溯确认
+    该元素之前存在 Windows 绝对路径开头（`X:\\` 或 `\\\\`）。仅当两者同时成立才判定为命中，
+    从而过滤掉相对路径与的第三方 `.pyd` 上游路径。
+    """
+    hits: list[str] = []
+    i = 0
+    n = len(data)
+    while i < n:
+        # 定位最靠前的族名元素及其字节表示
+        seg = None
+        for fam in _PROJECT_TREE_FAMILIES:
+            fb = fam.encode("utf-8")
+            j = data.find(fb, i)
+            if j != -1 and (seg is None or j < seg[0]):
+                seg = (j, fam)
+        if seg is None:
+            break
+        j, fam = seg
+        fb = fam.encode("utf-8")
+        # 元素边界：前后须为路径分隔符（\\ 或 /）其一，确保是「路径元素」而非子串
+        before_ok = j == 0 or data[j - 1:j] in (b"\\", b"/")
+        after = data[j + len(fb):j + len(fb) + 1]
+        after_ok = after in (b"\\", b"/") or after == b"" or after in (b"\r", b"\n")
+        if before_ok and after_ok:
+            # 回溯确认「绝对路径」开头：该元素之前（最近一次分隔符或字符串开头）应有盘符:\\
+            # 或 UNC \\。截取该元素所在条目回溯窗口（过去第 N 段起始）。
+            back = j
+            # 找本路径元素的起点（前一个被分隔符包住的段起点）
+            seg_start = j
+            while seg_start > 0 and data[seg_start - 1:seg_start] not in (b"\\", b"/"):
+                seg_start -= 1
+            # 从该段起点再向前取绝对路径前缀（去掉开头可能的空白）
+            prefix = data[max(0, seg_start - 260):seg_start]
+            head = prefix.lstrip(b" \t\r\n\x00")
+            if head.startswith(b"\\\\") or _has_drive_head(head):
+                hits.append(fam)
+                # 跳过本段，避免重复判定同元素
+                i = j + len(fb)
+                continue
+        i = j + len(fb)
+    # 去重保序
+    seen: list[str] = []
+    for h in hits:
+        if h not in seen:
+            seen.append(h)
+    return seen
+
+
+def _has_drive_head(head: bytes) -> bool:
+    """判定字节前缀是否以 `X:\\` 或 `X:/` 开头（X 为单个 ASCII 字母，大小写均可）。"""
+    if len(head) < 3:
+        return False
+    c = head[0]
+    is_letter = (0x41 <= c <= 0x5A) or (0x61 <= c <= 0x7A)
+    if not is_letter:
+        return False
+    return head[1:2] == b":" and head[2:3] in (b"\\", b"/")
+
 
 def _runtime_dev_paths() -> tuple[str, ...]:
     """运行时动态取得当前用户目录 / 临时目录 / 仓库根，去重后作为环境特有扫描前缀。
@@ -121,6 +199,8 @@ def main() -> int:
             for dp in scan_paths:
                 if dp.encode("utf-8") in low:
                     hits.append({"file": str(rel), "marker": f"dev_path:{dp}"})
+            for fam in _find_project_tree_abs(low):
+                hits.append({"file": str(rel), "marker": f"project_tree_abs:{fam}"})
 
     # 持久化路径一律相对仓库或取文件名，不落本机工作区绝对路径
     def _rel(p: Path) -> str:
