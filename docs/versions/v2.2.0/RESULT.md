@@ -11,37 +11,34 @@
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：H2-HANDOFF `53fbc6f` 的完整产品行为 `ACCEPTANCE_PASS` 只作为绑定旧对象的历史事实；H3
-> 因 package audit 的项目树路径族检测发生位置依赖回退，在 §R2-26 被定向独立复核判定
-> `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-27 形成 H4-SRC `b378490`，只修改 package audit
-> 验证脚本以恢复位置无关检测，产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
-> 变化。Documentation Agent 在 §R2-28 给出 `DOC_ALIGNED`，但绑定 H4-HANDOFF `c9dfa0e` 的定向
-> 独立复核在 §R2-29 判定 `ACCEPTANCE_FAIL`：新增规则把任意同名绝对目录误判为项目树，同时漏检
-> 带键名、引号或长前缀的真实项目路径。PLAN Revision 2（blob
-> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H4 不得进入人工验收或发布。
+> 和 H4 的卫生修正分别因位置依赖回退、同名目录误报与嵌入路径漏检被定向独立复核判定
+> `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-30 形成 H5-SRC `175eedd`，只修改 package audit
+> 的项目身份判别与路径条目解析；产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
+> 变化。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H5 等待
+> Documentation Gate。
 
-> **本轮卫生返工交付（§R2-27；§R2-26 要求最小修正）**：
+> **本轮卫生返工交付（§R2-30；§R2-29 要求最小修正）**：
 >
-> - **H4-SRC**：`b378490a0f9429931c18d7f63ecc5acce3f5b8fc`
+> - **H5-SRC**：`175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`
 >
-> - **唯一父提交 / 返工基线**：`98eccecf62a8dcc608ab058502c35709214f649f`
->   （= §R2-26 H3 定向独立验收失败与返工边界所在提交）
+> - **唯一父提交 / 返工基线**：`4af57c0cbde93529302355474244ab9624cc84be`
+>   （= §R2-29 H4 定向独立验收失败与返工边界所在提交）
 >
-> - **相对返工基线完整 diff**（`98eccec..b378490`）：**1 file changed, 80 insertions(+),
->   0 deletions(-)**；仅 `scripts/h8_package_audit.py`
+> - **相对返工基线完整 diff**（`4af57c0..175eedd`）：**1 file changed, 95 insertions(+),
+>   68 deletions(-)**；仅 `scripts/h8_package_audit.py`
 >
 > - **精确包身份（未变化）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
 >   16,821,078 B；SHA-256
 >   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
 >   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 H4-SRC 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；接收 H5-SRC 时 tracked/index clean
 >
-> - **文档完整 handoff**：`c9dfa0ea4cbc51a065b46732b32e80f32d19b7ef`；开发侧 RESULT 记录 commit
->   为 `dcb1ef0f5426651bb48ac8a212267d0df7f348be`，H4-SRC 至 H4-HANDOFF 只修改本 RESULT
+> - **开发侧 RESULT 记录 commit**：`c250ef71cca9f1a4733c1f124607b70fc97de6d0`；相对 H5-SRC
+>   只修改本 RESULT
 >
-> - **当前门禁**：`ACCEPTANCE_FAIL`。固定 `review` 保持 detached 到失败对象 H4-HANDOFF `c9dfa0e`
->   且 clean；Development Agent 形成可靠识别项目树身份和路径条目边界的新候选并重新通过
->   Documentation Gate 与定向独立复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：等待 Documentation Gate。H5 重新通过 Documentation Gate 与定向独立复核前，不
+>   进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2169,7 +2166,7 @@ artifact 链，不另建第二套。
 - **RESULT 记录提交**：本 §R2-30 作为文档提交（见本文件提交历史，单独 commit），不含在 H5-SRC 内。
 - **未改对象**：PLAN.md、HISTORY.md、产品源码、前端 bundle、依赖、配置、产品构建、
   `scripts/h8_r2_failure_matrix.py`、`failure_matrix_result.json`、`dist/ResumeAssistant` 精确包，
-  以及 `docs/versions/v2.1.0/RESULT.md`（历史发布文档，含 `D:\demo\resume-assistant\…` 是既有历史
+  以及 `docs/versions/v2.1.0/RESULT.md`（历史发布文档，含 `<legacy-workspace>\…` 语义的既有历史
   正文，不在本次允许改动范围内）。
 - **基准 CLEAN 证明**：DU（开发角色）在执行前经 `git status --porcelain` 为空、HEAD=`4af57c0`、
   branch=`version/v2.2.0`；本次审计运行系在冻结包 `dist/ResumeAssistant/` 上只读遍历，未触碰产品。
@@ -2204,7 +2201,7 @@ artifact 链，不另建第二套。
 - **约定**：匹配建立在小写化字节流上（主流程对 `data` 先 `.lower()`），因此大小写不敏感检出，
   与之前的 H4 行为一致。
 
-### 独立开发探针（新增，本地一次性脚本，运行后删除，仅留本地报告）
+### 独立开发探针（新增，gitignored 本地证据，不进入候选）
 
 - 探针脚本：`validation-artifacts/h5_probe.py`（gitignored），加载 `_find_project_tree_abs` 直接断言
   正反向样本的类别集合。
@@ -2239,7 +2236,7 @@ artifact 链，不另建第二套。
   `index-B-lz2__h.js`；`block_marker_hits=[]`（0）、`forbidden_paths=[]`（0）、`pass=true`。
 - **脱敏扫描**：对允许修改的本轮对象（脚本、受影响审计证据、本 RESULT）执行项目绝对路径 / 本机
   用户目录 / 用户名扫描，`leaks=0`。全量 tracked 扫描见 §R2-24 基线口径；本轮增加严格限于是「允许
-  修改对象」，避免把历史发布文档 `docs/versions/v2.1.0/RESULT.md`（含既有 `D:\demo\…` 正文）纳入
+  修改对象」，避免把历史发布文档 `docs/versions/v2.1.0/RESULT.md`（含既有 `<legacy-workspace>` 正文）纳入
   本轮 hygiene 责任范围。
 
 ### 已知偏差 / 边界说明
