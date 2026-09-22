@@ -439,3 +439,19 @@
   语义占位，并在 RESULT §R2-26 集中记录独立失败与最小返工边界。本次不修改 PLAN。
 - 下一步：Development Agent 只恢复位置无关的项目树路径族检测并更新受影响证据，形成新 clean 候选；
   重新经过 Documentation Gate 与定向独立复核前，不进入人工验收或发布。
+
+## VH-024 H4 恢复项目树路径族检测并进入定向复核
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核
+- 候选身份：H4-SRC `b378490a0f9429931c18d7f63ecc5acce3f5b8fc`、H4-HANDOFF
+  `c9dfa0ea4cbc51a065b46732b32e80f32d19b7ef`；二者之间只修改 RESULT。PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 返工边界：相对 §R2-26 文档基线只修改 package audit 验证脚本，开发声明新增位置无关的
+  current/canonical/review 项目树路径族检测，并用一次性副本内正反向探针和冻结包复跑形成证据；产品
+  源码、bundle、依赖、配置、构建、failure matrix 和精确包均未变化。
+- 门禁结果：Documentation Agent 完成机械身份、RESULT 映射和证据入口复核并给出 `DOC_ALIGNED`；
+  canonical 已保护 H4-HANDOFF，固定 review 已 detached 到 `c9dfa0e` 且 clean，H4 证据已封存。该结论
+  不表示新增脚本逻辑已独立通过。
+- 下一步：由未参与 H4 实现、自测或开发结论编写的 Acceptance Agent 定向复核位置无关检测、正反向
+  探针、脱敏、package audit、包身份及 clean/cleanup；通过前不进入人工验收或发布。
