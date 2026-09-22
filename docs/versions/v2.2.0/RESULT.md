@@ -10,8 +10,10 @@
 > 语义交接：Revision 2 的 H2-HANDOFF `53fbc6f` 已完成独立 `ACCEPTANCE_PASS`；§R2-23 的文档侧
 > 发布卫生复核随后发现 tracked 验证脚本/证据含本机用户名路径且根包审计摘要陈旧，因此没有进入
 > Product Owner 人工验收。Development Agent 已在 §R2-24 形成卫生候选 `5dc16d8`：只修改两份
-> 验证脚本和两份持久化证据，产品源码、bundle、依赖、配置及精确包均未变化。PLAN Revision 2
-> （blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，当前等待 Documentation Gate 复查。
+> 验证脚本和两份持久化证据，产品源码、bundle、依赖、配置及精确包均未变化。Documentation Agent
+> 在 §R2-25 给出 `DOC_ALIGNED`；PLAN Revision 2（blob
+> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一门禁为绑定 H3-HANDOFF `6822f4a` 的
+> 定向独立复核。
 
 > **本轮卫生交付（§R2-24；§R2-23 要求最小修正）**：
 >
@@ -31,9 +33,11 @@
 >
 > - **开发工作区**：`version/v2.2.0`；接收 `5dc16d8` 时 tracked/index clean
 >
-> - **当前门禁**：等待 Documentation Agent 对 §R2-24 集中复查。固定 `review` 暂留上一已验收
->   H2-HANDOFF `53fbc6f` 且 clean；卫生候选完成 Documentation Gate 和定向独立复核前，不进入
->   Product Owner 人工验收
+> - **文档完整 handoff**：`6822f4acc788f75c8afdb5903c7db3d50c048f54`；相对卫生候选
+>   `5dc16d8` 只修改本 RESULT
+>
+> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H3-HANDOFF `6822f4a` 且 clean；
+>   卫生候选完成定向独立复核前，不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1894,3 +1898,37 @@ artifact 链，不另建第二套。
 - 形成新的唯一候选 `5dc16d8`（唯一父 `7f58468`），tracked/index clean。
 - 停机待 Documentation Agent 与独立 Acceptance Agent 复核（脱敏、脚本可执行性、package audit、
   failure matrix、候选/包身份、clean/cleanup）。
+
+## R2-25. 卫生候选 Documentation Gate 与定向复核 handoff
+
+- **日期**：2026-09-22。
+- **审查边界**：Documentation Agent 只依据批准 PLAN、RESULT、机械身份和证据入口判断卫生交付是否
+  完整且内部一致；验证脚本是否仍保持检测能力、运行证据是否真实，由独立 Acceptance Agent 定向复核。
+- **冻结身份**：
+  - H3-SRC：`5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`，唯一 parent
+    `7f58468312be8902894a10ce050405447e08127a`；相对 parent 为 4 files / +59 / -17；
+  - H3-DEV：`4cf5c0cbced38a81b5c5c4446160395bf5a43b65`，相对 H3-SRC 仅修改本 RESULT；
+  - H3-HANDOFF：`6822f4acc788f75c8afdb5903c7db3d50c048f54`，相对 H3-SRC 仍仅修改本 RESULT；
+  - 分支 `version/v2.2.0`、接收时 tracked/index clean；PLAN blob
+    `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- **机械与证据入口复核**：
+  - H3-SRC 的 4 个变更文件严格为两份验证脚本与 `dist_package_audit.json`、
+    `failure_matrix_result.json`；产品源码、bundle、依赖、配置和入包文件无变化；
+  - 两份 tracked 证据及两份活动验证脚本对原用户目录、当前工作区绝对路径和旧包 hash 均零命中；
+    package audit 使用相对路径并指向本轮精确包，failure matrix cleanup 路径使用 `<temp>` 占位；
+  - package audit 为 pass=true、marker/forbidden 为空；failure matrix 为 first_run_exit=0、
+    cleanup_gate_ok=true、final_pass=true，两个入口结论一致；
+  - 精确包逐字节未变：4045 files / 170,356,115 B，EXE 16,821,078 B，SHA-256
+    `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`，bundle
+    `index-B-lz2__h.js`。
+- **Documentation Gate 结论：`DOC_ALIGNED`。** 该结论不自动继承 H2 的 `ACCEPTANCE_PASS`，也不表示
+  两份验证脚本的脱敏实现和运行证据已经独立证明正确。
+- **保护与交接**：canonical 本地候选引用 `candidates/v2.2.0/6822f4a` 已保护 H3-HANDOFF；固定
+  `review` 已 detached 到 `6822f4a` 且 clean。因精确包未变化，定向复核复用已封存的
+  `<acceptance-staging>/53fbc6f`；最新卫生证据封存于
+  `<acceptance-staging>/6822f4a-evidence`。
+- **定向独立复核范围**：独立确认 H3 只改验证脚本/证据且包身份不变；审查脱敏没有削弱开发路径、
+  用户目录、Key、fixture、测试注入和旧 bundle 的检测；重跑脚本语法检查、package audit、failure
+  matrix 与 tracked 脱敏扫描；核对证据一致、cleanup/进程/窗口无泄漏、review 前后同一 HEAD 且 clean。
+  若发现产品源码、bundle、依赖、配置或包变化，立即恢复完整独立验收；否则可把 H2 已完成的产品行为
+  验收作为绑定旧对象的历史事实，并对 H3 给出卫生限定的 PASS/FAIL/BLOCKED。结论返回前不进入人工验收。

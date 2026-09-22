@@ -405,3 +405,19 @@
   Development Agent 形成仅限验证脚本与证据卫生的新候选后，重新执行 Documentation Gate 和定向独立
   复核；不得以旧 PASS 自动覆盖新候选，也不得在修正前进入人工验收或发布。
 - 当前执行细节以 RESULT §R2-23 为准；本 HISTORY 只记录验收通过与候选后置失效原因，不构成开发指令。
+
+## VH-022 卫生候选 `5dc16d8` 进入定向独立复核
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生修正 → 定向独立复核
+- 候选身份：H3-SRC 为 `5dc16d8ebc26c03d7f1c9a00986bc9cfd2533dfc`，H3-HANDOFF 为
+  `6822f4acc788f75c8afdb5903c7db3d50c048f54`；二者之间只有 RESULT 文档变化。PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 变更边界：相对 §R2-23 文档基线只修改 package audit / failure matrix 两份验证脚本与两份持久化
+  证据；产品源码、bundle、依赖、配置和精确包均未变化。精确包继续为 4045 files / 170,356,115 B，
+  EXE SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- 门禁结果：Documentation Agent 完成机械与 RESULT 语义复核并给出 `DOC_ALIGNED`；canonical 已保护
+  H3-HANDOFF，固定 review 已 detached 到 `6822f4a` 且 clean，最新卫生证据已另行封存。该结论不自动
+  继承 H2 的独立通过结论。
+- 下一步：由未参与卫生修改、自测或开发结论编写的 Acceptance Agent 完成脚本检测能力、证据脱敏、
+  package audit、failure matrix、包身份及 clean/cleanup 的定向独立复核；通过前不进入人工验收或发布。
