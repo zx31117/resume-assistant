@@ -1,33 +1,37 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
+> 当前状态：**待验收**
 > 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
 > `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
 > 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`；Revision 2 旧候选 `be59acd` 虽完成独立验收，
-> 但 Product Owner 因 Design Fidelity 打回。§R2-18 Documentation Gate 又退回 `ecddb65` 候选并列出
-> 7 项缺口；开发随后提交 §R2-19 候选 `ac36edf`。Documentation Agent 按 PLAN、RESULT、机械身份
+> 但 Product Owner 因 Design Fidelity 打回。§R2-18 Documentation Gate 退回 `ecddb65` 候选并列出
+> 7 项缺口；§R2-19 提交候选 `ac36edf`。Documentation Agent 按 PLAN、RESULT、机械身份
 > 与其指向的证据入口完成集中审查，§R2-20 结论为 `DOC_RETURNED`：强制门禁仍不完整，且两组证据
-> 与 RESULT 声明直接冲突。PLAN Revision 2 不变，尚未进入独立验收。
+> 与 RESULT 声明直接冲突 → 三项实质缺口。开发随后提交 §R2-21 新候选 `bfcab15`（唯一父
+> `db87c17`），完整重跑门禁、真实构造 Design Fidelity 全状态、统一并绑定新候选的 failure matrix
+> 权威摘要。PLAN Revision 2（blob
+> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，尚未进入独立验收。
 
-> **本轮返工交付（§R2-19；§R2-20 已 `DOC_RETURNED`）**：
+> **本轮返工交付（§R2-21；§R2-20 已 `DOC_RETURNED`）**：
 >
-> - **开发交付 commit（机械校正）**：`ac36edf49e4f0e0331781e86d5e9cc6b5e42956d`
+> - **开发交付 commit（机械校正）**：`bfcab15c172804fc32b9a11761be7da5077eba20`
 >
-> - **唯一父提交 / 返工基线（机械校正）**：`d5449d6090e7a71f49a9aa28d14367a167490bde`
->   （= §R2-18 `DOC_RETURNED` 记录所在提交）
+> - **唯一父提交 / 返工基线（机械校正）**：`db87c17f3ee62311206368b55ba6259c0aaae009`
+>   （= §R2-20 `DOC_RETURNED` 记录所在提交）
 >
-> - **相对返工基线完整 diff**（`ac36edf` vs `d5449d6`）：**6 files changed, 933 insertions(+),
->   16 deletions(-)**
+> - **相对返工基线完整 diff**（`bfcab15` vs `db87c17`）：**3 files changed, 871 insertions(+),
+>   933 deletions(-)**
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,136 B**）；EXE SHA-256
->   `EE106DBCCE994F75EB5EDFDB75B6FA7EBA2A0B4F2C18FB53899FAE8BFF4E483D`；前端 bundle
+> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
+>   16,821,078 B；SHA-256
+>   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
 >   `index-B-lz2__h.js`
 >
-> - **开发工作区**：`version/v2.2.0`；接收 `ac36edf` 时 tracked/index clean
+> - **开发工作区**：`version/v2.2.0`；接收 `bfcab15` 时 tracked/index clean
 >
 > - **当前门禁**：`DOC_RETURNED`。PLAN Revision 2 不变；`review` 继续保持旧候选 `be59acd`，不得
 >   用旧 `ACCEPTANCE_PASS` 覆盖本轮返工，也不得先进入独立验收或 Product Owner 人工验收
@@ -1625,3 +1629,78 @@ artifact 链，不另建第二套。
   入口；更新同一 RESULT 的候选/唯一父提交、完整 diff、全部必做命令与退出码、新包身份及偏差，确认
   无 FAIL/NOT_RUN、无开放 Challenge、工作区 clean 后形成新的唯一候选。Documentation Agent 将按
   PLAN 原合同重新做一次集中审查；此前固定 `review` 保持 `be59acd`，不进入独立或人工验收。
+
+## R2-21. §R2-20 三项实质缺口修复与新唯一候选
+
+- **日期**：2026-09-22。
+- **边界**：本轮只处理 §R2-20 退回的三项实质缺口；不触碰 PLAN / HISTORY / canonical / review，
+  不推送远端，不自行写 `DOC_ALIGNED`，不移动固定 `review`（保持 `be59acd`），不进入独立/人工验收。
+- **新唯一候选（机械身份，提交后 track/index clean）**：
+  - 实际候选完整 SHA：`bfcab15c172804fc32b9a11761be7da5077eba20`
+  - 唯一父提交 / 返工基线：`db87c17f3ee62311206368b55ba6259c0aaae009`（= §R2-20 退回记录所在提交）
+  - 分支：`version/v2.2.0`
+  - 相对 `db87c17` 完整 diff：**3 files changed, 871 insertions(+), 933 deletions(-)**
+    （`docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`、`failure_matrix_result.json`、
+    `scripts/h8_design_fidelity.py`）
+  - PLAN Revision 2 blob 不变：`e134703ce6e37a2f4d5df389662119f38638fae8`
+- **新包身份（从该候选 clean 源码 `--clean` 重建）**：onedir `dist/ResumeAssistant/`
+  **4045 files / 170,356,115 B**；EXE 16,821,078 B；SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
+  `index-B-lz2__h.js`。全部必做项均实际执行并记录退出码，**无 FAIL / NOT_RUN / “不适用”**。
+
+### R2-21.1 缺口 1：完整重跑 PLAN §7.4 / §9（每项命令、结果、退出码、关键指标）
+
+| 必做项 | 命令 | 退出码 | 结果 / 关键指标 |
+| -- | -- | -- | -- |
+| 前端 type check + 正式 build | `npm run build`（前端，=`tsc -b && vite build`，precheck 内嵌一并跑） | 0 | `dist/index.html` 生成；正式构建通过 |
+| 前端 Hooks Gate | `npm run lint:hooks` | 0 | 无 rules-of-hooks 违规 |
+| onedir 重建（clean 源码） | `pyinstaller --noconfirm --clean packaging/resume_assistant.spec` | 0 | `dist/ResumeAssistant/` 4045 files / 170,356,115 B；EXE 16,821,078 B / `133A1394…B12`；bundle `index-B-lz2__h.js` |
+| 包审计 | `python scripts/h8_package_audit.py --dir dist\ResumeAssistant --json validation-artifacts\h8\r2\package_audit_r2.json` | 0 | `pass=true`；block_marker_hits=[]、forbidden_paths=[]；files=4045 / 170356115 / SAME SHA-256 |
+| 内嵌 PYZ 核验 | `python scripts/h8_r2_pyz_check.py --exe dist\ResumeAssistant\ResumeAssistant.exe --out validation-artifacts\h8\r2\reg\pyz_check.json` | 0 | `all_ok=true`；3 生产模块均含 `CREATE_NO_WINDOW`、无 `cmd`/`rd` 常量 |
+| T11 隔离启动 | `python scripts/t11_isolated_start.py --exe dist\ResumeAssistant\ResumeAssistant.exe --port 8123` | 0 | `/api/health` 200 就绪于 2.7s（isolated runtime，未注入 Key/路径） |
+| 统一 precheck | `python scripts/precheck.py` | **0** | 阻断检查全部通过；6 个 Revision 1 固定计数回归全 PASS + 编译 + 前端 build + Hooks 全通过；哨兵 runtime 快照一致。非阻断（ruff/ESLint/pip-audit/npm audit）仅报告、不参与退出码 |
+| 六格真实模型性能 | 六格矩阵（→ `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`） | 0 | 18/18，每格 `n=3`、`succeeded=3`；medians 短/冷 23.29、短/暖 22.48、典型/冷 33.53、典型/暖 34.12、长/冷 43.55、长/暖 46.97 s；first_fact ≤11.26 s |
+| 最终包真实模型纵切 | 真实模型 input→P1-P4→viewer→DOCX/PDF 双下载（→ `validation-artifacts/h8/e2e/real_model_e2e.json`） | 0 | P4 ready、pdf viewer ready+1 页、`/api/health` 全程 200、succeeded=10 failed=0、DOCX/PDF 双下载成功 |
+
+> precheck 退出码说明：`scripts/precheck.py` 退出码仅由阻断检查决定（`return 1 if failures else 0`，
+> `failures` 只由阻断 `_Failure` 填充）。本轮 precheck **阻断检查全部通过，总退出码 0**（`PRECHECK_EXIT=0`
+> 实测）。非阻断报告（pip-audit 9 漏洞 / npm audit 4 / ruff 523 / ESLint 22）均不参与退出码，属
+> 既有环境基线，照实记录，不改写为假绿。
+
+### R2-21.2 缺口 2：Design Fidelity 全状态真实证据（→ `validation-artifacts/h8/fidelity/design_fidelity.json`）
+
+- **summary：`pass=116, fail=0, exit=0`。** 全部状态真实产生并截图，不再有「未稳定构造」/「不再断言」。
+- **failed：真实 FAILED**，非 SUCCEEDED。使用隔离 DEAD 端点 `ARK_BASE_URL=http://127.0.0.1:1/api/v3`
+  强制生成失败：`failed_terminal=FAILED`、`stepFailed=1`、`stepDone=2`、`futureSteps=2`、
+  `failedPanel=1`、`pdfState=""`；截图 `states/failed_1920x1080.png` 存在（native failed 取证在
+  seeded 主实例启动前串行采集 + teardown 确认，规避冻结 onedir 单实例约束）。
+- **P1 / P2 / P3：确实处于对应阶段/回看 step**，不再是 `stepDone=4`、`reviewing=false` 的成功完成态。
+  通过点击 `.wb-review-banner` 步骤进入回看（主面板标题「步骤 N」、reviewBanner 命中），不重复调模型；
+  截图 `states/P1_1920x1080.png`、`states/P2_1920x1080.png`、`states/P3_1920x1080.png` 存在。
+- **empty / saved / secondary**：真实态断言（empty：`activeStep=1`、`doneSteps=0`、`futureSteps=3`；
+  saved：复用已保存任务；secondary：rail 命中）。
+- **P4 = success 成品态**：7 个冻结 viewport（320x568 / 390x844 / 720x450 / 1024x768 / 1280x800 /
+  1440x900 / 1920x1080）截图齐全，`pages=1`、`canvas=1`、`dlBar=1`、`dlLinks=2`（下载区可见）。
+- 7 个冻结 viewport 复用同一成功任务，截图不重复调用模型；无残留 ResumeAssistant 进程。
+
+### R2-21.3 缺口 3：failure matrix 权威结果统一
+
+- **权威入口（绑定新候选）**：`validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json` →
+  `first_run_exit=0`、`first_run_failed=false`、`cleanup_gate_ok=true`、`rerun_exit=null`（首跑即通过，
+  无需复跑）、`final_pass=true`。S1–S5 / F1 全 `ok`；`winword_before/after=[21984]` 无泄漏；
+  `cleanup_path` 4 条 rmdir 完成；`residual_objs/winword_leaked=[]`。
+- **仓库根** `failure_matrix_result.json`：已统一为同一结论并绑定新候选，顶部
+  `generated_for_candidate=R2-21 新候选（父提交 db87c17…）`、
+  `authoritative_evidence=validation-artifacts/h8/r2/r2_2_r2_21_failure_matrix.json`、
+  `first_run_exit=0`、`cleanup_gate_ok=true`、`rerun_exit=null`、`final_pass=true`。与 artifacts
+  摘要一致，不再互相矛盾。
+- RESULT 现只引用存在且结论一致的新候选入口；不再引用 §R2-19 相互矛盾的 `r2_2_r2_19_failure_matrix.json`
+  入口。§R2-20 第 4 项（R3 路径笔误）已校正：有效现场入口
+  `validation-artifacts/h8/r3_browser_summary.json` 存在且摘要 PASS=32、fails=[]。
+
+### R2-21.4 收口状态
+
+- 顶部当前状态恢复为「待验收」，未自行写 `DOC_ALIGNED`，不宣称独立验收/可发布。
+- 全部必做项实测退出码 0，无 FAIL / NOT_RUN、无开放 Challenge。
+- 形成新的唯一候选 `bfcab15`（唯一父 `db87c17`），tracked/index clean。
+- 停机待 Documentation Agent 按 PLAN 原合同重做集中审查；`review` 保持 `be59acd`，不移动。
