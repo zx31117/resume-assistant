@@ -472,3 +472,20 @@
 - 文档处置：当前状态改为“需修正”，独立失败与最小返工边界集中记录在 RESULT §R2-29，不修改 PLAN。
 - 下一步：Development Agent 只修复项目树身份判别与路径条目解析，补齐误报/漏检正反向探针并更新
   受影响证据；重新经过 Documentation Gate 与定向独立复核前，不进入人工验收或发布。
+
+## VH-026 H5 形成项目身份与无窗口解析候选并进入定向复核
+
+- 日期：2026-09-22
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核
+- 候选身份：H5-SRC `175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`、H5-HANDOFF
+  `ce78436336c92800c42f5b173197155a54b7b327`；二者之间只修改 RESULT。PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 返工边界：相对 §R2-29 文档基线只修改 package audit 验证脚本；开发声明以稳定项目标识区分真实项目
+  树与普通同名目录，并用无固定窗口的路径条目解析覆盖键值、引号、JSON、盘符/UNC 和长前缀。产品
+  源码、bundle、依赖、配置、构建、failure matrix 和精确包均未变化。
+- 门禁结果：Documentation Agent 完成机械身份、RESULT 映射和证据入口复核并给出 `DOC_ALIGNED`；
+  canonical 已保护 H5-HANDOFF，固定 review 已 detached 到 `ce78436` 且 clean，H5 证据已封存。该结论
+  不表示新增解析逻辑已独立通过。
+- 下一步：由未参与 H5 实现、自测或开发结论编写的 Acceptance Agent 独立覆盖项目路径、同名目录、
+  URL/UNC、空格、转义和长上下文边界，并复核 package audit、脱敏、包身份及 clean/cleanup；通过前不
+  进入人工验收或发布。

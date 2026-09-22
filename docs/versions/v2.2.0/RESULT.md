@@ -14,8 +14,9 @@
 > 和 H4 的卫生修正分别因位置依赖回退、同名目录误报与嵌入路径漏检被定向独立复核判定
 > `ACCEPTANCE_FAIL`。Development Agent 已在 §R2-30 形成 H5-SRC `175eedd`，只修改 package audit
 > 的项目身份判别与路径条目解析；产品源码、bundle、依赖、配置、构建、failure matrix 与精确包均未
-> 变化。PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，H5 等待
-> Documentation Gate。
+> 变化。Documentation Agent 在 §R2-31 给出 `DOC_ALIGNED`；PLAN Revision 2（blob
+> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变，下一门禁为绑定 H5-HANDOFF `ce78436` 的
+> 定向独立复核。
 
 > **本轮卫生返工交付（§R2-30；§R2-29 要求最小修正）**：
 >
@@ -34,11 +35,11 @@
 >
 > - **开发工作区**：`version/v2.2.0`；接收 H5-SRC 时 tracked/index clean
 >
-> - **开发侧 RESULT 记录 commit**：`c250ef71cca9f1a4733c1f124607b70fc97de6d0`；相对 H5-SRC
->   只修改本 RESULT
+> - **文档完整 handoff**：`ce78436336c92800c42f5b173197155a54b7b327`；开发侧 RESULT 记录 commit
+>   为 `c250ef71cca9f1a4733c1f124607b70fc97de6d0`，H5-SRC 至 H5-HANDOFF 只修改本 RESULT
 >
-> - **当前门禁**：等待 Documentation Gate。H5 重新通过 Documentation Gate 与定向独立复核前，不
->   进入 Product Owner 人工验收
+> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H5-HANDOFF `ce78436` 且 clean；H5
+>   完成定向独立复核前，不进入 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2253,3 +2254,42 @@ artifact 链，不另建第二套。
 - H5-SRC `175eedd` + 本 RESULT 记录提交，tracked/index clean；交回 Documentation Agent 进行语义
   集中审查（DOC_ALIGNED）→ 独立验收 → 人工验收（均不进入人工验收前需等待）。
 - 未操作 `canonical`、`review`（分支/tag）、远端 `main` 或任何 tag。
+
+## R2-31. H5 Documentation Gate 与定向复核 handoff
+
+- **日期**：2026-09-22。
+- **审查边界**：Documentation Agent 只依据批准 PLAN、RESULT、机械身份和证据入口判断 H5 是否完整
+  回应 §R2-29；项目标识判定和无窗口解析是否真实消除误报/漏检，由独立 Acceptance Agent 从源码与
+  运行行为复核。
+- **冻结身份**：
+  - H5-SRC：`175eedd7b8ea4c2e9c0b0a392a0a5367970ae4ce`，唯一 parent
+    `4af57c0cbde93529302355474244ab9624cc84be`；相对 parent 仅
+    `scripts/h8_package_audit.py`，1 file / +95 / -68；
+  - H5-DEV：`c250ef71cca9f1a4733c1f124607b70fc97de6d0`，相对 H5-SRC 仅修改本 RESULT；
+  - H5-HANDOFF：`ce78436336c92800c42f5b173197155a54b7b327`，相对 H5-SRC 仍仅修改本 RESULT；
+  - 分支 `version/v2.2.0`、接收时 tracked/index clean；PLAN blob
+    `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- **RESULT 完整性**：§R2-30 对应 H4 的两个独立阻断，声明以稳定项目标识区分项目树和普通同名目录，
+  以无固定窗口的条目解析覆盖键值、引号、JSON、盘符/UNC、正反斜杠和长前缀；正向 18/18、反向
+  14/14、冻结包 audit、脱敏、包身份、未改对象及已知重命名边界均有命令/结果。Documentation Agent
+  一次性更新顶部 H5 身份、把历史本机路径改为语义占位，并校正 gitignored 探针的现场描述。
+- **证据入口与封存**：`h5_probe_report.json` 为 overall_pass=true，SHA-256
+  `CFBA4ECA41B1C30C1FCF8276EB2200D85B6DB0C045A3EAC7F6FA9B27DE5537FD`；
+  `h5_package_audit.json` 与 tracked `dist_package_audit.json` 均为 pass=true、marker/forbidden 为空，
+  SHA-256 均为 `1843D81DB2EEDD731CABB5A070D184AF9918FBF517179A706D67A373D07FA86B`。
+  开发探针与脱敏扫描驱动一并封存，只作线索，不继承其 PASS。
+- **未变对象**：failure matrix 脚本与 evidence、产品源码、bundle、依赖、配置、构建和精确包均未变化；
+  精确包仍为 4045 files / 170,356,115 B，EXE 16,821,078 B，SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`，bundle
+  `index-B-lz2__h.js`。
+- **Documentation Gate 结论：`DOC_ALIGNED`。** 该结论只表示 H5 的身份、声明和证据入口具备进入定向
+  独立复核的条件，不表示新解析算法已独立证明正确，也不继承 H2/H3/H4 的验收结论。
+- **保护与交接**：canonical 本地候选引用 `candidates/v2.2.0/ce78436` 已保护 H5-HANDOFF；固定
+  `review` 已 detached 到 `ce78436` 且 clean。精确包继续复用 `<acceptance-staging>/53fbc6f`；H5
+  证据封存于 `<acceptance-staging>/ce78436-evidence`。
+- **定向独立复核范围**：独立确认 H5 只改 package audit 与授权 RESULT；从一次性副本自行设计盘符、
+  UNC、正反斜杠、键值、单/双引号、JSON 转义、长前缀、含空格路径、多路径同一文本及大小写正向样本；
+  用普通同名目录、相似子串、相对路径、第三方构建路径、含项目名的 HTTP(S) URL及其他非文件系统文本
+  做反向样本，确认 `//` 不把 URL 误作 UNC，命中 marker 不回显路径。重跑 `py_compile`、冻结包 package
+  audit 与相关脱敏扫描，核对包身份、证据、cleanup、review 前后 HEAD/clean。failure matrix 与产品行为
+  因文件/hash 不变不要求重复执行；若发现变化则恢复相应验收。结论返回前不进入人工验收或发布。
