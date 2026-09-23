@@ -1,36 +1,34 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正**
-> 当前阶段：Revision 2（第二批可见界面；Design Snapshot `DS-003` 集成与最终纵切）
+> 当前状态：**`PLAN_REVISION_REQUIRED` / Product Owner 核心成品打回**
+> 当前阶段：PLAN Revision 3 草案待 Product Owner 批准；当前无获授权的新开发候选
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
-> 批准 PLAN：Revision 2，blob（见 §R2-1）；历史 Revision 1 blob
-> `324302a0ef6d81214c752d12281c221f2550f320` 归档于 HISTORY
-> 语义交接：Revision 1 已 `BATCH1_DEV_VERIFIED`（候选冻结）；本版自 Revision 2 获批 checkpoint 起
-> 进入第二批实现并形成冻结候选；旧候选已完成独立验收，但版本元数据修正形成了新冻结候选，
-> 旧 `ACCEPTANCE_PASS` 不继承。
+> 最后批准 PLAN：Revision 2，blob `e134703ce6e37a2f4d5df389662119f38638fae8`；Revision 3 草案形成后
+> 才能重新申请批准
+> 前一交接对象：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`；其中产品源码仍为
+> H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`
+> 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
+> 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **当前唯一冻结候选**：
+> **已失效的前一冻结候选与包**：
 >
-> - **候选 commit**：`be59acd268dcfe88ba19fa02be2e12c62d476d77`（包含版本元数据源码提交与开发侧 RESULT）
+> - **产品源码 commit**：H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`
 >
-> - **版本元数据源码提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；其 parent 为旧验收候选
->   `3e156bc8abb3c3747c08c4260ca4e0d88292c4a0`
+> - **产品 handoff**：H2-HANDOFF `53fbc6f37016b25b803a73a37570df92cc8179fe`；H2-SRC 到 handoff
+>   只修改本 RESULT
 >
-> - **候选唯一父提交**：`a2f4f3a3325b46624f05ede48022b06c192903ed`；候选历史为线性单父链
+> - **最后文档/卫生 handoff**：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`；H3～H6
+>   只修改验证脚本、证据与 RESULT，未修改产品源码或入包对象
 >
-> - **相对批准基线 H（`47ae33e`）完整 diff**：**46 files changed, 9773 insertions(+), 166 deletions(-)**；
->   相对旧验收候选 `3e156bc` 为 **4 files changed, 66 insertions(+), 3 deletions(-)**
+> - **最后批准 PLAN**：Revision 2 blob `e134703ce6e37a2f4d5df389662119f38638fae8`
 >
-> - **最终包身份**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,336 B**）；EXE SHA-256
->   `4C66F8B9464FF983 5AB13E0AE22BCDE2 BF7F5A5AA00EC2A3 BC45BB232782156C`；前端 bundle `index-BrAu-oeZ.js`
+> - **精确包身份**：onedir `<acceptance-staging>/53fbc6f`（**4045 files / 170,356,115 B**）；EXE
+>   SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`
 >
-> - **开发工作区**：`version/v2.2.0` clean；canonical 已保护本地候选引用
->   `candidates/v2.2.0/be59acd`
->
-> - **当前门禁**：`DOC_ALIGNED` 与 `ACCEPTANCE_PASS` 是绑定 `be59acd` 的既有文档/独立验收结论；
->   Product Owner 人工验收未通过。该候选不可发布，当前版本按同一 PLAN Revision 2 进入修正
+> - **当前门禁**：旧对象的 `DOC_ALIGNED` / `ACCEPTANCE_PASS` 仅作历史事实；Product Owner 内容级
+>   人工验收失败，旧候选和旧包不可发布。Revision 3 获批并形成全新候选前不得继续人工验收。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -1433,3 +1431,62 @@ artifact 链，不另建第二套。
   T04～T09 与 §7.1 为准；本节只记录人工验收结果和实际偏差，不构成第二份执行合同。
 - **候选有效性**：修正若改变产品代码、依赖、配置、测试、构建或入包文件，按 PLAN §9 冻结新候选，
   既有验收不继承；重新验收的范围与证据要求仍由 PLAN 决定。
+
+## R3-1. Revision 2 后续候选至 H6 的状态桥接
+
+- **Design Fidelity 返工**：`be59acd` 被打回后，首个返工候选因交付身份、强制 Gate 和证据冲突未通过
+  Documentation Gate；随后 H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`、H2-HANDOFF
+  `53fbc6f37016b25b803a73a37570df92cc8179fe` 完成界面与产品返工。
+- **H2 独立结论**：独立 Acceptance Agent 对源码、回归、Design Fidelity 全状态、最终包真实模型
+  P1→P4、failed、failure matrix、六格性能、PDF.js/双下载、artifact 和 cleanup 给出
+  `ACCEPTANCE_PASS`。精确包为 4045 files / 170,356,115 B，EXE 16,821,078 B，SHA-256
+  `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。
+- **H3～H6 发布卫生**：后续只修复 package audit 的路径脱敏、项目身份、路径词法、URI 区分和异常
+  封闭。最终 H6-SRC `c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`、H6-HANDOFF
+  `81bf8c27583675133f9ac3e2ec3efd623fe31131` 定向独立复核通过；产品源码、bundle、依赖、配置、构建、
+  failure matrix 和精确包相对 H2 均未变化。
+- **证据边界**：H2/H6 的通过证明其已执行门禁成立，但没有建立当前用户记录 ID 到最终简历文字的
+  内容级来源闭环。该遗漏由后续 Product Owner 真实使用和独立源码审计揭示，不能以旧 PASS 覆盖。
+
+## R3-2. Product Owner 核心成品打回与独立根因结论
+
+- **用户结果**：Product Owner 使用前述精确包生成的简历没有采用当前履历库内容。界面可见的当前用户
+  履历为 4 条，但任务实际选择 5 条历史测试身份记录，其中工作与项目槽位包含重复内容；当前履历记录
+  没有进入成品。这是 P0 发布阻断，不是排版偏好。
+- **同批内容缺陷**：教育没有进入成品；所在地为空时电话和邮箱被一并删除；来源中非空的角色/学位等
+  标题字段未完整进入模板；空照片占位和无信息留白仍存在；结构性 warning 没有阻止任务进入
+  `SUCCEEDED` 并发布 DOCX/PDF。
+- **源码根因链**：Task schema 没有 owner 字段；默认 selector 全表读取 Experience；education 装配为空；
+  assembler 只按入选 ID 回查、不验 owner，并把 task ID 仅用于文件名语义；Builder 对部分字段硬编码；
+  Renderer 产生的结构性 warning 不阻断 assembler 成功；任务先成功再发布 artifact，缺少原子 finalize。
+- **身份一致性**：履历 API 使用的 `DEFAULT_USER_ID` 已有关联 Experience，但身份表中没有同 ID 记录；
+  当前运行依赖未强制的引用关系。修复必须补齐本地身份真源，不能把这些履历改绑到另一个现有身份。
+- **同类暴露面**：履历列表、Experience 读取/更新/删除、失败范围续试、记录列表和按文件名下载没有统一
+  owner 约束。它们未全部在本次人工路径中造成可见事故，但与 P0 共用同一身份缺失根因，必须同轮封闭。
+- **runtime 事实**：冻结包不含 fixture、stub 数据或预置数据库。审计只读确认默认 runtime 长期残留
+  大量历史测试身份记录，来源与历史测试/演示脚本曾绕过隔离、写入默认 runtime 一致。污染解释了错误
+  数据的来源，但删除污染不能代替 owner 修复；真实 runtime 本轮未修改，也不得未经批准清理。
+- **门禁漏检原因**：既有 fixture 是单身份，断言主要停在状态、文件和下载可用；教育样本和联系方式空值
+  组合缺失；所谓真实模型 E2E 使用过旧兼容生成入口，未证明 V2.2 `/api/task` 主链；Design Fidelity
+  验证界面状态而非成品来源。因此运行、性能、UI 和 artifact Gate 同时 PASS 仍可能产出错误用户内容。
+- **两项前端补充**：WorkbenchShell/AppShell 品牌区域是静态容器，没有鼠标、键盘、路由、焦点和指针
+  语义；全高 shell、overflow 约束与内部滚动容器叠加，使步骤 1 在 1686×1076、约 800 字 JD 回看态
+  出现只有少量位移的无意义滚动条。前轮已记录的下载区空 hash 元素也纳入同轮清理。
+
+## R3-3. 当前 Gate：`PLAN_REVISION_REQUIRED`
+
+- **为什么不是继续 Revision 2**：本轮不仅修正开发漏做项，还必须新增服务端本地 owner 契约、Task
+  归属、schema/migration、owner-scoped 查询、legacy-unowned 隔离、结构错误 fail-closed、原子发布、
+  runtime 隔离和多身份内容级验收。技术路线与强制验收合同均实质变化，必须用完整 Revision 3 取代
+  Revision 2。
+- **草案状态**：Revision 3 已在 `PLAN.md` 形成完整当前合同，覆盖内容归属、教育/联系方式/标题字段、
+  去重、CRUD/记录/续试/下载边界、runtime audit 与隔离、两项前端问题及全量重建/复验；尚待 Product
+  Owner 批准，当前不授权 Development Agent 修改源码。
+- **失效范围**：旧产品源码、旧包及其内容、真实模型、Design Fidelity、性能和 artifact 通过结论均不
+  能作为新候选发布依据；H6 package audit 的既有行为只作为新候选不得回退的回归基线。
+- **数据边界**：本轮文档收口不修改真实 runtime，不自动删除、合并或重归属任何历史数据；开发只可先
+  交付脱敏只读 audit 和默认 dry-run 方案，实际处置另需 Product Owner 批准精确范围。
+- **后续顺序**：Product Owner 批准 Revision 3 → Documentation Agent 登记批准 commit/blob 并同步开发
+  路径 → Development Agent 一次性完成 → 全量重 build/重打包/开发 Gate → Documentation Gate → 全新
+  独立 Acceptance → Product Owner 使用同一精确包人工验收。通过前不更新 CURRENT_STATE、根 README、
+  发布入口、远端 main 或 tag。

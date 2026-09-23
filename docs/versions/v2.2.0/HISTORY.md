@@ -360,3 +360,41 @@
   未改变产品范围、技术路线、Design Baseline 或强制验收合同，不触发 PLAN Revision，也不新增执行文档。
 - 下一步：Development Agent 继续执行同一 PLAN Revision 2。产品代码或入包文件变化后按 PLAN §9 冻结
   新候选并重新验收；此前不更新 CURRENT_STATE 或发布入口。
+
+## VH-030 Design Fidelity 返工完成，H2～H6 门禁收口
+
+- 日期：2026-09-23
+- 阶段：V2.2.0 Design Fidelity 返工与发布卫生复核 → Product Owner 人工验收
+- 归档方式：current 侧 VH-019～VH-029 的逐轮执行细节在 canonical 聚合为本事件，当前可执行要求只写入
+  PLAN，实际结果与身份摘要写入 RESULT，避免把多轮返工复制回执行合同。
+- 产品候选：H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`、H2-HANDOFF
+  `53fbc6f37016b25b803a73a37570df92cc8179fe`；精确包为 4045 files / 170,356,115 B，EXE
+  SHA-256 `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`。独立验收对 Design
+  Fidelity、真实模型主链、性能、失败矩阵、artifact 和包行为给出 `ACCEPTANCE_PASS`。
+- 后续卫生：公开验证脚本的路径脱敏与识别能力经历 H3～H6 定向返工；最终 H6-SRC
+  `c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`、H6-HANDOFF
+  `81bf8c27583675133f9ac3e2ec3efd623fe31131` 完成定向独立复核。H3～H6 未修改产品源码、bundle、
+  依赖、配置、构建、failure matrix 或精确包。
+- 边界：上述通过结论证明了当时合同覆盖的运行、界面和发布卫生项目，不自动证明最终简历使用了当前
+  用户的权威履历内容。该限制在后续真实成品反证出现前未被既有 Gate 捕获。
+
+## VH-031 核心成品来源错误触发 PLAN Revision 3
+
+- 日期：2026-09-23
+- 阶段：V2.2.0 Product Owner 人工验收 → `PLAN_REVISION_REQUIRED`
+- 用户反证：Product Owner 使用冻结包生成的真实简历没有采用当前履历库的履历；另确认品牌区不能返回
+  工作台，以及步骤 1 在常见桌面视口存在无额外信息量的短行程内滚动。旧候选不可发布。
+- 独立源码审计：Task 缺少 owner 归属，默认 selector 读取全表，education 未进入新任务装配，assembler
+  只按 ID 回查且不校验 owner，结构性 warning 不阻断 `SUCCEEDED`/artifact 发布。现场结果选择了历史
+  测试身份记录而非当前用户记录；记录、CRUD、续试和下载还存在同类归属风险。
+- 污染来源：冻结包不含 fixture 或预置数据库；历史测试/演示脚本曾把 stub 数据写入默认 runtime。
+  数据污染解释了错误内容从何而来，但不是根本修复；新主链即使在污染数据仍存在时也必须只使用当前
+  用户。真实 runtime 保持只读，未经另行批准不执行清理。
+- 门禁复盘：既有真实模型纵切使用了旧兼容入口或单身份 fixture，断言停在状态/文件存在；Design
+  Fidelity 只验证呈现状态，因而没有证明“当前用户记录 ID → Fact → 成品文本”。Product Owner 的真实
+  成品反证使旧产品/包 `ACCEPTANCE_PASS` 对发布失效。
+- Revision 判定：修复需要新增 owner 传播、schema/migration、owner-scoped 查询、内容级多身份验收、
+  结构错误 fail-closed 和 runtime 隔离门禁，实质改变技术路线与强制验收合同，因此必须形成完整 PLAN
+  Revision 3，不得在 Revision 2 后追加返工附录。
+- 当前状态：Revision 3 草案已形成但尚未获得 Product Owner 批准；未授权开发，未同步到开发路径，
+  未修改真实 runtime、CURRENT_STATE、发布入口、远端 main 或 tag。
