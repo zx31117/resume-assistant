@@ -414,3 +414,6 @@
   处置仍需另行批准精确对象与操作。
 - 身份影响：Revision 3 取代 Revision 2 成为唯一可执行合同；旧源码、旧包与旧验收结论只作历史基线，
   不得继承到新候选。Documentation Agent 完成批准登记并同步开发路径后才允许 Development Agent 开工。
+- 同步结果：Revision 3 已同步至 `<current-workspace>` 的 `version/v2.2.0`，形成纯文档提交
+  `cff4ef1295d9173101328883799513108a037820`；同步后 PLAN blob 为
+  `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`，工作树 clean，产品源码和真实 runtime 未变化。

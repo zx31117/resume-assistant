@@ -36,7 +36,7 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 
 | 版本 | 定位 | 计划 | 结果 | 状态 |
 |---|---|---|---|---|
-| V2.2.0 | 当前履历到可信成品的任务、来源与渐进生成闭环 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | Revision 3 已获 Product Owner 批准；同步开发路径后进入返工，旧候选不可发布 |
+| V2.2.0 | 当前履历到可信成品的任务、来源与渐进生成闭环 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | Revision 3 已获批准并同步开发路径，现进入返工；旧候选不可发布 |
 
 ## 待审核发布列车草稿（非开发指令）
 
