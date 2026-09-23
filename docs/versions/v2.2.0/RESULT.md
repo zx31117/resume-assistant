@@ -1,7 +1,7 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
+> 当前状态：**待 Product Owner 人工验收**
 > 当前验收对象：H6-HANDOFF `81bf8c2`（H6-SRC `c57e903`，唯一父提交 `592ad0c`；§R2-32 规定的
 > 最小卫生返工，见 §R2-33～§R2-34；H6 仅修改 `scripts/h8_package_audit.py`；产品源码、bundle、依赖、配置、
 > 构建、failure matrix 与精确包均未变化，冻结包仍为 4045 files / 170,356,115 B / EXE SHA-256
@@ -20,8 +20,11 @@
 > 均未变化。§R2-31 的 `DOC_ALIGNED` 只保留为曾完成的文档门禁事实。Development Agent 已按 §R2-32
 > 形成 H6-SRC `c57e903`，只修复 package audit 的路径词法、归一化与异常封闭，并在 §R2-33 提交开发
 > 记录 `459bd65`。Documentation Agent 在 §R2-34 给出 `DOC_ALIGNED` 并固定 H6-HANDOFF `81bf8c2`；
-> PLAN Revision 2（blob `e134703ce6e37a2f4d5df389662119f38638fae8`）不变。当前下一门禁为绑定
-> H6-HANDOFF 的同口径定向独立复核；通过前不进入人工验收或发布。
+> 绑定该对象的定向独立复核在 §R2-35 确认 H5 三项缺陷已修复，身份、未变门禁、冻结包、cleanup 和
+> 既有正反例均成立；报告列出的 `file://`、无 scheme `//` 与空白连接路径片段统一按 package audit 的
+> 隐私目标采用 fail-closed，不构成实现失败，最终结论为 `ACCEPTANCE_PASS`。PLAN Revision 2（blob
+> `e134703ce6e37a2f4d5df389662119f38638fae8`）不变；当前下一门禁为 Product Owner 人工验收，未获
+> 人工通过前不得收口 CURRENT_STATE 或发布。
 
 > **本轮卫生返工交付（§R2-33；§R2-32 要求最小修正）**：
 >
@@ -46,8 +49,8 @@
 > - **文档完整 handoff**：`81bf8c27583675133f9ac3e2ec3efd623fe31131`；相对 H6-SRC 仅修改本
 >   RESULT，产品与验证脚本范围不再变化
 >
-> - **当前门禁**：`DOC_ALIGNED`。固定 `review` 已 detached 到 H6-HANDOFF `81bf8c2` 且 clean；H6
->   完成定向独立复核前，不进入 Product Owner 人工验收
+> - **当前门禁**：`ACCEPTANCE_PASS`。固定 `review` 继续 detached 到已独立验收对象 H6-HANDOFF
+>   `81bf8c2` 且 clean；该结论只完成技术/卫生门禁，下一步为 Product Owner 人工验收
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2469,3 +2472,38 @@ artifact 链，不另建第二套。
   不误报；长上下文、多路径、引号、键值、斜杠变化和大小写行为不回退。重跑 `py_compile`、冻结包
   package audit、受影响对象脱敏和包身份复核，并确认 failure matrix 与产品对象未变、cleanup 完成及
   review 前后 HEAD/clean。若发现产品或入包对象变化，恢复完整验收；通过前不进入人工验收或发布。
+
+## R2-35. H6 定向独立复核通过与歧义口径收口
+
+- **日期**：2026-09-23。
+- **独立性与对象**：Acceptance Agent 声明未参与 H6 实现、开发探针、自测、修复或 RESULT 编写；静态
+  检查在 review 只读完成，运行验证位于 review 外的一次性源码副本和隔离临时目录。虽然任务入口未向
+  其重复提供固定对象清单，但其机械推导并复核的 H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`、
+  H6-SRC `c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`、返工基线
+  `592ad0cc40604f8ee1581458c4cb6dc40a6f3d6d` 和 PLAN blob 均与 §R2-34 一致，对象绑定有效。
+- **独立复核结果**：JSON 双反斜杠及多反斜杠样本不再产生负偏移或崩溃；H5 的四个 HTTP(S) URL
+  误报以及带 `.git`、`/blob/`、查询串、片段、s3 和 git+ssh scheme 的扩展样本均不再误报；项目根
+  前后含空格的有效 Windows 路径可检出。盘符、UNC、键值、引号、长上下文、多绝对路径、大小写、项目
+  标识完整元素、普通同名目录和既有禁止项检测未回退。正向 25/25；`py_compile`、冻结包 audit、脱敏、
+  未变 blob、包身份、review 前后 HEAD/clean 与 cleanup 均通过，未发现 `scan_error`。
+- **package audit 的判定目标**：该脚本是发布隐私/卫生阻断器，不是通用 URL 与 Windows 路径解析器。
+  PLAN 要求包内不得出现开发机路径；对纯字节无法可靠消歧、但可能承载本地项目绝对路径的输入，统一
+  fail-closed。报告中原列为反向 25/26 的一项及三项“非阻断观察”按以下口径收口：
+  1. `file://` 若内嵌盘符或 UNC 形式的本地项目绝对路径，仍是机器路径泄漏，**应命中并阻断**；因此该
+     用例不属于反向失败，而应归入正向安全样本。
+  2. 无 scheme 的 `//host/...` 与正斜杠 UNC 在纯字节层面无可靠语法差异，按 UNC 候选阻断；明确带
+     http/https/ftp/s3/git+ssh 等远程 scheme 的 URL 才属于必须排除的公开 URL。
+  3. 未加引号的 Windows 路径允许路径段含空格，因此“绝对头 + 空白 + 相对项目片段”既可能是多个文本
+     条目，也可能是合法含空格路径。不存在不依赖上下文的可靠切分；为避免漏放开发机路径，按同一可疑
+     路径条目阻断。相对路径单独出现仍不命中，普通同名绝对目录与相似项目名仍不命中。
+- **一次性完整边界**：远程 scheme URL 不命中；`file://` 本地绝对项目路径、无 scheme `//` 候选及
+  上述不可消歧空白连接样本 fail-closed；盘符/UNC、JSON、键值、引号、空格、长上下文、多路径与二进制
+  输入不得崩溃；marker 只回类别，不回完整路径。后续只有出现明确漏放真实开发机路径、误报明确远程
+  scheme URL、崩溃/无结构化结果或既有反例回退，才构成同类实现缺陷，不再把不可消歧样本拆成新轮次。
+- **资源观察**：验收结束后一次性副本、探针、输出与日志均已删除；review 前后保持 `81bf8c2`、detached
+  且 clean。既存 Word 窗口未被证明由本轮产生，且本轮未执行 Word/COM 路径，不构成阻断。
+- **最终结论：`ACCEPTANCE_PASS`。** H6 对 package audit 的定向独立复核通过，无 FAIL/NOT_RUN；该
+  结论只绑定 H6-HANDOFF `81bf8c2`，不把后续 current 文档提交纳入验收对象。产品源码、bundle、依赖、
+  配置、构建、failure matrix 和冻结精确包均未变化，H2 的完整产品行为验收事实继续有效。
+- **下一门禁**：进入 Product Owner 人工验收。人工通过前不得把版本写入 CURRENT_STATE 或发布；若人工
+  反馈涉及产品实现，按实际范围重新判断是否使既有源码/包验收失效。

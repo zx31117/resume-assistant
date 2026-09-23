@@ -525,3 +525,20 @@
 - 下一步：由未参与 H6 实现、自测或开发结论编写的 Acceptance Agent 按 RESULT §R2-34 定向复核 JSON
   转义、URL/UNC、空格路径、malformed/binary、既有反例、package audit、脱敏、包身份及 clean/cleanup；
   通过前不进入人工验收或发布。
+
+## VH-029 H6 定向独立复核通过并收口路径歧义策略
+
+- 日期：2026-09-23
+- 阶段：V2.2.0 发布卫生返工 → 定向独立复核通过
+- 验收对象：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`、H6-SRC
+  `c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`；PLAN Revision 2 blob
+  `e134703ce6e37a2f4d5df389662119f38638fae8` 未变。
+- 验收结果：H5 的 JSON 转义崩溃、远程 scheme URL 误报和含空格路径漏检均独立确认修复；既有正反例、
+  语法、冻结包审计、脱敏、failure matrix 未变、精确包身份、clean 与 cleanup 全部成立，最终结论为
+  `ACCEPTANCE_PASS`。
+- 策略收口：package audit 是开发机路径泄漏的 fail-closed 阻断器。含本地绝对路径的 `file://`、无
+  scheme 的 `//` 候选，以及无法与未加引号含空格路径可靠区分的“绝对头 + 空白 + 相对项目片段”均
+  保守阻断；明确远程 scheme URL、独立相对路径、普通同名目录和相似项目名不阻断。不再为纯字节不可
+  消歧样本追加解析器返工轮次。
+- 身份影响：H6 仅修改 package audit 与 RESULT，产品源码和入包对象未变化；H2 的完整产品行为验收事实
+  继续有效。下一步进入 Product Owner 人工验收，人工通过前不更新 CURRENT_STATE 或发布。
