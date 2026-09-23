@@ -1501,7 +1501,7 @@ artifact 链，不另建第二套。
 - **合同状态**：Revision 3 取代 Revision 2，成为 V2.2.0 唯一可执行合同。Documentation Agent 完成
   批准元数据登记与开发路径同步后，Development Agent 可按 T01～T09 开工。
 - **开发路径同步**：`<current-workspace>` 的 `version/v2.2.0` 已形成纯文档提交
-  `cff4ef1295d9173101328883799513108a037820`；同步后 PLAN blob 与生效身份一致，产品源码和真实
+  `cff4ef19b6ba7b620ecfaa44fcca2f60e31270bc`；同步后 PLAN blob 与生效身份一致，产品源码和真实
   runtime 未变化，Development Agent 的身份前置已具备。
 - **保持阻断**：批准 PLAN 不恢复旧候选、旧包或旧 `ACCEPTANCE_PASS`，也不授权清理真实 runtime。
   新产品源码、全新 onedir、全部开发 Gate、Documentation Gate、独立 Acceptance 与 Product Owner
