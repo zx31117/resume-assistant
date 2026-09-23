@@ -398,3 +398,19 @@
   Revision 3，不得在 Revision 2 后追加返工附录。
 - 当前状态：Revision 3 草案已形成但尚未获得 Product Owner 批准；未授权开发，未同步到开发路径，
   未修改真实 runtime、CURRENT_STATE、发布入口、远端 main 或 tag。
+
+## VH-032 PLAN Revision 3 获 Product Owner 批准
+
+- 日期：2026-09-23
+- 阶段：V2.2.0 PLAN Revision 3 → 产品返工授权
+- 批准对象：canonical commit `c16d484253301b8e14fd029583417cd0708abe51` 中的完整 Revision 3，批准
+  内容 PLAN blob 为 `f8944cf73994333faf1f4664adefb341e47f270e`。
+- 批准元数据登记后的生效 PLAN blob 为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；开发路径同步后必须
+  与该 blob 一致。
+- 批准范围：当前本地用户 owner 与 Task 归属、当前履历到成品的内容来源闭环、教育/联系方式/标题字段、
+  精确去重、结构错误 fail-closed、原子发布、CRUD/记录/续试/下载/清理归属、runtime/test 隔离、Logo
+  导航、无意义内滚动和空 hash 元素，以及完整 rebuild/package/内容级独立验收。
+- 数据边界：批准开发安全工具和隔离验证，不授权自动或人工清理 Product Owner 真实 runtime；真实数据
+  处置仍需另行批准精确对象与操作。
+- 身份影响：Revision 3 取代 Revision 2 成为唯一可执行合同；旧源码、旧包与旧验收结论只作历史基线，
+  不得继承到新候选。Documentation Agent 完成批准登记并同步开发路径后才允许 Development Agent 开工。

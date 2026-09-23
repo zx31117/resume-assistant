@@ -1,8 +1,8 @@
 # ResumeAssistant V2.2.0 PLAN
 
-> Plan Revision：3（待 Product Owner 批准）
+> Plan Revision：3
 > Supersedes：Revision 2（批准 PLAN blob `e134703ce6e37a2f4d5df389662119f38638fae8`）
-> 状态：`PLAN_REVISION_REQUIRED`；本文获批前不授权开发
+> 状态：已获 Product Owner 批准；同步到 `<current-workspace>` 后授权开发
 > 日期：2026-09-23
 > 产品实现基线：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`
 > 产品源码基线：H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`；H3～H6 未修改产品源码或入包对象
@@ -10,7 +10,7 @@
 > 开发路径：`<current-workspace>` 的 `version/v2.2.0`
 > 本 Revision 范围：当前用户 Career Memory 归属、内容完整性、发布门禁、runtime 隔离及两项前端体验收口
 > Design Baseline：源 `D-003` → canonical `DS-003`；本 Revision 不修改冻结视觉基线
-> Revision 3 批准 commit/blob：待 Product Owner 批准后登记
+> Product Owner 批准内容基线：canonical commit `c16d484253301b8e14fd029583417cd0708abe51` / PLAN blob `f8944cf73994333faf1f4664adefb341e47f270e`
 
 ## Required Reading（Development Agent 必读）
 

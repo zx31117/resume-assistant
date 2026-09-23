@@ -1,12 +1,12 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**`PLAN_REVISION_REQUIRED` / Product Owner 核心成品打回**
-> 当前阶段：PLAN Revision 3 草案待 Product Owner 批准；当前无获授权的新开发候选
+> 当前状态：**PLAN Revision 3 已批准 / 待开发交付**
+> 当前阶段：Revision 3 产品返工；当前无新开发候选
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
-> 最后批准 PLAN：Revision 2，blob `e134703ce6e37a2f4d5df389662119f38638fae8`；Revision 3 草案形成后
-> 才能重新申请批准
+> 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
+> `c16d484253301b8e14fd029583417cd0708abe51` / PLAN blob `f8944cf73994333faf1f4664adefb341e47f270e`
 > 前一交接对象：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`；其中产品源码仍为
 > H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
@@ -1490,3 +1490,16 @@ artifact 链，不另建第二套。
   路径 → Development Agent 一次性完成 → 全量重 build/重打包/开发 Gate → Documentation Gate → 全新
   独立 Acceptance → Product Owner 使用同一精确包人工验收。通过前不更新 CURRENT_STATE、根 README、
   发布入口、远端 main 或 tag。
+
+## R3-4. PLAN Revision 3 批准与开发授权
+
+- **批准对象**：Product Owner 于 2026-09-23 明确批准 canonical commit
+  `c16d484253301b8e14fd029583417cd0708abe51` 中的完整 Revision 3；批准内容 PLAN blob 为
+  `f8944cf73994333faf1f4664adefb341e47f270e`。
+- **生效身份**：批准元数据登记后的 Revision 3 PLAN blob 为
+  `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；开发路径同步必须保持该 blob。
+- **合同状态**：Revision 3 取代 Revision 2，成为 V2.2.0 唯一可执行合同。Documentation Agent 完成
+  批准元数据登记与开发路径同步后，Development Agent 可按 T01～T09 开工。
+- **保持阻断**：批准 PLAN 不恢复旧候选、旧包或旧 `ACCEPTANCE_PASS`，也不授权清理真实 runtime。
+  新产品源码、全新 onedir、全部开发 Gate、Documentation Gate、独立 Acceptance 与 Product Owner
+  人工验收仍须依次完成。
