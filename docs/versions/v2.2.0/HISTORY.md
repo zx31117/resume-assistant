@@ -618,3 +618,20 @@
 - 身份影响：`b988c65`、`b74c8d3` 与 `C7F9D4F6…BD52` 不得进入独立验收、人工验收或发布，其开发
   PASS 不继承到下一候选。Development Agent 必须修复调用契约与 Gate fail-closed、形成新 clean SRC、
   重建并重跑最终包、完成映射及中央封存，再重新经过 Documentation Gate。
+
+## VH-034 Revision 3 返工候选因负向 Gate 证据未闭环再次退回
+
+- 日期：2026-09-25
+- 阶段：PLAN Revision 3 / Documentation Gate
+- 候选：SRC `f86058cfc50342205649f39f37865abf48b373bf`；HANDOFF
+  `8bcc8afa81cd82b8c45f39b8fa32bafa00366fbc`；精确包 EXE SHA-256
+  `D4249F66486C9A10BF46C5453160498636273D1129922CE4FC0C2DADFD47DA0F`。
+- 已确认：候选父链、PLAN blob、HANDOFF diff、工作树、中央包/证据目录、包身份、正向六格 18 样本和
+  RESULT 的 Revision 3 映射均具备进入文档审查的形式条件。
+- 退回原因：RESULT 声明六格聚合器负向自测 7/7 fail-closed、违规样本非零退出，但结构化证据把 7 个
+  案例的内层退出码全部记录为 0；总 manifest 也未把负向自测纳入 `gates`/`verdicts` 的最终判定，仍可
+  得出 `final_verdict=true`。这与 §R3-10 的明确返工条件及工作流 §8.4 冲突。
+- 决定：结论为 `DOC_RETURNED`，PLAN Revision 3 不变，`review` 不移动，不进入独立/人工验收。若仅
+  证据采集与 manifest 修复且受控文件/包均不变，可保留现有 SRC 和包、只形成新的不可变证据目录与
+  docs-only HANDOFF；若修改任一源码、测试/验证脚本、依赖、配置、构建或入包文件，则必须新 SRC、
+  重 build/重打包并重跑全部强制 Gate。完整一次性交回条件见 RESULT §R3-12。

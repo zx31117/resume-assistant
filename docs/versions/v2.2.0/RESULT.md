@@ -1,8 +1,8 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3（返工后）/ 开发侧必修 Gate 全部 PASS / 待验收**
-> 当前阶段：Revision 3 `DOC_RETURNED` 后返工收口；新 SRC `f86058c` / 新包 `d4249f66…DA0F`（见 §R3-11）
+> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_RETURNED`**
+> 当前阶段：新 SRC `f86058c` / HANDOFF `8bcc8af` / 新包 `d4249f66…DA0F` 的负向 Gate 证据未闭环（见 §R3-12）
 > 未进入独立验收，固定 `review` 仍保持旧 HEAD
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -14,28 +14,28 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮被退回的开发交付对象（以下身份只作失效候选追溯，不构成可验收对象）**：
+> **当前被退回的开发交付对象（以下身份固定本次 Documentation Gate，不构成可验收对象）**：
 >
-> - **SRC 候选校验和（SRC SHA）**：`b988c65ffadd834384a683b1a3f2e43fc0a5334d`
+> - **SRC 候选校验和（SRC SHA）**：`f86058cfc50342205649f39f37865abf48b373bf`
 >
-> - **唯一父提交 / 返工基线**：`cff4ef19b6ba7b620ecfaa44fcca2f60e31270bc`
+> - **SRC 唯一父提交**：`8639fefd2b291e6c7fcd3a891fc5b81d197de6af`
 >
-> - **分支**：`version/v2.2.0`；SRC.commit 时 tracked/index 仅 RESULT.md 待收口，无遗漏 untracked
+> - **HANDOFF**：`8bcc8afa81cd82b8c45f39b8fa32bafa00366fbc`；唯一父为 SRC，差异仅
+>   `docs/versions/v2.2.0/RESULT.md`（+183/-2）
 >
-> - **最终包路径**：`dist/ResumeAssistant/`（从上述 clean 的 SRC 候选重新构建，不含未提交工作树）
+> - **分支 / 接收状态**：`version/v2.2.0`；接收 HANDOFF 时 `git status --porcelain` 为空
 >
-> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,369,572 B**）；EXE
->   16,833,312 B；SHA-256
->   `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52`；前端 bundle
->   `index-DWWBklCp.js`；package audit PASS（`validation-artifacts/h8/r3final/package_audit.json`）
+> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,832 B**）；EXE
+>   16,833,332 B；SHA-256
+>   `D4249F66486C9A10BF46C5453160498636273D1129922CE4FC0C2DADFD47DA0F`；前端 bundle
+>   `index-DWWBklCp.js`
 >
-> - **封存现场**：开发声明目标为中央 `<acceptance-staging>/C7F9D4F6`，但接收时包只存在于
->   `<current-workspace>/acceptance-staging/C7F9D4F6`；中央包与并列 evidence 目录均不存在
+> - **封存现场**：中央 `<acceptance-staging>/f86058c/` 与 `<acceptance-staging>/f86058c-evidence/`
+>   均在场；包身份与 `package_identity.json` 一致
 >
-> - **开发工作区**：`version/v2.2.0`；HANDOFF 后 `git status --porcelain` 为空
->
-> - **当前门禁**：Documentation Gate 为 **`DOC_RETURNED`**。开发自报 PASS 与批准 PLAN、证据字段和
->   封存现场存在可直接从交付资料确认的冲突，详见 §R3-10；不得移动 `review`、启动独立 Acceptance、
+> - **当前门禁**：Documentation Gate 为 **`DOC_RETURNED`**。开发 RESULT 声明负向自测
+>   7/7 fail-closed，但结构化证据把 7 个违规样本的内层退出码全部记为 0，且总 manifest 未把该项纳入
+>   最终判定，详见 §R3-12；不得移动 `review`、启动独立 Acceptance、
 >   进入 Product Owner 人工验收或发布。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
@@ -3183,3 +3183,88 @@ Product Owner 真实 runtime。
 > 以上为开发侧自述与证据入口；`DOC_ALIGNED`、独立 Acceptance 与人工验收均由 Documentation Agent /
 > Acceptance Agent / Product Owner 在其职责内另行给出。本轮**不移动 `review`、不启动独立验收、不发布**。
 
+***
+
+## R3-12. Documentation Gate：`DOC_RETURNED`（负向 Gate 证据闭环，2026-09-25）
+
+> 本节由 Documentation Agent 按 PLAN §7～§8、工作流 §5/§8.4/§9 及 §R3-10 的再次交接条件完成。
+> 审查仅使用 PLAN、RESULT、Git 机械身份和结构化证据入口；不读取产品源码或以本节替代独立验收。
+
+### 12.1 已核对并保留的交付事实
+
+- 接收对象为 SRC `f86058cfc50342205649f39f37865abf48b373bf` 与 HANDOFF
+  `8bcc8afa81cd82b8c45f39b8fa32bafa00366fbc`；SRC 唯一父为 `8639fef…`，HANDOFF 唯一父为 SRC，
+  二者差异仅 `RESULT.md`；接收时分支为 `version/v2.2.0` 且工作树 clean。
+- 批准 PLAN blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；未发现需要改变产品范围、
+  Design Baseline、技术路线或强制验收合同的事实，因此不形成 PLAN Revision 4。
+- 中央包与证据目录均在场。精确包为 4044 files / 170,353,832 B；EXE 16,833,332 B；SHA-256
+  `D4249F66486C9A10BF46C5453160498636273D1129922CE4FC0C2DADFD47DA0F`；bundle
+  `index-DWWBklCp.js`。现场、`package_identity.json` 与 manifest 身份一致。
+- 正向六格结构化证据为 6 格 × 3 样本、18/18 `SUCCEEDED`、`pass=true`；首 Fact 中位 6.09s、
+  最大 7.04s。package audit、PYZ、failure matrix、内容 E2E、主链 E2E、Design Fidelity 与六格正向
+  证据均已被总 manifest 记录 hash，并声明绑定上述 EXE。
+- §R3-11 已给出 G01～G07/T01～T09 映射、变化类别、Gate 命令/退出码、已知偏差与待独立验收问题。
+  这些完整项无需在下一轮重复改写；其真实性仍留给独立 Acceptance。
+
+### 12.2 阻断发现
+
+本轮只有一个阻断类别，但它同时破坏“负向自测”和“总 manifest 最终判定”两层闭环：
+
+| 类别 | 交付声明 | 结构化证据事实 | 与合同的冲突 |
+|---|---|---|---|
+| `NEGATIVE_GATE_EXIT_CONTRADICTION` | §11.3/§11.7/§11.9 声明 7 类违规样本均 fail-closed，任一不成立时非零退出 | `six_grid_negative_selftest.json` 的 7 个案例均为 `exit_code_on_failclosed=0`；只能看到 `fail_messages` 与 `all_fail_closed=true`，没有每例实际非零进程退出码 | §R3-10 10.3-B/10.5 明确要求证明违规样本“非零退出且不生成 PASS”；工作流 §8.4 规定后置条件失败仍退出 0 必须判失败 |
+| `MANIFEST_FAIL_OPEN` | §11.4 声明任一身份或证据不一致会令 `final_verdict=false` 且非零退出 | `gate_manifest.json` 的 `gates`/`verdicts` 未纳入负向自测判定；`final_verdict=true` 可在 7 个记录退出码均为 0 时成立 | 总 manifest 不能机械阻断缺失、损坏或未通过的负向自测，故不能作为完整冻结判定 |
+
+这不是要求 Documentation Agent 判断聚合器源码是否真的会非零退出，而是现有交付证据无法证明开发在
+§R3-10 中已接受的后置条件。RESULT 的“7/7 FAIL-CLOSED / 全部强制布尔值为 true”与其证据入口不能
+机械一致，因此当前候选不能进入独立验收。
+
+### 12.3 一次性交回规则
+
+开发侧只需按实际变化选择下面一条路径；不得把证据修复扩大为无必要的产品返工。
+
+#### 路径 A：仅修复证据采集与总 manifest（优先）
+
+适用条件：产品源码、受控测试/验证脚本、依赖、配置、构建输入和包内容均不变，现有聚合器实际已对
+7 类注入返回非零退出。
+
+1. 分别独立运行 `missing_sample`、`dup_sample`、`missing_grid`、`embedding_2`、`false_check`、
+   `truncated_evidence`、`cleanup_failed`；不得经会吞掉前段退出码的管道采集。
+2. 每例结构化记录至少包含 `case`、**实际内层进程退出码**、`fail_closed=true`、非空失败原因，且
+   明确 `pass=false`/`gate_passed=false` 或等价“没有生成 PASS 摘要”的机械字段。7 个内层退出码必须
+   全部非零。
+3. 外层自测驱动可以在 7/7 满足时退出 0，但必须把字段明确区分为
+   `outer_selftest_exit_code=0` 与逐例 `aggregator_exit_code!=0`；`all_fail_closed` 必须由逐例结果计算，
+   不得预写常量。任一缺例、解析失败、内层退出 0、PASS 为真或失败原因为空时，外层必须非零退出。
+4. 总 manifest 必须把新的负向自测 JSON 纳入 `gates` 的存在性/hash 校验和 `verdicts` 的最终计算；
+   至少机械记录 `case_count=7`、`nonzero_inner_exit_count=7`、`negative_selftest_pass=true`。缺少或篡改
+   该证据必须使 `final_verdict=false` 且 manifest 生成器非零退出。
+5. 不覆盖本轮失败证据目录；在 `<acceptance-staging>` 新建并列的不可变证据目录，复制仍有效的正向
+   证据，加入修正后的负向证据并重新生成总 manifest。重新核对现有冻结包文件数/总字节/EXE 字节/
+   SHA/bundle；无需重 build，也无需重跑与本项无关的真实模型、Design Fidelity 或 failure matrix。
+6. 在 RESULT 新增一次开发收口节点，记录新证据目录、负向 7 例的逐例实际退出码、外层退出码、
+   新证据 hash、总 manifest hash/最终判定、包身份复核和 cleanup。形成新的 docs-only HANDOFF，保持
+   工作树 clean；不得自行写 `DOC_ALIGNED`。
+
+#### 路径 B：必须修改受控文件
+
+若任一注入实际退出 0，或修复需要修改 `_e2e_v22_aggregate.py`、其他源码/测试/验证脚本、依赖、配置、
+构建输入或入包文件，则路径 A 不适用。此时必须形成新 SRC，从 clean SRC 重 build/重打包，并按 PLAN
+§5 与 §8 重跑全部受影响及强制 Gate，重新生成完整中央包、证据目录与总 manifest；不得沿用本轮包绑定
+PASS。RESULT 必须列出新 SRC/唯一父/完整 diff、新包身份及全部 Gate，不得只补写负向自测。
+
+### 12.4 再次交接的机械清单
+
+下一轮 Documentation Gate 只检查以下新增/变化项，并继承 §12.1 已确认的完整栏目：
+
+- 负向 7 例齐全，逐例内层退出码均非零，逐例失败判定与错误原因可机械解析；
+- 外层自测驱动只在 7/7 成立时退出 0，且没有硬编码的 `all_fail_closed=true`；
+- 总 manifest 包含负向证据文件的实际 hash，并把其 verdict 纳入 `final_verdict`；
+- 新证据目录不可变、身份字段和现场一致；若走路径 A，冻结包仍精确等于 `d4249f66…DA0F`；
+- 若任何受控文件变化，则必须走路径 B，以新 SRC/新包/全量必做 Gate 交付；
+- RESULT 顶部仅呈现最新候选/门禁，PLAN blob 不变，无开放 Challenge，工作树 clean；
+- `review` 在新结论形成前继续保持旧 HEAD，不启动 Acceptance、不进入人工验收或发布。
+
+**Documentation Gate 结论：`DOC_RETURNED`。** 当前缺口属于证据与最终判定闭环，不需要修改 PLAN；
+`review` 不移动。本节已经一次性给出最小补证路径与触发全量重工程的边界，下一轮不得再用文字
+“7/7 FAIL-CLOSED”替代逐例实际退出码和 manifest 的机械判定。
