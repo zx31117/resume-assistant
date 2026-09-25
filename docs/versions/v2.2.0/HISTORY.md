@@ -692,3 +692,22 @@
   `ACCEPTANCE_FAIL`，不得降级观察或进入人工验收。
 - 结论：`DOC_ALIGNED` 只表示交付可以进入完整独立验收，不表示产品已正确或可发布。旧失败候选、
   旧包和旧证据均不继承；完整独立验收不得留下强制项 `NOT_RUN`。
+
+## VH-038 §R3-17 候选完整独立验收失败
+
+- 日期：2026-09-25
+- 阶段：验收对象 `e960f3a0d7acd65d4efd099dc46a1a8c75492bd1` / `ACCEPTANCE_FAIL`
+- 绑定对象：SRC `32388b7d63a08c8cf6e194d771fb46d9371490ca`；HANDOFF
+  `eed6513ab93826f52a25a1135f30265302349e5c`；精确包 EXE SHA-256
+  `221A12BC917E3EF6128D40B258F602FEB8F55C0DB42B88049AD7D2D49C589E97`。
+- 完整性：独立验收覆盖身份、源码、migration、三身份 owner/IDOR、内容来源 ID→成品、字段矩阵、
+  原子发布、真实模型双 runtime、六格 18 样本、Design Fidelity、回归、failure matrix、package audit、
+  PYZ、artifact、cleanup 与真实 runtime 哨兵；无 `BLOCKED`、无 `NOT_RUN`。
+- 强制失败：主链 Gate 在真实失败时出现 rc 8 但 JSON 假成功，manifest 又只信汇总自报字段而可被
+  伪造为最终通过；用户 artifact 下载仍通过 filename 路由且无 Task owner 校验；publish 层接受不存在
+  的 artifact、无 task-scoped staging/内容校验/原子 finalize；品牌区按 Space 不能返回工作台。
+- 同轮收口：主链 UI 未到 P4/PDF 同源时不得用 API 回退冒充 UI PASS；Design Fidelity 必须实际纳入
+  1686×1076 与完整键盘矩阵；主链和 Design Fidelity 全部提前退出路径必须执行 cleanup。
+- 决定：四类问题均已由 PLAN Revision 3 覆盖，不新增 PLAN Revision。产品源码、前端和验证脚本均需
+  修改，因此必须新 SRC、重 build/重打包、全量开发 Gate、全新中央封存、重新 Documentation Gate 与
+  完整独立验收。`review` 保持失败对象 `e960f3a`，不得进入人工验收或发布。

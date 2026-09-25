@@ -1,10 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_ALIGNED` / 待独立验收**
-> 当前阶段：§R3-15 一次性返工已完成——manifest 建立可独立校验的 Git 身份锚点，新 SRC/新包/全量强制
-> Gate 与最终 manifest verify 全部通过（见 §R3-16）；Documentation Gate 已完成独立机械复核（见 §R3-17）
-> 固定 `review` 应指向 §R3-17 的 docs-only Acceptance 对象；在独立验收完成前不得进入人工验收或发布
+> 当前状态：**PLAN Revision 3 / `ACCEPTANCE_FAIL` / 需修正**
+> 当前阶段：§R3-17 docs-only 对象已完成无 `NOT_RUN` 的独立验收，但命中 Gate verdict、artifact 授权、
+> 原子发布与键盘交互四类强制失败；同一 PLAN 下的一次性返工规则见 §R3-18
+> 固定 `review` 保持失败对象 `e960f3a` 供追溯；新候选重新取得 `DOC_ALIGNED` 前不得移动
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -15,7 +15,7 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮交付对象（当前候选；是否可进入独立验收由 Documentation Gate 判定）**：
+> **本轮交付对象（独立验收失败；仅供追溯）**：
 >
 > - **SRC 候选校验和（SRC SHA）**：`32388b7d63a08c8cf6e194d771fb46d9371490ca`（唯一 parent `8271e72`，
 >   即记录 §R3-15 `ACCEPTANCE_FAIL` 的 RESULT-only 提交）
@@ -38,8 +38,8 @@
 >   在场（含 `gate_manifest.json`、`CHECKSUMS.sha256`）；旧封存 `c37270c/`、`c37270c-evidence/`
 >   保留追溯、未被覆盖
 >
-> - **当前门禁**：开发侧全部强制 Gate `PASS`（无 FAIL / NOT_RUN），总 manifest `final_verdict=true`、
->   `problems=[]`、verify rc 0。以上仅为开发侧结论，不构成 `DOC_ALIGNED`、独立验收或可发布。
+> - **当前门禁**：开发侧全部强制 Gate 曾声明 `PASS`，但已被 §R3-18 的四项独立强制 FAIL 覆盖；
+>   本对象不得进入人工验收或发布，其开发 PASS、包和证据不得继承到下一候选。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -3770,3 +3770,121 @@ Revision。
 内容完整性、原子发布、真实模型主链、六格性能、Design Fidelity、failure matrix、artifact、包审计、
 资源生命周期，以及 §17.4 的 Gate 失败路径一致性，不能以开发封存证据替代，不能留下强制项
 `NOT_RUN`。独立验收通过前不得进入 Product Owner 人工验收或发布。
+
+## R3-18. 独立验收结论：`ACCEPTANCE_FAIL`（验收对象 `e960f3a`，2026-09-25）
+
+> **结论来源**：未参与实现、自测、修复、开发证据、RESULT/HISTORY 或 Documentation Gate 编写的
+> Acceptance Agent，在 review 外的一次性副本、隔离 runtime 与冻结 onedir 上完成完整独立验收；
+> 全部强制项均已运行，无 `BLOCKED`、无 `NOT_RUN`。本节记录验收结论和同一 PLAN 下的一次性返工
+> 条件，不把验收 Agent 的探针或判断改写为开发实现事实。
+
+### 18.1 验收绑定与已通过范围
+
+- 验收对象 `e960f3a0d7acd65d4efd099dc46a1a8c75492bd1`，唯一 parent 为开发 HANDOFF
+  `eed6513ab93826f52a25a1135f30265302349e5c`；SRC `32388b7d63a08c8cf6e194d771fb46d9371490ca`，
+  PLAN blob `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；review 前后均 detached、clean 且 HEAD 未变；
+- 包身份、manifest SHA、29 项封存 checksum 与 Git 身份 verify 均成立；
+- 三身份内容来源链、字段矩阵、精确重复、migration/legacy 隔离、owner-scoped 选材、内容级真实模型
+  E2E、六格 18/18、Design Fidelity 116/0、回归、package audit、PYZ、failure matrix、runtime audit、
+  真实 runtime 哨兵和资源清理均已独立执行并通过其已覆盖断言；
+- 当前用户履历 ID → 候选 ID → Fact/fact_refs → snapshot → ResumeDocument → DOCX/PDF 文本的正向
+  来源链成立，其他 owner 与 stub 哨兵未进入该次成品；上述通过项不能抵消以下强制失败，也不得被下一
+  候选直接继承。
+
+### 18.2 四类强制失败
+
+| 类别 | 独立证据 | 合同冲突 |
+|---|---|---|
+| `F1_GATE_VERDICT_INTEGRITY` | `h8_real_model_e2e.py` 实际生成失败时进程 rc 8，但 JSON 仍为 `ok=true`、`gate_passed=true`；manifest 对伪造的 `all_exit_zero=true` / `final_verdict=true` 未逐 Gate 交叉核验，仍可 rc 0、`final_verdict=true` | 违反 §17.4 与工作流 §8.4；进程、证据 JSON、collector/manifest 三层 verdict 不一致且存在 fail-open |
+| `F2_ARTIFACT_AUTHORIZATION` | 用户简历仍经 `/api/template/download` 以 filename/basename 取文件；GET/HEAD 无 Task owner、task 或不可变 artifact 引用校验，换 task/owner 的下载隔离在路由层不成立 | 违反 PLAN G05、§3.1、§5.3 的 task-scoped 下载与 IDOR 防护；RESULT 的“task-scoped 下载”声明与实现不符 |
+| `F3_ATOMIC_ARTIFACT_PUBLISH` | `publish_artifacts` 接受磁盘上不存在的 DOCX，随后 records 暴露该记录；渲染直接写最终 output，无 task-scoped staging、存在性/可读性/内容校验与失败清理闭环 | 违反 PLAN G04、§3.3、§5.3 的校验后原子 finalize；缺失/损坏 artifact 可进入成功记录 |
+| `F4_BRAND_SPACE_ACTIVATION` | 品牌区 click、Enter、focus-visible 与 task 保持通过，但聚焦后按 Space 仍停留在 `/records` | 违反 PLAN G07、§5.4 明定的 mouse click、Enter/Space、focus-visible 与返回工作台要求 |
+
+最终结论由任一强制失败即可确定；本轮四项均有独立动态或源码证据，不能降级为非阻断观察。
+
+### 18.3 一次性问题类别与返工要求
+
+为避免只修已观察到的单一分支，本轮返工必须同时覆盖下列完整类别。
+
+#### A. Gate 判定链与所有退出路径
+
+1. 主链 E2E 的结果默认必须为失败；只有全部业务断言和 cleanup 后置条件成立后才可写
+   `ok=true` / `gate_passed=true`。失败、异常、超时、取消、提前返回、teardown 失败全部走单一 finalizer，
+   JSON、真实进程退出码与控制台摘要必须一致；
+2. collector/manifest 不得只信任 `all_exit_zero` 或 `final_verdict` 汇总布尔值；必须逐 Gate 核对真实记录的
+   exit code、证据 hash、证据内 verdict 及该 Gate 的必要后置条件。字段缺失、解析失败、矛盾、非零退出、
+   证据声称成功但生成/artifact/UI/cleanup 条件不成立时一律 fail-closed；
+3. 新增受控反向矩阵，至少覆盖生成失败、上游 4xx/5xx、超时、异常、缺失/截断 JSON、JSON 假成功、
+   per-gate 非零但汇总被篡改、必要字段缺失、cleanup 失败和 PASS 摘要残留；每例要求 manifest 非零、
+   `final_verdict=false`、`problems` 可定位；
+4. `h8_design_fidelity.py::_drive_failed` 及同类提前退出不得绕过 teardown；失败与异常路径也必须关闭
+   应用、浏览器、端口并删除隔离 runtime，cleanup 失败不得返回成功。
+
+#### B. 用户 artifact 的 task/owner 授权
+
+1. 用户简历下载必须使用 task-scoped、owner-scoped 的服务端路由，由当前 owner + Task + 已登记的
+   不可变 artifact 引用解析文件；客户端 filename、basename 或磁盘路径不得成为授权依据；
+2. 旧模板下载入口如保留，只能服务不含用户数据的模板/明确调试对象，不得继续承载用户 DOCX/PDF；
+3. GET 与 HEAD 同等执行授权；当前用户、其他 owner、stub、legacy-unowned、换 task、换 owner、伪造
+   filename、路径穿越、缺失引用、错误 artifact kind 全部给出明确拒绝且不泄露存在性；
+4. workbench、records 与成功页全部切换到同一权威 task-scoped artifact 路由，不能保留旁路。
+
+#### C. task-scoped staging、内容校验与原子 finalize
+
+1. DOCX/PDF 先写入不可公开的 task-scoped staging；在登记成功前校验存在、非零、可读/可解析、格式、
+   owner/source/必需章节/字段守恒、无占位符，以及 DOCX/PDF 同源；
+2. 只有全部校验通过，才可将不可变 artifact 引用与 `SUCCEEDED` 在一个数据库事务边界登记。文件提升
+   与 DB 任一步失败时必须回滚/清理，且下载路由只认已提交引用，使未登记文件永不可见；
+3. repository/publish API 必须拒绝缺失、零字节、损坏、路径越界、错误 owner/task、内容不一致及未在
+   staging 中的 artifact；records 不得暴露无有效 artifact 的假成功记录；
+4. 正反向覆盖 Word/PDF 失败、写入失败、校验失败、rename/promotion 失败、DB commit 失败、取消、超时、
+   迟到结果、cleanup 失败和重复 cleanup；任一路径不得留下假成功、下载入口或孤儿 staging/final 文件。
+
+#### D. 品牌区完整键盘语义
+
+1. workbench 与二级页所有品牌入口统一支持 click、Enter、Space、focus-visible 与返回 `/`；
+2. Space 必须阻止页面滚动、只触发一次导航，不产生双激活，并保留当前 Task；
+3. 以真实浏览器分别验证 workbench、experiences、records、privacy，不能只凭 `<a>` 的原生 Enter 行为
+   推断 Space 已覆盖。
+
+### 18.4 本轮观察项的收口要求
+
+以下观察虽未单独决定本轮结论，但会造成下一轮 Gate 与报告再次不一致，必须随本轮一起收口：
+
+- 主链 Gate 不得在 UI 未自行到达 P4、viewer 未绑定最终 PDF 时用 API 直连回退替代 UI 成功；API 回退
+  只能作诊断。最终正向证据必须等待并确认 UI P4、viewer ready、下载引用同源；
+- 把 1686×1076 约 800 字 JD 回看态、Space/Enter/focus/task 保持明确纳入受控 Design Fidelity / 浏览器
+  Gate 和最终 `gates_run.json`，不得在 RESULT 声称脚本覆盖而实际由未纳入 Gate 的临时脚本完成；
+- 主链与 Design Fidelity 的所有提前退出均纳入资源生命周期矩阵；不得遗留应用、浏览器、端口或隔离
+  runtime；
+- 1024×768 超长输入的 59px 内滚动符合“超长输入可滚动”合同，不要求消除；验收临时空目录被外部句柄
+  占用不归类为产品缺陷，但下一轮仍须如实记录 cleanup。
+
+### 18.5 新候选、重建与全量重跑规则
+
+本轮必须修改产品源码、前端和受控验证脚本，因此只能走完整路径 B：
+
+1. 从本 docs-only 失败登记对象形成新的 clean SRC；不得修改 PLAN/HISTORY，不得移动 `review`；
+2. 重新前端 build、重新 PyInstaller build/打包，形成新的唯一包身份；旧包、旧 manifest、旧开发 PASS、
+   旧独立通过项均不得继承；
+3. 在新最终包上全量重跑 PLAN §5 全部门禁，不复用本轮 10 项 PASS：compile/regression、前端 build/
+   Hooks、precheck、package audit、PYZ、failure matrix、owner/content/migration/atomic publish、真实模型
+   双 runtime 主链、六格、Design Fidelity、Gate verdict 负向矩阵与资源生命周期；
+4. 六格仍须 6 格各 `n>=3`、Embedding 0/1、`1+2F`、成功不重试、首 Fact 与总时长合同全部通过；
+5. 最终 `gates_run.json` 必须逐 Gate 记录命令、真实退出码、证据 hash、包 SHA、必要 verdict 与 cleanup，
+   manifest 独立逐项重算，不允许只依据汇总自报字段；
+6. 形成全新中央 `<acceptance-staging>/<new-src>/` 与 `<new-src>-evidence/`，封存清单不得混入
+   `32388b7` 或更早证据；
+7. 新 HANDOFF 相对 SRC 只能修改 RESULT；RESULT 顶部保持“待验收”，完整映射 F1～F4、A～D、观察项
+   收口、正反向退出码、最终包/manifest 身份与 cleanup，不得自行写 `DOC_ALIGNED`；
+8. 重新经过 Documentation Gate；只有新对象 `DOC_ALIGNED` 后才移动固定 `review` 并启动新的完整独立
+   验收。仍不得进入 Product Owner 人工验收。
+
+### 18.6 最终状态
+
+**独立验收结论：`ACCEPTANCE_FAIL`。**
+
+本轮缺陷均属于已批准 PLAN Revision 3 的既有 owner、artifact、原子发布、前端键盘与 fail-closed
+合同，不改变产品范围、技术路线或 Design Baseline，因此继续同一 PLAN Revision 3，不形成新
+Revision。`review` 保持 `e960f3a`；该对象、SRC `32388b7`、HANDOFF `eed6513a`、包
+`221A12BC…89E97` 及其 PASS/证据只供追溯，不得进入人工验收或发布。
