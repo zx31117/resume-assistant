@@ -672,3 +672,23 @@
 - 决定：继续 PLAN Revision 3，不形成新 Revision。修改受控 manifest 脚本后必须新 SRC、重 build/
   重打包、全量开发 Gate、新中央封存、重新 Documentation Gate，并由独立 Agent 完整执行无
   `NOT_RUN` 的验收。失败对象和包只保留追溯；`review` 保持 `f8289de`，不得进入人工验收或发布。
+
+## VH-037 §R3-15 返工候选通过 Documentation Gate
+
+- 日期：2026-09-25
+- 阶段：PLAN Revision 3 / `DOC_ALIGNED` → 待完整独立验收
+- 候选：SRC `32388b7d63a08c8cf6e194d771fb46d9371490ca`；开发 HANDOFF
+  `eed6513ab93826f52a25a1135f30265302349e5c`；精确包 EXE SHA-256
+  `221A12BC917E3EF6128D40B258F602FEB8F55C0DB42B88049AD7D2D49C589E97`。
+- 机械事实：SRC 相对失败登记基线只新增 Git 身份负向运行器并修改总 manifest；HANDOFF 相对 SRC
+  只修改 RESULT。manifest 现以真实 Git object、tree、唯一父链和精确 diff 建立 SRC/HANDOFF 锚点，
+  25 项身份篡改 build/verify 矩阵全部 fail-closed。
+- 证据闭环：中央包身份成立；Documentation Agent 独立复算 `gate_manifest.json` SHA-256 为
+  `D6183585FF1C5BC9F41EC15C2144B550C3FA9B54B5668DF6D93E8ACB6968E8B4`；29 项封存证据全部 hash
+  一致；10 项开发 Gate 均为 rc 0，最终 manifest `final_verdict=true`、`problems=[]`。
+- 已知风险：主链 E2E 脚本的生成失败分支可能出现非零退出但 JSON 仍为成功。该真实性只能由源码和
+  失败注入确定，故不是文档门禁可自行推断的代码事实；独立验收必须一次性覆盖全部失败/异常/超时/
+  提前退出路径，并要求进程退出码、JSON verdict 与上层 manifest 三者一致。任一不一致即
+  `ACCEPTANCE_FAIL`，不得降级观察或进入人工验收。
+- 结论：`DOC_ALIGNED` 只表示交付可以进入完整独立验收，不表示产品已正确或可发布。旧失败候选、
+  旧包和旧证据均不继承；完整独立验收不得留下强制项 `NOT_RUN`。

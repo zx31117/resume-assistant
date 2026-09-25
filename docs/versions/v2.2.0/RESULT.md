@@ -1,10 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / §R3-15 `ACCEPTANCE_FAIL` 后返工收口 / 待验收**
+> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_ALIGNED` / 待独立验收**
 > 当前阶段：§R3-15 一次性返工已完成——manifest 建立可独立校验的 Git 身份锚点，新 SRC/新包/全量强制
-> Gate 与最终 manifest verify 全部通过（见 §R3-16）；是否进入独立验收由 Documentation Gate 判定
-> 固定 `review` 保持失败对象 `f8289de` 供追溯；新候选取得 `DOC_ALIGNED` 前不得移动
+> Gate 与最终 manifest verify 全部通过（见 §R3-16）；Documentation Gate 已完成独立机械复核（见 §R3-17）
+> 固定 `review` 应指向 §R3-17 的 docs-only Acceptance 对象；在独立验收完成前不得进入人工验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -20,7 +20,7 @@
 > - **SRC 候选校验和（SRC SHA）**：`32388b7d63a08c8cf6e194d771fb46d9371490ca`（唯一 parent `8271e72`，
 >   即记录 §R3-15 `ACCEPTANCE_FAIL` 的 RESULT-only 提交）
 >
-> - **开发 HANDOFF**：本文件所在的唯一 RESULT-only 收口提交（唯一 parent 为 SRC；差异仅
+> - **开发 HANDOFF**：`eed6513ab93826f52a25a1135f30265302349e5c`（唯一 parent 为 SRC；差异仅
 >   `docs/versions/v2.2.0/RESULT.md`）
 >
 > - **上一轮失败对象（历史，见 §R3-15）**：SRC `c37270c`、HANDOFF `b7bf632`、验收对象 `f8289de`、
@@ -3682,3 +3682,91 @@ runtime；真实用户 runtime 未被读写。
 > 以上为开发侧自述与证据入口，不构成 `DOC_ALIGNED`、独立验收或发布结论。旧候选 `c37270c`、
 > 旧 HANDOFF `b7bf632`、旧包 `7450efb0…0345F`、旧封存 `c37270c/`、`c37270c-evidence/` 及其
 > 全部 PASS 与证据**不继承**。
+
+## R3-17. Documentation Gate：`DOC_ALIGNED`（§R3-15 返工候选，2026-09-25）
+
+> **边界**：本节只依据批准 PLAN、RESULT、机械 Git 身份和 RESULT 指向的结构化证据入口，判断交付
+> 是否具备进入独立验收的条件；不读取源码或测试实现，不继承开发侧 PASS，不声明代码正确、独立验收
+> 通过、可人工验收或可发布。
+
+### 17.1 候选、合同与差异身份
+
+| 项 | Documentation Gate 独立复核 |
+|---|---|
+| 生效 PLAN | Revision 3；blob `7d8a249a5ec3e607855f20d794bb7ed9cda351ee` |
+| SRC | `32388b7d63a08c8cf6e194d771fb46d9371490ca`；唯一 parent `8271e722056c51be3c2c49d5e9372b4044e25d3f`；tree `60dc42a2e5eff93d2b6394bbe1b1b4f807c557ff` |
+| 开发 HANDOFF | `eed6513ab93826f52a25a1135f30265302349e5c`；唯一 parent 为 SRC；tree `aa95dd2b470a31cb19e5a4546e318a6605a041b8` |
+| SRC 精确差异 | 相对 parent 仅 `A scripts/h8_r3_git_identity_negtest.py`、`M scripts/h8_r3_manifest.py`；2 files，+1026/−55 |
+| HANDOFF 精确差异 | 相对 SRC 仅 `M docs/versions/v2.2.0/RESULT.md`；+178/−15 |
+| 工作区状态 | 开发 HANDOFF 位于 `version/v2.2.0`，`git status --porcelain` 为空；固定 `review` 在本节对象形成前仍为 clean、detached 的失败对象 `f8289de` |
+
+产品源码、bundle、依赖、配置和构建输入在本轮未变化；但受控验证脚本变化已按 §R3-15 的路径 B
+要求形成新 SRC、重新 build/打包并执行完整开发 Gate。旧 SRC `c37270c`、HANDOFF `b7bf632`、验收
+对象 `f8289de`、包 `7450EFB0…0345F` 及其结论和证据均不继承。
+
+### 17.2 精确包、manifest 与封存完整性
+
+Documentation Gate 对中央封存独立重算，而非抄录开发摘要：
+
+| 项 | 结果 |
+|---|---|
+| 包目录 | `<acceptance-staging>/32388b7/` |
+| 包身份 | 4044 files / 170,353,861 B；EXE 16,833,361 B |
+| EXE SHA-256 | `221a12bc917e3ef6128d40b258f602feb8f55c0db42b88049ad7d2d49c589e97` |
+| 前端 bundle | `index-DWWBklCp.js` |
+| 证据目录 | `<acceptance-staging>/32388b7-evidence/` |
+| `gate_manifest.json` SHA-256 | `d6183585ff1c5bc9f41ec15c2144b550c3fa9b54b5668df6d93e8acb6968e8b4` |
+| manifest 判定 | `final_verdict=true`、`problems=[]`；记录的 SRC/HANDOFF/tree/parent/diff/PLAN/包身份与现场一致 |
+| 封存校验 | `CHECKSUMS.sha256` 所列 29 个证据文件全部在场且逐项 hash 一致；无缺失或额外未登记证据 |
+
+manifest SHA 只记录在本 docs-only 收口中，未回写开发 HANDOFF，避免 RESULT 与 manifest 的循环引用。
+
+### 17.3 Gate 完整性与证据语义
+
+- `gates_run.json` 登记 10 项 Gate，全部 `exit_code=0`，总判定 `final_verdict=true`、`problems=[]`；
+- package audit、PYZ、failure matrix、内容 E2E、主链 E2E、Design Fidelity、六格性能七项包绑定证据的
+  EXE SHA 均精确指向 `221A12BC…89E97`，其证据 hash 与 manifest 一致；
+- 三身份内容 E2E、主链 E2E、Design Fidelity 和六格性能是本轮新运行；Design Fidelity 为
+  **116 PASS / 0 FAIL**，六格为 **18/18 SUCCEEDED**、每格 3 个样本、首完整 Fact 中位 5.92s / 最大
+  7.12s；
+- 六格逐样本结构化遥测显示 18/18 `embedding_calls=1`，且 `logical_calls == 1+2F`、
+  `attempts ≤ 3`、成功后不重试、`completion ≤16k` 均成立。`gates_run.json` 的汇总字段
+  `six_grid_embedding_ok_samples` 为空是采集摘要缺项，不改变权威六格证据及 manifest 的机械判定；
+  独立验收仍须从原始样本重新证明，不得继承本结论；
+- 复用的 5 项稳定 Gate 均由 `reuse_provenance.json` 限定为相同 SRC + 相同包，记录原始 mtime、证据
+  SHA、复核时间和 `reused_from_same_src_and_package=true`；旧包证据未混入最终封存；
+- 七类六格负向自测全部为真实非零退出且 fail-closed；Git 身份矩阵覆盖 15 类、25 次 build/verify
+  篡改，全部 fail-closed，正向 build/verify 对照为 rc 0；
+- `SEAL_REPORT.json`、cleanup 与封存清单未报告问题；真实 runtime 不作为开发 Gate 输入，隔离 runtime、
+  进程、端口和 WINWORD 残留均由结构化结果声明清理完成。
+
+以上只证明 RESULT 的声明、身份和证据入口形成闭环，不把开发证据升级为独立产品事实。
+
+### 17.4 已知偏差的门禁处置
+
+RESULT §16.9 已主动披露：既有 `scripts/h8_real_model_e2e.py` 在生成失败分支可能出现进程
+`return 8`，但 `finally` 仍写 `ok=true`。本轮成功运行的实际 rc 0 与 `ok=true` 一致，且外层 Gate 以
+真实退出码判定，因此现有成功证据没有内部冲突；但失败路径真实性必须读取脚本并运行注入才能确定，
+属于工作流规定的“待独立验收问题”，不是 Documentation Agent 可用文档推断替代的源码结论。
+
+为避免把同类问题拆成后续多轮，独立验收必须一次性检查该脚本的**全部失败、异常、超时和提前退出
+路径**，至少实际触发生成失败，并机械确认：
+
+1. 进程退出码非零；
+2. JSON 的 `ok=false`、`gate_passed=false`，且错误与 cleanup 状态可定位；
+3. 上层 collector / manifest 对该证据给出 `final_verdict=false`，不得输出或保留可被误认为 PASS 的摘要；
+4. JSON、进程退出码与上层最终 verdict 三者一致。
+
+任一项不成立，独立验收必须直接给出 `ACCEPTANCE_FAIL`，不得降级为非阻断观察，也不得进入 Product
+Owner 人工验收。该要求是对现有 PLAN fail-closed 与工作流 §8.4 的具体执行，不新增产品范围或 PLAN
+Revision。
+
+### 17.5 结论与下一门禁
+
+**Documentation Gate 结论：`DOC_ALIGNED`。**
+
+交付已具备进入独立验收的文档与机械条件。下一步只允许对本节 docs-only Acceptance 对象执行完整
+独立验收；必须覆盖 PLAN Revision 3 的 owner/IDOR、内容来源 ID→Fact→成品、migration 与 legacy、
+内容完整性、原子发布、真实模型主链、六格性能、Design Fidelity、failure matrix、artifact、包审计、
+资源生命周期，以及 §17.4 的 Gate 失败路径一致性，不能以开发封存证据替代，不能留下强制项
+`NOT_RUN`。独立验收通过前不得进入 Product Owner 人工验收或发布。
