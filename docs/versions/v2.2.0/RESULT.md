@@ -1,8 +1,8 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 已批准 / Documentation Gate `DOC_RETURNED` / 需修正**
-> 当前阶段：Revision 3 开发返工；候选 `b74c8d3`、SRC `b988c65` 与包 `C7F9D4F6…BD52`
+> 当前状态：**PLAN Revision 3（返工后）/ 开发侧必修 Gate 全部 PASS / 待验收**
+> 当前阶段：Revision 3 `DOC_RETURNED` 后返工收口；新 SRC `f86058c` / 新包 `d4249f66…DA0F`（见 §R3-11）
 > 未进入独立验收，固定 `review` 仍保持旧 HEAD
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -3001,4 +3001,185 @@ Product Owner 真实 runtime。
 
 满足后由 Documentation Agent 重新执行机械与 RESULT 语义审查；只有新结论为 `DOC_ALIGNED` 才移动
 `review` 并启动独立 Acceptance。当前结论固定为 **`DOC_RETURNED`**，不进入人工验收或发布。
+
+---
+
+## R3-11. `DOC_RETURNED` 返工收口（新 SRC `f86058c` / 新包 `d4249f66…DA0F`，2026-09-25）
+
+> **状态**：`待验收`。本节点为 Development Agent 在 `DOC_RETURNED` 后按 §R3-10 完成的一次性返工：
+> 修复正常路径调用契约与 Gate fail-closed、形成新 clean SRC、从该 SRC 重建新 onedir、在新包上重跑
+> 全部包绑定门禁、补齐 Revision 3 专属映射、生成统一总证据 manifest 并正确封存中央包与证据。
+> 本轮**不修改 PLAN**、**不修改 HISTORY**、**不移动 `review`**、**不启动独立验收**，顶部状态只写
+> `待验收`，不写 `DOC_ALIGNED`/独立验收通过/人工通过/可发布。
+
+### 11.1 返工基线与新候选身份
+
+| 项 | 值 |
+|---|---|
+| 返工基线（文档门禁提交） | `a05d770027d0425c927f204b10fb74be3e317056`；PLAN Revision 3 blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`（未改） |
+| 新 SRC（源码候选） | `f86058cfc50342205649f39f37865abf48b373bf`；唯一 parent `8639fefd2b291e6c7fcd3a891fc5b81d197de6af`；分支 `version/v2.2.0` |
+| 返工中间提交链 | `a05d770` → `17ec3d4`（调用契约/聚合器/内容 E2E/r2 证据降级/manifest 工具）→ `f0dd2e6`（各 Gate 证据统一绑定 EXE 身份）→ `8639fef`（冷格逐样本独立进程）→ `f86058c`（总 manifest 记录包身份 + 主链 E2E 判定字段） |
+| SRC 工作树 | `git status --porcelain` 为空（clean）；无遗漏 untracked 源码/测试/脚本/配置 |
+| 最终包 | `dist/ResumeAssistant/`（**4044 files / 170,353,832 B**）；EXE 16,833,332 B；SHA-256 `d4249f66486c9a10bf46c5453160498636273d1129922ce4fc0c2dadfd47da0f`；前端 bundle `index-DWWBklCp.js` |
+| 中央封存 | 包 `<acceptance-staging>/f86058c/`；证据 `<acceptance-staging>/f86058c-evidence/`（含 `gate_manifest.json` 与全部 Gate 证据） |
+| review | 仍 detached 到旧对象 `81bf8c27583675133f9ac3e2ec3efd623fe31131`，**未移动** |
+| Challenge | 无开放 `CHALLENGE_OPEN` |
+
+### 11.2 返工项 A — 正常路径调用契约（Embedding 0/1）
+
+- 根因：P1 并行预嵌入线程 `join(timeout=1.0)` 超时丢向量，P2 再串行 `resolve` 一次 → 正常路径
+  embedding 调用 = 2，违反 PLAN §5.5 的 0/1 契约。
+- 修复：`backend/services/task_generation.py` 改为**必须 join 等待预嵌入线程结束**（不再 1s 超时丢
+  向量），预嵌入成功即复用（1 次）；失败(error) 时回退串行 resolve 恰好 1 次；不存在 2 次路径。
+- 证据：六格 18/18 样本 `embedding_calls=1`、`embedding_in_0_or_1=true`；主链 E2E `emb_in_window=1`；
+  内容 E2E 生成窗口内无额外 embedding。**Embedding 0/1 合同已满足，未把偏差降级为观察项。**
+
+### 11.3 返工项 B — Gate fail-closed 与报告一致性
+
+1. **六格聚合器**（`backend/_e2e_v22_aggregate.py`）在**一个最终汇总**中机械判定：精确 6 格、每格
+   `n>=3`、总计 `>=18` 有效样本、`(size,mode,sample)` 身份唯一、全部 `SUCCEEDED`、首 Fact 中位数与
+   最大值 `<=15s`、`1+2F`、Embedding 0/1、单逻辑调用 attempts `<=3`、成功后不重试、单任务
+   completion `<=16k`；任一不成立**非零退出且 `pass=false`**，不再出现"先退出 0 再人工补行"。
+2. **冷启风格样本隔离**（本轮新发现并修复）：矩阵进程内 module-global 引擎跨样本复用，导致
+   `--mode cold --n 3` 单进程在第 2/3 个样本崩溃，每格只产出 1 行；现按文档要求改为**冷格逐样本
+   独立全新 OS 进程 + 新 DB + 新 runtime 目录**，并重新编号，保证 6 格各 3 个可区分样本。
+3. **内容 E2E 一致性**：`h8_r3_real_model_content.py` 在 JSON 中写入 `ok`/`gate_passed`，与控制台
+   结论和进程退出码一致；不再出现已知 `OK=False` 与 exit 0 并存。
+4. **负向自测**：7 类缺陷（少样本、重复 sample、缺格、`embedding_calls=2`、某项 false、证据截断、
+   cleanup 失败）全部 **FAIL-CLOSED**（见 `six_grid_negative_selftest.json`）。
+
+### 11.4 返工项 C — 最终证据身份与封存
+
+1. 每个 Gate 证据均自带最终 EXE 身份：`package_audit`(`exe_sha256`)、`pyz_check`(`exe.sha256`)、
+   `failure_matrix`(`exe_sha256`)、`content_real_model`(`exe.sha256`)、`real_model_e2e`(`exe.sha256`)
+   、`design_fidelity`(`exe_sha256`)、`six_grid_aggregate`(`exe.sha256`)，全部等于
+   `d4249f66486c9a10bf46c5453160498636273d1129922ce4fc0c2dadfd47da0f`。
+2. **总 manifest**（`scripts/h8_r3_manifest.py build`）记录：PLAN blob、SRC/HANDOFF 身份、最终包路径/
+   文件数/总字节/EXE 字节/EXE SHA-256、前端 bundle、每个 Gate 的命令/退出码/证据 hash/运行时间、
+   cleanup 与最终总判定；任一身份或证据不一致即 `final_verdict=false` 且非零退出。
+3. 已作废旧包 `C9F1307D…456` 的活动证据 `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`
+   恢复为明确的历史证据（`_status=HISTORICAL_DEPRECATED`、`all_gates_passed=false`，该降级标记由提交
+   `17ec3d4` 引入），不再充当当前 Gate 真源。
+4. 最终包复制到中央 `<acceptance-staging>/f86058c/`，证据复制到并列
+   `<acceptance-staging>/f86058c-evidence/`；复制前后复核文件数/字节/EXE SHA 一致。**不再使用
+   current 内部 ignored 目录充当冻结目录。**
+
+### 11.5 返工项 D — Revision 3 专属交付映射（`V220-R3-G01`~`G07` / `V220-R3-T01`~`T09`）
+
+> 编号与语义严格对齐当前 PLAN Revision 3 原文（`G07` = 两项前端体验收口，不是 owner 契约；owner
+> 契约是 `G01`）。本表为本 Revision 专属，不引用 Revision 1/2 映射充数。
+
+| PLAN ID | 用户结果 | 开发理解 | 实际交付 | 最终证据（绑定 `d4249f66…`） | 已知偏差 |
+|---|---|---|---|---|---|
+| `V220-R3-G01` 当前履历库是唯一选材范围 | 成品只用当前本地用户履历，绝不用遗留测试身份 | 服务端可信 `LocalOwnerContext`/`DEFAULT_USER_ID`，Task 强制 owner，全链 owner 过滤，跨 owner fail-closed | `core/owner.py`、`Task.user_id`、`create_task`/repository 强制归属、P2/P3/P4/Fact/artifact 继承 owner | 内容 E2E 三身份 G1/G4 PASS、other-owned API 404、records 隔离；`content_real_model.json` | 无 |
+| `V220-R3-G02` 教育/联系方式/标题字段完整 | 教育进入成品；联系方式 8 组合逐字段；源中非空标题字段不丢；无空照片框 | education 确定性装配（≤3、稳定排序）；逐字段空值处理；Builder 不硬编码清空；无照片输入则不渲染占位 | `document_assembler`/`template_renderer` 字段守恒与占位退出 | 内容 E2E G2/G3（education 哨兵进入、无 other/stub、无占位、空照片=0）；Design Fidelity 全状态 116/0 | 无 |
+| `V220-R3-G03` 内容级去重 | 完全重复经历不重复写入/占位 | 确定性内容键；创建重复返回 `DUPLICATE_EXPERIENCE`；选材层按内容键去重后执行槽位 | Experience 服务内容键 + 选材层去重 | 内容 E2E 重复记录 → 409/`DUPLICATE_EXPERIENCE`；选材层只占一槽 | 不做模糊语义合并（PLAN 明确排除） |
+| `V220-R3-G04` 结构错误不能发布为成功 | 结构错误必须 FAILED 且不发布 artifact | owner/source/structure/占位/artifact 可读性校验，fail-closed，原子 finalize | P4 校验 + `OWNER_SCOPE_VIOLATION`/`SOURCE_CONTENT_LOST`/`TEMPLATE_STRUCTURE_INVALID`/`ARTIFACT_INVALID` | 内容 E2E G6（结构性错误 → FAILED 且不发布 DOCX）；failure matrix 六场景 + cleanup | 无 |
+| `V220-R3-G05` 记录/CRUD/续试/下载归属一致 | 只能看/改/删自己的记录；下载按 owner | 全 CRUD owner 校验；records 只列当前 owner；continue 继承 owner；task-scoped 下载 | `experience`/`records`/`continue`/artifact 路由 owner 化 | 内容 E2E G5（other-owned 不进入 records）；内容 E2E 越权/IDOR 反例 | 无 |
+| `V220-R3-G06` runtime 与测试隔离 | 测试/演示不得污染真实 runtime | 导入产品配置前建立独立 `RESUME_DATA_DIR`；缺失/等于默认/不可确认时拒绝启动；只读 ownership audit | `core/runtime_isolation.py`、隔离启动约束、`v22_r3_runtime_tools.py`（只读 audit + dry-run 清理计划） | 各 Gate 均在仓库外隔离 runtime 运行；`runtime_deleted=true`；默认 runtime 前后哨兵一致（precheck 哨兵） | 真实 runtime 未做任何清理（须 Product Owner 另行批准） |
+| `V220-R3-G07` 两项前端体验收口 | 品牌区可返回工作台；1686×1076 步骤 1 无意义滚动消失 | 品牌区可点击/键盘/焦点/路由；步骤 1 自适应高度吸收内容；空 hash 元素退出布局 | `WorkbenchShell`/`AppShell` 品牌区交互；步骤 1 滚动容器自适应；下载区空 hash 元素条件渲染 | Design Fidelity 全状态 116/0（含 rail 交互、二级页、7 视口、下载区） | 无 |
+| `V220-R3-T01` 身份/基线核对、Pre-mortem、runtime 哨兵 | 开发前强制阅读与风险验证 | 核对批准 PLAN blob/分支/基线；3 个失败模式与停止点 | §R3-5 核读与 Pre-mortem；precheck runtime 哨兵 | `precheck.log`（哨兵一致）；§R3-5 | 无 |
+| `V220-R3-T02` Task owner schema/迁移/legacy-unowned | 归属可持久化、旧任务隔离 | `Task.user_id` + 迁移补最小身份行；既有 Task 空 owner → `LEGACY_UNOWNED` 隔离 | schema/migration + repository 变更 | 离线回归 + 内容 E2E（records 不含 legacy；DB 真源 owner） | 不做自动回填（PLAN 明确） |
+| `V220-R3-T03` 全链 owner scope | 已知其他 ID 也不能越权 | Experience/Fact/records/continue/artifact 全链 owner 优先过滤 | 服务层与路由 owner 化 | 内容 E2E 越权矩阵 + IDOR 反例 | 无 |
+| `V220-R3-T04` 当前用户选材/去重/确定性 education | 选材只用当前用户，教育稳定 | owner Experience/Fact 集合 → 内容键去重 → 槽位 + 确定性 education | `task_generation`/`selection_service` | 内容 E2E ID 集合包含关系 + education 排序/上限 | 无 |
+| `V220-R3-T05` 字段守恒/联系方式 8 组合/占位退出/原子 publish | 非空字段不丢、失败不发布 | 逐字段守恒 + 8 组合 + 结构校验 + 原子 finalize | `document_assembler`/`template_renderer`/finalize | 内容 E2E G2/G3/G6；failure matrix | 无 |
+| `V220-R3-T06` Logo 导航与步骤 1 自适应滚动 | 品牌区返回；无意义滚动消失 | 交互 + 自适应密度/页面级空间分配（不用 `overflow:hidden` 截断） | 前端组件改动 | Design Fidelity（含 1686×1076 目标视口与小视口可达） | 无 |
+| `V220-R3-T07` 测试/demo 隔离、只读 audit、内容级回归 | 测试不污染真实数据 | 隔离 `RESUME_DATA_DIR` + 写测试拒绝启动 + 只读 audit | `runtime_isolation.py`、`v22_r3_runtime_tools.py` | `precheck.log` 哨兵；各 Gate 隔离 runtime | 无 |
+| `V220-R3-T08` 全回归/真实模型/Design Fidelity/failure matrix/clean build | 端到端可复现、包身份可信 | 从 clean SRC 重建 + 全部包绑定门禁 | 本节点全部 Gate | `package_audit`/`pyz_check`/`failure_matrix`/`content_real_model`/`real_model_e2e`/`design_fidelity`/`six_grid_aggregate` + `gate_manifest.json` | 见 §11.7 偏差 |
+| `V220-R3-T09` Architecture/Falsification Check、RESULT、clean 冻结 | 无开放 Challenge、RESULT 完整、工作树 clean | 冻结前反证 + RESULT 收口 | §R3-5/§R3-8 Falsification + 本节点 | 新 SRC clean；无开放 Challenge；本 RESULT | 无 |
+
+### 11.6 变化类别（对照 PLAN §7 交付合同）
+
+- **schema/migration**：`Task.user_id` owner 列 + 迁移策略（干净库建默认身份；旧库缺行只补最小身份行，
+  不改写 Experience owner、不合并身份、不复制正文）；既有 Task 空 owner → `LEGACY_UNOWNED` 隔离态。
+- **owner 传播**：InputRevision/Subtask/Snapshot/Event/ResumeRevision/artifact 经 Task 归属关联；所有
+  查询以 owner 为第一过滤条件，向量候选先限定当前 owner 集合。
+- **legacy-unowned**：不进入 records、不能经用户 artifact 路由下载；continue 不改变 owner。
+- **artifact 路由 / 旧入口退出**：用户下载走 task-scoped 路由并校验 owner；旧
+  `/api/resume/generate-docx` 不再保留第二套全表 selector 作为用户简历下载入口。
+- **education / 联系方式 / 标题字段 / 去重 / 照片占位 / warning 分类**：见 §11.5 `G02`~`G04`；warning 用
+  稳定代码区分（`OPTIONAL_CONTENT_ABSENT`/`ANCHOR_UNAVAILABLE` 非阻断，前三类 + `ARTIFACT_INVALID`
+  fail-closed）。
+- **runtime 只读 audit / dry-run 清理计划 / 真实 runtime 未变**：`scripts/v22_r3_runtime_tools.py` 提供
+  只读 ownership audit（owner 计数、无归属 Task、已知测试身份）与默认 dry-run 的精确范围清理计划；
+  本轮**未对真实 runtime 执行任何写入或清理**，precheck 哨兵证明默认 runtime 内容一致。
+- **前端体验**：`Logo/键盘/焦点/路由`、`1686×1076` 步骤 1 无意义滚动、下载区空 hash 元素；冻结视口
+  矩阵（1920×1080/1440×900/1280×800/1024×768/720×450/390×844/320×568）由 Design Fidelity 复核。
+
+### 11.7 开发侧验证结论、命令与偏差
+
+**功能验证**：通过（全部包绑定 Gate 在最终包上 exit 0，见下表）。
+**结构变更验证**：通过（owner 契约、迁移与 legacy 隔离、artifact 路由、旧入口退出均有反向证据；见
+§11.5/§11.6）。
+
+| Gate | 命令（摘要） | 退出码 | 耗时 | 结论 |
+|---|---|---|---|---|
+| 统一 precheck（compile + 全回归 + 前端 build + Hooks） | `precheck.py` | 0 | 1059s | 阻断项全过；非阻断报告：ruff/ESLint/pip-audit(超时)/npm audit（同基线） |
+| package audit | `h8_package_audit.py` | 0 | 56s | `pass=true`；marker/forbidden=0 |
+| PYZ/反伪造 | `h8_r2_pyz_check.py` | 0 | 1s | `all_ok=true` |
+| Word/PDF failure matrix | `h8_r2_failure_matrix.py`（pythonw） | 0 | 43s | `final_pass=true`；cleanup gate ok；无 WINWORD 泄漏 |
+| 三身份内容级 `/api/task` 真实模型 E2E | `h8_r3_real_model_content.py` | 0 | 41s | `ok=true`；G1–G7/PASS；DOCX/PDF 仅含 current 哨兵 |
+| 主链纵向 E2E（7 视口 + API 直连） | `h8_real_model_e2e.py` | 0 | 120s | `ok=true`；PDF viewer 同源；下载 200；`emb_in_window=1` |
+| Design Fidelity 全状态 | `h8_design_fidelity.py` | 0 | 198s | `pass=116 / fail=0` |
+| 六格真实性能（fail-closed 聚合器） | `_e2e_v22_aggregate.py` | 0 | 743s | `pass=true`；18/18 成功；首 Fact 中位 6.09s / 最大 7.04s（≤15s）；Embedding 18/18=1 |
+| 六格聚合器负向自测（7 类） | `_e2e_v22_aggregate.py --inject …` | 0 | 10s | 7/7 FAIL-CLOSED |
+
+**六格实测（最终包，每格 n=3）**：
+
+| 格 | 模式 | 首 Fact 中位数(s) | 首 Fact 最大值(s) | 总时长中位数(s) |
+|---|---|---|---|---|
+| short | cold | 5.87 | 6.25 | 22.74 |
+| typical | cold | 6.70 | 6.83 | 35.01 |
+| long | cold | 6.67 | 7.04 | 42.29 |
+| short | warm | 4.85 | 5.53 | 19.64 |
+| typical | warm | 5.80 | 6.14 | 31.20 |
+| long | warm | 6.04 | 6.28 | 39.23 |
+
+**已知偏差（如实登记）**：
+
+1. **打包非字节可复现**：同一 clean SRC 连续两次 PyInstaller 重建的 EXE SHA-256 不同（例：`8639fef`
+   两次构建分别为 `77238492…`/`f36fd7ba…`）。因此身份以**"某次 clean SRC 构建出的精确包"** 冻结；本轮
+   最终身份为 `f86058c` SRC + `d4249f66…` 包，所有证据绑定该包。
+2. 冷格按文档要求改为逐样本独立进程后，六格墙钟时间上升（约 12 分钟），为隔离正确性的必要代价。
+3. precheck 非阻断项中 `pip-audit` 在本机超时（>900s，脚本既有上限），如实登记，不影响阻断判定。
+4. `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json` 的 `_deprecation_commit` 字段留空；其降级
+   标记由提交 `17ec3d4` 引入，为保持 HANDOFF 仅含 RESULT 收口变化，本轮不二次改动该文件。
+5. 上一轮被退回候选的现场副本 `<current-workspace>/acceptance-staging/C7F9D4F6/` 仍留在 current 的
+   ignored 目录中（本机删除受工作区安全守卫限制，未强删）；它已从冻结目录意义上撤销，**不再作为任何
+   证据入口或冻结依据**；中央封存以 `<acceptance-staging>/f86058c/` 为准。
+
+### 11.8 待独立验收问题
+
+以下事实需要未参与本轮实现、自测或修复的 Acceptance Agent 从**源码 / 失败路径 / 原始运行证据 / 最终包**
+独立核实（开发侧不转交强制自测）：
+
+1. owner 契约与 IDOR：源码层 owner 是否真正无法被请求体覆盖；跨 owner 读取/修改/删除/续试/下载是否
+   全部 fail-closed（含伪造文件名、路径穿越、换 task/owner）。
+2. 内容来源：以最终包 + 隔离 runtime 独立重放"当前用户 record ID → 候选 ID → Fact → 快照 →
+   ResumeDocument → DOCX/PDF 文本"，确认无非当前 owner 内容泄漏。
+3. 迁移与 legacy-unowned：干净库/旧库迁移的正反向结果、悬空身份修复是否最小化、不产生第二真源。
+4. 原子发布：DB commit / 文件写入 / Word-PDF / 取消 / 迟到结果各失败点是否都不产生假成功与可下载入口。
+5. 真实模型主链：在最终包上独立复跑 `/api/task` 主链，核对调用公式 `1+2F`、Embedding 0/1、attempts、
+   成功不重试、completion ≤16k。
+6. 前端：品牌区 click/键盘/焦点/路由、1686×1076 步骤 1 `scrollHeight<=clientHeight+1`、冻结视口稳定性与
+   小视口可达性；下载区空 hash 元素=0。
+7. 隔离与包身份：各 Gate 是否确实运行于仓库外隔离 runtime；真实 Product Owner runtime 前后未变；
+   中央包 `<acceptance-staging>/f86058c/` 与证据 `<acceptance-staging>/f86058c-evidence/` 字节一致、
+   manifest `final_verdict=true`。
+
+### 11.9 再次冻结条件核对（对照 §R3-10 10.5）
+
+- ✅ 新 SRC `f86058c` 已提交，唯一 parent `8639fef`、完整 diff（相对 `a05d770` 共 9 文件）与工作树
+  clean 可机械复核；
+- ✅ 从该 clean SRC 重建的新包 `d4249f66…` 已完成全部必做 Gate，所有强制布尔值为 true，无 FAIL/NOT_RUN；
+- ✅ 六格 6 格 × 每格 3 样本（共 18），Embedding 0/1 为 18/18，聚合器正反向自测通过（7/7 FAIL-CLOSED）；
+- ✅ 内容 E2E 不再出现 `OK=False` 与 exit 0 并存（JSON `ok=true` 与 exit 0 一致）；
+- ✅ Revision 3 `G01`~`G07`/`T01`~`T09` 映射、变化类别、偏差与待独立验收问题完整（§11.5~§11.8）；
+- ✅ 中央包 `<acceptance-staging>/f86058c/` 与证据 `<acceptance-staging>/f86058c-evidence/` 在场，
+  总 manifest 与现场字节一致；
+- ✅ 本 HANDOFF 仅含 `RESULT.md` 收口变化；PLAN blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；
+  无开放 Challenge。
+
+> 以上为开发侧自述与证据入口；`DOC_ALIGNED`、独立 Acceptance 与人工验收均由 Documentation Agent /
+> Acceptance Agent / Product Owner 在其职责内另行给出。本轮**不移动 `review`、不启动独立验收、不发布**。
 
