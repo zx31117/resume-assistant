@@ -404,6 +404,9 @@ def main() -> int:
             # 只删本次全新隔离 runtime（仓库外、本脚本创建）
             shutil.rmtree(runtime, ignore_errors=True)
             EVIDENCE["runtime_deleted"] = True
+        # R3 §R3-10 B/C：JSON 结论、控制台结论与进程退出码必须一致，不能只看日志。
+        EVIDENCE["ok"] = bool(ok)
+        EVIDENCE["gate_passed"] = bool(ok)
         OUT.write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
         log(f"[e2e] wrote {OUT} ok={ok}")
 
