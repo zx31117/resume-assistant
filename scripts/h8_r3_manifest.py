@@ -111,6 +111,44 @@ def _package_identity(pkg_dir: Path) -> dict:
     }
 
 
+def _negative_selftest(ev_dir: Path) -> tuple[dict, list[str]]:
+    """负向自测必须满足：>=7 类注入、每类 `fail_closed=true`、且每类**非零退出码**（门禁语义）。
+
+    返回 (记录, problems)。任一不满足都进入 problems，从而压低 final_verdict。
+    """
+    problems: list[str] = []
+    p = ev_dir / "six_grid_negative_selftest.json"
+    if not p.exists():
+        return {"present": False}, ["缺负向自测证据: six_grid_negative_selftest.json"]
+    try:
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
+    except Exception as e:  # noqa: BLE001
+        return {"present": True, "ok": False}, [f"负向自测证据不可读: {e}"]
+    cases = data.get("cases") or []
+    all_fc = bool(cases) and all(c.get("fail_closed") is True for c in cases)
+    bad_exit = [c.get("case") for c in cases
+                if not (isinstance(c.get("exit_code"), int) and c["exit_code"] != 0)]
+    all_nonzero = bool(cases) and not bad_exit
+    ok = all_fc and all_nonzero and len(cases) >= 7
+    rec = {
+        "present": True,
+        "sha256": sha256_file(p),
+        "bytes": p.stat().st_size,
+        "cases": len(cases),
+        "all_fail_closed": all_fc,
+        "all_exit_codes_nonzero": all_nonzero,
+        "nonzero_exit_failures": bad_exit,
+        "ok": ok,
+    }
+    if not all_fc:
+        problems.append("负向自测存在非 fail-closed 用例")
+    if not all_nonzero:
+        problems.append(f"负向自测存在零退出码用例（未按门禁语义非零退出）: {bad_exit}")
+    if len(cases) < 7:
+        problems.append(f"负向自测用例数 {len(cases)} < 7")
+    return rec, problems
+
+
 def _build(args) -> int:
     exe_sha = args.exe_sha.lower()
     ev_dir = Path(args.evidence_dir)
@@ -150,6 +188,9 @@ def _build(args) -> int:
         if not match:
             problems.append(f"{fn}: exe sha {val} 与目标 {exe_sha[:16]}… 不一致")
 
+    neg_rec, neg_problems = _negative_selftest(ev_dir)
+    problems.extend(neg_problems)
+
     gate_runs = None
     if args.gates_meta:
         gmp = Path(args.gates_meta)
@@ -176,6 +217,7 @@ def _build(args) -> int:
             "package": pkg,
         },
         "gates": gates,
+        "negative_selftest": neg_rec,
         "gate_runs": gate_runs,
         "final_verdict": (not problems),
         "problems": problems,
@@ -206,6 +248,12 @@ def _verify(args) -> int:
     for name, g in (m.get("gates") or {}).items():
         if not g.get("present") or not g.get("exe_sha_match_target"):
             problems.append(f"{name} 未绑定目标 EXE")
+    neg = m.get("negative_selftest") or {}
+    if not neg.get("present"):
+        problems.append("negative_selftest 缺失")
+    elif not neg.get("ok"):
+        problems.append(
+            "negative_selftest 未通过（需 >=7 用例、全部 fail_closed=true 且非零退出码）")
     ok = bool(m.get("final_verdict")) and not problems
     print(f"[verify] final_verdict={m.get('final_verdict')} exe_sha256={str(ident.get('exe_sha256'))[:16]}… "
           f"problems={len(problems)}")

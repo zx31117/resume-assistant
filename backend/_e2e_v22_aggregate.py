@@ -10,11 +10,13 @@
     成功后不重试、单任务 completion <= 16k、Embedding 调用为 0 或 1；
   - typical/long 相对 short 不倒退（仅报告，硬断言以内文本地列表为准）。
 
-同时支持失败注入负向自测（--inject <case>）：人为破坏输入证明聚合器对该类缺陷必 fail-closed。
+同时支持失败注入负向自测（--inject <case>）：向聚合器注入一类缺陷，验证它作为门禁必须 fail-closed。
+**注入模式与被测门禁同语义**：检出注入缺陷 → 非零退出且不输出 PASS 摘要；未检出（缺陷逃逸）→ 退出 0。
+因此外部自测运行器断言"7 类注入全部得到非零退出码"，即可证明聚合器对缺陷类 fail-closed。
 
 用法（在 backend 下，PYTHONPATH=backend）：
   python _e2e_v22_aggregate.py                         # 全 6 格 x n=3 汇总判定
-  python _e2e_v22_aggregate.py --inject <case>          # 负向自测某类缺陷（不跑真实 6 格）
+  python _e2e_v22_aggregate.py --inject <case>          # 注入一类缺陷（不跑真实 6 格）；检出即非零退出
   python _e2e_v22_aggregate.py --n 1 --sizes short      # 限定子集（供调试/局部验证，不用于门禁）
 
 退出码 0 = 全部条件成立且 pass=true；任一失败非 0 且 pass=false。
@@ -248,7 +250,9 @@ def main(argv=None) -> int:
     ctx: dict = {"fails": [], "cells": {}, "first_fact_median": None, "first_fact_max": None}
 
     if inject is not None:
-        # 负向自测：构造一个"理想通过"数据集的变体，验证聚合器对该类缺陷必 fail-closed。
+        # 负向自测（§R3-10 B-3）：向聚合器注入一类缺陷，验证它作为"门禁"必须 fail-closed——
+        # 即**非零退出**且不输出 PASS 摘要。退出码语义与真实门禁完全一致：检出缺陷 → 非零。
+        # 外部自测运行器据此断言"7 类注入全部得到非零退出码"。
         good: list[dict] = []
         for mode in _ALL_MODES:
             for size in _ALL_SIZES:
@@ -268,12 +272,14 @@ def main(argv=None) -> int:
         assert _evaluate(good, {"fails": []}) is True, "理想基线应通过"
         broken = _inject(good, inject)
         bad_ctx: dict = {"fails": []}
-        result = _evaluate(broken, bad_ctx)
-        verdict = "FAIL-CLOSED" if not result else "NOT_FAIL_CLOSED"
-        print(f"INJECT_CASE={inject} verdict={verdict}")
-        print(json.dumps({"case": inject, "fail_closed": not result,
+        result = _evaluate(broken, bad_ctx)      # True = 未检出注入缺陷（门禁会放行）
+        fail_closed = not result
+        exit_code = 0 if result else 1           # 检出缺陷 → 非零退出
+        verdict = "FAIL-CLOSED" if fail_closed else "NOT_FAIL_CLOSED"
+        print(f"INJECT_CASE={inject} verdict={verdict} exit={exit_code}")
+        print(json.dumps({"case": inject, "fail_closed": fail_closed, "exit_code": exit_code,
                           "fail_messages": bad_ctx["fails"]}, ensure_ascii=False))
-        return 0 if not result else 1
+        return exit_code
 
     # 正常门禁模式：跑真实 6 格 x n
     print(f"[sixgrid] 开始收集 {len(sizes)}x{len(_ALL_MODES)} 格 x n={n}（真实模型，较慢）...", flush=True)
