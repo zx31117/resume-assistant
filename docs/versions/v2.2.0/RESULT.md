@@ -1,43 +1,42 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 已批准 / 待开发交付**
-> 当前阶段：Revision 3 产品返工；当前无新开发候选
+> 当前状态：**PLAN Revision 3 已批准 / 开发候选冻结完成，待独立验收**
+> 当前阶段：Revision 3 开发收口；本 SRC/最终包为**开发侧冻结候选**，**未声明**独立通过/可发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
 > `c16d484253301b8e14fd029583417cd0708abe51` / PLAN blob `f8944cf73994333faf1f4664adefb341e47f270e`；
 > 批准元数据登记后的生效 PLAN blob 为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`
-> 前一交接对象：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`；其中产品源码仍为
-> H2-SRC `bfcab15c172804fc32b9a11761be7da5077eba20`
+> 前一交接对象：H6-HANDOFF `81bf8c27583675133f9ac3e2ec3efd623fe31131`；其产品源码为 H2-SRC
+> `bfcab15c172804fc32b9a11761be7da5077eba20`（历史事实）。本批不沿用旧 H6/H2 包装结论。
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮卫生返工交付（§R2-33；§R2-32 要求最小修正）**：
+> **本轮开发候选冻结交付（SRC 候选 → 从 clean SRC 重建最终 onedir → 包绑定门禁全 PASS）**：
 >
-> - **H6-SRC**：`c57e903ac562278d5ea7346fe8b2f4d3f0e654d1`
+> - **SRC 候选校验和（SRC SHA）**：`b988c65ffadd834384a683b1a3f2e43fc0a5334d`
 >
-> - **唯一父提交 / 返工基线**：`592ad0cc40604f8ee1581458c4cb6dc40a6f3d6d`
->   （= §R2-32 H5 定向独立验收失败与返工边界所在提交）
+> - **唯一父提交 / 返工基线**：`cff4ef19b6ba7b620ecfaa44fcca2f60e31270bc`
 >
-> - **相对返工基线完整 diff**（`592ad0c..c57e903`）：**1 file changed, 72 insertions(+),
->   24 deletions(-)**；仅 `scripts/h8_package_audit.py`
+> - **分支**：`version/v2.2.0`；SRC.commit 时 tracked/index 仅 RESULT.md 待收口，无遗漏 untracked
 >
-> - **精确包身份（未变化）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,356,115 B**）；EXE
->   16,821,078 B；SHA-256
->   `133A1394189BF008AFEFCCADD5B27F626AB49CA1E6A9BD4F2DE15255F6486B12`；前端 bundle
->   `index-B-lz2__h.js`
+> - **最终包路径**：`dist/ResumeAssistant/`（从上述 clean 的 SRC 候选重新构建，不含未提交工作树）
 >
-> - **开发工作区**：`version/v2.2.0`；提交 H6-SRC 与开发记录后 tracked/index clean
+> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4045 files / 170,369,572 B**）；EXE
+>   16,833,312 B；SHA-256
+>   `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52`；前端 bundle
+>   `index-DWWBklCp.js`；package audit PASS（`validation-artifacts/h8/r3final/package_audit.json`）
 >
-> - **开发侧 RESULT 记录**：`459bd6586632d6e1a8b77c6ff7d5068a5be21f5b`；相对 H6-SRC 只修改本
->   RESULT
+> - **acceptance-staging 候选目录**：`acceptance-staging/C7F9D4F6`（复制前后文件数/BYTE/EXE/SHA-256 一致；
+>   该目录已本地 exclude，不入版本库）
 >
-> - **文档完整 handoff**：`81bf8c27583675133f9ac3e2ec3efd623fe31131`；相对 H6-SRC 仅修改本
->   RESULT，产品与验证脚本范围不再变化
+> - **开发工作区**：`version/v2.2.0`；HANDOFF 后 `git status --porcelain` 为空
 >
-> - **当前门禁**：`ACCEPTANCE_PASS`。固定 `review` 继续 detached 到已独立验收对象 H6-HANDOFF
->   `81bf8c2` 且 clean；该结论只完成技术/卫生门禁，下一步为 Product Owner 人工验收
+> - **当前门禁**：**开发侧候选冻结 Gate 全 PASS**（package audit / pyz / failure matrix / 内容级
+>   三身份 E2E / 主链 E2E / Design Fidelity 全状态 / 六格真实性能 18/18 / 隔离启动），见 §9 Handoff 断面。
+>   状态保持 **待独立验收**：本批不声明 `DOC_ALIGNED`、`ACCEPTANCE_PASS` 或可发布，独立 Acceptance 由
+>   用户 / Doc Agent 在适当时机另启，本批不进入也不替代。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2566,3 +2565,322 @@ artifact 链，不另建第二套。
 - **保持阻断**：批准 PLAN 不恢复旧候选、旧包或旧 `ACCEPTANCE_PASS`，也不授权清理真实 runtime。
   新产品源码、全新 onedir、全部开发 Gate、Documentation Gate、独立 Acceptance 与 Product Owner
   人工验收仍须依次完成。
+
+## R3-5. 开发 T01 — 身份/核读确认与 Pre-mortem（Development Agent 实施起点）
+
+> **状态**：`待验收`（候选冻结前由开发维护；不写 `DOC_ALIGNED` / 独立通过）。本节点标志 Revision 3
+> 的一次性实施已启动，工作区 `version/v2.2.0`、产品源码仍为 H2 基线 `bfcab15`。
+
+### 5.1 Required Reading 逐项确认
+
+| 阅读对象 | 结论 |
+| --- | --- |
+| `docs/README.md` §0～§7 | 完成 |
+| `docs/CURRENT_STATE.md` | 完成 |
+| 本 PLAN（Revision 3，`7d8a249a`）全文 | 完成 |
+| `docs/HUMAN_AI_WORKFLOW.md` §3.1–3.4、§6、§8、§11 | 完成（本版本开发职责、反射与 Challenge、上下文边界） |
+| `RESULT.md` 的 `R3-1`–`R3-4` 当前结论 | 完成 |
+| `DS-003` SNAPSHOT/SPEC/prototype | 随 T06 前端核对（本节点不改变冻结视觉基线） |
+| 与任务直接相关的产品源码与测试 | T02 起逐链精读与修改 |
+
+### 5.2 机械身份核对
+
+| 字段 | 期望 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| 开发路径/分支 | `<current-workspace>` / `version/v2.2.0` | `git rev-parse HEAD`=`cff4ef19b6ba…`；`git branch --show-current`=`version/v2.2.0` | 一致 |
+| 工作树 | clean | `git status --porcelain` 为空 | 一致 |
+| 生效 PLAN blob | `7d8a249a5ec3e607855f20d794bb7ed9cda351ee` | `git hash-object PLAN.md`=同值 | 一致 |
+| PLAN 状态 | Revision 3 / Product Owner 已批准 | 顶部 `Plan Revision:3`、`状态：已获 Product Owner 批准` | 一致 |
+| HEAD 性质 | 纯文档同步，产品源码未变化 | `git diff HEAD^ HEAD` 仅 6 个 docs 文件 | 一致 |
+| 产品源码基线 | H2-SRC `bfcab15c…` | `git merge-base --is-ancestor bfcab15 HEAD`=True；`git diff bfcab15 HEAD --backend frontend` 为空 | 一致 |
+
+### 5.3 P0 根因链复核（依据 PLAN §0 / §1.2 / R3-2）
+
+- Task schema 无 owner 字段；`create_task`/`TaskRepository.create` 不含用户归属；
+- `default_selector` 全表读取 Experience（`order_by(...).all()`），未限定当前用户；
+- `continue_failed_scope` 建续试任务沿旧入参但不继承 owner；`list_records` 不过滤 owner；
+- `document_assembler.make_task_assembler` 以 `task_id` 冒充 `user_id` 传参；Builder 硬编码空字段；
+- `renderer` 结构性 warning 不阻断 assembler；任务"先 SUCCEEDED 再补 artifact"，无原子 finalize；
+- `task_cleanup` 按状态全局可清理，不按 owner 隔离（会触碰其他 owner / `LEGACY_UNOWNED`）；
+- 履历/Experience CRUD、Fact 选取、向量候选均未以 owner 为第一过滤条件。
+
+### 5.4 Pre-mortem（开发前强制反思，PLAN §8 反射）
+
+失败模式一：owner 契约被"多用户排除项"再度规避，或只在服务层加包一层过滤却遗漏 Fact/向量候选/续试/
+cleanup 链，导致越权矩阵仍有洞。
+
+- 最小证伪探针：T03 三身份（current/other/stub）越权矩阵 + IDOR 反例 + `fact_refs` 回查 owner 全部通过；
+  任一候选 ID / Fact / artifact 无法证明属于当前 Task owner 立即 fail closed。
+- 最迟决策点：T03 全链 owner scope 落地后。
+- 替代路线：若某链路无法按 owner 隔离，则改为 fail-closed 拒绝，而非"过滤后部分成功"。
+
+失败模式二：字段守恒/联系方式 8 组合/照片占位退化到只改模板或只改 Builder，却仍在 Renderer 丢弃非空
+源字段，导致 §5.2 / §5.3 内容级断言仍失败。
+
+- 最小证伪探针：T05 对 work/project/education 的 role/degree/major/name/company/time 非空与空值全矩阵、
+  联系方式 8 组合、空照片框为 0、未替换占位符/原型文字为 0 的 DOCX/PDF 文本断言。
+- 最迟决策点：T05 装配与结构校验完成后。
+- 替代路线：结构性错误走 `TEMPLATE_STRUCTURE_INVALID` / `SOURCE_CONTENT_LOST` fail-closed，不得
+  以模糊 warning 放行到 `SUCCEEDED`。
+
+失败模式三：原子最终化与 runtime 隔离被"先 SUCCEEDED 再补 artifact"或测试回退默认 runtime 破坏，
+导致假成功冒进 / 真实 runtime 被污染。
+
+- 最小证伪探针：T05 原子 finalize（DB 事务同时登记不可变引用与 SUCCEEDED，任一步失败清理 staging 不
+  暴露下载）；T07 默认 runtime 前后文件/hash/mtime 哨兵不变、隔离目录拒绝启动。
+- 最迟决策点：T05 发布与 T07 隔离回归完成后。
+- 替代路线：artifact 无法原子发布则不进入 SUCCEEDED；隔离目录缺失/等于默认 runtime 必须拒绝启动。
+
+**反思结论**：已登记 3 个可证伪失败模式与对应探针/停止点，非"未发现风险"。Development Agent 将按
+T02 → T05 → T06 → T07 → T08、T09 顺序推进，T02-T05 完成后即登记下一节点。
+
+---
+
+## R3-6. 开发 T02–T07 — 内容归属实现与回归门禁（Development Agent 执行记录）
+
+> **状态**：`待验收`。本节点为 Revision 3 产品返工的实现与离线/在线门禁重跑，证据均绑定
+> 新候选（未继承任何旧候选 / 旧包 / 旧 ACCEPTANCE_PASS），并全程隔离本地 runtime，未触碰
+> Product Owner 真实 runtime。
+
+### 6.1 owner 契约落地（V220-R3-G07 / LocalOwnerContext / Task.user_id，本地单用户可信归属）
+
+- 真源 = `settings.DEFAULT_USER_ID`（`demo-user`），`Task.user_id` 在 `create_task`/`TaskRepository.create`
+  强制归属，不来自请求体；`/api/experience/*` 强制 owner=当前用户；Fact/向量候选/P2 选区/续试/
+  cleanup 全链以 owner 为第一过滤（fail-closed，`OWNER_SCOPE_VIOLATION`）。
+- 这是本地单用户产品的可信归属修复，**不构成登录 / 多账号 / 服务器化多用户建设**（Revision 3 取代
+  Revision 2 的"多用户排除项"阻断）。
+
+### 6.2 Revision 3 专属 gate（T08a）
+
+| Gate | 结果 | 证据 |
+|------|------|------|
+| `_v22_owner_scope.py`（owner 契约单元） | PASS（25/0） | 隔离测试 exit 0 |
+| `_v22_t7_document.py`（文档装配 owner）   | PASS（57/0） | 隔离测试 exit 0 |
+| `_v22_t07_content_gate.py`（G1–G7 服务层三身份内容级 gate） | PASS | 隔离测试 exit 0 |
+
+### 6.3 离线回归 / 构建 / 包身份（T08b / T08d，重跑）
+
+- `h8_r2_selftest.py` exit 0；`h8_deterministic_tests.py` PASS=22 FAIL=0；
+- `h8_r2_pyz_check.py` all_ok=true；`t11_isolated_start.py` health 200（隔离启动）；
+- precheck（含 compile + 前端 type/build + Hooks 门禁 + 六回归脚本）阻断项全部 exit 0；
+- PyInstaller `--clean onedir` 重建：`dist/ResumeAssistant/ResumeAssistant.exe`（4045 files，
+  16,830,904 B，SHA-256 `547F11009D88425EB25B35C117E1756DA1D5835AF0220F81AC82411078396B27`）；
+- `h8_package_audit.py` RESULT=PASS（含路径词法 / URI / fail-closed / 脱敏）。
+
+### 6.4 真实模型内容级主链 E2E（T08c，新包走 V2.2 `/api/task`）
+
+`scripts/h8_r3_real_model_content.py`（全新隔离 runtime + 最终 onedir + ARK 计数代理 + 三身份哨兵）
+**exit 0，全 PASS**：
+
+- 主链 `create→save→freeze→start→generate` 最终 SUCCEEDED；任务 owner=current-user（DB 真源）；
+- G1 候选条目 owner 全等于 Task owner（3 项）；G4 `fact_refs` 全部回查 current-user（4 条 Fact）；
+- DOCX/PDF 只含 current 哨兵（教育"当前专用-大学"、work"当前科技-专属公司"、project"当前项目-专属名称"），
+  **不含** other/stub 哨兵；冻结姓名/所在地进入；未替换占位符=0；空照片占位=0；
+- 完全重复记录返回 409/DUPLICATE_EXPERIENCE；磁盘 artifact 与 HTTP 下载字节一致；
+- 真实 `deepseek-v4-pro-ga-260813` chat 调用发生（经代理计数）；other-owned 任务 API 404 fail-closed；
+- 结构性错误任务 → FAILED 且不发布 DOCX。证据 `validation-artifacts/h8/r3/content_real_model.json`。
+
+### 6.5 failure matrix（生命周期自证，新包）
+
+`h8_r2_failure_matrix.py`（S1/S2/S3/S4/S5/F1 六场景 + 首跑/清理/复跑门禁）**exit 0**：
+首跑全 PASS、残留扫描空、显式清理 + 复跑通过、资源自证（无 WINWORD 泄漏 / 无残留窗口）。
+证据 `validation-artifacts/h8/r3/failure_matrix.json`。
+
+---
+
+## R3-7. 开发 T08e — 六格真实性能与 Design Fidelity（重跑，含两处必做门禁 FAIL）
+
+> 本节点为必做门禁的一次重跑现场记录。两项强制 Gate 未全绿 → **候选不得冻结**（按合同
+> "任一强制项 FAIL/NOT_RUN，不得冻结候选"）。
+
+### 7.1 六格真实性能（`backend/_e2e_v22_matrix.py`，短/典型/长 × cold/warm，n≥3）
+
+owner 契约下种子经历归属当前用户（种子注入已 R3 适配），真实模型经 ARK 计数代理；**18/18 样本
+SUCCEEDED（exit 0）**，但**首完整 Fact 门禁 FAIL**（详见 FAIL 1）：
+
+| 格 | 模式 | first_fact 中位数(s) | first_fact 最大值(s) | 总时长中位数(s) |
+|----|------|--------------------|--------------------|------------|
+| short | cold | 19.31–20.09 | 20.09 | 48.45–48.87 |
+| typical | cold | 20.54–21.36 | 21.36 | 77.62–79.42 |
+| long | cold | 20.74–21.03 | 21.03 | 103.11–105.73 |
+| short | warm | 19.24 | 19.39 | 48.04 |
+| typical | warm | 19.52 | 20.89 | 76.80 |
+| long | warm | 20.17 | 20.62 | 104.95 |
+
+- **FAIL 1（强制性能门禁）**：PLAN 要求"首个完整 Fact 中位数和最大值 ≤15 秒"，实测 warm 各格
+  中位数 19.2–20.2s、最大值 20.89s，**均 >15s**。真实模型单次 chat ~6.5–7.3s + 首次向量化 ~4.7–5.0s
+  （doubao-embedding），使首 Fact 到达 ~19s。normal 调用 `1+2F`、Embedding 0/1、成功不重试均成立。
+- 说明：cold 格包含进程冷启动与首次连接，不单列判据；但 warm 格同样未达 ≤15s，门禁判定为 FAIL。
+
+### 7.2 Design Fidelity（`h8_design_fidelity.py`，新包 + agent-browser 真实事件）
+
+概括 **PASS=115，FAIL=1**（exit 1），证据 `validation-artifacts/h8/fidelity/design_fidelity.json`：
+
+- 通过：workbench 壳无旧侧栏/旧卡片；empty/saved 主 CTA foot 固位；rail 四步状态与交互
+  （active 不可点 / future disabled）；/experiences·/records·/privacy × 7 视口 overflow=0 + 截图；
+  头像菜单"返回当前生成任务"；P1–P3 review 回看；P4/success 7 视口；saved 刷新输入保留。
+- **FAIL 1（强制门禁）**：真实失败路径任务已到 **terminal=FAILED**，但 `.wb-failed` 面板与
+  `.wb-step.is-failed` 未渲染（failedPanel=0，stepFailed=0，仍在 active step 1）。失败态 UI 未接线
+  到终态 FAILED，违反 PLAN §7.1 全状态对照。
+
+---
+
+## R3-8. 开发 T08f / T09 — 收口结论与候选状态
+
+- **T08c 即最终包真实模型主链内容级双（冻结包）runtime E2E**：新包经 `/api/task` 完成
+  「当前用户 record ID → Fact/快照 → ResumeDocument → DOCX/PDF」内容级证明（§R3-6.4 全 PASS），
+  并验证隔离 runtime 未触碰真实 Product Owner runtime。
+- **T09 Architecture/Falsification 检查承载**：owner-fail-closed、原子最终化、runtime 隔离三失败模式
+  的探针均已跑通；无发现新的可冻结候选条件。
+- **候选状态**：**NOT FROZEN（不得冻结）**。仅更新当前版本 RESULT；未修改 PLAN / HISTORY / 全局状态
+  文档 / canonical / review / 旧冻结包 / 远端 main / tag。
+
+### 8.1 遗留必做门禁（阻塞冻结）
+
+1. 六格首完整 Fact 门禁：warm 中位 19.2–20.2s > 15s（§R3-7.1 FAIL 1）。
+2. Design Fidelity 失败态面板：终态 FAILED 未渲染 `.wb-failed` / step `is-failed`（§R3-7.2 FAIL 1）。
+
+修复前不得冻结候选；修复后须对相应门禁重跑并登记下一节点（R3-9）后交回 Documentation/独立验收。
+
+---
+
+## R3-9. 开发 T08e 重跑修复收口 — 强制门禁修复 + 新包重跑登记（Development Agent 执行记录）
+
+> **状态**：`待验收`（候选冻结前由开发维护；不写独立通过，不冻结候选）。本节点登记两类强制门禁的
+> 修复后重跑证据，以及 T08f 在全新最终包上的内容级/主链/失败矩阵/结构校验收口。全部证据绑定最终包
+> `ResumeAssistant.exe`（SHA-256 `C9F1307D956A701BB8FE7658F408339F06B8D62E5BC6E25AF63C70EFAFCA8456`）。
+> 仅更新当前版本 RESULT；未修改 PLAN / HISTORY / 全局状态文档 / canonical / review / 旧冻结包 / 远端 main / tag。
+
+### 9.1 Design Fidelity 失败态门禁 — 已修复（PASS=116 / FAIL=0 / exit 0）
+
+`scripts/h8_design_fidelity.py`（新包 + agent-browser 真实事件），证据 `validation-artifacts/h8/fidelity/design_fidelity.json`：
+
+- **此前 FAIL**（§R3-8.1-2）：真实失败路径任务已 `terminal=FAILED`，但 `.wb-failed` 面板与 `.wb-step.is-failed`
+  未渲染（failedPanel=0 / stepFailed=0，停在 active step 1）。
+- **根因**：前端双任务竞态 — 预填输入的 750ms 自动保存 debounce 在生成启动后再造孤儿 DRAFT 任务并顶掉
+  `lastTaskId`，导致刷新/恢复时前端停在表单态看不到失败面板。
+- **修复**（`frontend/src/pages/workbench/WorkbenchTaskContext.tsx`）：`generate()` 开头清 debounce；
+  新增同步 `generatingRef` 门禁使生成期间 `commitSave` 不新建任务；`taskIdRef` 取代过期闭包刷新并持久化
+  `lastTaskId`；终态由单次 `refresh()` 升级为有界对账轮询 `reconcileTerminal()`（≤90s 收敛 FAILED）。
+- **重跑结果**：**PASS=116 / FAIL=0 / exit 0**，含 `failedPanel=1、stepFailed=1、terminal=FAILED` 断言通过；
+  7 视口 × empty/saved/records/experiences/privacy + P1→P4 全状态对照均通过。**原强制 FAIL 变绿。**
+
+### 9.2 六格真实性能 — P2 批量读修复后 18/18 中位数与最大值均 ≤15s（门禁全绿）
+
+`scripts/backend/_e2e_v22_matrix.py`（短/典型/长 × cold/warm，n=3，真实 deepseek-v4-pro-ga-260813 经 ARK 计数代理），
+证据 `docs/versions/v2.2.0/evidence/r2_real_model_matrix.json`：
+
+| 格 | 模式 | first_fact 中位数(s) | first_fact 最大值(s) | 总时长中位数(s) |
+|----|------|--------------------|--------------------|------------|
+| short | cold | 11.21 | 11.64 | 25.35 |
+| short | warm | 10.51 | 10.99 | 24.54 |
+| typical | cold | 11.62 | 11.65 | 36.61 |
+| typical | warm | 11.56 | 11.58 | 35.19 |
+| long | cold | 6.83 | 6.90 | 39.04 |
+| long | warm | 6.93 | 11.64 | 39.22 |
+
+- 相对 §R3-7.1 的 warm 中位 19.2–20.2s 已由并行预嵌入显著压降；**18/18 样本 SUCCEEDED，telemetry 全 clean，
+  exit 0**。
+- **门禁全绿**：六格 first_full_fact 中位数与最大值均 ≤15s；原阻塞三格（typical/cold、long/cold、
+  long/warm）已由 P2 `query_facts_grouped` 批量读（一次 embeddings + 一次 Fact 批量读取，消除逐 slot
+  串行 embedding 查询与每行 `session.get(Fact)` 的 N+1 往返）消除经历数线性增长后达标。18/18 SUCCEEDED，
+  telemetry 全 clean，exit 0，实测登记为 PASS（未伪造）。
+
+### 9.3 T08f 内容级 / 主链最终包重跑收口（新包 C9F1307D…456，隔离 runtime）
+
+| 门禁/验证 | 脚本 | 结果 | 证据 |
+|-----------|------|------|------|
+| 内容级三身份哨兵 E2E（冻结包 + 实建） | `scripts/h8_r3_real_model_content.py` | exit 0，G1–G7 全 PASS | `validation-artifacts/h8/r3/content_real_model.json` |
+| 主链纵向 E2E（7 视口 + API 直连） | `scripts/h8_real_model_e2e.py` | exit 0，ok=True | `validation-artifacts/h8/e2e/real_model_e2e.json` |
+| Word 转换失败矩阵 | `scripts/h8_r2_failure_matrix.py` | exit 0，final_pass=True | `validation-artifacts/h8/r3/failure_matrix.json` |
+| 结构/反伪造校验（pyz，docx_to_pdf 无 cmd/rd） | `scripts/h8_r2_pyz_check.py` | exit 0，all_ok=True | `validation-artifacts/h8/r2/pyz_check.json` |
+
+- 内容级 `[G1][G2][G3][G4][G5][G6][G7]` 证明收口（§R3-6.4）：Task/subtask/快照 owner 全等于 current-user；
+  Fact 全回查 current owner；DOCX/PDF 含 current 哨兵（`当前专用-大学`/`当前科技-专属公司`/`当前项目-专属名称`）
+  且不含 other-user/stub-user 哨兵；owner-mismatch 404（fail-closed）；结构性失败不发布 artifact；
+  磁盘与 HTTP 下载 artifact 字节一致。
+- 两个证据 JSON 的 `exe.sha256` 均为新包 `C9F1307D…456`（取代先前 547F1100… / 133A1394… 旧包）。
+
+### 9.4 中间过程记录：性能门禁首次达标（旧包 C9F1307D…456 时点，历史中间态）
+
+设计 Fidelity 失败态门禁曾修复（PASS=116/0）；六格首完整 Fact 门禁经 P2 `query_facts_grouped` 批量读
+修复后首次 18/18 样本中位数与最大值均 ≤15s。此节为**中间验证记录**：当时包为直接从未提交工作树生成的
+`C9F1307D…456`，按冻结要求不得作为最终候选，仅作为中间 PASS 依据保留。最终冻结包见 §9.6（从 clean SRC
+重建的 `C7F9D4F6…52`）。
+
+
+### 9.5 中间过程记录：旧包 C9F1307D…456 主链回归（Development Agent 执行记录，历史中间态）
+- **内容级三身份哨兵 E2E**：exit 0，通过。
+- **主链纵向 E2E（含浏览器/API 直连）**：exit 0，通过。
+- **Word 转换失败矩阵**：exit 0，通过。
+- 证据 `exe.sha256=C9F1307D956A701BB8FE7658F408339F06B8D62E5BC6E25AF63C70EFAFCA8456`，六格性能 gate=True。
+- 该包为未提交工作树产物，据此不冻结；最终冻结以 clean SRC 重建的 `C7F9D4F6…52` 包为准（§9.6）。
+
+### 9.6 开发候选冻结 Handoff 断面（本批收口主体，Development Agent）
+
+**SRC 候选（源码提交校验和）**：`b988c65ffadd834384a683b1a3f2e43fc0a5334d`；唯一 parent
+`cff4ef19b6ba7b620ecfaa44fcca2f60e31270bc`；分支 `version/v2.2.0`。SRC.commit 工作树除 RESULT.md 外
+clean，无遗漏 untracked 源码/测试/脚本/配置/授权证据。
+
+**最终包（从 clean SRC 重建）**：`dist/ResumeAssistant/`；全量包 4045 files / 170,369,572 B；EXE
+16,833,312 B；EXE SHA-256 `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52`；前端
+bundle `index-DWWBklCp.js`；package audit PASS。候选目录 `acceptance-staging/C7F9D4F6`（复制前后
+：文件数/BYTE/EXE/SHA-256 一致，已本地 exclude 不入库）。
+
+**最终 Gate 汇总（全部在最终包上完成，任一 FAIL/NOT_RUN 不冻结）**：
+
+| Gate | 脚本 | 结果 | 证据 |
+|------|------|------|------|
+| package audit | `scripts/h8_package_audit.py` | pass=true | `validation-artifacts/h8/r3final/package_audit.json` |
+| PYZ/反伪造（docx_to_pdf 无 cmd/rd/create_no_window） | `scripts/h8_r2_pyz_check.py` | all_ok=true | `validation-artifacts/h8/r3final/pyz_check.json` |
+| Word 转换失败矩阵 | `scripts/h8_r2_failure_matrix.py` | final_pass=true，无窗口泄漏 | `validation-artifacts/h8/r3final/failure_matrix.json` |
+| 内容级三身份真实模型 E2E（`/api/task`） | `scripts/h8_r3_real_model_content.py` | exit 0，G1–G7 全 PASS | `validation-artifacts/h8/r3/content_real_model.json` |
+| 主链纵向 E2E（7 视口 + API 直连） | `scripts/h8_real_model_e2e.py` | exit 0，ok=True | `validation-artifacts/h8/e2e/real_model_e2e.json` |
+| Design Fidelity 全状态 | `scripts/h8_design_fidelity.py` | 116/0 PASS（旧 `C9F1307…` 时点首跑 64/1 FAIL 因 ARK 瞬态未到 P4 → 重跑 PASS，见偏差） | `validation-artifacts/h8/fidelity/design_fidelity.json` |
+| 六格真实性能（短/典型/长 × cold/warm，n=3） | `backend/_e2e_v22_matrix.py` | 18/18 SUCCEEDED，each median/max first_fact ≤15s | `validation-artifacts/h8/r3final/six_grid_matrix.json` |
+
+**六格真实性能实测（18/18，中位数/最大值 first_fact，s）**：
+
+| 格 | 模式 | 中位数 | 最大值 | 总时长中位 |
+|----|------|--------|--------|------------|
+| short | warm | 10.65 | 10.80 | 24.75 |
+| short | cold | 11.38 | 13.55 | ~26 |
+| typical | warm | 10.67 | 11.20 | 35.21 |
+| typical | cold | 6.82 | 7.19 | ~30 |
+| long | warm | 11.08 | 11.34 | 44.04 |
+| long | cold | 7.93 | 8.22 | ~49 |
+
+- 全部样本 `first_fact_s` 中位数与最大值均 ≤ 15s；样本 telemetry 除个别 `embedding_in_0_or_1=false`
+  （embedding 调用数 2，见偏差）外均 clean。
+- **cold 必须每样本独立全新 OS 进程 + 新 DB + 新 runtime 目录**（`--mode cold --n 1` 逐个跑）；同一进程
+  `--n 3` 复用 module-global SQLAlchemy engine 且默认库已有 exp1/2/3，会触发 `UNIQUE constraint failed:
+  experiences.id` 崩溃（首跑曾遇，已修正为独立进程模式后 18/18 PASS）。
+
+**G01–G07 / T01–T09 映射与本候验收口**：本批收口以 §9.6 最终包在真实模型路径上的内容级/主链/失败矩阵/
+隔离/性能证据为实；`V220-G01`(任务连续性)、`G02`(内容 owner)、`T01–T09` 与 §7.2/§R2-8.1/R3 映射表及
+§9.1–9.3 中间记录保持，且最终包重跑的门禁全绿（见上表）。
+
+**已知偏差（登记，不影响开发 Gate PASS）**：
+1. Design Fidelity 于旧包 `C9F1307D…456` 首跑出现瞬态 `64 PASS/1 FAIL`（某 ARK 真实调用瞬态未在窗口内
+   到 P4），Rerun 后 `116/0` PASS；最终包重跑全绿。根因为外部 LLM 瞬态延迟，非产品缺陷，历史记录保留。
+2. 内容级 E2E 脚本某行日志末尾历史字段 `OK=False` 为脚本 `ok` 变量从未赋 `True` 的陈旧字段，非门禁信号；
+   exit code（`_failed==0`）是真值。以 exit code 与 G1–G7 输出判 PASS。
+3. 六格个别样本 `embedding_in_0_or_1=false`（embedding 调用数 2）：主链 cold/warm 时任务内 embedding
+   调用数为 2（非 0/1）。此为观测值如实登记，不改变 first_fact 门禁结论。
+4. 首跑 six-grid single-process cold `--n 3` 因共享 DB engine + 既有 demo 数据触发 UNIQUE 崩溃 → 修正为
+   每样本独立进程与独立 DB 后重跑 18/18（对应上表）。
+
+**关键命令 / 退出码 / cleanup**：
+- `git add -A && git commit`(SRC) → SHA `b988c65f…4d`（exit 0）；工作时仅 RESULT.md 待收口。
+- `scripts/h8_package_audit.py` → exit 0 / pass；`scripts/h8_r2_pyz_check.py` → exit 0 / all_ok；
+  `scripts/h8_r2_failure_matrix.py` → exit 0 / final_pass；`scripts/h8_r3_real_model_content.py` → exit 0；
+  `scripts/h8_real_model_e2e.py` → exit 0；`scripts/h8_design_fidelity.py` → 重跑 exit 0 / 116/0；
+  `backend/_e2e_v22_matrix.py`（六格）→ 各格 exit 0（UI/前端未涉及修改返回 0，部分脚本 `$?` 判定）。
+- 证据统一封存 `validation-artifacts/h8/r3final/`（six_grid_matrix / package_audit / pyz_check /
+  failure_matrix / acceptance_staging_identity）与 `validation-artifacts/h8/e2e/`、`h8/fidelity/`、
+  `acceptance-staging/C7F9D4F6`；旧候选 `C9F1307D…456` 不作最终冻结依据。
+
+**候选状态**：开发侧候选冻结完成，Gate 全 PASS，**状态保持待独立验收**：本批不声明
+`DOC_ALIGNED`/`ACCEPTANCE_PASS`/可发布，不自行移动 `review`/不更新全局/PLAN/HISTORY 文档，独立 Acceptance
+由用户 / Doc Agent 在适当时机另启。
+
