@@ -1,9 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / 独立验收 `ACCEPTANCE_FAIL` / 需修正**
-> 当前阶段：验收对象 `f8289de` 因 manifest 身份校验 fail-open 且完整产品强制项存在 `NOT_RUN` 未通过（见 §R3-15）
-> 固定 `review` 保持在失败对象 `f8289de` 供追溯；新候选 `DOC_ALIGNED` 前不得移动
+> 当前状态：**PLAN Revision 3 / §R3-15 `ACCEPTANCE_FAIL` 后返工收口 / 待验收**
+> 当前阶段：§R3-15 一次性返工已完成——manifest 建立可独立校验的 Git 身份锚点，新 SRC/新包/全量强制
+> Gate 与最终 manifest verify 全部通过（见 §R3-16）；是否进入独立验收由 Documentation Gate 判定
+> 固定 `review` 保持失败对象 `f8289de` 供追溯；新候选取得 `DOC_ALIGNED` 前不得移动
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -16,27 +17,29 @@
 
 > **本轮交付对象（当前候选；是否可进入独立验收由 Documentation Gate 判定）**：
 >
-> - **SRC 候选校验和（SRC SHA）**：`c37270c62b19b5a45945bd40cd17d24a20a62002`（唯一 parent `92de329`，
->   即文档门禁提交；其父为上一轮 HANDOFF `8bcc8af`）
+> - **SRC 候选校验和（SRC SHA）**：`32388b7d63a08c8cf6e194d771fb46d9371490ca`（唯一 parent `8271e72`，
+>   即记录 §R3-15 `ACCEPTANCE_FAIL` 的 RESULT-only 提交）
 >
-> - **开发 HANDOFF**：`b7bf63240ca62ef828ccf5735410a29acb23b726`（唯一 parent 为 SRC；差异仅
+> - **开发 HANDOFF**：本文件所在的唯一 RESULT-only 收口提交（唯一 parent 为 SRC；差异仅
 >   `docs/versions/v2.2.0/RESULT.md`）
 >
-> - **上一轮被退回对象（历史，见 §R3-12 / HISTORY VH-034）**：SRC `f86058c`、HANDOFF `8bcc8af`、
->   包 `d4249f66…DA0F`；因负向 Gate 证据未闭环退回，其 PASS 与包不得继承到本候选
+> - **上一轮失败对象（历史，见 §R3-15）**：SRC `c37270c`、HANDOFF `b7bf632`、验收对象 `f8289de`、
+>   包 `7450efb0…0345F`；因 manifest 身份校验 fail-open 与完整产品强制项 `NOT_RUN` 判
+>   `ACCEPTANCE_FAIL`，其 PASS、证据与包全部不得继承到本候选
 >
 > - **分支 / 工作树**：`version/v2.2.0`；SRC.commit 前后 `git status --porcelain` 为空
 >
-> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,827 B**）；EXE
->   16,833,327 B；SHA-256
->   `7450efb0f5eb6232bee2a0785be26b6d53531687281d60d1573e205818e0345f`；前端 bundle
+> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,861 B**）；EXE
+>   16,833,361 B；SHA-256
+>   `221a12bc917e3ef6128d40b258f602feb8f55c0db42b88049ad7d2d49c589e97`；前端 bundle
 >   `index-DWWBklCp.js`
 >
-> - **封存现场**：中央 `<acceptance-staging>/c37270c/` 与 `<acceptance-staging>/c37270c-evidence/`
->   均在场；包身份与 `package_identity.json` 一致，总 manifest `final_verdict=true`
+> - **封存现场**：中央 `<acceptance-staging>/32388b7/` 与 `<acceptance-staging>/32388b7-evidence/`
+>   在场（含 `gate_manifest.json`、`CHECKSUMS.sha256`）；旧封存 `c37270c/`、`c37270c-evidence/`
+>   保留追溯、未被覆盖
 >
-> - **当前门禁**：独立 Acceptance 最终结论为 **`ACCEPTANCE_FAIL`**。§R3-14 的 `DOC_ALIGNED` 仅保留为
->   该失败对象曾具备进入验收的历史事实；不得进入人工验收或发布。
+> - **当前门禁**：开发侧全部强制 Gate `PASS`（无 FAIL / NOT_RUN），总 manifest `final_verdict=true`、
+>   `problems=[]`、verify rc 0。以上仅为开发侧结论，不构成 `DOC_ALIGNED`、独立验收或可发布。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -3519,3 +3522,163 @@ Development Agent 必须一次性完成以下内容：
 **最终结论：`ACCEPTANCE_FAIL`。** 失败对象 `f8289de`、SRC `c37270c`、HANDOFF `b7bf632` 与包
 `7450efb0…0345F` 不得进入 Product Owner 人工验收或发布。固定 `review` 保持该失败对象供追溯；只有
 新候选完成 §15.4、重新取得 `DOC_ALIGNED` 并通过无 `NOT_RUN` 的完整独立验收后，流程才能继续。
+
+***
+
+## R3-16. §R3-15 一次性返工收口（新 SRC `32388b7` / 新包 `221A12BC…89E97`，2026-09-25）
+
+> **状态**：`待验收`。Development Agent 按 §R3-15 §15.4 完成一次性返工：为总 manifest 建立可独立校验的
+> Git 身份锚点、形成新 SRC、从 clean SRC 重 build/重打包、重跑全部强制 Gate，并在开发 HANDOFF 的
+> clean 工作树上生成最终 manifest 与 verify。不改 PLAN、不改 HISTORY、不移动 `review`、不进入独立
+> 验收或发布。本节仅为开发侧自述与证据入口。
+
+### 16.1 返工范围与身份链
+
+| 项 | 值 |
+|---|---|
+| 返工基线（失败对象） | `8271e72`（RESULT-only 提交，登记 §R3-15 `ACCEPTANCE_FAIL`） |
+| 新 SRC | `32388b7d63a08c8cf6e194d771fb46d9371490ca`；唯一 parent `8271e72`；分支 `version/v2.2.0` |
+| SRC tree SHA | `60dc42a2e5eff93d2b6394bbe1b1b4f807c557ff` |
+| SRC 工作树 | `git status --porcelain` 为空（提交前后均空） |
+| SRC diff（相对 `8271e72`） | 2 files：`scripts/h8_r3_git_identity_negtest.py`（A，新增）、`scripts/h8_r3_manifest.py`（M）；+1026 / −55 |
+| 唯一开发 HANDOFF | 本文件所在的唯一 RESULT-only 收口提交（唯一 parent 为 SRC；`SRC..HANDOFF` 仅改本文件） |
+| PLAN blob | `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`（未改） |
+| 产品源码 | **未变化**：两个受控脚本都不在 `packaging/resume_assistant.spec` 的入包范围（该 spec 只收 `packaging/launcher.py`、`api/core/database/models/prompts/services` 与 `frontend/dist`） |
+
+### 16.2 Git 身份锚点（§15.4-A）
+
+`scripts/h8_r3_manifest.py` 现要求：
+
+- **build** 必须接收 `--repo`、`--expected-src`、`--expected-handoff`，并从现场独立解析
+  `git rev-parse HEAD`、HEAD 完整 parent 列表、`HEAD^`、SRC/HANDOFF 的 object type、各自 tree SHA、
+  `SRC..HANDOFF` 的 name-status 集合与 tracked/index clean 状态；必须满足：实际 HEAD 精确等于
+  expected HANDOFF、HANDOFF 是单 parent commit 且其唯一 parent 精确等于 expected SRC、SRC 是 commit、
+  `SRC..HANDOFF` 只修改 `docs/versions/v2.2.0/RESULT.md`、调用参数/现场解析值/manifest 写入值三者一致；
+- **verify** 必须接收来自验收任务的 `--repo`、`--expected-src`、`--expected-handoff`（可选
+  `--evidence-dir`），机械复验 manifest 记录值 == 期望值、期望对象真实存在且均为 commit、HANDOFF
+  唯一 parent 为 SRC、tree SHA 与现场 object 一致、`SRC..HANDOFF` 仅为 RESULT、manifest 记录的 diff
+  与现场一致，以及 PLAN blob、包身份、逐 Gate 证据 hash 与负向自测；verify 不要求当前 repo HEAD
+  等于 HANDOFF（文档 Agent 之后会在 HANDOFF 之上形成 docs-only Acceptance 对象）；
+- 任一 Git 命令失败、对象缺失、解析异常或身份不一致：写入 `problems`、`final_verdict=false`、
+  非零退出，且不输出可被误认为 PASS 的摘要；
+- manifest 记录 repo-relative identity schema/version、src/handoff SHA、各自 tree SHA 与 parents、
+  实际 repo HEAD、`SRC..HANDOFF` name-status、expected/actual 比对 verdict，以及 package、PLAN、Gate、
+  负向自测、身份矩阵与 cleanup 判定；**不写入本机绝对路径、用户名或 PII**。
+
+### 16.3 环境阻塞与恢复后的冷启动
+
+- 上一轮（§R3-15 返工尝试）曾观测到本机把**文件删除**节流到约 5 秒/次，使 SQLite 首次
+  `init_db().create_all()` 约 35 秒、超出 launcher 30 秒健康窗口 → 冻结应用无法启动（当时**上一轮已封存
+  旧包在同一栈帧同样卡死**，属环境阻塞，非本轮引入）。
+- 本轮开始前复测：8 次临时文件删除 0.07–0.13 秒，节流已消失。
+- 按 §二 预检（当前精确包 + 全新空白隔离 `RESUME_DATA_DIR`、不预建 DB、不复制旧 runtime）：
+
+| 预检项 | 结果 |
+|---|---|
+| launcher 在 30 秒窗口内启动 | **PASS**（冷启动约 7 秒） |
+| `/api/health` | **PASS**（HTTP 200，`version=2.2.0`） |
+| 数据库首次初始化真实完成 | **PASS**（`database/app.db` 新建；10 张表；默认用户 `demo-user` 存在） |
+| 应用可正常停止 | **PASS**（停止后端口释放） |
+| 停止后残留 | **无** ResumeAssistant / WINWORD / 端口 / 本轮隔离 runtime 残留 |
+
+结论：空 runtime 冷启动在窗口内通过，**不构成产品冷启动缺陷**，未修改产品代码、未使用预置数据库绕过。
+
+### 16.4 证据污染隔离与可复用 Gate
+
+- 新建**全新最终证据目录** `<current-workspace>/validation-artifacts/h8/r3rework3-final/`，并写入
+  `ROUND_START.json`（本轮起点时间、SRC、目标包身份）。
+- 该目录只通过**明确 allowlist** 写入；`collect_gates_final.py` 对每个包绑定 JSON 逐项校验：
+  EXE SHA 必须精确等于 `221A12BC…89E97`、出现旧包 SHA `7450EFB0…` 即 fail-closed、verdict 必须与
+  退出码一致、空 verdict / 解析失败 / 缺失 / 新运行证据 mtime 早于本轮起点均 fail-closed；**不按
+  「文件名存在」判定 PASS**。
+- 上一轮目录 `r3rework3` 中绑定旧包的 `content_real_model.json`、`real_model_e2e.json`、
+  `design_fidelity.json` 以及只有 6 个 `EMBED_FAIL` 样本的失败 `six_grid_aggregate.json`
+  **一律未复制、未计入新候选**（保留在原目录仅供追溯）。
+- **复用 Gate**（同一 SRC + 同一包，`reused_from_same_src_and_package=true`，在最终 `gates_run.json`
+  中保留原始命令、原始退出码、运行时间、证据 SHA、SRC/包身份与复核时间）：
+
+| 复用 Gate | 原始 rc | 耗时 | 证据 |
+|---|---|---|---|
+| precheck（compile + 全回归 + 前端 build + Hooks） | 0 | 1071s | `precheck.log` |
+| package audit | 0 | 56s | `package_audit.json`（`pass=true`，绑定目标 EXE） |
+| PYZ / 反伪造 | 0 | 2s | `pyz_check.json`（`all_ok=true`，绑定目标 EXE） |
+| Word/PDF failure matrix | 0 | 79s | `failure_matrix.json`（`final_pass=true`、`cleanup_gate_ok=true`） |
+| 六格聚合器负向自测 | 0 | 3s | `six_grid_negative_selftest.json`（7/7，逐例 `exit_code=1`） |
+
+### 16.5 四项动态 Gate（全部重跑，均绑定 `221A12BC…89E97`）
+
+| Gate | 命令（摘要） | rc | 耗时 | 结果 |
+|---|---|---|---|---|
+| 三身份内容级真实模型 E2E | `scripts/h8_r3_real_model_content.py --exe dist/ResumeAssistant/ResumeAssistant.exe` | 0 | 47s | `ok=true`、`gate_passed=true`、`runtime_deleted=true`；三身份并存；当前履历 ID→候选→Fact→快照→ResumeDocument→DOCX/PDF 全链；成品仅含 current-user；education/标题字段/Fact 引用完整；重复经历只占一个槽位；owner/source/structure 注入失败不 `SUCCEEDED` 且不发布 artifact |
+| 主链真实模型 E2E | `scripts/h8_real_model_e2e.py --exe …` | 0 | 117s | `ok=true`、`gate_passed=true`、`runtime_deleted=true`；最终包 `/api/task` P1→P4 与 UI 直驱均到达 P4；PDF viewer 与下载同源；DOCX/PDF 下载 200；7 个冻结视口；`provider_counts` 正常；`winword_leaked=[]` |
+| Design Fidelity 全状态 | `scripts/h8_design_fidelity.py --exe …` | 0 | 211s | **116 PASS / 0 FAIL**；empty/saved/P1–P4/failed/success、experiences/records/privacy、Logo 点击/键盘/focus/返回、1686×1076 回看态、全部冻结视口；`runtime_removed=true` |
+| 六格真实模型性能 | `cd backend && _e2e_v22_aggregate.py --exe ../dist/ResumeAssistant/ResumeAssistant.exe --out …` | 0 | 762s | `pass=true`、`gate_passed=true`；**18/18 SUCCEEDED**，6 格各 n=3；首完整 Fact 中位 **5.92s** / 最大 **7.12s**（≤15s）；18/18 `logical_calls == 1+2F`、`attempts ≤ 3`、成功不重试、`completion ≤ 16k`、`embedding ∈ {0,1}`；无人工补行 |
+
+### 16.6 身份矩阵与负向自测
+
+- **Git 身份 build/verify 正反向矩阵**（`scripts/h8_r3_git_identity_negtest.py`，全新运行，rc 0，102s）：
+  一次性临时 Git repo 中覆盖 15 类身份篡改 × build/verify 双模式共 **25 次运行**，逐例非零退出、
+  `final_verdict=false`、`problems` 可定位、不输出 PASS 摘要；正向对照 build/verify 均通过 →
+  `git_identity_all_ok=true`、`positive_control.ok=true`、`case_ids=[1..15]`。其中错误 SRC/HANDOFF、
+  对象不存在、非 commit（blob/tree/tag）、错误 parent、多 parent、`SRC..HANDOFF` 出现非 RESULT 文件、
+  tree SHA 被篡改、manifest parent/diff 被篡改、缺 `--repo`、repo 无效、HEAD≠HANDOFF、tracked/index
+  dirty 全部 fail-closed。
+- **7 类聚合器负向自测**：逐例内层退出码 `[1,1,1,1,1,1,1]`，`all_fail_closed=true`、
+  `all_exit_codes_nonzero=true`、`nonzero_exit_failures=[]`。
+
+### 16.7 统一复核
+
+- 10 个 Gate 全部 `exit_code=0`，`gates_run.json` `final_verdict=true`、`problems=[]`；
+- 所有包绑定证据 EXE SHA 均为 `221A12BC…89E97`；最终证据目录**不含**旧包 SHA `7450EFB0…`（旧 SHA
+  仅作为 collector 的“禁止清单常量”出现）；
+- 现场重算包身份与 `ROUND_START.json` 一致（4044 files / 170,353,861 B / EXE 16,833,361 B）；
+- 真实用户 runtime **未被改动**：本轮起点之后该 runtime 下 0 个文件被修改（全部 Gate 使用仓库外隔离
+  `RESUME_DATA_DIR`）；修复轮用隔离 Gate 进程未继承失效代理变量（不改系统或用户全局代理设置）；
+- 残留复核：ResumeAssistant / WINWORD / 浏览器 / 监听端口 / 本轮隔离 runtime **均无残留**；
+  另有 3 个 `ra_v201_*` 与历史临时目录属更早版本工具产物、非本轮产生（已清理可清理部分，余下 3 个被
+  OS 锁定且不属本轮 runtime 前缀）。
+
+### 16.8 最终 manifest 与中央封存
+
+- 在 HANDOFF 的 clean 工作树上运行最终 manifest build（要求现场 HEAD == HANDOFF、HANDOFF 唯一
+  parent == SRC、`SRC..HANDOFF` 仅 RESULT），随后运行 verify；
+- 结果：**build rc 0、verify rc 0、`final_verdict=true`、`problems=[]`、identity matrix verdict true**；
+- 中央封存（新建、不覆盖 `c37270c` 或更早）：
+  - 包 `<acceptance-staging>/32388b7/`（与 current 新包**逐字节一致**）；
+  - 证据 `<acceptance-staging>/32388b7-evidence/`：package identity、precheck、package audit、PYZ、
+    failure matrix、内容 E2E、主链 E2E、Design Fidelity、六格 18 样本、7 类负向自测、25 项 Git 身份
+    矩阵、`gates_run.json`、`gate_manifest.json`、manifest verify 结果、`CHECKSUMS.sha256`、cleanup 状态；
+  - 证据目录已做脱敏（本机绝对路径 / 用户名 → `<current-workspace>` / `<canonical-repo>` / `<home>` /
+    `<temp>` 占位符），并在 `SEAL_REPORT.json` 记录脱敏映射；封存前扫描拒绝旧包 SHA、PII/Key、
+    旧 bundle、缺失或 hash 不一致的证据；
+  - 最终 manifest 的文件 SHA 由证据目录 `CHECKSUMS.sha256` 记录；**不在 HANDOFF 之后再改 RESULT**
+    （避免把 manifest SHA 回填造成自引用）；最终 manifest SHA 由文档 Agent 下一轮独立计算后写入文档。
+
+### 16.9 偏差、cleanup 与待独立验收问题
+
+**已知偏差**
+1. 打包仍**非字节可复现**（同一 SRC 连续重建 EXE SHA 不同），故本轮按路径 B 重建并全量重跑；
+2. 5 个稳定 Gate 采用同源复用（同一 SRC+包、包字节未变），已在 `gates_run.json` 显式标注
+   `reused_from_same_src_and_package=true` 与复核时间；
+3. 修复轮中曾出现上游模型服务瞬时 502 导致 1 次六格与 1 次主链 E2E 失败，串行重跑后全部通过；
+   该失败运行产物未进入最终证据目录；
+4. `scripts/h8_real_model_e2e.py`（本版未修改的既有受控脚本）在“生成步骤失败”分支以 `return 8`
+   退出，但 `finally` 仍写入 `ok=true`，即失败路径下 JSON verdict 与进程退出码不一致。本轮该门禁
+   实际 rc 0 / `ok=true`，两者一致；该潜在 fail-open 已登记为待独立验收问题（见下 §4）。
+
+**cleanup**：全部 Gate 自带 runtime 删除标志为 true；WINWORD 泄漏为空；无遗留进程 / 端口 / 本轮隔离
+runtime；真实用户 runtime 未被读写。
+
+**待独立验收问题（增量）**
+1. 复核 `scripts/h8_refuse…`（见 SRC diff）两个受控脚本确实把错误 SRC/HANDOFF 判为 fail-closed，
+   并复现 25 项矩阵；
+2. 复核最终 `gate_manifest.json` 的 `git_identity.actual`（src/handoff SHA、tree SHA、parents、
+   name-status）与现场 Git object 一致，且 `git_identity.verdict=true`；
+3. 复核六格 18 样本为真实新运行（非复用、无人工补行），首 Fact 中位/最大 ≤15s；
+4. 复核 `scripts/h8_real_model_e2e.py` 在生成失败路径下 JSON verdict 与退出码的一致性（见偏差 4），
+   判定是否需要后续轮次修复；
+5. 完整执行 PLAN §8 与 §15.4-C 要求的全部产品运行时验收（不得以开发封存证据替代）。
+
+> 以上为开发侧自述与证据入口，不构成 `DOC_ALIGNED`、独立验收或发布结论。旧候选 `c37270c`、
+> 旧 HANDOFF `b7bf632`、旧包 `7450efb0…0345F`、旧封存 `c37270c/`、`c37270c-evidence/` 及其
+> 全部 PASS 与证据**不继承**。
