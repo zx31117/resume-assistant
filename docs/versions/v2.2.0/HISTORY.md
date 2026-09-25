@@ -635,3 +635,21 @@
   证据采集与 manifest 修复且受控文件/包均不变，可保留现有 SRC 和包、只形成新的不可变证据目录与
   docs-only HANDOFF；若修改任一源码、测试/验证脚本、依赖、配置、构建或入包文件，则必须新 SRC、
   重 build/重打包并重跑全部强制 Gate。完整一次性交回条件见 RESULT §R3-12。
+
+## VH-035 路径 B 新候选通过 Documentation Gate
+
+- 日期：2026-09-25
+- 阶段：PLAN Revision 3 / `DOC_ALIGNED` → 待独立验收
+- 候选：SRC `c37270c62b19b5a45945bd40cd17d24a20a62002`；开发 HANDOFF
+  `b7bf63240ca62ef828ccf5735410a29acb23b726`；精确包 EXE SHA-256
+  `7450EFB0F5EB6232BEE2A0785BE26B6D53531687281D60D1573E205818E0345F`。
+- 机械事实：SRC 相对文档门禁基线只修改六格聚合器、增加受控负向运行器并修改总 manifest；开发
+  HANDOFF 相对 SRC 只修改 RESULT。中央包/证据目录、包字节身份、PLAN blob 与 clean 状态一致。
+- 证据闭环：7 个规定注入案例逐例实际退出码均为 1 且 fail-closed；总 manifest 记录负向证据 hash、
+  案例数和逐例 verdict，并把它纳入最终判定。受控文件变化后已形成新包并全量重跑强制 Gate。
+- 文档基线说明：上一轮 Documentation 变更因本地 ref 写入冲突由 Development Agent 代为物化为
+  `92de329`。Documentation Agent 本轮重新核对该提交只包含 §R3-12/VH-034 并予以承接；以后发生同类
+  ref 冲突时必须停机交回对应角色，不得由其他角色代签 author。
+- 结论：`DOC_ALIGNED` 只表示交付可进入独立验收，不表示产品已通过。固定 `review` 指向包含 RESULT
+  §R3-14 的文档收口对象；独立 Acceptance 必须复核 owner/内容来源/迁移/原子发布/真实模型/UI/隔离、
+  新负向运行器和 manifest fail-closed，之后才可进入 Product Owner 人工验收。

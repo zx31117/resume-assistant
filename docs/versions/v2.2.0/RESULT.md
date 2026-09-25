@@ -1,9 +1,9 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3（返工后）/ 开发侧必修 Gate 全部 PASS / 待验收**
-> 当前阶段：§R3-12 `DOC_RETURNED` 后按**路径 B** 返工收口；新 SRC `c37270c` / 新包 `7450efb0…345F`（见 §R3-13）
-> 未进入独立验收，固定 `review` 仍保持旧 HEAD
+> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_ALIGNED` / 待独立验收**
+> 当前阶段：路径 B 新 SRC `c37270c` / 开发 HANDOFF `b7bf632` / 新包 `7450efb0…345F` 已具备独立验收条件（见 §R3-14）
+> 固定 `review` 由 Documentation Agent 移动至包含 §R3-14 的验收对象；尚未形成独立验收结论
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -19,6 +19,9 @@
 > - **SRC 候选校验和（SRC SHA）**：`c37270c62b19b5a45945bd40cd17d24a20a62002`（唯一 parent `92de329`，
 >   即文档门禁提交；其父为上一轮 HANDOFF `8bcc8af`）
 >
+> - **开发 HANDOFF**：`b7bf63240ca62ef828ccf5735410a29acb23b726`（唯一 parent 为 SRC；差异仅
+>   `docs/versions/v2.2.0/RESULT.md`）
+>
 > - **上一轮被退回对象（历史，见 §R3-12 / HISTORY VH-034）**：SRC `f86058c`、HANDOFF `8bcc8af`、
 >   包 `d4249f66…DA0F`；因负向 Gate 证据未闭环退回，其 PASS 与包不得继承到本候选
 >
@@ -32,8 +35,8 @@
 > - **封存现场**：中央 `<acceptance-staging>/c37270c/` 与 `<acceptance-staging>/c37270c-evidence/`
 >   均在场；包身份与 `package_identity.json` 一致，总 manifest `final_verdict=true`
 >
-> - **当前门禁**：开发侧必修 Gate 全部 PASS（见 §R3-13）；顶部状态为 `待验收`。不移动 `review`、
->   不启动独立 Acceptance、不进入人工验收或发布，也不写 `DOC_ALIGNED`。
+> - **当前门禁**：Documentation Gate 为 **`DOC_ALIGNED`**。该结论只表示 RESULT、机械身份与证据入口
+>   已具备进入独立 Acceptance 的条件，不表示源码、运行行为、人工验收或发布已通过。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -3366,3 +3369,67 @@ PASS。RESULT 必须列出新 SRC/唯一父/完整 diff、新包身份及全部 
   工作树 clean；`review` 仍保持旧 HEAD。
 
 > 以上为开发侧自述与证据入口，不构成 `DOC_ALIGNED`、独立验收或发布结论。
+
+***
+
+## R3-14. Documentation Gate：`DOC_ALIGNED`（路径 B 新候选，2026-09-25）
+
+> Documentation Agent 按 PLAN §7～§8、工作流 §5/§9 与 §R3-12 机械清单完成集中复核。本节只判断
+> RESULT、Git 身份与证据入口是否完整、内部一致并正确理解批准 PLAN；不读取产品源码、不继承开发
+> PASS，也不替代独立 Acceptance。
+
+### 14.1 候选与合同身份
+
+- 开发 HANDOFF 为 `b7bf63240ca62ef828ccf5735410a29acb23b726`，唯一 parent 为 SRC
+  `c37270c62b19b5a45945bd40cd17d24a20a62002`；接收时分支 `version/v2.2.0`、工作树 clean。
+- SRC 唯一 parent 为 `92de3294c1648417d80ef0621fd8e1f3863251c7`；`92de329..c37270c` 精确修改
+  `backend/_e2e_v22_aggregate.py`、新增 `backend/_e2e_v22_negtest.py`、修改
+  `scripts/h8_r3_manifest.py`；`c37270c..b7bf632` 仅修改本 RESULT。
+- `92de329` 的差异仅为 Documentation Agent 上一轮已形成的 RESULT §R3-12 与 HISTORY VH-034。
+  该提交因本地 ref 写入冲突由 Development Agent 代为物化；本轮 Documentation Agent 已重新核对其
+  文档内容与作用域并将其作为返工基线。此过程异常不改变产品树或合同，但后续遇到 ref 锁冲突必须
+  停止并交回对应角色处理，不得再次由其他角色代签 author 身份。
+- 批准 PLAN blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；HISTORY 相对 `92de329`
+  未变化，无开放 Challenge，不需要 PLAN Revision 4。
+
+### 14.2 精确包与证据入口
+
+- 中央包 `<acceptance-staging>/c37270c/` 与证据 `<acceptance-staging>/c37270c-evidence/` 均在场。
+- Documentation Agent 独立复算包身份：4044 files / 170,353,827 B；EXE 16,833,327 B；SHA-256
+  `7450EFB0F5EB6232BEE2A0785BE26B6D53531687281D60D1573E205818E0345F`；bundle
+  `index-DWWBklCp.js`，与 RESULT、`package_identity.json` 和 manifest 一致。
+- package audit、PYZ、failure matrix、内容 E2E、主链 E2E、Design Fidelity、六格正向共 7 项包绑定
+  证据的现场 SHA-256 均与 manifest 一致，且 manifest 对 7 项均记录目标 EXE 匹配。
+
+### 14.3 §R3-12 阻断闭环
+
+- `six_grid_negative_selftest.json` 含 7 个规定案例；逐例 `fail_closed=true`、失败原因非空、实际内层
+  `exit_code=[1,1,1,1,1,1,1]`；汇总为 `all_fail_closed=true`、
+  `all_exit_codes_nonzero=true`、`nonzero_exit_failures=[]`。
+- 负向运行器作为外层自测在 7/7 成立时退出 0；其证据 SHA-256 为
+  `61c0b6413efa03bfdbf226b27303e8f8ff955396f7c0b4f2e87d32703b47cb4f`，同时出现在
+  `gates_run.json` 与总 manifest。
+- 总 manifest 单列 `negative_selftest` 的存在性、hash、案例数和逐例判定，并把负向判定写入
+  `gate_runs.verdicts`；最终 `final_verdict=true`、`problems=[]`。§13.4 另声明零退出码旧证据会使
+  manifest 构建及 verify 均以 rc 1 拒绝；其真实性留给独立 Acceptance 复现。
+- 因受控文件发生变化，开发正确选择路径 B：形成新 SRC、新包并重跑全部强制 Gate；未沿用
+  `f86058c` / `8bcc8af` / `d4249f66…DA0F` 的 PASS。
+
+### 14.4 RESULT 语义审查
+
+- §R3-13 完整说明路径判定、候选父链、三项受控文件变化、正反向证明、全部 Gate、偏差和增量待验收
+  问题；顶部仅呈现最新候选，历史退回对象被明确标为失效追溯。
+- 全量 Gate 均声明在新包上 rc 0：Design Fidelity 116/0；六格 6×3、18/18，首 Fact 中位 6.41s、
+  最大 8.15s，Embedding 18/18=1；负向自测 7/7 非零退出且 fail-closed。
+- 待独立验收范围继续执行 §11.8，并新增复核负向运行器是否真实读取子进程退出码、manifest 是否对
+  零退出码证据 fail-closed。开发没有把应由开发完成的强制 Gate 转交给 Acceptance 补跑。
+
+### 14.5 结论与下一门禁
+
+**Documentation Gate 结论：`DOC_ALIGNED`。** 本结论只表示批准 PLAN、RESULT、机械身份和证据入口
+已对齐，允许保护候选并把固定 `review` detached 到包含本节的文档收口对象；不表示实现正确、独立
+验收通过、人工验收通过或可发布。
+
+下一步必须由未参与 `c37270c` 实现、自测、修复、负向运行器/manifest 修改或 RESULT 编写的
+Acceptance Agent，在 review 外的一次性源码副本、隔离 runtime 与中央精确包上执行 PLAN §8、§11.8
+及 §13.7 的完整独立验收。通过前不得进入 Product Owner 人工验收或发布。
