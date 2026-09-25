@@ -49,6 +49,15 @@ _DATE_RE = re.compile(r"(\d{4})[\.\-/年](\d{1,2})?")
 
 # ── 日期解析（确定性，PLAN §5.1.6） ────────────────────────────── #
 
+def _norm_key(value) -> str:
+    """G03 精确重复键的归一：统一首尾空白、换行与等价空值（None 与 "" 等价）。"""
+    if value is None:
+        return ""
+    s = str(value)
+    return " ".join(part.strip()
+                    for part in s.replace("\r\n", "\n").replace("\r", "\n").splitlines())
+
+
 def _parse_date_part(part: str) -> Optional[tuple[int, int]]:
     """解析 'YYYY.MM' / 'YYYY年MM月' / 'YYYY' → (year, month)。无法解析返回 None。"""
     if not part:
@@ -322,8 +331,22 @@ def select_experiences(
     project_pool: list[Experience] = []
     campus_pool: list[Experience] = []
 
+    # V2.2.0 P0 G03：选材层精确去重——既有完全重复经历按同内容键只保留一条进槽位。
+    # 不做模糊语义合并；公司/角色/时间/正文存在实质差异仍视为独立经历。
+    seen_keys: set[tuple] = set()
+
     for exp in experiences:
         t = (exp.type or "").strip().lower()
+        key = (_norm_key(exp.type or ""), _norm_key(exp.title or ""),
+               _norm_key(exp.company or ""), _norm_key(exp.role or ""),
+               _norm_key(exp.time or ""), _norm_key(exp.description or ""),
+               _norm_key(",".join(exp.skills or [])),
+               _norm_key(",".join(exp.achievements or [])))
+        if key in seen_keys:
+            cset.excluded_ids.append(exp.id)
+            cset.warnings.append(f"dedup: {exp.id} 与既有经历精确重复，选材层只占一条（G03）")
+            continue
+        seen_keys.add(key)
         parsed = parse_experience_time(exp.time or "")
         if t in ("work", "internship", "实习", "工作"):
             if not parsed["parseable"]:
@@ -461,6 +484,7 @@ def select_evidence(
     *,
     embedder: Optional[callable] = None,
     top_k_facts: int = 5,
+    jd_query_vector_override: Optional[list[float]] = None,
 ) -> SelectedEvidenceSet:
     """执行第二层事实选材（PLAN §5.2 / §4.3）。
 
@@ -469,6 +493,11 @@ def select_evidence(
     - fact_refs 带 revision/hash，过期可核对
     - 不写回事实库
     - 嵌入未就绪时抛 VectorIndexNotReadyError（阻断生成，PLAN §8.2）
+
+    ``jd_query_vector_override``：V2.2.0 R3-§6 并行预嵌入的 JD 查询向量。
+    非空时直接作为 JD 查询向量使用，跳过本层对 jd_query_text 的串行 resolve，
+    使"首向量化"在 P1 JD chat 期间完成（首 Fact ≤15s）。为空/None 时回退原有
+    串行 resolve 路径，行为不变（供旧 resume_generation_service 链路消费）。
     """
     selected_ids = candidate_set.selected_ids()
     if not selected_ids:
@@ -485,7 +514,7 @@ def select_evidence(
     if candidate_fact_ids:
         embedding_service.ensure_ready(session, candidate_fact_ids)
 
-    # 计算 JD 查询向量
+    # 计算 JD 查询向量（R3-§6：尽量复用主编排预嵌入的向量；否则串行 resolve）
     resolve = embedding_service._resolve_embedder(embedder)
     jd_query_text = " ".join([
         jd_analysis.get("position", ""),
@@ -495,10 +524,13 @@ def select_evidence(
     ]).strip()
     query_vector: list[float] = []
     if jd_query_text and all_facts:
-        try:
-            query_vector = resolve(jd_query_text)
-        except Exception as e:
-            raise ContentGenerationError(f"JD 查询向量计算失败: {e}") from e
+        if jd_query_vector_override:
+            query_vector = jd_query_vector_override
+        else:
+            try:
+                query_vector = resolve(jd_query_text)
+            except Exception as e:
+                raise ContentGenerationError(f"JD 查询向量计算失败: {e}") from e
 
     evidence = SelectedEvidenceSet(
         selection_id=str(uuid.uuid4()),
@@ -508,7 +540,17 @@ def select_evidence(
         created_at=datetime.utcnow().isoformat(),
     )
 
-    # 按经历分组选材
+    # 按经历分组选材：一次批量读取全部候选向量 + 一次读取全部 Fact，逐组精确 cosine 排序。
+    # V2.2.0 首 Fact ≤15s：把原先按 slot 多次 query_facts（每次独立 embeddings 查询 +
+    # 每行 session.get(Fact) 的 N+1 串行）归并为一次批量检索，消除随经历数线性增长的 P2 串行耗时，
+    # 让 P3 首个 Fact 更快启动；结果与 score/revision/top_k 语义与 query_facts 完全一致。
+    groups = {slot.experience_id: [f.fact_id for f in all_facts
+                                   if f.experience_id == slot.experience_id]
+              for slot in candidate_set.slots}
+    ranked_by_slot = embedding_service.query_facts_grouped(
+        session, query_vector, groups, top_k=top_k_facts,
+    ) if query_vector else {}
+
     for slot in candidate_set.slots:
         exp_facts = [f for f in all_facts if f.experience_id == slot.experience_id]
         if not exp_facts:
@@ -520,9 +562,7 @@ def select_evidence(
             ))
             continue
 
-        ranked = embedding_service.query_facts(
-            session, query_vector, [f.fact_id for f in exp_facts], top_k=top_k_facts,
-        ) if query_vector else []
+        ranked = ranked_by_slot.get(slot.experience_id, []) or []
 
         # 构建 fact_refs（只引用版本匹配的 VALID 向量命中的 Fact）
         refs: list[FactRef] = []

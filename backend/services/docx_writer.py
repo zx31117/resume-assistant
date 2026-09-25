@@ -178,6 +178,88 @@ def fill_placeholders(p: Paragraph, ctx: dict) -> bool:
     return any_empty
 
 
+def fill_profile_line(p: Paragraph, ctx: map) -> bool:
+    """按「label + 占位符 + 分隔符」逐字段渲染 Profile 多 cell 联系行（PLAN Revision 3 P0）。
+
+    模板 Profile_Line 形如（占位符独占 Run，label/分隔符各自独立 Run）：
+        `电话：` `{{profile.phone}}` ` 丨 ` `邮箱：` `{{profile.email}}` ` 丨 ` `所在地：` `{{profile.location}}`
+
+    旧 fill_placeholders 语义是"任占位符为空 → 整段删除"，导致所在地为空时整行电话/邮箱一并消失。
+
+    本函数改为**逐字段**处理：
+      - 某字段 value 为空 → 删除该占位符 Run 及其前的 label/分隔符 Run（不整行删除）；
+      - 全部字段为空 → 返回 True（由渲染器删除整行）；
+      - 行首残留分隔符（如删掉第一个字段后保留下来的 `丨 `）会被裁剪。
+
+    返回 True 表示行内**所有**字段均为空，应向渲染器传递"删除整段"。
+    """
+    runs = list(p.runs)
+    # 把 Runs 分组为「label/分隔符 Run(s) + 一个占位符 Run」；占位符值决定整组去留。
+    # 先解析每个占位符 Run 的 dotpath 与解析值。
+    kept_runs: set[object] = set()     # 存活 Run（其余删除）
+    kept_placeholder_index: list[int] = []  # 存活占位符 Run 在 runs 中的下标
+
+    pending_labels: list[object] = []  # 当前待定 label/分隔符 Run（归属下一个占位符）
+    for idx, run in enumerate(runs):
+        text = run.text or ""
+        m = _PH_SINGLE_RE.match(text)
+        if m:
+            dotpath = m.group(1)
+            val = _resolve_dotpath(ctx, dotpath)
+            if val:
+                run.text = val
+                kept_runs.update(pending_labels)   # 保留该字段的 label/分隔符
+                kept_runs.add(run)                 # 保留占位符 Run
+                kept_placeholder_index.append(idx)
+            # 为空：该字段的 label/分隔符 + 占位符 Run 一并丢弃
+            pending_labels = []
+        else:
+            if not text.strip():
+                # 纯空白/空 Run 一律保留（格式占位，不随字段删除）
+                kept_runs.add(run)
+                continue
+            pending_labels.append(run)
+
+    if not kept_placeholder_index:
+        # 全部字段为空 → 整段删除
+        return True
+
+    # 裁剪行首残留分隔符：若最前面保留下来的 Run 是分隔符（前一个字段被删掉遗留），删掉它
+    ordered_kept = [run for run in runs if run in kept_runs]
+    if ordered_kept:
+        first = ordered_kept[0]
+        if first not in [runs[i] for i in kept_placeholder_index] and (
+                "丨" in (first.text or "") or "|" in (first.text or "") or "｜" in (first.text or "")):
+            kept_runs.discard(first)
+
+    # 删除所有未保留的 Run 元素（保留原有 rPr）
+    for run in runs:
+        if run not in kept_runs:
+            run._r.getparent().remove(run._r)
+    return False
+
+
+def remove_run_containing_drawing(doc: Document, name_hint: str) -> bool:
+    """删除含指定 `name` 的 w:drawing 所在 Run（用于移除空照片占位框，PLAN Revision 3 P0）。
+
+    模板中 `name="PhotoPlaceholder"` 的 w:drawing 无文本/占位符，渲染后仍是空相框。
+    删除整个 Run（连同其 w:drawing），不触碰任何占位符或正文。
+    返回是否删除过。
+    """
+    from docx.oxml.ns import qn as _qn
+    removed = False
+    for p in doc.paragraphs:
+        for run_elem in list(p._p.findall(_qn('w:r'))):
+            drawing = run_elem.find(_qn('w:drawing'))
+            if drawing is None:
+                continue
+            if name_hint and name_hint not in drawing.xml:
+                continue
+            run_elem.getparent().remove(run_elem)
+            removed = True
+    return removed
+
+
 # ── 文档级：加载模板资产（docx + json 成对） ───────────────────── #
 
 def load_template_assets(template_id: str, backend_root: str) -> tuple[Document, TemplateSpec]:

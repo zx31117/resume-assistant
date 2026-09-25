@@ -527,6 +527,105 @@ def query_facts(
     return results
 
 
+# ── 批量分组检索（V2.2.0 首 Fact ≤15s：把 P2 串行 N+1 归并为一次向量读 + 一次 Fact 读） ── #
+
+def query_facts_grouped(
+    session: Session,
+    query_vector: list[float],
+    groups: dict[str, list[str]],
+    *,
+    top_k: Optional[int] = None,
+) -> dict[str, list[dict]]:
+    """对多组 Fact 一次性读取向量 + 一次读取 Fact，再按组精确 cosine 排序。
+
+    与 ``query_facts`` 语义完全一致：只使用当前 fingerprint + status=VALID + 维度匹配 +
+    revision/hash 匹配的向量；任一不匹配视为不可用，排除（不 fallback）；健康检查失败
+    抛 ``RetrievalHealthError``（R6）。差别仅在于：把原先按 slot 多次 DB 查询（每次
+    ``session.query(FactEmbedding)`` + 每行 ``session.get(Fact, ...)``）合并为
+    一次 embeddings 批量读 + 一次 Fact 批量读，消除随经历数线性增长的串行 P2 耗时。
+
+    ``groups``：group_key → 该组候选 Fact id 列表。返回 {group_key: [ranked, ...]}，
+    每组的 ranked 元素为 {fact_id, score, revision}，按 score 降序，top_k 截断。
+    """
+    all_ids: list[str] = []
+    for gids in groups.values():
+        all_ids.extend(gids)
+    if not all_ids:
+        return {k: [] for k in groups}
+    fp = compute_fingerprint()
+    rows = (
+        session.query(FactEmbedding)
+        .filter(
+            FactEmbedding.fact_id.in_(all_ids),
+            FactEmbedding.embedding_fingerprint == fp,
+            FactEmbedding.status == EmbeddingStatus.VALID,
+        )
+        .all()
+    )
+    # 一次批量取 Fact（避免原 per-row session.get 的 N+1 串行查询）
+    facts = {
+        f.fact_id: f
+        for f in (session.query(Fact).filter(Fact.fact_id.in_(all_ids)).all())
+    }
+    q_dim = len(query_vector)
+    q = np.asarray(query_vector, dtype=_NP_DTYPE)
+
+    grouped_issues: list[str] = []
+    out: dict[str, list[dict]] = {k: [] for k in groups}
+    by_id: dict[str, list] = {}
+    for row in rows:
+        by_id.setdefault(row.fact_id, []).append(row)
+
+    for gkey, gids in groups.items():
+        results: list[dict] = []
+        for gid in gids:
+            for row in by_id.get(gid, []):
+                # R6: health checks — failures collected, not silently skipped
+                if row.dimension != q_dim:
+                    grouped_issues.append(
+                        f"dimension mismatch: fact_id={row.fact_id} stored={row.dimension} query={q_dim}")
+                    continue
+                if row.dimension <= 0:
+                    grouped_issues.append(f"zero dimension: fact_id={row.fact_id}")
+                    continue
+                v = _decode_vector(row.vector_blob or b"", row.vector_dtype, row.dimension)
+                if v.shape[0] != q_dim:
+                    grouped_issues.append(
+                        f"blob length mismatch: fact_id={row.fact_id} blob={v.shape[0]} query={q_dim}")
+                    continue
+                fact = facts.get(row.fact_id)
+                if fact is None:
+                    grouped_issues.append(f"orphan fact: fact_id={row.fact_id}")
+                    continue
+                if (fact.revision or 1) != row.fact_revision:
+                    grouped_issues.append(
+                        f"revision mismatch: fact_id={row.fact_id} fact={fact.revision} emb={row.fact_revision}")
+                    continue
+                if (fact.content_hash or "") != row.fact_content_hash:
+                    grouped_issues.append(
+                        f"content_hash mismatch: fact_id={row.fact_id}")
+                    continue
+                score = _cosine(q, v)
+                results.append({
+                    "fact_id": row.fact_id,
+                    "score": round(score, 6),
+                    "revision": row.fact_revision,
+                })
+        results.sort(key=lambda x: x["score"], reverse=True)
+        if top_k is not None:
+            results = results[:top_k]
+        out[gkey] = results
+
+    # R6: 任一组的健康问题必须阻断——不混淆为健康低相关
+    if grouped_issues:
+        from core.errors import RetrievalHealthError
+        raise RetrievalHealthError(
+            f"检索健康检查失败: {len(grouped_issues)} issues (R6)",
+            issues=grouped_issues[:20],
+        )
+    return out
+
+
 def status_summary(session: Session) -> dict:
     """诊断用：按状态统计当前 fingerprint 下的向量数量。"""
     fp = compute_fingerprint()

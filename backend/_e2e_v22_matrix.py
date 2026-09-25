@@ -29,6 +29,8 @@ _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
 
+import core.config_resolver  # noqa: F401  # 触发 apply_startup_overlay：从凭据库解析 ARK_API_KEY（与生产启动一致）
+
 
 # ── 调用遥测（不修改产品源码；仅在本验证脚本进程内包裹 LLM 调用采集） ─────
 # 目标：每样本记录 cell/sample/status、F、逻辑调用数(==1+2F)、每逻辑调用的 HTTP attempt、
@@ -209,8 +211,11 @@ def _sh(s: str) -> str:
 
 def _exp(db, idx, *, etype, title, company, role, time, description, skills, achievements):
     from database.models import Experience, Fact, FactType
-    e = Experience(id=f"exp{idx}", type=etype, title=title, company=company,
-                   role=role, time=time, description=description, skills=skills,
+    from core.config import settings
+    # Revision 3 owner 契约：种子经历归属当前本地用户，P2 候选才按 owner 命中。
+    e = Experience(id=f"exp{idx}", user_id=settings.DEFAULT_USER_ID, type=etype,
+                   title=title, company=company, role=role, time=time,
+                   description=description, skills=skills,
                    achievements=achievements, raw_text=description)
     db.add(e)
     db.flush()
@@ -304,6 +309,22 @@ def _jd(size: str) -> str:
 
 def _run_one(datadir: str, size: str, seed: bool) -> dict:
     os.environ[_ENV_KEY] = datadir
+    # 强制 settings 运行数据路径指向本次隔离目录（config 在模块导入期已冻结为默认值，
+    # 不能依赖 os.environ 覆盖；必须在导入 database.session / migrations 前改写，才能
+    # 真正做到 cold=每样本全新临时库，避免各样本共用默认库导致 UNIQUE/锁冲突）。
+    from pathlib import Path as _P
+    from core.config import settings as _cfg
+    _root = _P(datadir)
+    _cfg.RESUME_DATA_DIR = _root
+    _db = _root / "database"; _db.mkdir(parents=True, exist_ok=True)
+    _cfg.SQLITE_PATH = str(_db / "app.db")
+    # 产物/杂项目录一并对齐用于隔离目录；Path 型字段保持 Path，str 型保持 str。
+    _cfg.DOCX_OUTPUT_DIR = str(_root / "output")
+    _cfg.LOGS_DIR = _root / "logs"
+    _cfg.CACHE_DIR = _root / "cache"
+    _cfg.DIAGNOSTICS_DIR = _root / "diagnostics"
+    for _d in (_root / "output", _root / "logs", _root / "cache", _root / "diagnostics"):
+        _d.mkdir(parents=True, exist_ok=True)
     _install_telemetry()
     from database import migrations as mig
     from database.models import Task, TaskEvent, InputRevision

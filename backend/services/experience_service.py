@@ -46,6 +46,43 @@ def metadata(exp: models.Experience) -> dict:
 _metadata = metadata
 
 
+def experience_content_key(data: dict) -> tuple:
+    """V2.2.0 P0 G03：精确内容键（PLAN §3.2）。
+
+    由 Experience 类型及**全部用户来源业务字段**组成；只统一首尾空白、换行和等价空值
+    （None 与 "" 等价），不包含 ID、创建/更新时间、Fact、Embedding 或模型派生字段。
+    用于保存层去重返回与选材层同键去重，是唯一同一性依据。
+    """
+    def _norm(v) -> str:
+        if v is None:
+            return ""
+        s = str(v)
+        return " ".join(part.strip() for part in s.replace("\r\n", "\n").replace("\r", "\n").splitlines())
+    skills = _norm(",".join(data.get("skills") or []))
+    ach = _norm(",".join(data.get("achievements") or []))
+    return (
+        _norm(data.get("type") or ""),
+        _norm(data.get("title") or ""),
+        _norm(data.get("company") or ""),
+        _norm(data.get("role") or ""),
+        _norm(data.get("time") or ""),
+        _norm(data.get("description") or ""),
+        skills,
+        ach,
+    )
+
+
+def find_duplicate_experience(db: Session, user_id: str, data: dict):
+    """同 owner 下是否已存在精确等价经历；返回已存在行或 None。"""
+    key = experience_content_key(data)
+    from database.models import Experience
+    rows = db.query(Experience).filter(Experience.user_id == user_id).all()
+    for r in rows:
+        if experience_content_key(r.__dict__) == key:
+            return r
+    return None
+
+
 def _reconcile_facts(db: Session, exp: models.Experience) -> dict:
     """R1: 对经历的 Fact 进行 reconciliation。
 
@@ -108,7 +145,17 @@ def create_experience(db: Session, user_id: str, data: dict, recording: Optional
 
     V2.0.1（T3）：真实阶段与事务/回滚事件进入统一 operation 记录（PLAN §5.2）；
     recording 为 None 时（CLI/测试直调）打点退化为 no-op，事务语义不变。
+
+    V2.2.0 P0 G03：创建前对同 owner 精确等价经历做保存层去重——命中已存在行直接抛
+    DuplicateExperienceError（稳定 DUPLICATE_EXPERIENCE），**不写入**二次 Fact/Embedding。
     """
+    from core.errors import DuplicateExperienceError
+    dup = find_duplicate_experience(db, user_id, data)
+    if dup is not None:
+        raise DuplicateExperienceError(
+            "完全重复经历（同 owner 精确内容键已存在），拒绝重复写入",
+            details={"existing_id": dup.id},
+        )
     exp = models.Experience(
         user_id=user_id,
         type=data.get("type", ""),
@@ -218,11 +265,16 @@ def _annotate_summary(db: Session, exps: list) -> None:
         setattr(exp, "summary_status", s["summary_status"])
 
 
-def get_experience(db: Session, exp_id: str) -> Optional[models.Experience]:
-    return db.query(models.Experience).filter(models.Experience.id == exp_id).first()
+def get_experience(db: Session, exp_id: str, owner: Optional[str] = None) -> Optional[models.Experience]:
+    exp = db.query(models.Experience).filter(models.Experience.id == exp_id).first()
+    if exp is not None and owner is not None and exp.user_id != owner:
+        # V2.2.0 P0：异主/LEGACY_UNOWNED 经历视同不存在（隔离，不经此路径触碰）。
+        return None
+    return exp
 
 
-def update_experience(db: Session, exp_id: str, data: dict, recording: Optional[Recording] = None) -> Optional[models.Experience]:
+def update_experience(db: Session, exp_id: str, data: dict, recording: Optional[Recording] = None,
+                      owner: Optional[str] = None) -> Optional[models.Experience]:
     """R1: 更新经历——对 Fact 做 reconciliation（同事务，W1）。
 
     V1.5.0 R1：update 后调用 _reconcile_facts 对新增、修改、删除的来源项做
@@ -234,7 +286,7 @@ def update_experience(db: Session, exp_id: str, data: dict, recording: Optional[
     V2.0.1（T3）：真实阶段与事务/回滚事件进入统一 operation 记录（PLAN §5.2）。
     """
     with optional_stage(recording, "validate", "请求与目标记录校验", ResourceType.LOCAL_DB):
-        exp = get_experience(db, exp_id)
+        exp = get_experience(db, exp_id, owner=owner)
         if not exp:
             return None
     try:
@@ -264,7 +316,8 @@ def update_experience(db: Session, exp_id: str, data: dict, recording: Optional[
     return exp
 
 
-def delete_experience(db: Session, exp_id: str, recording: Optional[Recording] = None) -> bool:
+def delete_experience(db: Session, exp_id: str, recording: Optional[Recording] = None,
+                      owner: Optional[str] = None) -> bool:
     """R1: 删除经历——清理 Fact 与 FactEmbedding。
 
     V1.5.0 R1：delete 前显式删除其 Fact 的 FactEmbedding，再删除 Experience
@@ -273,7 +326,7 @@ def delete_experience(db: Session, exp_id: str, recording: Optional[Recording] =
     V2.0.1（T3）：真实阶段进入统一 operation 记录（PLAN §5.2）。
     """
     with optional_stage(recording, "validate", "目标记录校验", ResourceType.LOCAL_DB):
-        exp = get_experience(db, exp_id)
+        exp = get_experience(db, exp_id, owner=owner)
         if not exp:
             return False
     # R1: 先删除其 Fact 的 Embedding，再删除 Experience（级联删除 Fact）

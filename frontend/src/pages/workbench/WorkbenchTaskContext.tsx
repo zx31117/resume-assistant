@@ -182,6 +182,13 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
   const inFlightRef = useRef(false)
   const loadingRef = useRef(true)
   const saveFnRef = useRef<((t: TaskInput) => Promise<void>) | null>(null)
+  // V2.2.0 R3-§7：权威任务 id 的 ref 镜像。generate() 的 finally 对账与 refresh 必须读取它，
+  // 避免闭包捕获的 taskId 在点击生成时仍为 null（过期闭包 → refresh 空操作 → 前端永远
+  // 学不到后端终态）。凡 setTaskId 处同步维护。
+  const taskIdRef = useRef<string | null>(null)
+  // V2.2.0 R3-§7：生成期间同步门禁 ref。预防 750ms 预填自动保存 debounce 在生成已启动后
+  // in-flight 再创建孤儿 DRAFT 任务并顶掉 lastTaskId（导致终态后 restore 到 DRAFT）。
+  const generatingRef = useRef(false)
 
   useEffect(() => {
     inputRef.current = input
@@ -200,6 +207,7 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
   /** 用后端权威视图更新状态（恢复 / 保存 / SSE 快照共用）。 */
   const applyView = useCallback((t: TaskOut) => {
     setTaskId(t.task_id)
+    taskIdRef.current = t.task_id
     setStatus(t.status)
     setSnapshotPhase(t.snapshot?.phase ?? '')
     setSnapshotPayload(t.snapshot?.payload ?? null)
@@ -237,18 +245,42 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refresh = useCallback(async () => {
-    if (!taskId) return
+    const id = taskIdRef.current
+    if (!id) return
     try {
-      const t = await taskApi.get(taskId)
+      const t = await taskApi.get(id)
       const confirmedNow = t.latest_input ?? confirmed
       applyView({ ...t, latest_input: confirmedNow })
     } catch (e) {
       // 读取失败不打断编辑；保留输入
       setSaveError(toError(e))
     }
-  }, [taskId, applyView, confirmed])
+  }, [applyView, confirmed])
 
-  // —— 挂载恢复（权威 GET；不重复触发生成）——
+  // V2.2.0 R3-§7：生成后的有界终态对账（终态收敛保险）。
+  // 生成请求抛错/断流或 SSE 未订阅时，前端可能停在 DRAFT/READY 而学不到后端 FAILED。
+  // 此处以权威 GET 轮询直到终止态（≤90s），对成功/常规流程幂等（SSE 也走同一 applyView）。
+  const reconcileTerminal = useCallback(async () => {
+    const id = taskIdRef.current
+    if (!id) return
+    const deadline = Date.now() + 90_000
+    while (Date.now() < deadline) {
+      let t: TaskOut
+      try {
+        t = await taskApi.get(id)
+      } catch {
+        return
+      }
+      if (t.status === 'FAILED' || t.status === 'SUCCEEDED' || t.status === 'CANCELLED') {
+        applyView(t)
+        return
+      }
+      applyView(t) // 顺带推进 RUNNING 快照，不阻断
+      await new Promise((r) => setTimeout(r, 1500))
+    }
+  }, [applyView])
+
+  // —— 挂载恢复（权威 GET；不重复触发生成） ——
   const restore = useCallback(async () => {
     const id = sessionStorage.getItem(TASK_STORAGE_KEY)
     if (!id) {
@@ -270,6 +302,7 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         persistTaskId(null)
+        taskIdRef.current = null
         setLoadState('ready')
       } else {
         setLoadError(toError(e))
@@ -292,9 +325,12 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
     async (targetInput: TaskInput) => {
       let id = taskId
       if (!id) {
+        // V2.2.0 R3-§7：生成已启动期间，禁止自动保存再创建孤儿任务（避免顶掉 lastTaskId）。
+        if (generatingRef.current) return
         try {
           const created = await taskApi.create(newOperationId())
           id = created.task_id
+          taskIdRef.current = id
           setTaskId(id)
           setStatus(created.status)
           persistTaskId(id)
@@ -373,14 +409,28 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
   // —— 生成（冻结→启动→异步生成；SSE 随后接管）——
   const generate = useCallback(async () => {
     if (generatePending) return
+    // V2.2.0 R3-§7：点击生成即停止预填自动保存（debounce）。
+    // 否则它会在生成已建立的 RUNNING 任务之外，异步再造一个孤儿 DRAFT 任务并覆写
+    // lastTaskId，导致刷新/恢复时 restore 到 DRAFT 而看不到 FAILED 终态面板。
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
     setGenerateError(null)
     setGeneratePending(true)
+    generatingRef.current = true
     try {
       let id = taskId
       if (!id) {
         const created = await taskApi.create(newOperationId())
         id = created.task_id
         setTaskId(id)
+        taskIdRef.current = id
+        persistTaskId(id)
+      } else {
+        // 既有任务也可能被清除前的 debounce 竞态顶掉 lastTaskId；
+        // 以本次生成任务为权威 current，确保终态后刷新 restore 到正确的任务。
+        taskIdRef.current = id
         persistTaskId(id)
       }
       const finalInput = inputRef.current
@@ -409,8 +459,14 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
       setGenerateError(toError(e))
     } finally {
       setGeneratePending(false)
+      generatingRef.current = false
+      // V2.2.0 R3-§7：生成请求抛错/断流时，必须以权威后端终态为准做对账。
+      // DEAD/不可达 provider 下 generate 请求可能同步抛错而任务后端已 FAILED；
+      // 若不收敛，前端 status 停在 DRAFT/READY，永不渲染 .wb-failed 终态面板。
+      // 有界终态轮询（而非单次 refresh）：覆盖 generate 抛错/SSE 未订阅的全部分支。
+      void reconcileTerminal()
     }
-  }, [taskId, status, generatePending, persistTaskId, applyView])
+  }, [taskId, status, generatePending, persistTaskId, applyView, refresh, reconcileTerminal])
 
   // —— 取消（仅 RUNNING/CANCELLING）——
   const cancel = useCallback(async () => {
@@ -519,6 +575,7 @@ export function WorkbenchTaskProvider({ children }: { children: ReactNode }) {
     if (timerRef.current) clearTimeout(timerRef.current)
     persistTaskId(null)
     setTaskId(null)
+    taskIdRef.current = null
     setStatus(null)
     setInput(EMPTY_TASK_INPUT)
     setConfirmed(EMPTY_TASK_INPUT)

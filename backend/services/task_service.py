@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from core.task import TaskStatus
 from core.task_cancel import registry
+from core.owner import current_user_id, LocalOwnerContext
 from services.task_repository import (
     TaskInputValidationError,
     TaskNotFoundError,
@@ -69,6 +70,19 @@ def _run_task_cleanup(db: Session) -> None:
         logger.error("T9 task-terminal cleanup failed task=%r: %r", id(db), e)
 
 
+def _require_owner(task) -> None:
+    """V2.2.0 P0：任务必须归属当前 owner，否则等价于不存在（404）。
+
+    旧任务/异主任务（user_id IS NULL 的 LEGACY_UNOWNED，或其他身份）一律隔离，
+    视同任务不存在——不做列选/后续访问，从 True Source 上拒绝越权触碰。
+    """
+    if task is None or task.user_id != current_user_id():
+        raise TaskNotFoundError(
+            f"任务不存在：{getattr(task, 'task_id', '')}",
+            details={"task_id": getattr(task, 'task_id', '')},
+        )
+
+
 class TaskService:
     """使用显式传入 session（由 FastAPI get_db 提供）。"""
 
@@ -87,6 +101,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        _require_owner(task)
         self._repo.set_draft_input(task, name=name, phone=phone, email=email,
                                    location=location, jd=jd)
         self._db.commit()
@@ -99,6 +114,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        _require_owner(task)
         self._repo.freeze_input(task, name=name, phone=phone, email=email,
                                 location=location, jd=jd)
         self._db.commit()
@@ -108,7 +124,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
-        # 单前台活动任务门禁（排除自身，幂等允许重复 RUNNING）
+        _require_owner(task)
         self._repo.assert_single_active(exclude_task_id=task_id)
         self._repo.transition(task, TaskStatus.RUNNING)
         self._db.commit()
@@ -117,6 +133,8 @@ class TaskService:
     def get_task(self, task_id: str) -> dict[str, Any]:
         view = self._repo.get_view(task_id)
         if view is None:
+            raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        if view.user_id != current_user_id():  # V2.2.0 P0：异主/LEGACY 隔离
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
         return _task_view_dict(view)
 
@@ -134,6 +152,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        _require_owner(task)
         cur = TaskStatus(task.status)
         if cur not in (TaskStatus.RUNNING, TaskStatus.CANCELLING):
             raise TaskStateError(
@@ -158,6 +177,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        _require_owner(task)
         revision = task.current_input_revision or 0
         ctx = registry.start(task_id, revision)
         return task_id, revision, ctx
@@ -183,6 +203,7 @@ class TaskService:
         task = self._repo.get(task_id)
         if task is None:
             raise TaskNotFoundError(f"任务不存在：{task_id}", details={"task_id": task_id})
+        _require_owner(task)
         if TaskStatus(task.status) != TaskStatus.RUNNING:
             raise TaskStateError(
                 f"仅 RUNNING 状态可启动生成，当前 {task.status}",
@@ -233,15 +254,16 @@ class TaskService:
                 effective_assembler = assembler if assembler is not None else (
                     document_assembler.make_task_assembler(
                         local, contact=contact,
-                        template_id="pm_template", user_id=task_id,
+                        template_id="pm_template",  # V2.2.0 P0：装配归主用真实 owner，不用 task_id 冒充
                     )
                 )
                 summary = generate_task(local, db_task, ctx, input_view,
                                         budget=None, provider=provider,
                                         selector=selector, assembler=effective_assembler,
                                         preload=preload)
-                # 先落地 SUCCEEDED，再发布产物引用（publish_artifacts 仅允许在 SUCCEEDED
-                # 终态写入发布路径；倒序会被 guard 拒绝，如 T10 真实装配链暴露）。
+                # V2.2.0 P0：成功终态 + artifact 引用必须在同一 DB 事务内原子提交。
+                # （P4 已做归属/来源完整性/必需章节/未替换占位符/原型文字/artifact 可读性
+                # 硬校验；结构性错误已在 assembler 内抛错导致 FAILED，不会走到这里。）
                 repo.transition(db_task, TaskStatus.SUCCEEDED)
                 if summary.assembled and summary.artifacts.get("docx_path"):
                     repo.publish_artifacts(
@@ -265,7 +287,8 @@ class TaskService:
                         local.rollback()
             except Exception as e:  # noqa: BLE001
                 local.rollback()
-                code = e.error_code if isinstance(e, ContentGenerationError) else "GENERATION_FAILED"
+                from core.errors import DomainError as _DE
+                code = e.error_code if isinstance(e, _DE) else "GENERATION_FAILED"
                 failed = local.get(db_models.Task, task_id)
                 if failed is not None and TaskStatus(failed.status) not in _train_terminal:
                     try:
@@ -303,6 +326,9 @@ class TaskService:
         src = self._repo.get(source_task_id)
         if src is None:
             raise TaskNotFoundError(f"源任务不存在:{source_task_id}", details={"task_id": source_task_id})
+        # V2.2.0 P0：续试仅对当前 owner 的 FAILED 源开放；LEGACY_UNOWNED（无主）与
+        # 异主源一律隔离（视同不存在）。续试新任务继承当前 owner（create 已写入 user_id）。
+        _require_owner(src)
         if task_domain.TaskStatus(src.status) != task_domain.TaskStatus.FAILED:
             raise TaskStateError(
                 f"仅 FAILED 任务可续试失败范围，当前 {src.status}",
@@ -384,6 +410,7 @@ class TaskService:
 def _task_view_dict(view) -> dict[str, Any]:
     return {
         "task_id": view.task_id,
+        "user_id": view.user_id,
         "status": view.status,
         "current_input_revision": view.current_input_revision,
         "active_operation_id": view.active_operation_id,

@@ -28,6 +28,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from core.errors import DomainError
+from core.owner import current_user_id
 from core.task import (
     ACTIVE_EXCLUSIVE_STATUSES,
     EVENT_RING_BUFFER_SIZE,
@@ -139,6 +140,7 @@ class TaskView:
     """给 API/service 的任务只读投影（含可选子任务/事件）。"""
 
     task_id: str
+    user_id: Optional[str]
     status: str
     current_input_revision: int
     active_operation_id: Optional[str]
@@ -160,6 +162,7 @@ def _task_view(task: Task, latest_input: Optional[InputRevision] = None,
                snapshot: Optional[TaskSnapshot] = None) -> TaskView:
     return TaskView(
         task_id=task.task_id,
+        user_id=task.user_id,
         status=task.status,
         current_input_revision=task.current_input_revision,
         active_operation_id=task.active_operation_id,
@@ -227,6 +230,8 @@ class TaskRepository:
         task_id = task_id or self.next_task_id()
         task = Task(
             task_id=task_id,
+            # V2.2.0 P0：新任务一律带非空 owner（本地单用户真源）
+            user_id=current_user_id(),
             status=TaskStatus.DRAFT.value,
             current_input_revision=0,
             active_operation_id=None,
@@ -255,6 +260,7 @@ class TaskRepository:
         为空则不伪造历史，如实返回 []。
         """
         rows = (self._db.query(Task)
+                .filter(Task.user_id == current_user_id())  # V2.2.0 P0：只列 owner 的记录
                 .filter(Task.status == TaskStatus.SUCCEEDED.value)
                 .filter(
                     Task.published_docx_path.isnot(None),
@@ -271,6 +277,7 @@ class TaskRepository:
                       .first())
             out.append({
                 "task_id": t.task_id,
+                "user_id": t.user_id,
                 "status": t.status,
                 "published_resume_revision": t.published_resume_revision,
                 "published_docx_path": t.published_docx_path,
@@ -349,6 +356,7 @@ class TaskRepository:
     def assert_single_active(self, exclude_task_id: Optional[str] = None) -> None:
         """确保一次 profile 只有一条 RUNNING/CANCELLING 前台任务（T2/T3/T5 共用）。"""
         q = self._db.query(Task).filter(
+            Task.user_id == current_user_id(),  # V2.2.0 P0：活动槽按 owner 隔离
             Task.status.in_([s.value for s in ACTIVE_EXCLUSIVE_STATUSES])
         )
         if exclude_task_id is not None:

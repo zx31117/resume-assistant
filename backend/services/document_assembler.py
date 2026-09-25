@@ -24,6 +24,13 @@ import unicodedata
 import uuid
 from typing import Any, Optional
 
+from core.errors import (
+    ArtifactInvalidError,
+    DomainError,
+    OptionalContentAbsentError,
+    SourceContentLostError,
+    TemplateStructureInvalidError,
+)
 from models.resume_document import (
     Profile,
     EducationItem,
@@ -64,6 +71,48 @@ def _display_text(value: Optional[str]) -> str:
     s = str(value)
     s = "".join(ch for ch in s if ch.isprintable())
     return " ".join(s.split())
+
+
+# ── 教育确定性排序（PLAN Revision 3 P0） ───────────────────────── #
+
+_EDU_MAX_ITEMS = 3
+
+
+def _order_education(edu_sources: list[tuple[Any, EducationItem]]) -> list[EducationItem]:
+    """教育经历按确定性规则排序并截断。
+
+    规则：end desc → start desc → experience_id asc；year/month 无法解析的条目置后；
+    最多 _EDU_MAX_ITEMS 条；走**来源字段**（end_time/start_time），不参与 JD 相关性。
+    """
+    def _key(tup):
+        exp, _item = tup
+        end = _to_ym(_display_text(getattr(exp, "end_time", "") or ""))
+        start = _to_ym(_display_text(getattr(exp, "start_time", "") or ""))
+        # 无法解析 → 置后（end = 极小数位）
+        end_ord = _ym_ordinal(end) if end else -1
+        start_ord = _ym_ordinal(start) if start else -1
+        eid = normalize_text(getattr(exp, "experience_id", "") or "")
+        return (-end_ord, -start_ord, eid)
+
+    ordered = sorted(edu_sources, key=_key)
+    return [item for _exp, item in ordered[:_EDU_MAX_ITEMS]]
+
+
+def _to_ym(s: str) -> Optional[tuple[int, int]]:
+    """从 'YYYY.MM' / 'YYYY-MM' / 'YYYY年MM月' / 'YYYY' 提取 (year, month)；无法解析返回 None。"""
+    import re as _re
+    m = _re.search(r"(\d{4})[.\-年/](\d{1,2})?月?", s or "")
+    if not m:
+        return None
+    year = int(m.group(1))
+    month = int(m.group(2)) if m.group(2) else 1
+    if not (1 <= month <= 12):
+        month = 1
+    return (year, month)
+
+
+def _ym_ordinal(ym: tuple[int, int]) -> int:
+    return ym[0] * 12 + ym[1]
 
 
 def normalize_contact(
@@ -321,6 +370,7 @@ def build_resume_document(
     work_items: list[WorkItem] = []
     project_items: list[ProjectItem] = []
     edu_items: list[EducationItem] = []
+    edu_sources: list[tuple[object, Any]] = []  # (exp, bullets/refs) 供确定性排序
 
     for exp in experiences:
         exp_type = normalize_text(getattr(exp, "type", "") or "").lower()
@@ -356,27 +406,36 @@ def build_resume_document(
             # 把 P3 生成的教育事实（headline：body）原样接入 description，保证事实确定性
             # 进入 DOCX/PDF（V220-G05 / §6.3），不改变事实文本、不改模板真源。
             description = "\n".join(bullets) if bullets else ""
-            edu_items.append(EducationItem(
+            item = EducationItem(
                 school=school, major=major, degree=degree,
                 start_time=start, end_time=end or "至今",
                 description=description or None,
                 experience_id=exp_id, bullets=bullets, fact_refs=refs,
-            ))
+            )
+            # V2.2.0 P0：教育确定性排序（end desc → start desc → id asc；缺失置后，
+            # 最多 3 条，不参与 JD 相关性）。防止"教育未进成品/顺序随查询抖动"。
+            edu_sources.append((exp, item))
         elif exp_type == "project":
+            # V2.2.0 P0：非空 source role 不得硬编码清空（旧代码 role=""）。
             project_items.append(ProjectItem(
-                name=_display_text(getattr(exp, "title", "") or ""),
-                role="",
+                name=_display_text(getattr(exp, "title", "") or "")
+                or _display_text(getattr(exp, "name", "") or ""),
+                role=_display_text(getattr(exp, "role", "") or ""),
                 start_time=start, end_time=end,
                 bullets=bullets, experience_id=exp_id, fact_refs=refs,
             ))
         else:
+            # V2.2.0 P0：非空 source role/company 不得硬编码清空（旧代码 role=""）。
             work_items.append(WorkItem(
                 company=_display_text(getattr(exp, "company", "") or ""
                                       or getattr(exp, "title", "") or ""),
-                role="",
+                role=_display_text(getattr(exp, "role", "") or ""),
                 start_time=start, end_time=end,
                 bullets=bullets, experience_id=exp_id, fact_refs=refs,
             ))
+
+    # V2.2.0 P0：教育按确定性时间排序并限制最 3 条（缺失年份置后，id asc 兜底防抖）。
+    edu_items = _order_education(edu_sources)
 
     # 教育字段格式化修正（T07d）：school/major/degree 独立语义保留，
     # 渲染行文本 = format_education_line(...)；school/major/degree 仍各自保留原值。
@@ -449,6 +508,26 @@ def assemble_and_render(
                 start_time=row.get("start_time", ""),
                 end_time=row.get("end_time", ""),
             ))
+        # V2.2.0 P0：教育经历未经过 P2 选材（确定性结构），把 owner 的教育经历行
+        # 单独并入装配，保证"教育进成品"（不参与 JD 相关性，进入 build_resume_document
+        # 的教育分支做确定性排序/截断）。
+        merged_ids = {e.experience_id for e in summary.experiences}
+        for row in experience_rows:
+            eid = row.get("experience_id")
+            if eid and row.get("type") == "education" and eid not in merged_ids:
+                merged.append(JsonExperience(
+                    experience_id=eid,
+                    title=row.get("school") or row.get("title") or "",
+                    facts=[],
+                    type="education",
+                    company=row.get("school", ""),
+                    school=row.get("school", ""),
+                    major=row.get("major", ""),
+                    role="",
+                    degree=row.get("degree", ""),
+                    start_time=row.get("start_time", ""),
+                    end_time=row.get("end_time", ""),
+                ))
 
         resume_doc = build_resume_document(
             contact=contact, compact=_compact_dict(compact), experiences=merged,
@@ -466,13 +545,34 @@ def assemble_and_render(
         renderer = template_renderer.TemplateRenderer(template_id, backend_root=backend_root)
         renderer.bold_headline = True  # T07c：headline 加粗、正文普通
         renderer.allow_empty_required = True  # T08：合法短输入空章节优雅移除
-        doc, warnings, _ = renderer.render(resume_doc)
+        doc, warnings, render_stats = renderer.render(resume_doc)
+
+        # V2.2.0 P0：结构校验阻断发布 —— 未替换占位符属结构性错误，raise → 任务 FAILED 且不发布。
+        unreplaced = render_stats.get("unreplaced_placeholders") or []
+        if unreplaced:
+            raise TemplateStructureInvalidError(
+                "装配输出仍含未替换占位符，判定为结构性错误，拒绝发布",
+                details={"unreplaced_placeholders": sorted(unreplaced)[:20],
+                         "template_id": template_id},
+            )
 
         safe_user = "".join(c for c in (user_id or "user") if c.isalnum() or c in "-_") or "user"
         op_slug = uuid.uuid4().hex[:16]
         docx_name = f"resume_{safe_user}_{template_id}_{op_slug}.docx"
         docx_abs = os.path.join(out_dir, docx_name)
-        doc.save(docx_abs)
+        try:
+            doc.save(docx_abs)
+        except Exception as e:  # noqa: BLE001
+            raise ArtifactInvalidError(
+                f"DOCX 落盘失败，artifact 不可用：{e}",
+                details={"template_id": template_id},
+            ) from e
+        # V2.2.0 P0：artifact 可读性校验 —— 落盘后必须可读且非空，否则视为结构性失败拒不发布。
+        if not os.path.exists(docx_abs) or os.path.getsize(docx_abs) == 0:
+            raise ArtifactInvalidError(
+                "DOCX artifact 落盘后不可读/为空，拒绝发布",
+                details={"docx_path": docx_abs},
+            )
 
         # 3) 同源 PDF（Word COM）；失败则 DOCX 仍有效，PDF 置空
         pdf_name = ""
@@ -539,6 +639,11 @@ def assemble_and_render(
             "warnings": list(warnings),
         }
         return True, artifacts
+    except DomainError as e:  # noqa: BLE001
+        # V2.2.0 P0：结构性错误（来源丢失/模板结构/artifact 不可用）不再静默吞掉，
+        # 向上抛出让 run_generation 把任务置 FAILED 且不发布残缺 artifact。
+        logger.warning("T07 P4 assemble_and_render 结构性错误阻断发布: %s", e)
+        raise
     except Exception as e:  # noqa: BLE001
         logger.exception("T07 P4 assemble_and_render 失败（fail closed）")
         return False, {"error": type(e).__name__, "message": str(e)}
@@ -568,16 +673,23 @@ def make_task_assembler(
 ) -> Any:
     """构造 task_generation 的 P4 assembler 闭包（签名 `(summary, compact)`）。
 
-    从 summary.experiences 的 experience_id 回查 DB Experience 的 type/字段，
-    得到装配 Education/Work/Project 所需的元数据，再交给 assemble_and_render。
+    V2.2.0 P0：装配归主用**真实 owner**（current_user_id），不用 task_id 冒充：
+      - 从 summary.experiences 的 experience_id 回查 DB Experience 的 type/字段；
+      - **单独取当前 owner 的教育经历**（教育不经过 P2 选材，必须确定性装配进成品）；
+      所有查询都限定 user_id == current_user_id()，隔离异主/LEGACY 素材。
     """
+    from core.owner import current_user_id
     from database.models import Experience
+
+    owner = current_user_id() if not user_id else user_id
 
     def _asm(summary, compact):
         ids = [e.experience_id for e in getattr(summary, "experiences", [])]
         rows: list[dict[str, Any]] = []
         if ids:
-            exps = db.query(Experience).filter(Experience.id.in_(ids)).all()
+            exps = (db.query(Experience)
+                    .filter(Experience.id.in_(ids), Experience.user_id == owner)
+                    .all())
             by_id = {e.id: e for e in exps}
             for eid in ids:
                 e = by_id.get(eid)
@@ -595,7 +707,8 @@ def make_task_assembler(
                 elif t == "project":
                     rows.append({
                         "experience_id": eid, "type": "project",
-                        "title": e.title or "", "start_time": start, "end_time": end,
+                        "title": e.title or "", "role": e.role or "",
+                        "start_time": start, "end_time": end,
                     })
                 else:
                     rows.append({
@@ -603,10 +716,24 @@ def make_task_assembler(
                         "company": e.company or e.title or "",
                         "role": e.role or "", "start_time": start, "end_time": end,
                     })
+        # V2.2.0 P0：单独装配 owner 的教育经历（确定性进成品，不参与 P2 选材）。
+        edu_rows = (db.query(Experience)
+                    .filter(Experience.user_id == owner)
+                    .filter(Experience.type == "education")
+                    .all())
+        for e in edu_rows:
+            if e.id in set(ids):
+                continue  # 已从 summary 选材回查覆盖（一般不会发生）
+            start, end = _split_time(e.time or "")
+            rows.append({
+                "experience_id": e.id, "type": "education",
+                "school": e.company or e.title or "", "title": e.title or "",
+                "major": e.role or "", "degree": "", "start_time": start, "end_time": end,
+            })
         return assemble_and_render(
             db, summary, compact, contact=contact,
             experience_rows=rows, template_id=template_id,
-            user_id=user_id, backend_root=backend_root,
+            user_id=owner, backend_root=backend_root,
         )
 
     return _asm

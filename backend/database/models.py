@@ -163,6 +163,9 @@ class Task(Base):
     __tablename__ = "tasks"
 
     task_id = Column(String, primary_key=True)
+    # V2.2.0 P0（owner 契约）：任务归属当前本地用户。NULL 表示历史遗留无主任务
+    # （LEGACY_UNOWNED 隔离态），不参与并 scope 的列选/列表/清理。
+    user_id = Column(String, nullable=True, index=True)
     status = Column(String, nullable=False, default="DRAFT", index=True)
     current_input_revision = Column(Integer, nullable=False, default=0)
     active_operation_id = Column(String, nullable=True)

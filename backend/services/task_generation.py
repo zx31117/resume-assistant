@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import queue
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -30,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from api.schemas import TaskFactOut, TaskReasonOut
 from core import task as task_core
+from core.config import settings
 from core.errors import ContentGenerationError
 from core.task_cancel import TaskRunContext
 from prompts import task_fact, task_reason
@@ -88,14 +90,27 @@ class GenerationSummary:
 
 # ── P2 默认选材（走 selection_service，两层决策） ───────────────── #
 
-def default_selector(db: Session, jd_analysis: JDAnalysisOutLike) -> list[PreparedExperience]:
-    """第一层经历 + 第二层 Fact 选材，产出 P3 需要的经历/Fact 名单。"""
+def default_selector(db: Session, jd_analysis: JDAnalysisOutLike,
+                     jd_query_vector: Optional[list[float]] = None) -> list[PreparedExperience]:
+    """第一层经历 + 第二层 Fact 选材，产出 P3 需要的经历/Fact 名单。
+
+    ``jd_query_vector``：V2.2.0 R3-§6 并行预嵌入的 JD 查询向量（由主编排在 P1
+    期间后台线程计算）。传入时 select_evidence 复用该向量，跳过 P2 串行向量化，
+    从而把"首向量化"与 P1 的 JD chat 并行重叠（首 Fact ≤15s 门禁）。None 时回退
+    原有串行 resolve 路径，行为不变。
+    """
+    from core.owner import current_user_id
     from database.models import Experience
 
-    experiences = db.query(Experience).order_by(Experience.created_at).all()
+    # V2.2.0 P0：第一层经历选材只取当前 owner 的职业资产（隔离异主/LEGACY 素材）。
+    experiences = (db.query(Experience)
+                   .filter(Experience.user_id == current_user_id())
+                   .order_by(Experience.created_at)
+                   .all())
     jd_dict = _compact_dict(jd_analysis)
     candidate = selection_service.select_experiences(experiences, jd_dict)
-    evidence = selection_service.select_evidence(db, candidate, jd_dict)
+    evidence = selection_service.select_evidence(db, candidate, jd_dict,
+                                                 jd_query_vector_override=jd_query_vector)
     facts_by_exp: dict[str, list[PreparedFact]] = {}
     fact_objects = fact_service.list_facts_for_experiences(db, candidate.selected_ids())
     for f in fact_objects:
@@ -289,9 +304,42 @@ def generate_task(
            .filter_by(task_id=task.task_id, revision=input_revision.get("revision", 0))
            .first())
     jd_text = (rev.jd if rev is not None else "").strip() or (input_revision.get("jd") or "")
+
+    # ── V2.2.0 R3-§6 并行预嵌入 JD（首 Fact ≤15s 门禁） ──────────
+    # P2 的 JD 查询向量原在 select_evidence 内串行 resolve（~4.7s）。这里在其上游
+    # P1（JD chat ~6.5s）期间用后台线程对原始 jd_text 预嵌入，两者并行重叠，让 P2
+    # 直接复用预计算结果，从而把"首向量化"移出首 Fact 串行临界路径。best-effort：
+    # 线程异常/超时/无 Key 一律回退串行 resolve，行为与优化前一致，绝不改变结果正确性。
+    _jd_box: dict[str, list[float]] = {}
+    if (jd_text and settings.ARK_API_KEY):
+        try:
+            from services import embedding_service as _emb_svc
+
+            def _preembed_jd() -> None:
+                try:
+                    _jd_box["vector"] = _emb_svc._embed_text(jd_text)
+                except BaseException:  # noqa: BLE001 - 并行增强失败不影响主链
+                    _jd_box["error"] = True
+
+            _jd_thread = threading.Thread(target=_preembed_jd, name="jdPreembed",
+                                          daemon=True)
+            _jd_thread.start()
+        except BaseException:  # noqa: BLE001
+            _jd_thread = None
+    else:
+        _jd_thread = None
+
     compact, jd_rec = jd_analyzer.analyze_jd_task(jd_text, budget=budget, provider=provider)
     compact_dict = _compact_dict(compact)
     llm_records: list[dict[str, Any]] = [jd_rec.to_dict()]
+
+    # 收敛并行预嵌入线程（已在 P1 期间完成，join 仅兜底短等），拿回 JD 查询向量。
+    if _jd_thread is not None:
+        try:
+            _jd_thread.join(timeout=1.0)
+        except BaseException:  # noqa: BLE001
+            pass
+    jd_query_vector = _jd_box.get("vector")
 
     repo.save_snapshot(task, phase="P1", payload={
         "compact_jd": compact_dict, "stage": "P1.compact_jd",
@@ -302,7 +350,8 @@ def generate_task(
     run_ctx.assert_writable()
 
     # ── P2 候选准备（selector 注入或默认选材） ──
-    prepared = selector(compact) if selector is not None else default_selector(db, compact)
+    prepared = (selector(compact) if selector is not None
+                else default_selector(db, compact, jd_query_vector=jd_query_vector))
 
     # 续试（只重试失败范围）：preload 命中的经历零调用复用；未命中者进入 P3 worker 重跑。
     preload = preload or {}

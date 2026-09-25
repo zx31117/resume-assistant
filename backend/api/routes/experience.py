@@ -68,7 +68,8 @@ def update(
 ):
     operation_id = resolve_operation_id(x_operation_id)
     with tracker.operation(OperationType.EXPERIENCE_UPDATE, operation_id=operation_id) as recording:
-        exp = experience_service.update_experience(db, exp_id, req.model_dump(), recording=recording)
+        exp = experience_service.update_experience(db, exp_id, req.model_dump(), recording=recording,
+                                                   owner=_USER_ID)
         if not exp:
             raise HTTPException(status_code=404, detail="Experience not found")
         return exp
@@ -82,7 +83,7 @@ def delete(
 ):
     operation_id = resolve_operation_id(x_operation_id)
     with tracker.operation(OperationType.EXPERIENCE_DELETE, operation_id=operation_id) as recording:
-        ok = experience_service.delete_experience(db, exp_id, recording=recording)
+        ok = experience_service.delete_experience(db, exp_id, recording=recording, owner=_USER_ID)
         if not ok:
             raise HTTPException(status_code=404, detail="Experience not found")
         return {"ok": True}

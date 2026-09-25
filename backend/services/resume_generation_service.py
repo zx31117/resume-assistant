@@ -357,7 +357,10 @@ def generate_docx(
     耗时（PLAN §5.1）；最终响应 `stages` 直接取自同一 operation_id 的后台投影。
     所有关键阶段抛 DomainError 子类，由 API 层统一映射。
     """
-    user_id = req.user_id or settings.DEFAULT_USER_ID
+    # V2.2.0 P0：owner 真源是 current_user_id()（settings.DEFAULT_USER_ID），忽略请求体 user_id，防越权。
+    from core.owner import current_user_id
+
+    user_id = current_user_id()
     warnings: list[str] = []
 
     with tracker.operation(OperationType.GENERATE, operation_id=operation_id) as recording:

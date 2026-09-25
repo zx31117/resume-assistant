@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useWorkbenchTask } from '../../pages/workbench/WorkbenchTaskContext'
 import type { TaskStatus } from '../../api/types'
 
@@ -126,7 +126,13 @@ export default function WorkbenchShell({ children }: { children: React.ReactNode
           </div>
         </div>
 
-        <div className="wb-topbar__center">
+        {/* V220-R3-G07：品牌区可点击 / 键盘可达，仅路由跳转回工作台根 `/`，
+            不清空当前 Task、不新建任务、不新增模型调用（区别于右侧 onPrimaryAction）。 */}
+        <Link
+          to="/"
+          className="wb-topbar__center wb-brand-link"
+          aria-label="简历助手，返回工作台首页"
+        >
           <div className="wb-brand-logo" aria-hidden="true">
             简
           </div>
@@ -134,7 +140,7 @@ export default function WorkbenchShell({ children }: { children: React.ReactNode
             简历助手
             <small>RESUME ASSISTANT</small>
           </span>
-        </div>
+        </Link>
 
         <div className="wb-topbar__right">
           <span className="wb-top-status" aria-live="polite">

@@ -50,6 +50,12 @@ def _utcnow() -> datetime:
     return datetime.utcnow()
 
 
+def _current_owner() -> str:
+    """V2.2.0 P0：清理目标只限当前 owner（隔离 LEGACY_UNOWNED / 异主）。"""
+    from core.owner import current_user_id
+    return current_user_id()
+
+
 def _json_bytes(obj: Any) -> int:
     return len(json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
@@ -120,14 +126,29 @@ def _delete_task(db: Session, task: Task) -> None:
 
 
 def _clean_orphan_children(db: Session) -> int:
-    """清理指向不存在 Task 的孤立子记录，返回删除条数。"""
-    task_ids = {t.task_id for t in db.query(Task.task_id).all()}
+    """清理指向不存在 Task 的孤立子记录，返回删除条数。
+
+    V2.2.0 P0：只清理 owner 自己任务的孤立子记录；LEGACY_UNOWNED / 异主 Task 的
+    子记录一概不触碰（计入 protected，隔离清理）。
+    """
+    from core.owner import current_user_id
+
+    owner = current_user_id()
+    owner_task_ids = {
+        t.task_id for t in db.query(Task.task_id).filter(Task.user_id == owner).all()
+    }
     n = 0
     for model in (InputRevision, TaskSubtask, TaskSnapshot, TaskEvent):
         for row in db.query(model).all():
-            if row.task_id not in task_ids:
-                db.delete(row)
-                n += 1
+            if row.task_id in owner_task_ids:
+                continue  # 归属当前 owner 的任务，不是孤立（父存在）
+            # 校验父 Task 是否真的存在。若父任务属于其他身份/LEGACY，不做清理。
+            parent = db.get(Task, row.task_id)
+            if parent is not None:
+                continue  # 父任务存在（可能异主/LEGACY）→ 非孤儿，不触碰
+            db.delete(row)
+            n += 1
+    # 兜底：owner Task 已存在但可能有残留的孤儿子记录（父存在；正常不会发生）
     return n
 
 
@@ -166,6 +187,7 @@ def run_cleanup(
         )
 
     candidates = (db.query(Task)
+                  .filter(Task.user_id == _current_owner())
                   .filter(Task.status.in_(_CLEANABLE_TERMINAL))
                   .order_by(Task.updated_at.asc())  # 最旧优先
                   .all())

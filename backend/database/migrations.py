@@ -19,13 +19,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import settings
 from core.errors import MigrationError
 from core.operations import Recording, ResourceType, optional_stage
-from database.models import Base, Experience, Fact, FactType, SchemaVersion
+from database.models import Base, Experience, Fact, FactType, SchemaVersion, User
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +36,17 @@ SCHEMA_VERSION_FACT_SCHEMA = "v1.5.0-fact-schema"
 SCHEMA_VERSION_FACT_MIGRATION = "v1.5.0-fact-migration"
 # V2.2.0：临时任务持久化表（PLAN §2.3）。schema 步骤复用 create_all，幂等创建缺失表。
 SCHEMA_VERSION_TASK_SCHEMA = "v2.2.0-task-schema"
+# V2.2.0 P0（owner 迁移，PLAN Revision 3）：① tasks 表补 user_id 列（幂等）；
+# ② 确保默认身份行存在。kind="owner"（同时需要 engine 与 session）。
+SCHEMA_VERSION_OWNER = "v2.2.0-owner-schema"
 
 # 顺序迁移注册表：(version, description, callable(session_or_engine))
-# schema 步骤接收 engine；数据步骤接收 session
+# schema 步骤接收 engine；数据步骤接收 session；owner 步骤同时接收 engine 与 session。
 _MIGRATIONS = [
     (SCHEMA_VERSION_FACT_SCHEMA, "Create Fact + SchemaVersion tables", "engine"),
     (SCHEMA_VERSION_FACT_MIGRATION, "Deterministic Experience -> Fact migration", "session"),
     (SCHEMA_VERSION_TASK_SCHEMA, "Create V2.2.0 temporary task tables", "engine"),
+    (SCHEMA_VERSION_OWNER, "Add tasks.user_id + ensure default identity row", "owner"),
 ]
 
 
@@ -268,6 +272,34 @@ def _migrate_facts_from_experiences(session: Session) -> dict:
     }
 
 
+# ── owner 迁移（PLAN Revision 3） ─────────────────────────────── #
+
+def _migrate_owner_schema(engine, session: Session) -> dict:
+    """① tasks 表补 user_id 列（幂等，SQLite ALTER ADD COLUMN）；② 确保默认身份行存在。
+
+    - ① 用 engine.connect() + PRAGMA table_info('tasks') 判断是否已有列，幂等。
+      不 backfill 既有行（历史无主任务保持 NULL → LEGACY_UNOWNED 隔离态）。
+    - ② 干净库显式创建 id==settings.DEFAULT_USER_ID 的最小身份行；既有库若该身份
+      已有 Experience 但 users 缺行则只补同 id 最小行。不改写 Experience、不合并其他
+      身份、不复制正文。
+    """
+    result: dict = {"tasks_user_id": False, "default_identity_row": False}
+    # ① tasks.user_id（幂等）
+    with engine.connect() as conn:
+        has_cols = [row[1] for row in conn.execute(text("PRAGMA table_info('tasks')")).fetchall()]
+        if "user_id" not in has_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN user_id VARCHAR"))
+            conn.commit()
+            result["tasks_user_id"] = True
+    # ② 默认身份最小行（不合并其他身份、不复制正文、不改写 Experience）
+    uid = settings.DEFAULT_USER_ID
+    if session.get(User, uid) is None:
+        session.add(User(id=uid, name="demo-user", email="", created_at=datetime.utcnow()))
+        session.commit()
+        result["default_identity_row"] = True
+    return result
+
+
 # ── 版本记录 ─────────────────────────────────────────────────── #
 
 def _is_applied(session: Session, version: str) -> bool:
@@ -380,6 +412,8 @@ def run_migrations(
                 try:
                     if kind == "engine":
                         result = _migrate_fact_schema(engine)
+                    elif kind == "owner":
+                        result = _migrate_owner_schema(engine, session)
                     else:
                         result = _migrate_facts_from_experiences(session)
                     _record_version(session, version, description)

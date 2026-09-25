@@ -49,6 +49,9 @@ export default function StepSuccessAside() {
   // 锚点仅存在于快照 artifacts（与主面板 viewer 共用同一真源），此卡不渲染命中层。
   void artifacts
 
+  // V220-R3-G07：下载区不保留空占位；真实可验证 hash（PDF SHA-256）有值才展示，无值不渲染。
+  const pdfSha256 = (artifacts.pdf_sha256 || '').trim()
+
   return (
     <>
       <div className="wb-panel__head">
@@ -102,9 +105,7 @@ export default function StepSuccessAside() {
           >
             ↓ Word
           </a>
-        ) : (
-          <span className="wb-success-downloads__missing">Word 不可用</span>
-        )}
+        ) : null}
         {pdfAvailable ? (
           <a
             className="wb-btn wb-btn--primary wb-btn--sm"
@@ -114,11 +115,12 @@ export default function StepSuccessAside() {
           >
             ↓ PDF
           </a>
-        ) : (
-          <span className="wb-success-downloads__missing" title="PDF 生成失败，Word 仍可用">
-            PDF 不可用
+        ) : null}
+        {pdfAvailable && pdfSha256 ? (
+          <span className="wb-success-downloads__hash" title="PDF 文件 SHA-256">
+            校验 {pdfSha256.slice(0, 12)}
           </span>
-        )}
+        ) : null}
       </footer>
     </>
   )

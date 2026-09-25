@@ -163,6 +163,83 @@ class FileSaveError(DomainError):
 
 
 
+# ── V2.2.0 P0 owner / 来源完整性 / artifact 校验（PLAN Revision 3） ── #
+
+class OwnerScopeViolationError(DomainError):
+    """操作跨越 owner 边界（读取/列选/清理/下载异主或无主 LEGACY 数据）。
+
+    Revision 3 owner 契约：本地单用户，所有 owner 限定以 current_user_id() 为准。
+    对 LEGACY_UNOWNED（user_id IS NULL）与其他身份一律拒绝并隔离，不修改/不清理。
+    """
+
+    error_code = "OWNER_SCOPE_VIOLATION"
+    stage = "owner_scope"
+    retryable = False
+    http_status = 403
+
+
+class SourceContentLostError(DomainError):
+    """来源完整性校验失败：source 中非空 role/degree/company/title 等字段被清空。
+
+    P0：document_assembler 不得硬编码清空 source 非空字段；若校验发现字段丢失，
+    视为结构性错误，任务 FAILED 且不发布。
+    """
+
+    error_code = "SOURCE_CONTENT_LOST"
+    stage = "assembler_validation"
+    retryable = False
+    http_status = 500
+
+
+class TemplateStructureInvalidError(DomainError):
+    """模板结构校验失败（required 章节缺失 / 原型段落定位失败等），阻断发布。"""
+
+    error_code = "TEMPLATE_STRUCTURE_INVALID"
+    stage = "render_validation"
+    retryable = False
+    http_status = 422
+
+
+class ArtifactInvalidError(DomainError):
+    """artifact 可读性校验失败（已在磁盘但打开/哈希失败或内容不完整），不发布。"""
+
+    error_code = "ARTIFACT_INVALID"
+    stage = "artifact_validation"
+    retryable = False
+    http_status = 500
+
+
+class OptionalContentAbsentError(DomainError):
+    """可选内容（summary/awards/photo）校验失败：非空输入却产生了空原型/空标题。"""
+
+    error_code = "OPTIONAL_CONTENT_ABSENT"
+    stage = "assembler_validation"
+    retryable = False
+    http_status = 422
+
+
+class AnchorUnavailableError(DomainError):
+    """预览锚点不可用（无法从 Word 转换结果可靠定位），不影响 DOCX/PDF 本身。"""
+
+    error_code = "ANCHOR_UNAVAILABLE"
+    stage = "preview_anchor"
+    retryable = False
+    http_status = 503
+
+
+class DuplicateExperienceError(DomainError):
+    """创建完全重复 Experience（同 owner 精确内容键已存在）时返回的稳定明确结果。
+
+    Revision 3 G03：同一用户下完全等价经历用确定性内容键识别；创建重复内容直接返回
+    稳定 DUPLICATE_EXPERIENCE，不写入二次 Fact/Embedding。既有重复由选材层按同键去重。
+    """
+
+    error_code = "DUPLICATE_EXPERIENCE"
+    stage = "experience_write"
+    retryable = False
+    http_status = 409
+
+
 # ── V1.5.0 Fact / 迁移层 ──────────────────────────────────────── #
 
 class FactNotFoundError(DomainError):

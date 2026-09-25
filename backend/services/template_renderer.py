@@ -117,6 +117,9 @@ class TemplateRenderer:
         # 空圆括号 `（）/()`（如学历缺失导致的 `本科（）`）。数据无关，仅做
         # 输出文本清理，不触碰模板真源（finds、set() 均不改动模板资产）。
         self._strip_empty_parens()
+        # V2.2.0 P0：移除空照片占位框（name="PhotoPlaceholder" 的 drawing 无内容，
+        # 渲染后仍留空相框进成品）。
+        docx_writer.remove_run_containing_drawing(self.doc, "PhotoPlaceholder")
         # 注：V1.2 PDF 布局复刻版起参照 PDF 布局，bullet 行全部常规字体，不再做关键词加粗后处理
 
         # V1.3 T8：未替换占位符扫描（不抛异常，只加 warnings，严重时人工复核）
@@ -243,10 +246,14 @@ class TemplateRenderer:
             if not found:
                 raise TemplateError(f"profile 缺少 {row_spec.style} 样式的段落")
             proto = found[0]
-            # 替换：profile 区只有一份，直接在原型段上替换，不需要克隆
-            was_empty = docx_writer.fill_placeholders(proto, ctx)
+            # V2.2.0 P0：多 cell 联系行（如 Profile_Line）逐字段渲染——仅全字段为空才删整行，
+            # 单个字段为空只删它的 label+分隔符，避免"所在地为空 → 整行电话/邮箱消失"。
+            if row_spec.cells and len(row_spec.cells) > 1:
+                was_empty = docx_writer.fill_profile_line(proto, ctx)
+            else:
+                was_empty = docx_writer.fill_placeholders(proto, ctx)
             if was_empty:
-                # 可选字段（如 location 导致整段空）→ 删段
+                # 所有字段均为空 → 删段
                 docx_writer.remove_paragraph(proto)
 
     def _render_summary(self, section: SectionSpec, resume_doc: ResumeDocument) -> None:
