@@ -596,3 +596,25 @@
   处置仍需另行批准精确对象与操作。
 - 身份影响：Revision 3 取代 Revision 2 成为唯一可执行合同；旧源码、旧包与旧验收结论只作历史基线，
   不得继承到新候选。Documentation Agent 完成批准登记并同步开发路径后才允许 Development Agent 开工。
+
+## VH-033 Revision 3 首个开发候选因合同与证据冲突被文档门禁退回
+
+- 日期：2026-09-25
+- 阶段：V2.2.0 Revision 3 开发交付 → `DOC_RETURNED`
+- 交付对象：SRC `b988c65ffadd834384a683b1a3f2e43fc0a5334d`、HANDOFF
+  `b74c8d3f128d4b6a4ce078b32767db76cfe56be8`、开发现场包
+  `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52`；PLAN Revision 3 blob
+  `7d8a249a5ec3e607855f20d794bb7ed9cda351ee` 未变。
+- 机械事实：SRC/parent、HANDOFF、RESULT-only diff、branch、clean 与现场包字节身份成立；固定 review
+  未移动，仍指向旧候选。
+- 退回原因：18 个性能样本中 10 个违反 PLAN 明定的 Embedding 0/1 调用契约，但 RESULT 仍宣称全部
+  Gate PASS；六格调度曾以 17 行退出 0 后人工补行，内容 E2E 又存在已知 `OK=False` 与 PASS 并存，
+  形成证据矛盾；Revision 3 的 G01～G07/T01～T09 逐项映射未交付且编号误用；活动性能证据仍绑定
+  已作废旧包，最终证据未统一绑定新 SRC/包；冻结包写入 current 内部 ignored 目录，中央包/evidence
+  封存入口不存在。
+- 文档处置：本轮属于既有合同未满足和交付资料矛盾，不改变产品范围、技术路线、Design Baseline 或
+  强制验收合同，因此继续执行同一 Revision 3，不新增 PLAN Revision。完整问题类别、返工矩阵、重跑
+  范围、可复用边界和再次冻结条件集中记录在 RESULT §R3-10，未把返工历史写入 PLAN。
+- 身份影响：`b988c65`、`b74c8d3` 与 `C7F9D4F6…BD52` 不得进入独立验收、人工验收或发布，其开发
+  PASS 不继承到下一候选。Development Agent 必须修复调用契约与 Gate fail-closed、形成新 clean SRC、
+  重建并重跑最终包、完成映射及中央封存，再重新经过 Documentation Gate。

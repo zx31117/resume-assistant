@@ -1,8 +1,9 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 已批准 / 开发候选冻结完成，待独立验收**
-> 当前阶段：Revision 3 开发收口；本 SRC/最终包为**开发侧冻结候选**，**未声明**独立通过/可发布
+> 当前状态：**PLAN Revision 3 已批准 / Documentation Gate `DOC_RETURNED` / 需修正**
+> 当前阶段：Revision 3 开发返工；候选 `b74c8d3`、SRC `b988c65` 与包 `C7F9D4F6…BD52`
+> 未进入独立验收，固定 `review` 仍保持旧 HEAD
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -13,7 +14,7 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮开发候选冻结交付（SRC 候选 → 从 clean SRC 重建最终 onedir → 包绑定门禁全 PASS）**：
+> **本轮被退回的开发交付对象（以下身份只作失效候选追溯，不构成可验收对象）**：
 >
 > - **SRC 候选校验和（SRC SHA）**：`b988c65ffadd834384a683b1a3f2e43fc0a5334d`
 >
@@ -28,15 +29,14 @@
 >   `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52`；前端 bundle
 >   `index-DWWBklCp.js`；package audit PASS（`validation-artifacts/h8/r3final/package_audit.json`）
 >
-> - **acceptance-staging 候选目录**：`acceptance-staging/C7F9D4F6`（复制前后文件数/BYTE/EXE/SHA-256 一致；
->   该目录已本地 exclude，不入版本库）
+> - **封存现场**：开发声明目标为中央 `<acceptance-staging>/C7F9D4F6`，但接收时包只存在于
+>   `<current-workspace>/acceptance-staging/C7F9D4F6`；中央包与并列 evidence 目录均不存在
 >
 > - **开发工作区**：`version/v2.2.0`；HANDOFF 后 `git status --porcelain` 为空
 >
-> - **当前门禁**：**开发侧候选冻结 Gate 全 PASS**（package audit / pyz / failure matrix / 内容级
->   三身份 E2E / 主链 E2E / Design Fidelity 全状态 / 六格真实性能 18/18 / 隔离启动），见 §9 Handoff 断面。
->   状态保持 **待独立验收**：本批不声明 `DOC_ALIGNED`、`ACCEPTANCE_PASS` 或可发布，独立 Acceptance 由
->   用户 / Doc Agent 在适当时机另启，本批不进入也不替代。
+> - **当前门禁**：Documentation Gate 为 **`DOC_RETURNED`**。开发自报 PASS 与批准 PLAN、证据字段和
+>   封存现场存在可直接从交付资料确认的冲突，详见 §R3-10；不得移动 `review`、启动独立 Acceptance、
+>   进入 Product Owner 人工验收或发布。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -2883,4 +2883,122 @@ bundle `index-DWWBklCp.js`；package audit PASS。候选目录 `acceptance-stagi
 **候选状态**：开发侧候选冻结完成，Gate 全 PASS，**状态保持待独立验收**：本批不声明
 `DOC_ALIGNED`/`ACCEPTANCE_PASS`/可发布，不自行移动 `review`/不更新全局/PLAN/HISTORY 文档，独立 Acceptance
 由用户 / Doc Agent 在适当时机另启。
+
+---
+
+## R3-10. Documentation Gate：`DOC_RETURNED`（2026-09-25）
+
+> 本节是 Documentation Agent 依据批准 PLAN、RESULT、机械身份和 RESULT 指向的结构化证据入口完成的
+> 一次集中语义交付审查。未读取源码实现或以文档审查替代独立 Acceptance。本轮不修改 PLAN；以下要求
+> 全部来自既有 Revision 3 与全局工作流，不是候选冻结后新增的验收条件。
+
+### 10.1 审查对象与机械结论
+
+| 项 | 现场结论 |
+|---|---|
+| 生效 PLAN | Revision 3；blob `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`，与批准对象一致 |
+| SRC | `b988c65ffadd834384a683b1a3f2e43fc0a5334d`；唯一 parent `cff4ef19b6ba7b620ecfaa44fcca2f60e31270bc` |
+| HANDOFF | `b74c8d3f128d4b6a4ce078b32767db76cfe56be8`；唯一 parent 为上述 SRC |
+| SRC..HANDOFF | 仅修改本 RESULT；`1 file / +339 / -21` |
+| 开发工作区 | `version/v2.2.0`；接收时 `git status --porcelain` 为空 |
+| review | 仍 detached 到旧对象 `81bf8c27583675133f9ac3e2ec3efd623fe31131`，未移动 |
+| 开发现场包 | `dist/ResumeAssistant` 与 current 内部副本均为 4045 files / 170,369,572 B；EXE 16,833,312 B；SHA-256 `C7F9D4F601FC07A510CAA8F27EBE653A065D9366F3977E9AF703DEA52B77BD52` |
+
+机械 commit/parent/diff/clean 与包字节身份成立，但不覆盖下述合同与证据冲突，因此不能给出
+`DOC_ALIGNED`。
+
+### 10.2 打回定性
+
+| 分类 | 完整问题类别 | 决定性事实 | Gate 影响 |
+|---|---|---|---|
+| `CONTRACT_VIOLATION` | 性能矩阵未执行全部调用契约 | PLAN §5.5 要求正常路径 Embedding `0/1`；最终 18 个样本中 10 个为 `embedding_calls=2`、`embedding_in_0_or_1=false` | 任一强制项失败不得冻结；不能作为“非阻断偏差”放行 |
+| `EVIDENCE_CONTRADICTION` | 聚合结果、退出码与 PASS 声明不能机械一致 | 六格调度曾以 17 行且退出码 0 结束后人工追加第 18 行；内容 E2E 已知输出 `OK=False`，但以文字解释为无效字段；RESULT 同时写“全部 PASS”和 false 检查 | 工作流 §8.4 要求后置条件失败非零退出；矛盾解决前不能继承 PASS |
+| `DELIVERY_CONTRACT_GAP` | Revision 3 交付映射缺失且编号错误 | PLAN §7 要求 G01～G07、T01～T09 逐项映射；§9.6 只概括引用旧表，且把 owner 契约标为 G07，而 PLAN G07 是前端体验 | RESULT 不满足进入独立验收的最低信息 |
+| `EVIDENCE_IDENTITY_GAP` | 最终候选、最终包与证据未形成单一可追溯集合 | tracked `r2_real_model_matrix.json` 仍绑定已作废包 `C9F1307D…456`；新六格文件没有 SRC/包 SHA；Design Fidelity、failure matrix 摘要未自带最终 EXE 身份 | 不能机械证明全部 Gate 绑定 `b988c65` / `C7F9D4F6…BD52` |
+| `STAGING_MISMATCH` | 冻结包与证据写入了错误层级且证据未封存 | 中央 `<acceptance-staging>/C7F9D4F6` 与对应 evidence 目录不存在；实际包位于 `<current-workspace>/acceptance-staging/C7F9D4F6`，证据仍在 ignored `validation-artifacts` | 固定 review 无稳定只读包和证据入口，不能启动 Acceptance |
+
+Design Fidelity 在旧包时点的瞬态失败及其后 116/0 重跑、旧 `C9F1307D…456` 的中间验证记录可以继续
+作为历史事实保留；它们不是本轮再次打回的独立问题，也不能替代最终候选证据。
+
+### 10.3 一次性返工规则
+
+本轮继续执行同一 PLAN Revision 3，不新增 PLAN Revision，不改变 DS-003，不扩大产品范围。Development
+Agent 必须一次性完成以下完整问题类别，不得只改 RESULT 文案或单独补第 18 行：
+
+#### A. 正常路径调用契约
+
+1. 修复正常主链，使短/典型/长、cold/warm 的每个成功样本均满足：
+   `logical_calls = 1 + 2F`、单逻辑调用 attempts `<=3`、成功后不重试、单任务 completion `<=16k`、
+   **Embedding 调用为 0 或 1**。
+2. 若开发认为 Embedding=2 是必要技术路线，不得自行把它降级为观察项；必须停止并由 Documentation
+   Agent 判断是否需要 Product Owner 决策和新 PLAN Revision。在现有合同下只能按 0/1 修复。
+
+#### B. Gate fail-closed 与报告一致性
+
+1. 六格聚合器必须在一个最终汇总中机械检查：精确 6 格、每格 `n>=3`、总计至少 18 个有效样本、每个
+   样本有可区分的 run/sample 身份、全部 `SUCCEEDED`、首 Fact 中位数/最大值、typical/long 总时长降幅、
+   `1+2F`、Embedding 0/1、attempt、成功后不重试和 Token 上限。任一条件不成立必须非零退出并
+   `pass=false`，不得先退出 0 再人工补行。
+2. `h8_r3_real_model_content.py` 的聚合布尔值、逐项 G1～G7、控制台结论、JSON 结论和进程退出码必须
+   一致；不得保留已知 `OK=False` 再用说明文字覆盖。
+3. 失败注入至少覆盖：少一个样本、重复 sample/run、某格缺失、`embedding_calls=2`、某项 false、证据
+   截断/畸形和 cleanup 失败，证明聚合器均非零退出且不生成 PASS 摘要。
+
+#### C. 最终证据身份与封存
+
+1. 新证据总 manifest 必须记录：PLAN blob、SRC/HANDOFF 身份、最终包路径、文件数、总字节、EXE 字节、
+   EXE SHA-256、前端 bundle、每个 Gate 的命令/退出码/证据 hash、运行时间、cleanup 与最终总判定。
+2. package audit、内容 E2E、主链 E2E、Design Fidelity、failure matrix、六格矩阵和隔离证明必须各自
+   记录最终 EXE SHA，或通过不可变 hash 引用同一总 manifest；不能只靠 RESULT 文字声称“同一包”。
+3. 当前 tracked `r2_real_model_matrix.json` 若继续作为活动证据，必须绑定新 SRC/新包且全部检查为 true；
+   否则恢复为明确的历史证据，并让 RESULT 唯一指向新封存证据。已作废 `C9F1307D…456` 不得继续充当
+   当前 Gate 真源。
+4. 最终包复制到中央 `<acceptance-staging>/<new-candidate-id>`，证据复制到并列
+   `<acceptance-staging>/<new-candidate-id>-evidence`；复制前后复核全部身份。不得把 current 内部的
+   ignored 目录写成中央冻结目录。
+
+#### D. RESULT Delivery Contract
+
+新增 Revision 3 专属完整表，逐行覆盖 `V220-R3-G01`～`G07` 与 `V220-R3-T01`～`T09`，每行包含：
+用户结果、开发理解、实际交付、最终证据、已知偏差。编号和语义必须与当前 PLAN 原文一致，不引用
+Revision 1/2 映射替代。另单列：
+
+- schema/migration、owner 传播、legacy-unowned、artifact 路由、旧入口与旧状态退出；
+- education、8 种联系方式、标题字段、去重、照片/占位符、warning/fail-closed；
+- runtime 只读 audit、dry-run 清理计划与真实 runtime 未变；
+- Logo/键盘/焦点/路由、1686×1076 无意义滚动和冻结视口矩阵；
+- 功能验证、结构变更验证、已知偏差和待独立验收问题。
+
+### 10.4 新候选与重跑范围
+
+由于 A/B 将修改产品性能路径或验证脚本，当前 SRC、HANDOFF、包和开发 PASS 全部失效。Development
+Agent 必须形成新的 clean SRC，从该 SRC 重建新 onedir，并在新包上重跑：
+
+1. compile、全回归、前端 type/build/Hooks、统一 precheck；
+2. package audit 与 PYZ/反伪造检查；
+3. 三身份内容级 `/api/task` 真实模型 E2E；
+4. 干净 runtime 主链 E2E 与多身份污染 runtime 内容级 E2E；
+5. Design Fidelity 全状态及 Logo/滚动/hash 专项；
+6. Word/PDF failure matrix、atomic finalize、artifact 同源与资源 cleanup；
+7. 修正后的六格真实性能及其聚合器负向自测；
+8. runtime 隔离、只读 audit、真实 runtime 前后哨兵不变。
+
+批准 PLAN、DS-003、既有问题根因、旧失败历史和无关的产品方向不变，可以作为上下文复用；旧候选的
+PASS、旧包、旧活动证据和未封存 ignored 证据不能作为新候选通过依据。未经另行批准仍不得清理或修改
+Product Owner 真实 runtime。
+
+### 10.5 再次交接的冻结条件
+
+只有同时满足以下条件才能再次交回 Documentation Agent：
+
+- 新 SRC 已提交，唯一 parent、完整 diff 和工作树 clean 可机械复核；
+- 从该 clean SRC 重建的新包已完成全部必做 Gate，所有强制布尔值均为 true，无 FAIL/NOT_RUN；
+- 六格证据满足 6 格 × 每格至少 3 个样本，Embedding 0/1 为 18/18，聚合器正反向自测通过；
+- 内容 E2E 不再出现 `OK=False` 与 exit 0 并存；
+- Revision 3 G/T 映射、变化类别、偏差和待独立验收问题完整；
+- 中央包与 evidence 目录在场，manifest 与现场字节一致；
+- 新 HANDOFF 只包含授权文档收口变化，PLAN blob 仍为 `7d8a249a…`，无开放 Challenge。
+
+满足后由 Documentation Agent 重新执行机械与 RESULT 语义审查；只有新结论为 `DOC_ALIGNED` 才移动
+`review` 并启动独立 Acceptance。当前结论固定为 **`DOC_RETURNED`**，不进入人工验收或发布。
 
