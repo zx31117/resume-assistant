@@ -474,11 +474,15 @@ def run() -> int:
         _error_path_checks(s, base, db, cur_owner)
 
         result = 1 if _failed > 0 else 0
+        ok = _failed == 0
+        EVIDENCE["ok"] = ok
+        EVIDENCE["gate_passed"] = ok
         return result
     except Exception as e:  # noqa: BLE001
         import traceback
         traceback.print_exc()
         EVIDENCE["exception"] = repr(e)
+        ok = False
         return 2
     finally:
         try:

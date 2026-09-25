@@ -333,13 +333,17 @@ def generate_task(
     compact_dict = _compact_dict(compact)
     llm_records: list[dict[str, Any]] = [jd_rec.to_dict()]
 
-    # 收敛并行预嵌入线程（已在 P1 期间完成，join 仅兜底短等），拿回 JD 查询向量。
+    # 收敛并行预嵌入线程（已在 P1 LLM 并行期完成，join 仅确认其结束），拿回 JD 查询向量。
+    # R3-§R3-10 A：必须 join 等待线程真正结束，不能因 1s 超时丢向量；否则 P2 select_evidence
+    # 会因 override 为空再串行 resolve 一次，导致正常路径 embedding=2（违反 PLAN §5.5 0/1 契约）。
+    # 预嵌入成功后 1 次并复用；失败(error，0 次)则回退串行 resolve 恰好 1 次；绝无 2 次。
     if _jd_thread is not None:
         try:
-            _jd_thread.join(timeout=1.0)
-        except BaseException:  # noqa: BLE001
+            _jd_thread.join()
+        except BaseException:  # noqa: BLE001 - 收敛失败仅退回 get("vector")，不阻断主链
             pass
     jd_query_vector = _jd_box.get("vector")
+    jd_preembed_error = bool(_jd_box.get("error"))
 
     repo.save_snapshot(task, phase="P1", payload={
         "compact_jd": compact_dict, "stage": "P1.compact_jd",

@@ -1,4 +1,7 @@
 {
+  "_status": "HISTORICAL_DEPRECATED",
+  "_note": "DOC_RETURNED (RESULT §R3-10 C)：本证据绑定已作废旧包 C9F1307D…456（embedding=2 违反 PLAN §5.5 0/1），不再作为当前 Gate 真源。当前性能真源改为新 SRC / 新包上的六格 fail-closed 聚合器证据 + 总 manifest。",
+  "_deprecation_commit": "",
   "engine": "real-model deepseek-v4-pro-ga-260813 (credential-manager key)",
   "exe": {
     "sha256": "C9F1307D956A701BB8FE7658F408339F06B8D62E5BC6E25AF63C70EFAFCA8456",
@@ -6,7 +9,7 @@
   },
   "cells": 6,
   "first_fact_gate_s": 15,
-  "all_gates_passed": true,
+  "all_gates_passed": false,
   "cells_detail": [
     {
       "size": "short",
