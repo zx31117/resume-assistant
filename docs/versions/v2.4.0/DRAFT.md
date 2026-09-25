@@ -7,7 +7,8 @@
 > Memory、ApplicationCase、生成公共合同和埋点契约；实现与底座工作流并行，Day 6 完成真实集成
 > 发布列车角色：V3.0.0 Release Train 的质量/本地装配工作流，不单独发布或独立验收
 > 核心目标：在固定评测、受控多用户 Beta 和真实文件验收下，把 Job Model、召回、润色、内容预算、
-> 固定模板与网页本地装配闭合为稳定的一页纸可投递成品；本版未通过，V3.0.0 不得首发
+> 固定模板与网页本地装配闭合为稳定的一页纸 PDF 正式成品和 DOCX 可编辑副本；本版未通过，
+> V3.0.0 不得首发
 
 ## 1. 版本判断
 
@@ -16,7 +17,8 @@ Recall@K；它必须证明“选什么、怎么写、写多少、如何在本地
 最终文件是否可投”形成一个可复现闭环。
 
 本工作流可以基于 Day 1 冻结合同和隔离夹具并行开发，但 Day 6 前必须接入真实 PostgreSQL、真实账号、
-真实模型、香港服务器、桌面 Chromium 和批准 Word 环境；夹具通过不能替代 V3 最终完整纵切。
+真实模型、香港服务器和桌面 Chromium；DOCX 另在批准 Word 环境做副本兼容性检查。夹具通过不能
+替代 V3 最终完整纵切。
 
 本版冻结：
 
@@ -30,7 +32,9 @@ Recall@K；它必须证明“选什么、怎么写、写多少、如何在本地
 → LayoutPlan
 → 浏览器读取 Local Resume Identity / Local Entity Map
 → 单一固定模板与固定槽位
-→ Local Preview / DOCX / PDF
+→ 冻结最终装配输入
+→ final.pdf Blob → PDF.js Preview / PDF Download（同一字节）
+→ DOCX Editable Copy（独立副本 writer）
 ~~~
 
 Browser Assistant、招聘网站集成、字段填充和文件上传统一延后到 V3.0.0 之后的独立版本。本版不做
@@ -45,7 +49,7 @@ Browser Assistant、招聘网站集成、字段填充和文件上传统一延后
 3. 更早看到高置信结果，并在精排后获得冻结最终内容；
 4. 对信息缺口选择回答、跳过、仅用于本次或确认写回 Career Memory；
 5. 在当前设备录入或复用 Local Resume Identity 与 Local Entity Map；
-6. 由浏览器本地生成一页 DOCX/PDF，姓名、联系方式和真实实体名称不离开设备；
+6. 由浏览器本地生成一页 PDF 正式成品和 DOCX 可编辑副本，姓名、联系方式和真实实体名称不离开设备；
 7. 直接下载事实可信、岗位相关、专业排版且无需大段返工的成品。
 
 若事实、一页或可读性无法同时满足，系统必须明确失败或请用户确认取舍，不能把两页、截断、隐藏
@@ -119,8 +123,9 @@ JobModelSnapshot
 延迟、Embedding 调用和成本阈值。跨账号召回、未知 Fact 和本地身份进入率始终为 0。
 
 固定质量集为 12 个案例，覆盖技术、产品/运营、通用职能三类，并叠加 3—5 名真实受邀者的实际岗位。
-硬发布线为：虚构事实、跨账号内容和本地字段外泄均为 0；支持范围内成功成品的 PDF/批准 Word DOCX
-一页率 100%；针对版盲评优于 V2.2 基线的比例不低于 70%；每名真实测试者至少获得一份可直接投递成品。
+硬发布线为：虚构事实、跨账号内容和本地字段外泄均为 0；支持范围内成功成品的 PDF 一页率 100%，
+最终 PDF Preview 与 PDF Download 同字节率 100%；针对版盲评优于 V2.2 基线的比例不低于 70%；每名
+真实测试者至少获得一份可直接投递 PDF。DOCX 按可编辑副本合同验收，不计入一页率。
 
 ## 6. 润色与内容计划冻结
 
@@ -165,7 +170,8 @@ Server Career Memory
 Local-only
     Local Resume Identity
     Local Entity Map
-    最终 Preview / DOCX / PDF
+    final.pdf → 最终 Preview / PDF Download
+    DOCX Editable Copy
 ~~~
 
 Auth 邮箱即使与简历联系邮箱相同，也不能自动复制。换设备后 Career Memory 可恢复，Local Resume
@@ -193,35 +199,42 @@ V3.0.0 前只冻结一套生产模板，首发以桌面 Chromium 为基准。模
 
 1. 从本地受控存储读取 Local Resume Identity 与 Local Entity Map；
 2. 合并服务器返回的 ResumeRevision、LayoutPlan 和模板版本；
-3. 生成本地 Preview、DOCX Blob 与 PDF Blob；
-4. 对最终内容执行一页、溢出、空字段、槽位长度和可读性检查；
-5. 只通过 Blob/Object URL 供用户预览和下载，不把最终字节回传服务器；
-6. 清理临时内存和失效 Blob，不把正文写入日志、埋点或错误报告。
+3. 从冻结最终装配输入生成一次 `final.pdf` Blob，并由独立 writer 生成 DOCX 可编辑副本；
+4. 使用 PDF.js 打开同一 `final.pdf` Blob 作为最终 Preview，PDF 下载也复用该 Blob；
+5. 对最终 PDF 执行一页、文本层、溢出、空字段、槽位长度、可读性和 ATS 基础检查，对 DOCX 执行
+   内容完整、可打开、可编辑、无占位符和非图片化正文检查；
+6. 只通过 Blob/Object URL 供用户预览和下载，不把最终字节回传服务器；
+7. 清理临时内存和失效 Blob，不把正文写入日志、埋点或错误报告。
 
 本地敏感存储不得使用明文 localStorage。正式 PLAN 必须冻结 IndexedDB/OPFS、WebCrypto、密钥生命周期、
 清除、迁移、无痕模式和浏览器回收后的失败语义。页面禁止不必要第三方脚本，并以 CSP、依赖锁定、
 出站白名单和负向网络探针证明本地字段未外发。
 
-### 7.4 DOCX/PDF 同源的新定义
+### 7.4 PDF 单一视觉真源与 DOCX 副本合同
 
-由于最终身份和真实实体名称不得发送服务器，V3.0.0 不再要求“最终 PDF 必须由包含真实身份的 DOCX
-经服务端 Word 转换”。同源定义改为：
+由于最终身份和真实实体名称不得发送服务器，V3.0.0 不要求“最终 PDF 必须由包含真实身份的 DOCX
+经服务端 Word 转换”。产物关系是不对称的：
 
-> Preview、DOCX 和 PDF 使用同一 JobModelSnapshot、EvidenceSelection、ResumeContentPlan、
-> ResumeRevision、LayoutPlan、模板版本、Local Resume Identity revision 和 Local Entity Map revision。
+> JobModelSnapshot、EvidenceSelection、ResumeContentPlan、ResumeRevision、LayoutPlan、模板/字体版本、
+> Local Resume Identity revision 与 Local Entity Map revision 组成冻结最终装配输入。PDF renderer 只
+> 生成一次 `final.pdf` Blob；PDF.js Preview 与 PDF Download 复用同一 Blob。DOCX writer 从同一输入
+> 生成内容一致、可编辑的副本，但不是第二视觉真源。
 
-PDF 使用固定字体资产和同一布局决策在本地生成；DOCX 使用同一内容和模板槽位生成。二者必须分别
-通过内容、页数和视觉结构一致性检查，但允许记录由 Word 排版引擎造成的批准范围内差异。
+客户端 Gate 必须逐字节或以 SHA-256 证明 Preview source 与 PDF Download source 相同，禁止最终预览
+使用 HTML/CSS 重排、截图或重新生成的第二份 PDF。DOCX 必须保持相同章节、条目顺序、事实、字段值和
+可见文本，且正文可编辑、可被常见 ATS 提取；不得以整页图片、隐藏文字或图片叠字伪造视觉一致。
 
-### 7.5 Word 兼容与一页判定
+### 7.5 PDF 一页判定与 DOCX 兼容检查
 
 字符数和预测宽度只作预约束。最终门禁包括：
 
-- 浏览器本地 PDF 实际为一页；
-- 本地 DOCX 在批准 Word 版本、字体和系统环境中实际为一页；
-- V2.4.0 用合成身份、长短实体名称和边界长度建立 Word 兼容矩阵；
+- 浏览器本地 PDF 实际为一页，且具有可选择/可搜索文本层并嵌入批准字体；
+- PDF.js Preview 与 PDF Download 使用同一不可变 `final.pdf` Blob；
+- 本地 DOCX 在批准 Word 版本中可正常打开、内容完整、可编辑、无损坏和占位符；
+- V2.4.0 用合成身份、长短实体名称和边界长度建立 PDF 视觉矩阵与 DOCX 副本兼容矩阵；
 - 真实用户值只在本地参加运行时槽位/溢出检查，不进入服务端测试证据；
-- 不承诺所有 Word、LibreOffice、操作系统和缺失字体环境像素级一致。
+- DOCX 不承诺一页、像素级同版、反向还原目标 PDF，或在 Word/WPS/Google Docs 中另存为同一 PDF；
+  页数和视觉差异记录为兼容性观察，不阻断 PDF 正式成品。
 
 如果最终内容超页，先由本地检查计算不含原值的内容预算/溢出级别，再触发服务器对低敏正文执行受控
 压缩；不得发送真实身份、真实实体名称或其原始长度明细。压缩顺序为：
@@ -254,8 +267,8 @@ Day 3 前真实质量集证明有稳定正收益，且不增加双真源、状�
 哪种机制，最终文件只从冻结最终快照生成，中间结果不成为第二真源。
 
 性能门禁使用真实服务器 P50/P95、cold/warm、缓存命中/未命中、模型调用、Token、成本，以及桌面
-Chromium 的本地装配、预览、DOCX/PDF 生成和一页收敛时间。新增 Job Model 与本地检查不得无上限
-串行叠加等待时间。
+Chromium 的本地装配、`final.pdf` 生成/预览/下载、DOCX 副本生成和 PDF 一页收敛时间。新增 Job Model
+与本地检查不得无上限串行叠加等待时间。
 
 V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容、Prompt、模型、表达风格、内容
 预算和批准范围内的全局版式参数；不得再重做事实真源、数据域、核心对象关系和本地装配合同。
@@ -280,10 +293,11 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 | 阶段 | 重点 | 退出条件 |
 |---|---|---|
 | Day 1—3 | 质量集、V2.3 基线、Job Model、混合召回、ResumeContentPlan 与润色 | 新旧路线可重复比较，隔离/事实边界不退化 |
-| Day 3—5 | 固定模板、浏览器本地装配、超页收敛和合成边界矩阵 | 合成边界样本稳定生成本地一页 DOCX/PDF |
-| Day 6 | 真实模型/服务器/桌面 Chromium/Word 完整纵切、人工盲评、性能与反证 | V3 集成候选可进入停止加功能阶段 |
+| Day 3—5 | 固定模板、浏览器本地装配、超页收敛和合成边界矩阵 | 合成边界样本稳定生成本地一页 PDF，Preview/Download 同字节，DOCX 副本完整可编辑 |
+| Day 6 | 真实模型/服务器/桌面 Chromium 完整纵切、DOCX 兼容抽查、人工盲评、性能与反证 | V3 集成候选可进入停止加功能阶段 |
 
-时间不足时优先删除非核心增强，不减少质量集、本地隐私反证、Word 兼容、人工验收或反向用例。
+时间不足时优先删除非核心增强，不减少质量集、本地隐私反证、PDF 同字节门禁、DOCX 副本兼容、人工
+验收或反向用例。
 
 ## 12. 发布 Gate 候选
 
@@ -298,8 +312,11 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 
 ### 12.2 本地一页纸与文件
 
-- [ ] 桌面 Chromium 本地 Preview、DOCX、PDF 均来自同一冻结输入和固定模板；
-- [ ] 所有成功样本的本地 PDF 与批准 Word 环境 DOCX 均恰好一页；
+- [ ] 桌面 Chromium 的最终 PDF Preview 与 PDF Download 复用同一不可变 `final.pdf` Blob，并以
+  字节/hash 断言证明一致；
+- [ ] 所有成功样本的本地 PDF 均恰好一页，具有文本层、嵌入字体且无溢出、遮挡或裁切；
+- [ ] DOCX 来自同一冻结输入，章节、条目顺序、事实、字段值和可见文本与 PDF 内容一致，并在批准
+  Word 环境可打开、可编辑、无损坏、无占位符和图片化正文；
 - [ ] 一页不是通过静默删除必要事实、裁切、隐藏或突破字号/行距下限实现；
 - [ ] 长短身份、实体名称、中英文混排、粗体、特殊字符和字体替代矩阵通过；
 - [ ] 超长固定槽位明确失败或要求本地简写，不上传原值；
@@ -309,7 +326,7 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 
 ### 12.3 性能与回归
 
-- [ ] 真实服务器/模型/浏览器/Word 环境的 P50/P95、cold/warm 和成本不越过批准上限；
+- [ ] 真实服务器/模型/浏览器环境的 P50/P95、cold/warm 和成本不越过批准上限；DOCX 兼容检查另行记录；
 - [ ] V2.3.0 多用户隔离、备份恢复、埋点脱敏和关键不变量无回归；
 - [ ] V2.2.0 渐进结果、任务连续性和事实来源能力无回归；产物路线变化按本版新合同验收。
 
@@ -318,12 +335,13 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 
 ## 13. Release Train PLAN 输入状态
 
-Product Owner 输入已由 D-043—D-048 冻结。PLAN 不再回问岗位大类、质量集规模、70% 盲评线、
+Product Owner 输入已由 D-043—D-049 冻结。PLAN 不再回问岗位大类、质量集规模、70% 盲评线、
 3—5 名真实测试者、DS-003 视觉基底、单模板、Company Context 来源或本地/服务器身份边界。
 
 PLAN 必须技术化冻结：具体 12 个案例与判分表、Recall/Precision/延迟/成本阈值、单生成通道的状态与
-性能合同、模板/槽位版本、桌面 Chromium 与批准 Word/字体环境、IndexedDB/OPFS/WebCrypto
-密钥与失败语义、DOCX/PDF 生成器、同源检查、超页最大收敛轮次、可调参数白名单和统一验收脚本。
+性能合同、模板/槽位版本、桌面 Chromium 与 PDF 字体环境、IndexedDB/OPFS/WebCrypto 密钥与失败
+语义、PDF/DOCX 生成器、同 Blob 与内容等价检查、超页最大收敛轮次、DOCX 批准 Word 兼容抽查、可调
+参数白名单和统一验收脚本。
 
 本文不单独授权开发；上述内容由 V3.0.0 Release Train PLAN 统一授权和验收。
 
@@ -335,11 +353,11 @@ PDF、简历正文和身份字段均进入本地 FastAPI，再由 Windows Word C
 
 | 级别 | 风险 | PLAN 必须冻结的控制 |
 |---|---|---|
-| P0 | 方案 B 浏览器装配尚无真实技术纵切 | Day 1—2 先做固定模板、共享 LayoutPlan、Web Worker、DOCX Blob、PDF Blob、嵌入字体和同源 hash 的最小 spike；失败即暂停扩展功能 |
+| P0 | 方案 B 浏览器装配尚无真实技术纵切 | Day 1—2 先做固定模板、冻结装配输入、Web Worker、单一 `final.pdf` Blob、PDF.js 同 Blob 预览/下载、DOCX 副本和嵌入字体的最小 spike；失败即暂停扩展功能 |
 | P0 | `window.print()` 只能调起打印对话框，不能产生可验收 PDF Blob | 选择可固定版本、可离线测试的浏览器生成库；禁止以打印对话框或服务器回传带身份文件兜底 |
 | P0 | 模型自由改写可能删除、拆分或幻化 opaque `entity_ref` | entity_ref 只出现在结构化字段；服务器输出 schema 校验引用完整性，本地受控恢复；未知/缺失映射 fail closed |
 | P0 | 浏览器本地导入与清除尚不存在 | 首发只支持有文本层 PDF + 手工录入；扫描件 OCR 和 DOCX 导入移出 V3，网络探针证明原始文件字节/身份/真实实体零外发 |
-| P0 | 浏览器与 Word 的分页、字体度量不同 | 固定浏览器、批准 Word、模板和字体版本；共享内容预算/槽位，双环境真实一页验收；不能只看浏览器预览 |
+| P0 | 若 Preview、PDF 下载和 DOCX 各自重排，仍会重现“预览好看、下载不同”的路线错误 | PDF 只生成一次，PDF.js Preview 与下载复用同一 Blob 并做 hash 断言；DOCX 明确为独立可编辑副本，不进入视觉/一页等价门禁 |
 | P1 | Fast/Precision、Stable/Adaptive、混合召回和 Company Context 同时实现会挤占质量死线 | 首发采用单生成通道、账号内精确向量 + 简单关键词/评分；双通道和复杂缓存仅在 Day 3 前已有正收益证据时进入候选 |
 | P1 | 中文字体体积、许可和替代会影响加载与分页 | 固定可再分发字体/子集及 hash，预加载后生成；缺字体 fail closed，不静默使用系统字体 |
 | P1 | WebCrypto 只能保护静态存储，不能抵御同源 XSS/恶意依赖；本地身份库未按账号命名空间隔离还会在切号时串数据 | origin + account_id 分区；无不必要第三方脚本、严格 CSP/依赖锁；登出/切号清空解密内存；无痕、清缓存、拒绝存储和 XSS/依赖出站列为负向 Gate |

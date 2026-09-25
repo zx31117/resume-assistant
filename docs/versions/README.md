@@ -43,8 +43,8 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 | 版本 | 定位 | 草稿 | 状态 |
 |---|---|---|---|
 | V2.3.0 | 多用户底座、低敏 Career Memory、ApplicationCase、权益/埋点/部署与外部客户端合同 | [DRAFT](./v2.3.0/DRAFT.md) | 待 Product Owner 审核；内部 Alpha 候选 |
-| V2.4.0 | Job Model、召回/润色、固定模板、方案 B 本地装配与一页纸质量冻结 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；V3 前硬门禁候选 |
-| V3.0.0 | 免费多用户 AI Career Resume / Job Preparation Public Release | [DRAFT](./v3.0.0/DRAFT.md) | Browser Assistant 不在首发范围；待 Product Owner 审核 |
+| V2.4.0 | Job Model、召回/润色、固定模板、纯网页一页 PDF 与 DOCX 副本质量冻结 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；V3 前硬门禁候选 |
+| V3.0.0 | 免费多用户 AI Career Resume / Job Preparation 邀请制 Beta | [DRAFT](./v3.0.0/DRAFT.md) | Browser Assistant 不在首发范围；待 Product Owner 审核 |
 
 ## 阶段需求池（非开发指令）
 

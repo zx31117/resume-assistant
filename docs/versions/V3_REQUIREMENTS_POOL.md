@@ -43,7 +43,8 @@ Server Career Memory
 Local-only
     Local Resume Identity
     Local Entity Map
-    最终 Preview / DOCX / PDF
+    final.pdf → PDF.js Preview / PDF Download（同一字节）
+    DOCX Editable Copy
 ~~~
 
 Auth Identity 不得复制成 Resume Identity。用户履历中的真实公司、学校、客户和项目名称不进入
@@ -126,7 +127,7 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 | V3-APP-02 | ApplicationCase 创建与生命周期 | V2-PREP | Web 端粘贴 JD/输入岗位信息 |
 | V3-APP-03 | JobModelSnapshot + EvidenceSelection | V3.0-MUST | 可解释、可复现 |
 | V3-APP-04 | ResumeContentPlan + ResumeRevision + LayoutPlan | V2-PREP | 服务器内容不含本地字段 |
-| V3-APP-05 | 本地一页纸 Preview/DOCX/PDF | V3.0-MUST | 方案 B 固定模板和槽位 |
+| V3-APP-05 | 本地一页 PDF Preview/Download + DOCX 可编辑副本 | V3.0-MUST | PDF 为唯一视觉真源 |
 | V3-APP-06 | ApplicationCase 状态与历史 | V3.0-MUST | 再次下载为重新本地装配 |
 | V3-APP-07 | 投递状态记录 | V3.0-MUST | 已下载、已投、放弃、面试等 |
 | V3-APP-08 | 开放题和网申材料 | V3.x-CANDIDATE | 围绕同一 ApplicationCase |
@@ -140,7 +141,7 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 | V3-LOC-02 | Local Entity Map | V2-PREP / V3.0-MUST | entity_ref 到用户履历公司/学校/客户/项目真实名称 |
 | V3-LOC-03 | 原始简历本地处理 | V3.0-MUST | 去除身份/真实实体名后才发送结构化事实 |
 | V3-LOC-04 | 单一生产模板与固定槽位 | V2-PREP | 真实字段只进入批准槽位 |
-| V3-LOC-05 | 桌面 Chromium 本地装配 | V2-PREP / V3.0-MUST | Preview、DOCX、PDF 只在设备生成 |
+| V3-LOC-05 | 桌面 Chromium 本地装配 | V2-PREP / V3.0-MUST | final.pdf 与 DOCX 副本只在设备生成 |
 | V3-LOC-06 | 本地敏感存储 | V2-PREP | IndexedDB/OPFS + WebCrypto；禁止明文 localStorage |
 | V3-LOC-07 | 换设备重新输入 | V3.0-MUST | 首发不通过服务器同步本地字段 |
 | V3-LOC-08 | 超长字段本地简写 | V3.0-MUST | 不截断、不上传原值 |
@@ -148,8 +149,9 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 | V3-LOC-10 | XSS/依赖/出站负向门禁 | V3.0-MUST | 本地化不等于天然安全 |
 | V3-LOC-11 | 用户自管本地导入/导出 | V3.x-CANDIDATE | 首发先重新输入 |
 
-DOCX/PDF 同源表示使用同一 ResumeRevision、LayoutPlan、模板与本地 revision，不再要求最终 PDF 由
-包含真实身份的 DOCX 经服务端 Word 转换。
+PDF 是唯一视觉真源：浏览器从冻结输入只生成一次 `final.pdf` Blob，PDF.js Preview 与 PDF Download
+复用同一字节。DOCX 从同一冻结输入生成内容一致、可编辑、ATS 友好的副本，不承诺一页、像素级同版、
+反向还原 PDF 或由办公软件另存为同一 PDF。
 
 ## 9. 召回、润色、一页纸与性能
 
@@ -161,7 +163,7 @@ DOCX/PDF 同源表示使用同一 ResumeRevision、LayoutPlan、模板与本地 
 | V3-QLT-04 | Fast / Precision Lane | RESEARCH | 首发默认单通道，不为机制牺牲质量死线 |
 | V3-QLT-05 | fact_refs 与事实越界门禁 | V3.0-MUST | 质量提升不能放宽事实边界 |
 | V3-QLT-06 | ResumeContentPlan 与内容预算 | V2-PREP | 为本地槽位预留空间 |
-| V3-QLT-07 | 本地 PDF/批准 Word DOCX 均为一页 | V2-PREP / V3.0-MUST | 不靠截断或不可读缩字 |
+| V3-QLT-07 | PDF 一页且 Preview/Download 同字节 | V2-PREP / V3.0-MUST | DOCX 仅按可编辑副本合同验收 |
 | V3-QLT-08 | 可直接投递成品门禁 | V3.0-MUST | 无占位符、重复、空章节或大段返工 |
 | V3-QLT-09 | 代表性真实岗位人工验收 | V2-PREP / V3.0-MUST | Product Owner 按冻结判分表验收 |
 | V3-QLT-10 | 服务器与本地 P50/P95 | V2-PREP | cold/warm、缓存、装配和成本矩阵 |
@@ -254,9 +256,9 @@ Acceptance，且必须一次覆盖全部工作流。
 
 ## 17. Release Train PLAN 共同输入状态
 
-D-043—D-048 已冻结发布方式、账号/并发/地域、低敏白名单、质量集范围和硬线、真实测试者、积分、
+D-043—D-049 已冻结发布方式、账号/并发/地域、低敏白名单、质量集范围和硬线、真实测试者、积分、
 Company Context 来源、保留/删除目标、模板与设计基底。PLAN 负责补齐运行 SLO、公平使用限流、确切
-评测样本、模板/槽位、浏览器/Word/字体、本地存储与生成器、第三方模型说明、服务器/备份实现、Design
+评测样本、模板/槽位、浏览器/PDF 字体、DOCX 副本兼容、本地存储与生成器、第三方模型说明、服务器/备份实现、Design
 Snapshot，以及开发前证伪、真实纵切架构复查和冻结前反证合同。
 
 以上内容在正式 PLAN 获批前仍保持 DRAFT/CANDIDATE 语义。
@@ -264,7 +266,7 @@ Snapshot，以及开发前证伪、真实纵切架构复查和冻结前反证合
 ## 18. 九天首发技术收敛（D-048 Accepted）
 
 源码预演确认 V3 不是在 V2.2 上直接换数据库和部署方式：真实账号、PostgreSQL/RLS、持久 worker、浏览器
-本地清除与本地 DOCX/PDF、BASE/TARGETED 双任务合同均需要新的完整纵切。为保护生成效果、一页纸、
+本地清除、单一 `final.pdf` 与 DOCX 副本、BASE/TARGETED 双任务合同均需要新的完整纵切。为保护生成效果、一页纸、
 多用户隔离和埋点死线，D-048 已冻结七项收敛：文本层 PDF/手工输入、单生成通道、不建对象存储、
 5 在途/2 执行、不自动整库迁移、最小运维入口、首发不启用自动积分恢复。正式 PLAN 必须直接按此编排；
 未经新决策不得恢复后置机制。

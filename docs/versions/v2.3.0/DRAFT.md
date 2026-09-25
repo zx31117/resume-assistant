@@ -203,7 +203,7 @@ V2.3.0 同时涉及账号鉴权、RLS、本地/服务器数据分界、隐私扫
 对迁移后的简历核心链路，状态成功、文件存在、hash、预览和下载可用仍不足以证明结果正确。验收必须
 贯通“会话账号 → 当前账号履历 ID → Fact/选择快照 → ResumeRevision/ArtifactMetadata”，并用第二
 账号、身份/真实实体名称哨兵证明没有跨账号选材或本地字段外泄；旧兼容入口或单账号 fixture 不能
-替代当前主链。最终本地 DOCX/PDF 由 V2.4.0 另行验收。
+替代当前主链。最终本地一页 PDF、同字节 Preview/Download 与 DOCX 可编辑副本由 V2.4.0 另行验收。
 
 #### 3.9.1 打回前四类定性
 
@@ -319,12 +319,15 @@ JobModelSnapshot
 V2.4.0 本地装配：
 Local Resume Identity + Local Entity Map
 → 单一固定模板与固定槽位
-→ Local Preview / DOCX / PDF
+→ 冻结最终装配输入
+→ final.pdf Blob → PDF.js Preview / PDF Download（同一字节）
+→ DOCX Editable Copy（独立副本 writer）
 ~~~
 
 - `ResumeContentPlan` 保存章节、条目优先级和内容预算，不保存第二份职业事实真源；
 - `ResumeRevision` 的每个内容条目保留 `fact_refs` 和 opaque `entity_ref`，不得保存本地真实名称；
-- `LayoutPlan` 保存模板版本和全局排版参数，不能让 DOCX、PDF 和预览各自维护一套隐式常量；
+- `LayoutPlan` 保存模板版本和全局排版参数；PDF 是唯一视觉真源，Preview 与 PDF 下载必须复用同一
+  `final.pdf` Blob，DOCX 只从同一冻结输入生成内容一致的可编辑副本；
 - 服务器 `ArtifactMetadata` 只记录无身份内容版本、模板/LayoutPlan 和状态，不持有最终本地文件字节；
 - `UsageRecord` 保存阶段、供应商/模型版本、调用、Token、延迟和成本，但不得成为用户按调用扣费依据；
 - 上述服务器对象全部继承账号隔离、来源账本、原子发布、删除、备份恢复和负向哨兵验收；V2.4.0
@@ -399,7 +402,7 @@ Architecture Check 和 V3 候选冻结前 Falsification Check。
 
 ## 7. 正式 PLAN 输入状态
 
-Product Owner 范围输入已齐，可以起草正式 PLAN：
+Product Owner 范围输入已齐，可以起草正式 PLAN（产物语义另由 D-049 冻结）：
 
 1. 香港单区域内部 Alpha；基础设施经常性月费目标 `≤ RMB 100`，按版本根据证据扩容；
 2. 邀请制、非公开注册；V2.3.0 采用管理员发邀请和自建服务端会话，不接 OIDC；
@@ -442,6 +445,7 @@ process-token、Web 进程内 daemon thread 和 Windows/Word 本地产物链。V
 | P1 | 当前异常日志可能包含完整异常对象，模型/解析错误可能夹带正文 | 结构化错误码与字段白名单；禁止正文/JD/身份/实体/响应体进入日志、埋点和告警；用哨兵扫描验证 |
 | P1 | 备份无法对单账号立即物理擦除 | 对外说明活动库 24 小时内删除、备份只随最长 30 天保留期退出；恢复演练必须重放删除墓碑 |
 
-首发不需要对象存储：服务器只保存结构化 Revision 和 ArtifactMetadata，最终 DOCX/PDF 留在浏览器本地。
+首发不需要对象存储：服务器只保存结构化 Revision 和 ArtifactMetadata；最终 `final.pdf` 与 DOCX
+可编辑副本留在浏览器本地，服务器不持有其字节。
 单机最小拓扑为反向代理 + Web + worker + PostgreSQL/pgvector + 离机加密备份；不因低预算删除 worker、
 RLS、备份恢复或 HTTPS。

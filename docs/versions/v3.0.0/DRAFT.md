@@ -22,7 +22,7 @@ Gate；V3.0.0 的正式 Acceptance 必须一次覆盖底座隔离、生成质量
 首发硬结果是：
 
 > 用户能在正式账号中建立或恢复低敏 Career Memory，在产品 Web 端输入目标岗位，并在浏览器本地
-> 获得事实可信、岗位相关、一页纸、专业排版且可直接投递的 Preview、DOCX 和 PDF。
+> 获得事实可信、岗位相关、一页纸、专业排版且可直接投递的 PDF，并可下载内容一致的 DOCX 可编辑副本。
 
 ## 2. 首发用户旅程
 
@@ -37,7 +37,7 @@ Gate；V3.0.0 的正式 Acceptance 必须一次覆盖底座隔离、生成质量
 → 用户处理需确认项
 → 服务器生成无身份基础简历内容
 → 浏览器用 Local Resume Identity / Local Entity Map 本地装配
-→ 预览并下载一页 DOCX/PDF
+→ 预览并下载同一份一页 PDF，可选下载 DOCX 可编辑副本
 ~~~
 
 原始简历字节、姓名、电话、联系邮箱、地址和用户履历中的真实公司/学校/客户/项目名称不得发送业务服务器。
@@ -53,8 +53,8 @@ Gate；V3.0.0 的正式 Acceptance 必须一次覆盖底座隔离、生成质量
 → 必要的信息缺口追问
 → ResumeContentPlan / ResumeRevision / LayoutPlan
 → 浏览器本地补回 Resume Identity 与真实实体名称
-→ Preview
-→ 本地 DOCX / PDF
+→ final.pdf Blob → PDF.js Preview / PDF Download（同一字节）
+→ DOCX Editable Copy
 → 下载
 ~~~
 
@@ -155,7 +155,7 @@ Career Memory 支持跨设备恢复、检索、导出和删除，但不包含 Re
 - 姓名、手机号、简历联系邮箱、地址；
 - 个人网站、LinkedIn/GitHub 等直接身份入口及其他可直接识别/联系用户的字段；
 - 用户履历中的公司、学校、客户、项目等真实实体名称与 entity_ref 的映射；
-- 最终 Preview、DOCX、PDF 文件字节。
+- 最终 `final.pdf`、PDF Preview/Download Object URL 和 DOCX 可编辑副本字节。
 
 本地字段不得进入服务器业务数据库、Career Memory、ResumeRevision、模型请求、日志、埋点、APM、
 错误报告或质量评测。新设备不从服务器恢复这些字段，V3.0.0 暂由用户重新输入。
@@ -210,10 +210,10 @@ Server ResumeRevision + LayoutPlan + Template Version
 + Local Resume Identity Revision
 + Local Entity Map Revision
 → Local Document Assembler
-→ Preview
-→ DOCX Blob
-→ PDF Blob
-→ 一页/溢出/可读性检查
+→ 冻结最终装配输入
+→ final.pdf Blob → PDF.js Preview / PDF Download
+→ DOCX Editable Copy
+→ PDF 一页/溢出/文本层/可读性检查 + DOCX 副本检查
 → Download
 ~~~
 
@@ -221,14 +221,16 @@ Server ResumeRevision + LayoutPlan + Template Version
 清理。本地敏感数据不得明文写入 localStorage，正式 PLAN 必须冻结 IndexedDB/OPFS、WebCrypto、
 密钥生命周期、清除、迁移、无痕模式和浏览器回收后的失败语义。
 
-### 6.3 DOCX/PDF 同源
+### 6.3 PDF 单一视觉真源与 DOCX 副本
 
-同源表示 Preview、DOCX 和 PDF 使用同一 JobModelSnapshot、EvidenceSelection、ResumeContentPlan、
-ResumeRevision、LayoutPlan、模板版本及本地 identity/entity map revision；不再要求包含真实身份的
-最终 PDF 由服务端 Word 转换最终 DOCX。
+JobModelSnapshot、EvidenceSelection、ResumeContentPlan、ResumeRevision、LayoutPlan、模板/字体版本
+及本地 identity/entity map revision 组成冻结最终装配输入。浏览器只生成一次 `final.pdf` Blob；PDF.js
+最终 Preview 与 PDF Download 必须复用同一 Blob，并以字节/hash 断言证明一致。禁止以 HTML/CSS 重排、
+截图或第二次生成冒充最终预览。
 
-本地 PDF 必须实际一页；DOCX 必须在批准 Word/字体环境中实际一页。V2.4.0 的合成身份和实体名称
-边界矩阵是首发回归基线，不承诺所有办公软件和缺失字体环境像素级一致。
+PDF 是唯一视觉真源，必须实际一页、具备文本层、嵌入批准字体并通过溢出、裁切、可读性和 ATS 基础
+检查。DOCX 由独立 writer 从同一冻结输入生成，只承诺内容一致、可打开、可编辑、无损坏/占位符且
+正文非图片化；不承诺一页、像素级同版、反向还原 PDF，或由 Word/WPS 另存为同一 PDF。
 
 ### 6.4 本地安全
 
@@ -253,7 +255,7 @@ ResumeRevision、LayoutPlan、模板版本及本地 identity/entity map revision
 
 - 事实可信、岗位相关，不需要用户大段重写；
 - 无占位符、空章节、重复 bullet、调试文字、溢出、遮挡、裁切或隐藏内容；
-- 本地 PDF 和批准 Word 环境 DOCX 都恰好一页；
+- 本地 PDF 恰好一页，最终 Preview 与 PDF Download 为同一字节；DOCX 满足可编辑副本合同；
 - 使用获批模板并达到最小字号、行距、字距、页边距和层级可读性；
 - 无法同时满足事实、一页和可读性时明确失败或请求用户确认取舍。
 
@@ -329,8 +331,8 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - 免费一页纸基础简历；
 - ApplicationCase 与 Job Model v1；
 - 针对性召回、润色和信息缺口；
-- 方案 B 本地 Preview/DOCX/PDF；
-- 固定模板、固定槽位和一页纸质量门禁；
+- 方案 B 本地 `final.pdf`、PDF.js 同字节 Preview/Download 与 DOCX 可编辑副本；
+- 固定模板、固定槽位、PDF 一页纸质量门禁和 DOCX 副本门禁；
 - 用户确认后的低敏事实回流；
 - ApplicationCase 状态与历史；
 - 免费积分账本和任务级结算；
@@ -389,8 +391,10 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - [ ] 原始简历在本地解析和清除，身份/真实实体名称不会进入网络；
 - [ ] Local Resume Identity 和 Local Entity Map 不从 Auth/Career Memory 自动填充；
 - [ ] 新设备明确要求重新输入本地字段；
-- [ ] Preview、DOCX、PDF 使用同一冻结内容、模板、LayoutPlan 和本地 revision；
-- [ ] 成功成品在本地 PDF 与批准 Word 环境均为一页；
+- [ ] 最终 PDF Preview 与 PDF Download 使用同一不可变 `final.pdf` Blob，逐字节/hash 断言一致；
+- [ ] 成功 PDF 均为一页、具有文本层和嵌入字体，且无溢出、遮挡、裁切或不可读缩字；
+- [ ] DOCX 使用同一冻结输入，章节、条目顺序、事实、字段值和可见文本完整一致，在批准 Word 环境
+  可打开、可编辑、无损坏/占位符和图片化正文；DOCX 页数与视觉差异只记录不阻断；
 - [ ] 超长槽位、字体替代、无痕模式、存储拒绝、清缓存和崩溃恢复矩阵通过；
 - [ ] 前端 XSS/依赖/出站负向测试证明本地身份和最终文件未外发；
 - [ ] 再次下载不重复扣减权益。
@@ -406,12 +410,12 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 
 ## 13. Release Train PLAN 输入状态
 
-Product Owner 输入已由 D-043—D-048 冻结：邀请制 Beta、20 账号/5 并发、香港区域、12 案例和质量
+Product Owner 输入已由 D-043—D-049 冻结：邀请制 Beta、20 账号/5 并发、香港区域、12 案例和质量
 硬线、3—5 名真实测试者、免费积分规则、数据保留/删除目标、Company Context 来源、DS-003 视觉基底、
 单模板以及 Local-only 身份边界均不再作为待选项。
 
 PLAN 必须技术化冻结：ApplicationCase 有效期与公平使用限流、运行 SLO、活动库/备份删除作业、账号
-恢复、隐私与第三方模型说明、Local Identity/Entity Map 存储和失败语义、模板/槽位和浏览器/Word/字体
+恢复、隐私与第三方模型说明、Local Identity/Entity Map 存储和失败语义、模板/槽位、浏览器/PDF 字体
 版本、服务器/数据库/备份实现、最小 Design Snapshot、并行工作流所有权和 Day 3/6/9 统一验收矩阵。
 
 ## 14. 与既有决策的关系
@@ -425,7 +429,8 @@ PLAN 必须技术化冻结：ApplicationCase 有效期与公平使用限流、�
 - D-045：V2.3.0 香港邀请制 Alpha、低敏白名单及共享 PostgreSQL/pgvector 强隔离基线；
 - D-046：三条工作流并行开发，V3.0.0 统一正式验收；
 - D-047：邀请制 Beta、质量门槛、免费积分、数据保留与设计基线；
-- D-048：九天首发技术收敛包。
+- D-048：九天首发技术收敛包；
+- D-049：纯网页产物链，PDF 为唯一视觉真源，DOCX 为可编辑副本。
 
 ## 15. Post-V3 Future Direction
 
@@ -449,7 +454,7 @@ V3.0.0 Release Train PLAN 统一管理三条并行工作流、集成 Gate、冻�
 3. 用户履历真实公司/学校属于 Local Entity Map；目标岗位公司名若来自 JD，可作为 Job Model 的岗位
    上下文保存，但不得反向写入 Career Memory 的用户履历实体；
 4. 服务器不需要保存最终文件，也不需要首发对象存储。结构化 Revision/任务/账本/埋点进入 PostgreSQL，
-   最终 Preview/DOCX/PDF 只在浏览器装配；
+   最终 `final.pdf`、PDF.js Preview/Download 与 DOCX 可编辑副本只在浏览器装配；
 5. “最多 5 个并发生成任务”解释为容量/排队上限；初始真实模型执行并发建议为 2，由香港实例实测和
    供应商限流证据调整，不以并发压垮质量或月度预算。
 
@@ -458,9 +463,9 @@ V3.0.0 Release Train PLAN 统一管理三条并行工作流、集成 Gate、冻�
 | 时间 | 必须形成的真实证据 | 失败处理 |
 |---|---|---|
 | Day 1 | 目标香港实例到真实模型/Embedding 的延迟、错误、Token/费用探针；共享 schema/API/event owner 冻结 | 不继续假设网络和成本可用，立即换规格/供应商或缩小运行容量 |
-| Day 2 | 浏览器固定模板生成 DOCX/PDF Blob，嵌入固定字体，同一 LayoutPlan，同源 hash；原始文件和身份零出站 | 方案 B 不成立即 `CHALLENGE_OPEN`；禁止改成服务器处理身份文件 |
+| Day 2 | 浏览器固定模板生成单一 `final.pdf` Blob，PDF.js Preview/Download 同字节，DOCX 可编辑副本，嵌入固定 PDF 字体；原始文件和身份零出站 | 方案 B 不成立即 `CHALLENGE_OPEN`；禁止改成服务器处理身份文件或本地助手 |
 | Day 3 | 两账号 SQL/Embedding/缓存/账本负向矩阵；Web/worker 重启、lease reclaim、RLS 事务与连接池复用通过 | 不合并后续功能；先修底座 |
-| Day 6 | 香港正式域名、真实邀请账号、真实模型、真实岗位、浏览器本地恢复身份、PDF/DOCX 一页完整纵切 | 未通过则停止首发，不能以模块测试替代 |
+| Day 6 | 香港正式域名、真实邀请账号、真实模型、真实岗位、浏览器本地恢复身份、一页 PDF 同 Blob 预览/下载与 DOCX 副本完整纵切 | 未通过则停止首发，不能以模块测试替代 |
 | Day 7 | 功能冻结；12 案例和 3—5 名真实测试者进入统一回归 | 只修 P0/P1，不新增功能 |
 | Day 9 | 单一 clean commit 候选、生产配置/回滚/恢复证据和独立验收 | 任一硬 Gate 失败即不发布 |
 
@@ -488,7 +493,7 @@ V3.0.0 Release Train PLAN 统一管理三条并行工作流、集成 Gate、冻�
 |---|---|---|---|
 | PATH-01 | PostgreSQL worker 是至少一次执行，不是模型调用恰好一次 | worker 在模型返回后、结果落库前崩溃会重复调用和增加成本 | claim/lease/attempt_id；阶段幂等；在调用前、调用后未落库、落库后未确认三个崩溃点故障注入；用户积分仍只结算一次 |
 | PATH-02 | 本地装配成功由浏览器上报，服务器无法独立验证最终 Blob | 客户端关闭会留下 reserve；恶意/故障客户端可虚报成功或失败 | 区分服务器内容成功与客户端装配成功；reserve 超时回收；Beta 可接受 client-attested artifact 事件，但不得作为安全或付费真源 |
-| PATH-03 | 同一 LayoutPlan 不保证不同 Word/WPS/字体环境相同分页 | 批准环境一页，用户打开后可能变两页 | PDF 为视觉权威；DOCX 只承诺 PLAN 冻结的 Word/字体环境；预留分页安全余量，WPS/其他环境明确为 best effort |
+| PATH-03 | 用户可能把 DOCX 可编辑副本误认为与 PDF 同版，或用 Word/WPS 另存后期待得到同一 PDF | DOCX 分页变化被理解为产品预览造假 | UI 明示“PDF 推荐投递/版式以此为准”和“DOCX 可编辑副本/排版可能变化”；DOCX 不进入视觉、一页或反向转换承诺 |
 | PATH-04 | 历史重下载依赖旧模板、字体、LayoutPlan 和渲染器 | 部署升级后同一 Revision 无法重建原成品 | ArtifactMetadata 固定全部版本/hash；旧渲染器和资产按 Career Memory 保留期可寻址；跨版本重装配回归 |
 | PATH-05 | Local-only 清除存在漏检和过度清除，低敏字段组合仍可能重新识别个人 | 身份或真实实体进入服务器/模型，或事实被清空导致不可用 | 文本层解析 + 规则/实体扫描 + 用户逐项确认；不可消歧 fail closed；明确“低敏不等于匿名”，最小化来源片段 |
 | PATH-06 | Job Model 公司实体与用户履历实体若共用占位符命名空间 | 目标公司名可能被错误补入个人经历，形成事实污染 | `job_entity` 与 `person_entity_ref` 类型/命名空间分离；模型 schema 和本地恢复均拒绝跨域引用 |
