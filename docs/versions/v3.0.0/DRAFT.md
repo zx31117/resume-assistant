@@ -1,27 +1,24 @@
-# AI Career Resume Assistant V3.0.0 草稿：免费多用户 Job Application Agent 首发
+# AI Career Resume Assistant V3.0.0 草稿：免费多用户 Public Release
 
 > 文档角色：版本范围草稿，供 Product Owner 审核
 > 状态：DRAFT，非开发指令，不改变当前版本状态
 > 重写日期：2026-09-25
-> Supersedes：2026-08-19 的 local-first / 浏览器 Vault 探索草稿；旧路线仍由 Git 历史保存
-> 假定前置：V2.3.0 完成多用户服务器底座，V2.4.0 完成 Job Model、召回/润色、内容预算、
-> 单一生产模板与一页纸成品质量冻结
-> 核心目标：在不接入人民币支付的前提下，公开提供账号级 Career Memory、专项投递、可直接投递的
-> 一页纸针对性简历、免费积分权益、埋点和生产运行能力；浏览器助手按证据作为可选 Beta
+> Supersedes：2026-08-19 local-first Career Memory 探索及 2026-09-19 自动化投递入口候选；旧路线由
+> Git 历史保存
+> 假定前置：V2.3.0 完成多用户服务器底座和低敏 Career Memory 数据合同；V2.4.0 完成 Job Model、
+> 召回/润色、固定模板、网页本地装配与一页纸成品质量冻结
+> 核心目标：第一次公开提供免费、多用户、服务器化 AI Career Resume / Job Preparation 产品；
+> 首发不接入人民币支付
 
 ## 1. 核心判断
 
-V3.0.0 是项目第一次面向真实用户的服务器化、多用户版本。产品长期方向从“AI 简历生成器”扩展为：
+V3.0.0 是项目第一次面向真实用户的服务器化、多用户版本。产品长期方向仍是以 Career Memory 为
+事实底座，围绕用户主动选择的目标岗位完成岗位理解、事实选材、信息补充和针对性简历。
 
-> 以 Career Memory 为事实底座，在用户主动选择的目标岗位上完成岗位理解、事实选材、信息补充、
-> 针对性简历和网页表单辅助，并把用户确认的新事实回流到长期职业资产。
+首发硬结果是：
 
-V3.0.0 提供这个方向的最小完整闭环，不承诺已经自动完成整个投递流程。首发硬结果是：用户能在
-正式账号中输入目标岗位，并获得事实可信、岗位相关、一页纸、专业排版且可直接投递的 Word/PDF。
-浏览器助手是长期方向，但它的实现、商店发布或站点覆盖不能补偿生成质量，也不阻断首发。
-
-用户始终控制目标岗位、敏感字段、文件上传和最终提交；系统不得读取招聘网站凭据、绕过验证码/
-MFA、规避访问控制或未经确认替用户提交申请。
+> 用户能在正式账号中建立或恢复低敏 Career Memory，在产品 Web 端输入目标岗位，并在浏览器本地
+> 获得事实可信、岗位相关、一页纸、专业排版且可直接投递的 Preview、DOCX 和 PDF。
 
 ## 2. 首发用户旅程
 
@@ -30,64 +27,60 @@ MFA、规避访问控制或未经确认替用户提交申请。
 ~~~text
 访问正式 HTTPS 域名
 → 注册或登录账号
-→ 上传已有简历或录入经历
-→ 形成可回查的 Experience / Fact
+→ 在浏览器本地选择已有简历，或手工录入经历
+→ 本地移除 Resume Identity 与真实实体名称
+→ 服务器接收低敏 Experience / Fact / entity_ref
 → 用户处理需确认项
-→ 生成、预览并下载免费基础简历
+→ 服务器生成无身份基础简历内容
+→ 浏览器用 Local Resume Identity / Local Entity Map 本地装配
+→ 预览并下载一页 DOCX/PDF
 ~~~
 
-基础简历必须达到正常投递下限。免费版不能通过更差模型、事实越界、水印、缺页或故意降低结果
-质量迫使用户消费积分；限制主要体现在专项投递频率、高成本能力和公平使用上限。
+原始简历字节、姓名、电话、联系邮箱、地址和用户履历中的真实公司/学校/客户/项目名称不得发送业务服务器。
+基础简历必须达到正常投递下限，不能通过更差模型、水印、事实缺陷或不可读排版迫使用户消耗积分。
 
-### 2.2 创建专项投递
+### 2.2 针对目标岗位
 
 ~~~text
-用户粘贴 JD，或提供岗位 URL 后确认岗位信息
-→ 服务端创建 ApplicationCase
-→ 建立 JobModelSnapshot
-→ 选择 Career Memory 中的相关 Fact
-→ 必要时追问影响当前结果的信息缺口
-→ 生成针对性简历
+在产品 Web 端粘贴 JD / 输入岗位信息
+→ 创建 ApplicationCase
+→ 冻结 JobModelSnapshot
+→ EvidenceSelection
+→ 必要的信息缺口追问
+→ ResumeContentPlan / ResumeRevision / LayoutPlan
+→ 浏览器本地补回 Resume Identity 与真实实体名称
+→ Preview
+→ 本地 DOCX / PDF
+→ 下载
 ~~~
 
-若已验证的浏览器助手 Beta 可用，用户也可以在目标网站主动读取岗位并进入同一创建流程。产品内
-粘贴 JD、生成、下载和手工上传始终是完整主链，不能因为插件缺失或失败而降级核心结果。
+普通岗位 URL 可以作为用户输入和 JobModelSnapshot 来源字段，但 V3.0.0 不自动访问、抓取或解析招聘
+网站页面。
 
-### 2.3 下载、可选填充与提交
+### 2.3 状态、历史与事实回流
 
-~~~text
-服务端返回针对性一页纸简历
-→ 用户预览并下载 Word/PDF
-→ 用户在招聘网站手工上传
-→ 若助手 Beta 已启用，先展示目标字段、拟填内容和来源
-→ 用户选择允许填充的字段，支持时再单独确认上传文件
-→ 用户检查网页和文件
-→ 用户亲自点击最终提交
-~~~
-
-V3.0.0 的首发产品结果是“一键生成可直接投递的一页纸简历”；具备证据时可以增加辅助填充，但始终
-不是“后台自动海投”。
-
-### 2.4 任务结束与事实回流
-
-- 保存 ApplicationCase、岗位快照、简历修订、下载和助手状态；
-- 用户可以记录已投递、稍后处理、放弃或面试等状态；
-- 当前任务中补充的信息只有在用户明确确认后才写回 Career Memory；
+- 保存 ApplicationCase、岗位快照、低敏简历内容修订、模板/LayoutPlan 和 ArtifactMetadata；
+- 用户可以记录准备中、已下载、已投递、稍后处理、放弃或面试等基础状态；
+- 当前任务补充的信息只有用户明确确认后才写回服务器 Career Memory；
+- 写回前移除 Resume Identity 与真实实体名称，使用 opaque entity_ref 和批准低敏描述；
 - Job Model、Company Context 和模型推测永远不能写入 Person Model；
-- 后续同类岗位可复用仍有效的 Stable Evidence，减少等待和重复成本。
+- 最终带身份文件只保存在当前设备；历史“再次下载”是重新本地装配，不是下载服务器旧文件；
+- 换设备后 Career Memory 可恢复，Local Resume Identity 与 Local Entity Map 暂由用户重新输入。
 
 ## 3. 产品模型
 
 ### 3.1 Person Model
 
 ~~~text
-确认事实层：Profile / Experience / Fact
-派生理解层：Embedding / 标签 / 摘要 / Stable Evidence
-行为偏好层：历史选择 / 表达偏好 / 投递状态
+服务器确认事实层：Experience / Fact / opaque entity_ref
+服务器派生理解层：Embedding / 标签 / 摘要 / Stable Evidence
+服务器行为偏好层：历史选择 / 表达偏好 / ApplicationCase 状态
+
+本地装配层：Local Resume Identity / Local Entity Map
 ~~~
 
-确认事实层是生成事实依据。派生层必须可重建、带版本和来源；行为偏好只能用于体验优化，不能
-反向冒充职业事实。
+确认事实层是生成事实依据。派生层必须可重建、带版本和来源；行为偏好不能冒充职业事实。本地装配
+层不属于 Career Memory，也不向服务器、第三方模型、日志或埋点发送。
 
 ### 3.2 Job Model
 
@@ -95,17 +88,17 @@ V3.0.0 的首发产品结果是“一键生成可直接投递的一页纸简历�
 Job Model
 = JD 明示要求
 + Role Prior 岗位基本素养
-+ Company / Business Context
++ 有来源的 Company / Business Context
 ~~~
 
 - JD 明示要求可以作为招聘方明确条件；
-- Role Prior 和 Company Context 可以补召回、排序和表达重点，但必须标注其来源；
+- Role Prior 和 Company Context 可以补召回、排序和表达重点，但必须标注来源；
 - 无来源推测不能进入选材；
 - 每次任务冻结 JobModelSnapshot，记录 JD hash、Role Profile、Company Context、规则、模型和时间。
 
 ### 3.3 ApplicationCase
 
-`ApplicationCase` 是专项投递、积分、埋点和产物的共同聚合根：
+`ApplicationCase` 是专项准备、权益、埋点和内容版本的共同聚合根：
 
 ~~~text
 ApplicationCase
@@ -113,137 +106,162 @@ ApplicationCase
 ├── JobModelSnapshot
 ├── EvidenceSelection
 ├── information_gaps / proposed_facts
-├── ResumeRevisions / Artifacts
-├── assistant_sessions / field_fill_records
+├── ResumeContentPlan / ResumeRevision / LayoutPlan
+├── ArtifactMetadata
 ├── application_status
+├── nullable external client source fields
 └── entitlement / analytics correlation
 ~~~
 
-一个 ApplicationCase 默认对应一个目标公司、一个岗位和一条主 JD 演进链。有效期、完整重算次数和
-积分数量由配置控制，不硬编码在用户界面。
+一个 ApplicationCase 默认对应一个目标公司类别、一个岗位和一条主 JD 演进链。真实目标公司名称如
+需出现在最终文件，由 Local Entity Map 在本地补回，不进入服务器聚合对象。
 
-## 4. Career Memory 与用户数据权利
+## 4. 三个身份与数据域
 
-### 4.1 服务端持久化方向
+### 4.1 Account / Auth Identity
 
-V3 默认允许账号级服务端持久化 Career Memory，以支持跨设备、恢复、检索和持续服务。隐私目标是
-最小暴露、用途限制、直接身份隔离、透明告知和可删除，不承诺“绝对本地”或“完全匿名”。
+- 只服务注册、登录、账号恢复、授权、风控和安全审计；
+- 认证邮箱、OIDC subject 等保存在独立 Auth 安全域；
+- 即使认证邮箱与简历联系邮箱相同，也不得自动复制到业务数据或本地简历身份；
+- 普通业务查询不能把 Auth Identity 当作 Career Memory Profile。
 
-- SQL `Experience / Fact` 是唯一职业事实源；
-- 用户主动材料中可回查的直接抽取可进入经历库，模型推断和冲突仍需确认；
-- “Profile 持久化”表示账号具有可恢复的 Profile 能力，不等于把全部直接身份混入普通职业事实表；
-  姓名、电话、邮箱和实体映射究竟保存在设备侧受控存储，还是服务端加密身份 Vault，必须在正式
-  PLAN 前冻结，浏览器助手只能取得当前填充所需的最小字段；
-- 直接身份、语义职业事实、派生向量、任务、产物和埋点使用不同访问角色与保留策略；
-- 发送第三方模型只包含完成当前任务所需的最小事实集合；
-- 服务端持久化与第三方模型处理是两条独立数据边界，分别告知、审计和验收；
-- 用户能够查看、修改、导出、删除 Career Memory，并注销账号；
-- 删除覆盖事实、向量、任务、产物、助手会话和允许删除的分析关联。
+### 4.2 Career Memory（服务器）
 
-### 4.2 Fact 状态与回流
+服务器可账号级持久化：
 
-~~~text
-OBSERVED   用户材料中可回查的直接事实
-DERIVED    标签、摘要、Embedding 等派生数据
-PROPOSED   AI 或任务追问形成的候选事实
-CONFIRMED  用户明确确认的长期事实
-REJECTED   用户否认，不再静默建议
-~~~
+- 低敏 Experience / Fact；
+- Fact enrichment、Embedding 和派生索引；
+- opaque entity_ref 与批准低敏描述，例如学校层级、行业、企业规模；
+- ApplicationCase、JobModelSnapshot、EvidenceSelection；
+- ResumeContentPlan、无身份 ResumeRevision、LayoutPlan；
+- Task、ArtifactMetadata、UsageRecord、权益和脱敏事件；
+- 用户确认后的长期职业事实。
 
-只有 OBSERVED 和 CONFIRMED 能作为长期个人事实；PROPOSED 未确认前只属于当前 ApplicationCase。
-冲突不能覆盖旧事实，必须由用户修改、合并或保留不同记录。
+Career Memory 支持跨设备恢复、检索、导出和删除，但不包含 Resume Identity、真实实体名称或原始
+身份文件。
 
-## 5. 多用户数据与向量架构
+### 4.3 Local Resume Identity / Local Entity Map
 
-### 5.1 关系与向量数据库
+以下数据只保存在用户设备：
+
+- 姓名、手机号、简历联系邮箱、地址；
+- 个人网站、LinkedIn/GitHub 等直接身份入口及其他可直接识别/联系用户的字段；
+- 用户履历中的公司、学校、客户、项目等真实实体名称与 entity_ref 的映射；
+- 最终 Preview、DOCX、PDF 文件字节。
+
+本地字段不得进入服务器业务数据库、Career Memory、ResumeRevision、模型请求、日志、埋点、APM、
+错误报告或质量评测。新设备不从服务器恢复这些字段，V3.0.0 暂由用户重新输入。
+
+### 4.4 原始简历导入
+
+用户在浏览器本地选择原始简历。客户端先完成解析、身份/真实实体识别和去除，再把低敏结构化事实、
+必要来源片段和来源 hash 发送服务器。不能确定是否已清除时 fail closed，不上传原始字节或不确定片段。
+
+模型推断、冲突合并、低置信解析和新增回答仍需用户确认；直接抽取也必须保留不含本地身份的可回查
+来源关系。
+
+## 5. 多用户数据库、向量与文件边界
+
+### 5.1 PostgreSQL / pgvector
 
 - PostgreSQL 是服务器业务真源；
-- pgvector 保存可从当前 Fact 重建的派生向量；
-- 所有用户数据有非空 `account_id`；
+- pgvector 保存可从低敏 Fact 重建的派生向量；
+- 所有业务数据具有非空 account_id；
 - Row-Level Security 默认拒绝，普通应用角色不能跨账号查询；
-- 向量检索必须在 SQL 层先限定账号，再进行相似度排序；
+- 向量检索先在 SQL 层限定账号，再执行相似度排序；
 - fingerprint、dimension、Fact revision/hash 或模型版本不匹配时禁止使用旧向量；
-- 模型升级使用新索引世代，核验完成后原子切换，不混合检索；
 - production、staging 和 test 数据面物理隔离。
 
-### 5.2 文件与产物
+### 5.2 服务器文件与产物元数据
 
-- 上传材料、DOCX/PDF 和临时文件按账号、ApplicationCase 和 artifact 隔离；
-- 浏览器下载和助手获取文件使用短时、单用途授权；
-- URL、文件名或已知 artifact ID 不能替代权限检查；
-- 代理、CDN、缓存和 Range/HEAD 请求保持相同授权；
-- 临时文件和过期产物按策略清理；删除、失败、超时和崩溃场景均需验证。
+- 服务器只保存明确允许的低敏来源片段、无身份内容文件和 ArtifactMetadata；
+- 原始身份简历与最终带身份 DOCX/PDF 不进入对象存储、缓存、备份或 CDN；
+- URL、文件名或已知对象 ID 不能替代账号授权；
+- 代理、缓存和 Range/HEAD 请求保持相同授权；
+- 删除、失败、超时和崩溃场景均有资源清理；
+- 账号导出/删除只覆盖服务器实际持有内容，并明确本地文件需由用户自行管理。
 
-## 6. 浏览器助手（非首发阻断项）
+## 6. 方案 B：网页本地固定模板装配
 
-### 6.1 能力边界
+### 6.1 首发边界
 
-| 级别 | 能力 | V3.0.0 |
-|---|---|---|
-| L0 | 产品内复制 JD、下载、手工填写与上传引导 | 首发主链保底可用 |
-| L1 | 读取当前岗位、创建 ApplicationCase | 可选 Beta；不阻断 V3.0.0 |
-| L2 | 显示映射并由用户确认后填充网页字段 | 可选 Beta；按站点启用 |
-| L3 | 用户确认后选择并上传生成简历 | 研究项；仅在已证实站点启用 |
-| L4 | 自动点击最终提交 | 不做 |
+- 一套版本化生产模板；
+- 桌面 Chromium 为首发基准；
+- Local Resume Identity 与 Local Entity Map 只在浏览器本地受控存储和内存出现；
+- 身份、联系方式及真实实体名称只进入模板固定槽位，不在正文任意散落；
+- 超长字段要求用户本地提供简写，不静默截断、不上传原值；
+- 手机端与其他浏览器保证官网和结果可读，完整文件装配范围由正式 PLAN 冻结。
 
-V3.0.0 可以完全不发布扩展，只提供 L0 主链。L1—L3 若未证明可靠、合规且不拖累核心质量，则顺延
-到 V3.x，不以时间压力静默降低标准或伪装为已完成。
+### 6.2 本地文件流程
 
-### 6.2 权限与安全
+~~~text
+Server ResumeRevision + LayoutPlan + Template Version
++ Local Resume Identity Revision
++ Local Entity Map Revision
+→ Local Document Assembler
+→ Preview
+→ DOCX Blob
+→ PDF Blob
+→ 一页/溢出/可读性检查
+→ Download
+~~~
 
-- 默认采用当前活动标签页或明确站点 allowlist，不申请无边界全站读取；
-- 每次读取岗位、填充敏感字段和上传文件均由用户操作触发；
-- 填充前展示目标字段、拟填内容、来源和敏感性；
-- 插件不读取或保存密码、Cookie、MFA、验证码、第三方私信和支付信息；
-- 不注入绕过反自动化、访问控制或验证码的行为；
-- DOM 结构或适配器版本未知时 fail closed，回退 L0；
-- 插件只取得短时 ApplicationCase/Artifact 授权，不持有模型 Provider Key；
-- 第三方页面脚本不得读取本项目账号令牌、Career Memory 或未选择的其他简历；
-- 适配器更新、权限扩张和远程配置均需签名、审计和可撤销。
+浏览器不得把最终文件字节回传服务器。下载使用本地 Blob/Object URL；临时内存和失效 Blob 按状态
+清理。本地敏感数据不得明文写入 localStorage，正式 PLAN 必须冻结 IndexedDB/OPFS、WebCrypto、
+密钥生命周期、清除、迁移、无痕模式和浏览器回收后的失败语义。
 
-### 6.3 站点兼容
+### 6.3 DOCX/PDF 同源
 
-若首发提供助手 Beta，只承诺正式 PLAN 明确列出的 Chromium 桌面端和招聘页面。通用 DOM 启发式
-不能在未经用户复核时自动填充；站点改版、动态表单、iframe、文件控件和跨域限制分别记录成功、
-回退和不支持状态。
+同源表示 Preview、DOCX 和 PDF 使用同一 JobModelSnapshot、EvidenceSelection、ResumeContentPlan、
+ResumeRevision、LayoutPlan、模板版本及本地 identity/entity map revision；不再要求包含真实身份的
+最终 PDF 由服务端 Word 转换最终 DOCX。
 
-## 7. 针对性简历与性能
+本地 PDF 必须实际一页；DOCX 必须在批准 Word/字体环境中实际一页。V2.4.0 的合成身份和实体名称
+边界矩阵是首发回归基线，不承诺所有办公软件和缺失字体环境像素级一致。
 
-- V2.4.0 已冻结的 Role Prior、Company Context、混合召回、内容计划、润色和一页纸闭环进入生产；
+### 6.4 本地安全
+
+- 页面禁止不必要第三方脚本和分析 SDK；
+- CSP、依赖锁定、出站白名单、敏感 sink 审计和网络负向探针必须通过；
+- 错误处理不得附带字段值、文件字节、DOM、截图或完整异常对象；
+- 埋点只能记录枚举状态和脱敏计数，不记录原值或可反推出身份的长度组合；
+- 前端发布资产被篡改或完整性无法确认时，Local Resume Identity 功能 fail closed。
+
+## 7. 针对性简历与质量
+
+- V2.4.0 冻结的 Role Prior、Company Context、混合召回、内容计划、润色和一页纸闭环进入生产；
 - Stable Evidence 优先复用，Adaptive Evidence 针对当前岗位重新处理；
-- Fast Lane 尽快提供高置信完整结果，Precision Lane 完成扩展召回和精排；
-- 最终 DOCX/PDF 只从同一冻结 ResumeRevision/LayoutPlan 生成，中间预览不成为第二真源；
-- 每条内容保留 fact_refs，未知、跨账号、过期和无来源内容被拒绝；
-- 服务器真实环境持续采集首结果、最终完成、缓存命中、模型调用、Token 和成本；
-- 新增公司研究、检查或 Agent 不得无上限串行叠加用户等待时间。
+- Fast Lane 提供高置信完整内容，Precision Lane 完成扩展召回和精排；
+- 服务器每条内容保留 fact_refs 和 opaque entity_ref，未知、跨账号、过期和无来源内容被拒绝；
+- ResumeContentPlan 为本地固定槽位预留明确空间预算；
+- 本地超页只向服务器提交批准的内容预算/溢出类别，不提交身份、真实名称或原始长度明细；
+- 服务器真实环境持续采集首结果、最终内容、缓存命中、模型调用、Token 和成本；
+- 本地装配持续采集隐私安全的成功/失败枚举和耗时。
 
-### 7.1 首发成品硬门禁
+成功成品必须：
 
-每个标记为成功的基础简历和针对性简历必须：
-
-- 在批准 Word 参考环境中实际渲染为一页，且由该 DOCX 转换的 PDF 也恰好一页；
-- 使用获批生产模板，达到最小字号、行距、字距、页边距和层级可读性；
+- 事实可信、岗位相关，不需要用户大段重写；
 - 无占位符、空章节、重复 bullet、调试文字、溢出、遮挡、裁切或隐藏内容；
-- 内容岗位相关、事实可追溯，不需要用户大段重写才能投递；
-- 预览、DOCX、PDF 和下载文件绑定同一 JobModelSnapshot、EvidenceSelection、ResumeContentPlan、
-  ResumeRevision 和 LayoutPlan；
-- 无法同时满足事实、一页和可读性时明确失败或请求用户确认取舍，不把两页/不可读文件标为成功。
+- 本地 PDF 和批准 Word 环境 DOCX 都恰好一页；
+- 使用获批模板并达到最小字号、行距、字距、页边距和层级可读性；
+- 无法同时满足事实、一页和可读性时明确失败或请求用户确认取舍。
 
-V3.0.0 之后可以继续微调召回权重、top-k、阈值、Prompt、模型、表达风格、内容预算和批准范围内的
-版式参数；不再重做事实真源、核心生成对象关系、DOCX/PDF 同源和一页纸收敛机制。
+V3.0.0 后可以微调召回权重、top-k、阈值、Prompt、模型、表达风格、内容预算和批准范围内版式参数；
+不得再重做事实真源、三个数据域、核心生成对象关系和本地装配合同。
 
-## 8. 免费权益与积分
+## 8. 免费权益
 
 V3.0.0 不接支付，但启用完整免费权益语义：
 
-- 基础 Career Memory 和可投递通用简历免费；
-- 专项投递按完整 ApplicationCase 消耗积分，不按单次模型调用扣减；
-- 同一任务内正常修改、失败重试、刷新恢复和失败范围续试不重复扣积分；
-- 启动高成本任务时 `reserve`，首份可用结果形成后 `settle`；未产生可用结果时 `release`；
-- 系统确认故障可以 `refund`，所有变化进入不可变账本；
+- Career Memory 和可投递基础简历免费；
+- 专项 ApplicationCase 按完整任务消耗积分，不按模型调用次数扣减；
+- 同一任务内正常修改、失败重试、刷新恢复和失败范围续试不重复扣减；
+- 高成本任务 reserve，首份可用内容形成后 settle；未产生可用结果时 release；
+- 系统故障可以 refund，所有变化进入不可变账本；
 - 新用户、自然恢复、Early User 和受控邀请可以发放免费积分；
-- 等级和签到只保留数据与实验能力，不在首发页面堆叠游戏化元素；
 - 充值、订单、支付、订阅和人民币价格明确不做。
+
+本地重新装配或再次下载同一冻结内容不产生新的权益扣减。
 
 ## 9. 埋点、质量与实验
 
@@ -252,38 +270,36 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 ~~~text
 注册/登录
 → Career Memory 建立
-→ 基础简历完成
-→ 岗位捕获
+→ 免费基础简历
 → ApplicationCase 创建
 → 首结果
-→ 最终简历
-→ 下载/网页填充
-→ 用户记录投递状态
+→ 最终内容
+→ 本地装配成功
+→ 下载
+→ 投递状态
 → 再次自然使用
 ~~~
 
 ### 9.2 运行与质量
 
 - 各阶段 P50/P95、错误、重试、Token、成本和资源；
-- 召回候选数、最终选择数、规则/模型版本和缓存命中；
+- 召回候选数、最终选择数、规则/模型/模板/装配器版本和缓存命中；
 - 信息缺口回答、跳过、仅本次、确认回流和后续复用；
-- 浏览器助手 L0-L3 成功率、回退原因、站点和适配器版本；
+- 本地装配结果、超页类别、失败阶段和下载事件；
 - 免费赠送、邀请和其他补贴行为与自然行为分开；
-- 质量评测后台不得保存不必要的用户正文。
-
-埋点不能采集招聘网站密码、Cookie、MFA、验证码、整页 DOM、完整表单、完整 JD、简历正文或模型
-完整响应。隐私与分析用途必须准确告知，并支持用户数据权利。
+- 质量评测不保存用户正文、Resume Identity 或真实实体名称。
 
 ## 10. 生产运行
 
 - 正式 HTTPS 域名和稳定 origin；
-- 认证、授权、管理角色、会话失效、速率限制和滥用防护；
-- 服务端 Provider Gateway 与密钥管理，平台 Key 不下发浏览器；
+- 认证、授权、管理角色、会话失效、限流和滥用防护；
+- 服务端 Provider Gateway 与密钥管理，平台 Key 不下发前端；
 - 数据库迁移、备份核验、恢复演练、账号删除和版本回滚；
-- 应用、数据库、队列、模型、Word/PDF、磁盘和证书监控；
+- 应用、数据库、队列、模型、磁盘和证书监控；
 - 脱敏日志、告警、审计、保留上限和事件响应；
-- 请求体、并发、队列、任务时限、文件、Token 和免费成本配额；
-- 真实服务器、真实浏览器、真实模型和最终部署产物验收；
+- 请求体、并发、队列、任务时限、Token 和免费成本配额；
+- 前端静态资产完整性、CSP、依赖供应链和出站网络监控；
+- 真实服务器、真实 Web 浏览器、真实模型和本地最终文件验收；
 - 管理后台从普通导航退出，并由服务端角色和部署边界保护。
 
 ## 11. V3.0.0 首发范围
@@ -292,98 +308,106 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 
 - 正式账号、登录、退出和恢复；
 - 多用户 PostgreSQL/pgvector 隔离；
-- 服务端 Career Memory 与跨设备恢复；
-- 免费基础简历；
+- 低敏 Career Memory 服务端持久化与跨设备恢复；
+- 原始简历本地处理和低敏事实导入；
+- 免费一页纸基础简历；
 - ApplicationCase 与 Job Model v1；
-- 针对性召回、润色、预览和 Word/PDF；
-- V2.4.0 冻结的一页纸内容预算、真实 Word/PDF 测量和专业排版；
-- 信息缺口追问与用户确认回流；
-- 产品内 JD 输入、下载和手工上传完整主链；
+- 针对性召回、润色和信息缺口；
+- 方案 B 本地 Preview/DOCX/PDF；
+- 固定模板、固定槽位和一页纸质量门禁；
+- 用户确认后的低敏事实回流；
+- ApplicationCase 状态与历史；
 - 免费积分账本和任务级结算；
 - 产品、运行和质量埋点；
-- 数据导出、删除、注销、隐私和第三方模型说明；
+- 服务器数据导出、删除、注销、隐私和第三方模型说明；
 - 备份恢复、监控、告警、限流和回滚。
 
-### 11.2 V3.x 逐步增强
+### 11.2 后续增强
 
 - 更多岗位 Role Profile 与 Company Context；
-- 浏览器助手 L1/L2、更多招聘网站适配器和已验证的 L3 上传；
-- 开放题、网申材料和模拟面试；
+- 模拟面试、开放题和网申材料；
 - 更完整的投递状态和提醒；
 - Early User、邀请、签到和弱感知等级实验；
 - 手机端查看、提醒和轻量补充；
+- 用户自管的本地身份/实体映射导入导出；
 - 真实行为驱动的 Career Memory 深化。
 
 ### 11.3 明确不做
 
 - 人民币充值、订单、支付、订阅和自动续费；
-- 无用户复核的自动填表或自动文件上传；
 - 自动点击最终提交或后台批量海投；
-- 绕过密码、Cookie、MFA、验证码、站点限制或反自动化机制；
-- 任意招聘网站、浏览器和移动端的无限兼容承诺；
-- 多人协作编辑同一 Career Memory；
 - 任意 Provider/BYOK、本地模型和完整离线 PWA；
-- 把推断、Role Prior 或 Company Context 静默写成用户事实。
+- 多人协作编辑同一 Career Memory；
+- 把推断、Role Prior 或 Company Context 静默写成用户事实；
+- 把 Resume Identity、真实实体名称、原始身份简历或最终文件发送业务服务器。
 
-## 12. 发布 Gate 候选
+## 12. Release Gate 候选
 
-### 12.1 多用户与数据
+### 12.1 多用户与服务器数据
 
-- [ ] 跨账号 SQL、向量、任务、产物和账本泄漏为 0；
+- [ ] 跨账号 SQL、向量、任务、元数据和账本泄漏为 0；
 - [ ] 已知其他账号对象 ID 仍不能读取、修改或下载；
 - [ ] 连接池、后台任务、失败回滚和管理员路径保持隔离；
-- [ ] 账号导出、删除、注销和恢复覆盖完整数据边界；
-- [ ] 生产、staging 和 test 无共享数据面。
+- [ ] 账号导出、删除、注销和恢复覆盖全部服务器持有数据；
+- [ ] production、staging 和 test 无共享数据面；
+- [ ] 服务器请求、数据库、文件、备份、模型、日志和埋点中的 Resume Identity/真实实体名称为 0。
 
 ### 12.2 ApplicationCase 与内容
 
 - [ ] JobModelSnapshot 区分 JD、Role Prior 和 Company Context；
 - [ ] 召回和润色达到 V2.4.0 批准阈值，无跨账号或事实越界；
-- [ ] PROPOSED Fact 未确认前不进入长期 Career Memory；
+- [ ] PROPOSED Fact 未确认前不进入 Career Memory；
 - [ ] 基础简历免费可用，专项任务积分只结算一次；
-- [ ] 每个成功结果均为可直接投递的一页纸专业简历，无占位符、重复、溢出、裁切或不可读缩字；
-- [ ] 最终预览、DOCX、PDF 和下载文件绑定同一 ResumeRevision/LayoutPlan，Word/PDF 实测均为一页；
-- [ ] Product Owner 在代表性真实岗位上完成人工验收，达到 V2.4.0 冻结阈值。
+- [ ] 服务器内容对象绑定同一 ResumeRevision/LayoutPlan，只有 opaque entity_ref；
+- [ ] Product Owner 在代表性真实岗位完成人工验收。
 
-### 12.3 浏览器助手（仅首发实际提供时适用，不阻断无插件首发）
+### 12.3 本地身份与最终文件
 
-- [ ] 用户主动操作、岗位预览、字段预览和最终人工提交成立；
-- [ ] 密码、Cookie、MFA、验证码和第三方私信采集为 0；
-- [ ] 已承诺的 L1/L2 在批准站点矩阵通过，未知站点安全回退 L0；
-- [ ] L3 只在已验证站点启用，失败不会错误显示上传成功；
-- [ ] DOM 变化、权限拒绝、断网、登录失效和版本不兼容均有明确状态；
-- [ ] 插件无法访问其他账号、其他 ApplicationCase 或未授权 Artifact。
+- [ ] 原始简历在本地解析和清除，身份/真实实体名称不会进入网络；
+- [ ] Local Resume Identity 和 Local Entity Map 不从 Auth/Career Memory 自动填充；
+- [ ] 新设备明确要求重新输入本地字段；
+- [ ] Preview、DOCX、PDF 使用同一冻结内容、模板、LayoutPlan 和本地 revision；
+- [ ] 成功成品在本地 PDF 与批准 Word 环境均为一页；
+- [ ] 超长槽位、字体替代、无痕模式、存储拒绝、清缓存和崩溃恢复矩阵通过；
+- [ ] 前端 XSS/依赖/出站负向测试证明本地身份和最终文件未外发；
+- [ ] 再次下载不重复扣减权益。
 
 ### 12.4 生产与埋点
 
 - [ ] 正式域名、HTTPS、认证授权、限流、管理隔离和安全头通过；
-- [ ] 数据库恢复、账号恢复、部署回滚和文件清理实操通过；
+- [ ] 数据库恢复、账号恢复、部署回滚和资源清理实操通过；
 - [ ] 产品漏斗、运行遥测和质量事件完整且去重；
-- [ ] 日志、埋点、网关、APM 和错误报告无正文、直接身份和密钥泄漏；
-- [ ] 服务器真实模型纵切、并发、容量、故障注入和浏览器 E2E 通过；
-- [ ] Product Owner 完成真实账号、真实岗位和最终一页纸成品人工验收；若发布助手 Beta，再补目标站点验收。
+- [ ] 日志、埋点、网关、APM 和错误报告无正文、身份、真实实体名称和密钥泄漏；
+- [ ] 服务器真实模型纵切、并发、容量、故障注入和 Web E2E 通过；
+- [ ] Product Owner 完成真实账号、真实岗位和本地一页纸成品人工验收。
 
 ## 13. 正式 PLAN 前待冻结
 
-1. V2.4.0 生成冻结基线、可调参数白名单和一页纸成品回归集；
-2. ApplicationCase 有效期、免费积分数量、完整重算和公平使用上限；
-3. Role Profile、Company Context 来源和首发岗位范围；
-4. 直接身份的服务器保存、加密、填写和删除边界；
-5. 首发目标账号数、并发、地区、浏览器和可接受 SLO；
-6. 隐私说明、第三方模型数据处理、招聘网站辅助使用提示；
-7. 正式服务器、Word/PDF 转换、对象文件存储和灾难恢复方案；
-8. V3.0.0 必要 Design Snapshot 及官网、账号、Career Memory、专项投递和一页纸成品界面；
-9. 若首发携带浏览器助手 Beta，再冻结站点/浏览器/L2/L3 矩阵、权限、更新和撤销机制。
+1. 免费积分、ApplicationCase 有效期、完整重算和公平使用上限；
+2. Public 或 Invite-only 发布方式；
+3. 首发目标账号数、并发、地区和 SLO；
+4. Role Profile、Company Context 来源和首发岗位范围；
+5. 低敏实体描述白名单及服务端导出/删除说明；
+6. Local Resume Identity/Entity Map 本地存储、重新输入、清除和失败体验；
+7. 固定模板、固定槽位、桌面 Chromium、DOCX/PDF 生成器和 Word 兼容范围；
+8. 隐私说明、第三方模型数据处理和本地数据风险说明；
+9. 正式服务器、对象存储、数据库和灾难恢复方案；
+10. V3.0.0 必要 Design Snapshot。
+
+Resume Identity 是否服务端保存已经冻结，不再列为待决策。
 
 ## 14. 与既有决策的关系
 
-- D-034：系统承担事实边界内的专业判断，插件填充仍由用户确认；
+- D-034：系统承担事实边界内的专业判断；
 - D-035：Career Memory 通过当前任务渐进沉淀；
-- D-036：采用服务端账号级 Career Memory、最小暴露和透明边界，不再承诺纯本地 Vault；
-- D-038：用户材料的直接抽取与模型推断使用不同确认边界；
-- D-039：公开上线前移除普通开发者入口并实施真实认证、授权、审计和部署隔离。
+- D-036：服务端 Career Memory 方向继续有效；身份、真实实体名称和最终文件边界由 D-044 取代；
+- D-038：用户材料直接抽取与模型推断使用不同确认边界；
+- D-039：公开上线前实施真实认证、授权、审计和部署隔离；
+- D-044：Career Memory 服务端化，Resume Identity/Entity Map 与最终装配 Local-only。
 
-本文重写已经移除旧草稿中与 D-036 冲突的“浏览器 SQLite/OPFS 是唯一事实库、服务端不长期保存
-履历、换设备默认无数据”路线。历史探索不再构成当前候选架构。
+## 15. Post-V3 Future Direction
 
-在范围、站点、配额、安全、部署和必要 Design Snapshot 获批前，本文不授权开发。
+V2.3.0 已预留 ApplicationCase 外部客户端接入合同，未来 Browser Assistant 可作为新入口接入现有
+平台而无需重构 Career Memory/ApplicationCase，具体版本号、站点和能力范围均未冻结。
+
+在范围、配额、安全、部署、本地装配和必要 Design Snapshot 获批前，本文不授权开发。

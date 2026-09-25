@@ -431,6 +431,8 @@
 
 - 版本：V3 产品与架构方向（2026-09-05）
 - 状态：Accepted
+- 后续关系：2026-09-25 起，服务端持久化 Career Memory 的方向继续有效；姓名/联系方式、真实实体
+  名称、原始身份简历和最终文件的边界由 D-044 取代。
 - 背景：即使职业事实保存在本地，使用云端 LLM / Embedding 时仍需传输完成任务所需内容；“全部本地”不能证明绝对安全，还会增加跨设备、恢复和服务化复杂度。另一方面，语义降敏后的详细经历仍可能被重新识别，也不能冒充匿名数据。
 - 决策：
   - 安全与隐私目标是尽量减少暴露面、隔离直接身份、限制用途和保留时间、提供访问与删除控制，并向用户准确说明本项目服务端与第三方模型各自看到什么；不承诺绝对安全；
@@ -591,3 +593,50 @@
 - 影响：具体问题清单、时间点和证伪实验由版本 PLAN 实例化；完整可执行规则见
   `docs/HUMAN_AI_WORKFLOW.md` §3.4。V2.2.0 DRAFT 中形成的反思机制已迁移到全局，不再要求开发读取
   DRAFT 才能获得该规则。
+
+## D-043 Browser Assistant 延后到 V3.0.0 之后
+
+- 版本：V2.3.0—V3.0.0 发布列车（2026-09-25）
+- 状态：Accepted
+- 背景：V3.0.0 前的死线是多用户服务器底座、低敏 Career Memory、生成质量、本地一页纸成品和
+  Public Release。招聘网站插件会额外引入浏览器权限、DOM/iframe、站点 Adapter、字段填充、文件
+  上传和第三方站点变更风险，不能挤占核心交付。
+- 决策：
+  - V2.3.0、V2.4.0 和 V3.0.0 不开发 Browser Assistant、浏览器扩展、招聘网站读取、网页字段填充、
+    文件上传或站点 Adapter；
+  - V2.3.0 只预留 Future External Client Contract，包括 ApplicationCase.source、source URL/type、
+    external client type、nullable session/adapter、幂等、授权、来源审计和 Artifact 获取合同；
+  - 能力未实现，接口预留不得表述为插件、探针、Beta 或已支持站点；
+  - Browser Assistant 在 V3.0.0 之后另立版本，具体版本号、站点和能力范围暂不冻结；
+  - 自动提交、读取密码/Cookie/MFA/验证码和绕过站点控制始终禁止。
+- 影响：V3.0.0 首发主链固定为产品 Web 端输入 JD/岗位信息、生成、预览、本地 DOCX/PDF 和下载；
+  当前三版 PLAN、Gate、埋点和 Design Snapshot 均不得重新引入插件依赖。
+
+## D-044 Career Memory 服务端化，Resume Identity、真实实体映射与最终文件 Local-only
+
+- 版本：V2.3.0 起（2026-09-25）
+- 状态：Accepted
+- 与既有决策关系：保留 D-035 的渐进 Career Memory、D-036 的服务端 Career Memory 与透明边界；
+  取代 D-036 中“真实身份/实体映射位置以后再冻结”和潜在服务端 Identity Vault 路线。
+- 背景：多用户与跨设备需要服务端职业事实，但姓名、联系方式和真实公司/学校等实体组合会显著
+  提高识别风险。V3.0.0 又必须通过纯网页交付可投递文件，因此需要同时冻结服务器边界和本地装配。
+- 决策：
+  - Account/Auth Identity 只服务认证与授权；Auth 邮箱、OIDC subject 不得复制成 Resume Identity；
+  - 服务器 Career Memory 可以保存低敏 Experience/Fact、enrichment、Embedding、ApplicationCase、
+    JobModelSnapshot、EvidenceSelection、无身份 ResumeRevision、任务和 ArtifactMetadata；
+  - Career Memory 只保存 opaque entity_ref 和批准的低敏实体描述，例如学校层级、行业或企业规模；
+  - Local Resume Identity 保存姓名、电话、简历联系邮箱、地址、个人链接和其他直接识别/联系字段；
+  - Local Entity Map 保存用户履历中的公司、学校、客户、项目等真实名称与 entity_ref 的映射；
+  - 原始简历在浏览器本地解析并移除 Resume Identity/真实实体名称，服务器只接收低敏结构化事实、
+    必要来源片段和来源 hash；不能确定已经清除时 fail closed；
+  - Resume Identity、Local Entity Map、原始身份简历和最终带身份 Preview/DOCX/PDF 不进入业务
+    服务器、对象存储、备份、第三方模型、日志、埋点、APM、错误报告或质量评测；
+  - V3.0.0 采用方案 B：一套固定模板、固定槽位、桌面 Chromium；浏览器在本地合并服务器内容和
+    本地字段，生成 Preview、DOCX Blob 与 PDF Blob；
+  - DOCX/PDF 同源表示使用同一 ResumeRevision、LayoutPlan、模板和本地 revision，不再要求最终
+    PDF 由包含真实身份的 DOCX 经服务端 Word 转换；
+  - 超长字段要求用户在本地提供简写，不静默截断或上传原值；换设备后 Career Memory 可恢复，
+    Local Resume Identity 与 Local Entity Map 暂由用户重新输入。
+- 影响：V2.3.0 建立低敏服务器合同与迁移边界；V2.4.0 必须完成方案 B、本地安全和 Word 兼容矩阵；
+  V3.0.0 只把已冻结能力投入公开运行。服务器导出/删除/恢复只声明其实际持有数据，历史最终文件由
+  当前设备重新装配。

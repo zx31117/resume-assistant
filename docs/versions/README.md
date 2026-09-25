@@ -42,22 +42,22 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 
 | 版本 | 定位 | 草稿 | 状态 |
 |---|---|---|---|
-| V2.3.0 | 多用户服务器底座、数据/向量隔离、ApplicationCase、生成公共合同与埋点 | [DRAFT](./v2.3.0/DRAFT.md) | 待 Product Owner 审核；内部 Alpha 候选 |
-| V2.4.0 | Job Model、召回/润色、内容预算、单一模板与一页纸成品质量冻结 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；V3 前硬门禁候选 |
-| V3.0.0 | 免费多用户 Job Application Agent 首发；浏览器助手不阻断 | [DRAFT](./v3.0.0/DRAFT.md) | 已按 2026-09-25 生成质量准线重写，待 Product Owner 审核 |
+| V2.3.0 | 多用户底座、低敏 Career Memory、ApplicationCase、权益/埋点/部署与外部客户端合同 | [DRAFT](./v2.3.0/DRAFT.md) | 待 Product Owner 审核；内部 Alpha 候选 |
+| V2.4.0 | Job Model、召回/润色、固定模板、方案 B 本地装配与一页纸质量冻结 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；V3 前硬门禁候选 |
+| V3.0.0 | 免费多用户 AI Career Resume / Job Preparation Public Release | [DRAFT](./v3.0.0/DRAFT.md) | Browser Assistant 不在首发范围；待 Product Owner 审核 |
 
 ## 阶段需求池（非开发指令）
 
 | 阶段 | 文档 | 说明 |
 |---|---|---|
 | V2 | [需求池](./V2_REQUIREMENTS_POOL.md) | V2 剩余工作、迁移去向与 V3 前生成质量硬门禁；旧 V2.0 大而全设想已清理 |
-| V3 | [需求池](./V3_REQUIREMENTS_POOL.md) | 保存 Job Application Agent、多用户、Job Model、浏览器助手、积分、增长和生产能力候选；浏览器助手不阻断 V3.0.0 |
+| V3 | [需求池](./V3_REQUIREMENTS_POOL.md) | 保存多用户、Job Model、本地装配、权益、增长和生产能力候选；Browser Assistant 统一为 Post-V3 |
 
 ## 后续草稿说明
 
 V2.3.0、V2.4.0 和 V3.0.0 当前均为上表所列 DRAFT。它们记录三版本发布列车的候选范围，不改变
-当前已验收事实，也不授权 Development Agent 开始实现。旧 V3.0.0 local-first / 浏览器 Vault 探索
-已经由 2026-09-19 重写稿取代，历史内容仍可从 Git 历史读取。
+当前已验收事实，也不授权 Development Agent 开始实现。旧 V3.0.0 local-first Career Memory 与
+Browser Assistant 首发探索均已被当前草稿取代，历史内容仍可从 Git 历史读取。
 
 ## 推荐历史阅读顺序
 

@@ -3,7 +3,7 @@
 > 文档角色：版本范围草稿，供 Product Owner 审核
 > 状态：DRAFT，非开发指令，不改变当前版本状态
 > 草稿日期：2026-09-19
-> 最近修订：2026-09-25（补充 V2.4 生成合同交接，并将浏览器助手探针降为非阻断候选）
+> 最近修订：2026-09-25（冻结 Browser Assistant 延后、Career Memory 服务端化与 Local-only 身份边界）
 > 假定前置：V2.2.0 已完成本地 owner 归属、当前履历到成品的内容来源闭环、渐进生成和真实结果预览收口
 > 发布列车：V2.3.0（底座）→ V2.4.0（生成质量冻结）→ V3.0.0（免费多用户首发）
 > 核心目标：在不公开面向用户的前提下，把本地单用户产品迁入可验证的多用户服务器底座，并为
@@ -15,10 +15,9 @@ V2.3.0 不是把现有本地服务直接监听到公网，也不是 V3.0.0 的�
 不能绕过的正确底座：账号身份、用户数据隔离、服务器持久化、专项投递聚合、质量与产品埋点、
 部署和恢复。该版本只在受控内部环境运行，不接受真实公众流量。
 
-长期产品方向从“针对一份 JD 生成一份简历”扩展为：用户在目标公司的招聘官网或招聘平台完成
-登录并选择岗位后，主动调用浏览器插件或等价助手；助手读取当前岗位信息，在本项目创建一次
-专项投递，服务端同步生成针对性简历，并在用户授权后把已确认的个人信息填入网页表单。自动上传
-简历的可行性和站点兼容性在 V2.4.0 验证；自动提交申请不属于当前路线。
+长期产品方向仍是围绕目标岗位建立专项准备，但 V2.3.0、V2.4.0 和 V3.0.0 均不开发 Browser
+Assistant、招聘网站 DOM 读取、字段填充、文件上传或站点 Adapter。V2.3.0 只为未来外部客户端预留
+稳定 ApplicationCase API、来源、幂等、授权和审计字段；能力未实现，接口预留不得描述成插件能力。
 
 ## 2. 用户结果
 
@@ -27,11 +26,9 @@ V2.3.0 完成时，内部测试者应能够：
 1. 使用独立账号登录受控服务器；
 2. 各自导入和维护 Career Memory，任何账号都不能读取另一账号的事实、向量、任务或文件；
 3. 粘贴 JD 或通过内部岗位导入入口创建 `ApplicationCase`；
-4. 生成并恢复一份绑定该账号和岗位的针对性简历任务；
+4. 生成并恢复一份绑定该账号和岗位的无身份针对性内容任务；
 5. 在产品、运行和质量三类埋点中看到脱敏事件，但看不到简历正文、JD、直接身份或密钥；
 6. 在服务重启、数据库备份恢复和版本回滚后保持账号与任务边界正确；
-7. 若核心底座完成后仍有容量，可用浏览器助手协议探针验证“当前标签页岗位 → 受控服务 →
-   ApplicationCase”的身份绑定；该探针不构成本版或 V3.0.0 的阻断性用户能力。
 
 ## 3. 范围
 
@@ -43,9 +40,9 @@ V2.3.0 完成时，内部测试者应能够：
 - 普通 API 的 `account_id` 只能来自服务端验证后的会话主体，禁止信任请求体中的 `user_id`；
 - 管理接口、普通接口和后台任务使用不同角色与授权边界；
 - 本地开发者入口不进入公开导航；隐藏入口不能替代服务端鉴权；
-- 浏览器助手使用短时、可撤销、绑定账号和 origin 的授权，不读取招聘网站密码、Cookie、MFA、
-  验证码或其他会话秘密；
-- 直接身份、语义职业事实、任务、产物和埋点的访问角色分离。
+- Account/Auth Identity 只服务认证与授权，不得复制成简历身份或普通业务 Profile；
+- Local Resume Identity 与 Local Entity Map 只保存在用户设备，不进入服务器、模型、日志或埋点；
+- Career Memory、任务、权益、产物元数据和埋点使用独立业务访问边界。
 
 ### 3.2 PostgreSQL 与向量隔离
 
@@ -55,11 +52,11 @@ SQLite 作为活动业务真源，也不另行引入 Qdrant、Milvus 或第二�
 所有用户拥有的数据必须显式携带非空 `account_id`，至少包括：
 
 ~~~text
-accounts / account_profiles
-experiences / facts / fact_enrichments / fact_embeddings
+accounts / account_settings（不得包含 Resume Identity）
+experiences / facts / fact_enrichments / fact_embeddings / low_sensitivity_entity_descriptors
 application_cases / job_model_snapshots / evidence_selections / resume_content_plans
 generation_tasks / task_input_revisions / task_subtasks / task_snapshots / task_events
-resume_revisions / layout_plans / artifacts
+resume_revisions / layout_plans / artifact_metadata
 usage_records / entitlement_ledger
 ~~~
 
@@ -74,13 +71,31 @@ usage_records / entitlement_ledger
 - 用户删除、备份恢复和迁移同时覆盖 SQL 事实、向量派生、任务与文件引用；
 - 任何已知其他账号 ID 的请求仍必须不可见，不能只依靠前端不展示 ID。
 
-### 3.3 Career Memory 与身份数据
+### 3.3 Account/Auth、Career Memory 与本地身份
 
-- SQL `Experience / Fact` 继续作为唯一职业事实源，不建立平行的自由文本用户画像；
-- Profile 持久化进入账号级数据模型，直接身份与语义职业事实采用可分别授权、审计和删除的边界；
-- 用户上传材料中可回查的直接抽取、模型推断和用户确认事实继续遵守 D-035、D-036、D-038；
+~~~text
+Account / Auth Identity
+    仅用于认证与授权
+
+Career Memory（服务器）
+    Experience / Fact / enrichment / Embedding / 低敏实体描述
+
+Local Resume Identity + Local Entity Map（用户设备）
+    姓名 / 电话 / 联系邮箱 / 地址 / 个人链接等直接身份
+    用户履历中的公司 / 学校 / 客户 / 项目等真实实体名称映射
+~~~
+
+- SQL `Experience / Fact` 继续作为服务器职业事实真源，不建立平行自由文本画像；
+- Career Memory 只使用不可反查的 `entity_ref` 和批准的低敏描述，例如学校层级、行业或企业规模；
+- 用户履历中的真实公司、学校、客户和项目名称保存在 Local Entity Map，不进入服务器 Career Memory；
+- Auth 邮箱或 OIDC subject 属于独立认证域，即使与简历联系邮箱取值相同也不得自动复制；
+- 用户选择原始简历文件时先在本地处理；服务器只接收已移除 Resume Identity 与真实实体名称的结构化
+  Experience/Fact、必要来源片段和来源 hash，原始文件不得上传业务服务器；
+- 用户材料的直接抽取、模型推断和确认边界继续遵守 D-035、D-038；
 - Fact enrichment 是带来源、版本、置信度和可重建状态的派生数据，不反向覆盖 Fact；
-- 模型提出的新事实先进入 `PROPOSED`，只有用户明确确认后才能成为长期 `CONFIRMED` 事实。
+- 模型提出的新事实先进入 `PROPOSED`，只有用户明确确认后才能成为长期 `CONFIRMED` 事实；
+- 数据导出、删除、备份和恢复只覆盖服务器实际持有的数据；换设备后 Career Memory 可恢复，Local
+  Resume Identity 与 Local Entity Map 暂由用户重新输入。
 
 ### 3.4 ApplicationCase 与 Job Model 契约
 
@@ -93,8 +108,8 @@ ApplicationCase
 ├── JobModelSnapshot
 ├── EvidenceSelection
 ├── information_gaps / proposed_facts / confirmed_facts
-├── ResumeRevision / Artifact
-├── assistant_session
+├── ResumeRevision / ArtifactMetadata
+├── nullable external_client_source / external_session_id / adapter_version
 └── entitlement_transaction / analytics correlation
 ~~~
 
@@ -102,32 +117,16 @@ ApplicationCase
 预留 JD 明示要求、Role Prior、Company Context、来源、置信度、版本和更新时间；V2.3.0 可以只用
 JD 建立第一份快照。
 
-### 3.5 浏览器助手协议底座
+### 3.5 Future External Client Contract
 
-本版建立产品服务与浏览器插件或等价助手之间的最小契约：
+本版提供正式创建 ApplicationCase 的服务端 API，并为未来外部客户端预留：
 
-~~~text
-用户在目标网站已登录并打开岗位
-→ 用户主动点击助手
-→ 助手只读取当前标签页允许的岗位字段
-→ 展示将发送的岗位摘要
-→ 用户确认
-→ 服务端创建 ApplicationCase
-→ 返回任务和后续生成入口
-~~~
+- `ApplicationCase.source`、target job source URL/source type 和外部客户端来源类型；
+- nullable `external_session_id`、nullable `adapter_version`；
+- 幂等键、短时授权、来源审计和无身份内容/ArtifactMetadata 受控获取契约。
 
-协议必须：
-
-- 使用短时授权和幂等 `assistant_session_id`；
-- 记录来源 URL、站点适配器版本和用户确认；
-- 默认只请求当前活动标签页权限，不申请无边界浏览历史和所有站点内容；
-- 页面提取失败时展示待确认字段，不静默猜测；
-- 不读取、保存或转发登录密码、Cookie、MFA、验证码和招聘网站私信；
-- 不绕过站点访问控制、反自动化机制或服务条款限制；
-- 不自动点击最终提交按钮。
-
-浏览器助手协议和受控探针属于本版可选研究项，不得挤占账号隔离、服务器恢复、生成合同或埋点；
-未完成时不阻断 V2.3.0 或 V3.0.0，但必须保留产品内粘贴 JD、下载并手工上传的完整路径。
+V2.3.0 不实现任何外部客户端、浏览器扩展、招聘网站 DOM 解析、权限请求、字段填充、文件上传或
+Adapter。所有字段均允许为空，产品 Web 端粘贴 JD/输入岗位信息是当前唯一正式创建路径。
 
 ### 3.6 积分与权益底座
 
@@ -146,7 +145,7 @@ grant / reserve / settle / release / refund / expire / adjustment
 
 | 数据 | 用途 | 禁止内容 |
 |---|---|---|
-| 产品事件 | 登录、导入、建岗、生成、预览、下载、返回 | 简历/JD/表单正文、直接身份 |
+| 产品事件 | 登录、导入、建岗、生成、预览、下载、返回 | 简历/JD 正文、Resume Identity、真实实体名称 |
 | 运行遥测 | 延迟、错误、重试、Token、成本、队列、资源 | Prompt、模型完整响应、密钥 |
 | 质量事件 | 候选数、选择数、排序版本、保留/重生成、反馈 | 未经处理的用户正文 |
 
@@ -155,23 +154,24 @@ grant / reserve / settle / release / refund / expire / adjustment
 
 ### 3.8 服务器运行与发布
 
-- 固定服务器操作系统、Word/PDF 路线、服务账户和持久目录；
+- 固定服务器操作系统、服务账户和持久目录；服务器只生成不含本地身份/真实实体名称的内容与元数据；
 - 反向代理、HTTPS、Host/Origin/CORS/CSRF/Cookie 策略进入服务器基线；
 - 配置和供应商 Key 使用服务器密钥管理，不沿用交互式本机凭据假设；
 - 建立数据库迁移、备份核验、恢复演练、健康检查、日志轮转和版本回滚；
-- 文件按账号和任务隔离，使用短时授权下载；成功、失败、超时和崩溃均有清理策略；
+- 服务器实际持有的低敏来源片段、无身份文件和元数据按账号/任务隔离；成功、失败、超时和崩溃均有清理策略；
 - 限制请求体、并发任务、队列、磁盘、模型调用和单任务成本；
 - 真实生产部署前仍必须另做安全与容量验收。
 
 ### 3.9 验收判定、歧义策略与一次性返工
 
-V2.3.0 同时涉及账号鉴权、RLS、浏览器助手权限、隐私扫描、埋点脱敏、权益账本和资源清理。此类 Gate
+V2.3.0 同时涉及账号鉴权、RLS、本地/服务器数据分界、隐私扫描、埋点脱敏、权益账本和资源清理。此类 Gate
 不能先由测试样本定义“对错”，再反向补产品规则；正式 PLAN 必须先冻结组件目标和歧义策略，开发与
 验收再据此判定。测试标签与报告结论不得取代合同。
 
 对迁移后的简历核心链路，状态成功、文件存在、hash、预览和下载可用仍不足以证明结果正确。验收必须
-贯通“会话账号 → 当前账号履历 ID → Fact/选择快照 → ResumeRevision → DOCX/PDF”，并用第二账号和
-负向哨兵证明没有跨账号选材；旧兼容入口或单账号 fixture 不能替代当前主链。
+贯通“会话账号 → 当前账号履历 ID → Fact/选择快照 → ResumeRevision/ArtifactMetadata”，并用第二
+账号、身份/真实实体名称哨兵证明没有跨账号选材或本地字段外泄；旧兼容入口或单账号 fixture 不能
+替代当前主链。最终本地 DOCX/PDF 由 V2.4.0 另行验收。
 
 #### 3.9.1 打回前四类定性
 
@@ -199,9 +199,9 @@ V2.3.0 同时涉及账号鉴权、RLS、浏览器助手权限、隐私扫描、�
 
 - 鉴权主体缺失、会话失效、账号上下文不一致：默认拒绝；
 - RLS/连接池账号上下文缺失或不确定：默认拒绝并阻断连接复用；
-- 浏览器助手页面来源、字段归属或用户确认不确定：不发送、不填充、不提交；
+- Resume Identity、真实实体名称或原始身份文件是否已经移除无法确定：不得发送到服务器；
 - 隐私/包审计输入可能承载真实凭据、直接身份或机器绝对路径但无法可靠消歧：fail-closed；
-- 埋点字段是否含正文或直接身份不确定：丢弃敏感字段并记录可判定错误，不上传原文；
+- 埋点字段是否含正文、Resume Identity 或真实实体名称不确定：丢弃敏感字段并记录可判定错误；
 - 权益扣减状态不确定：不重复结算，进入幂等恢复或人工核对；
 - 临时资源归属或清理状态不确定：阻断发布并保留脱敏诊断，不把未知写成成功。
 
@@ -251,13 +251,14 @@ V2.3.0 必须防止的不只是某一次越权、错选数据或错误成功，�
 2. **单一业务真源与单一核心链**：同一生成、迁移或发布能力只能有一个核心服务；旧 API、内部探针和
    兼容入口只能作为薄适配器调用同一核心链，不得各自维护身份、选材、装配或发布规则。
 3. **阶段合同与来源账本**：每一阶段显式传递账号、ApplicationCase、源 Experience/Fact、选择快照、
-   ResumeRevision 和 Artifact 的关联；禁止依赖“本阶段暂时忽略、后续会补齐”的隐式约定。最终成品
-   必须能够反向追溯到输入账号和实际采用的事实记录。
+   ResumeRevision 和 ArtifactMetadata 的关联；禁止依赖“本阶段暂时忽略、后续会补齐”的隐式约定。
+   服务器内容必须能够反向追溯到输入账号和实际采用的低敏事实记录。
 4. **语义失败关闭与原子发布**：身份、来源、结构或阶段状态缺失/冲突时不得降级为 warning 后继续
    `SUCCEEDED`。任务只能在产物完成、来源校验和发布条件全部满足后原子进入成功；失败不能暴露半成品。
-5. **用业务结果作为测试 oracle**：核心链最低测试基线必须同时存在两个账号、未归属旧数据和可辨识
-   的正负哨兵内容；测试解析最终 DOCX/PDF，证明目标账号内容进入、其他账号和未归属内容没有进入，
-   并核对来源账本。HTTP 200、任务成功、文件存在、hash、预览或模型调用成功均不能单独证明内容正确。
+5. **用业务结果作为测试 oracle**：核心链最低测试基线必须同时存在两个账号、未归属旧数据、可辨识
+   的账号正负哨兵和 Resume Identity/真实实体名称哨兵；测试解析服务器 ResumeRevision 与导出结果，
+   证明只有目标账号低敏事实进入，本地字段、其他账号和未归属内容均未进入，并核对来源账本。
+   HTTP 200、任务成功、记录存在或模型调用成功均不能单独证明内容正确。
 6. **隔离测试与脏环境反证并存**：测试、demo 和迁移工具必须使用独立数据根、数据库和凭据，不能回退
    到真实 runtime；同时必须有专门的脏数据、多身份和遗留记录用例，避免干净单身份 fixture 掩盖边界缺失。
 7. **先语义门禁，后昂贵门禁**：账号隔离、来源闭环、状态发布和成品内容断言必须先于完整 build、真实
@@ -275,20 +276,27 @@ V2.3.0 不负责完成召回、润色或一页纸算法，但必须避免 V2.4.0
 以下对象须具备稳定 ID、版本、账号归属、来源关系和可审计状态：
 
 ~~~text
+服务器：
 JobModelSnapshot
 → EvidenceSelection
 → ResumeContentPlan
-→ ResumeRevision
+→ ResumeRevision（无 Resume Identity / 真实实体名称）
 → LayoutPlan
-→ Artifact（DOCX / PDF / preview）
+→ ArtifactMetadata
+
+V2.4.0 本地装配：
+Local Resume Identity + Local Entity Map
+→ 单一固定模板与固定槽位
+→ Local Preview / DOCX / PDF
 ~~~
 
 - `ResumeContentPlan` 保存章节、条目优先级和内容预算，不保存第二份职业事实真源；
-- `ResumeRevision` 的每个内容条目保留 `fact_refs`，并绑定实际使用的 EvidenceSelection；
+- `ResumeRevision` 的每个内容条目保留 `fact_refs` 和 opaque `entity_ref`，不得保存本地真实名称；
 - `LayoutPlan` 保存模板版本和全局排版参数，不能让 DOCX、PDF 和预览各自维护一套隐式常量；
-- `Artifact` 只能发布自同一冻结 ResumeRevision/LayoutPlan，记录类型、hash、页数、渲染器和状态；
+- 服务器 `ArtifactMetadata` 只记录无身份内容版本、模板/LayoutPlan 和状态，不持有最终本地文件字节；
 - `UsageRecord` 保存阶段、供应商/模型版本、调用、Token、延迟和成本，但不得成为用户按调用扣费依据；
-- 上述对象全部继承账号隔离、来源账本、原子发布、删除、备份恢复和负向哨兵验收。
+- 上述服务器对象全部继承账号隔离、来源账本、原子发布、删除、备份恢复和负向哨兵验收；V2.4.0
+  必须另证浏览器本地装配期间 Resume Identity 与真实实体名称没有网络外发。
 
 V2.3.0 可以只建立最小可用字段和一次 JD-only 纵切，不得伪称已经完成 V2.4.0 的质量冻结。
 
@@ -297,9 +305,8 @@ V2.3.0 可以只建立最小可用字段和一次 JD-only 纵切，不得伪称�
 - 不公开注册或接受真实公众流量；
 - 不启用充值、订单、支付或订阅；
 - 不把 Role Prior、Company Context、召回/润色调优或一页纸质量冻结宣称为本版完成；
-- 不自动上传简历文件，不自动提交申请；
-- 不支持绕过验证码、MFA、登录、权限或站点限制；
-- 不承诺任意招聘网站通用适配；
+- 不开发 Browser Assistant、浏览器扩展、招聘网站读取、字段填充、文件上传或站点 Adapter；
+- 不把 Resume Identity、真实实体名称或含这些内容的原始简历/最终文件发送到业务服务器；
 - 不建设多人协作编辑、完整移动端、离线 PWA 或任意 Provider/BYOK；
 - 不修改 `CURRENT_STATE.md` 把草稿能力写成当前事实。
 
@@ -308,44 +315,45 @@ V2.3.0 可以只建立最小可用字段和一次 JD-only 纵切，不得伪称�
 | 阶段 | 重点 | 退出条件 |
 |---|---|---|
 | Day 1 | PostgreSQL/pgvector、账号上下文、Schema 和迁移纵切 | 双账号事实与向量隔离成立 |
-| Day 2 | ApplicationCase、生成公共合同、任务/文件归属、埋点与积分账本 | 一次内部专项任务完整落库 |
-| Day 3 | 服务器部署、备份恢复、反向测试；有余量再做助手协议探针 | 内部 Alpha 核心 Gate 全部可复核 |
+| Day 2 | ApplicationCase、生成公共合同、本地/服务器数据分界、埋点与积分账本 | 一次无身份内部专项任务完整落库 |
+| Day 3 | 服务器部署、备份恢复、回滚和反向测试 | 内部 Alpha 核心 Gate 全部可复核 |
 
-该节是排期假设，不构成减少测试、反思或独立验收的授权。高风险迁移、RLS、浏览器权限和文件隔离
+该节是排期假设，不构成减少测试、反思或独立验收的授权。高风险迁移、RLS、身份清除和文件隔离
 必须按工作流设置开发前证伪、真实纵切后的 Architecture Check 和候选冻结前 Falsification Check。
 
 ## 6. 验收候选
 
-- [ ] 两个账号的 Profile、Experience、Fact、Embedding、Task、Artifact 和账本互不可见；
+- [ ] 两个账号的 Career Memory、Embedding、Task、ArtifactMetadata 和账本互不可见；
 - [ ] V2.2.0 本地 owner 到首个账号的迁移映射可审计；隔离/未归属/测试身份不被静默并入真实账号，
-  且“账号履历 ID → Fact/选择快照 → ResumeRevision → DOCX/PDF”内容级来源闭环成立；
-- [ ] 注入其他账号的已知 ID、Fact ID、Task ID 和 Artifact ID 均不能越权；
+  且“账号履历 ID → Fact/选择快照 → ResumeRevision/ArtifactMetadata”内容级来源闭环成立；
+- [ ] 注入其他账号的已知 ID、Fact ID、Task ID 和 ArtifactMetadata ID 均不能越权；
 - [ ] RLS 在普通请求、后台任务、异常回滚和连接池复用后保持有效；
 - [ ] 向量查询先按账号过滤，不可能从其他账号召回结果；
 - [ ] SQLite 到 PostgreSQL 的迁移、校验、回滚和失败清理可复核；
 - [ ] ApplicationCase、JobModelSnapshot 和 ResumeRevision 具备稳定版本关系；
-- [ ] ResumeContentPlan、ResumeRevision、LayoutPlan、Artifact 和 UsageRecord 的身份、账号与来源关系可复核；
-- [ ] 若交付浏览器助手探针，它只读取用户确认的当前岗位字段，不读取会话秘密；未交付不阻断本版；
-- [ ] 产品、运行、质量事件分流，正文与直接身份泄漏为 0；
+- [ ] ResumeContentPlan、ResumeRevision、LayoutPlan、ArtifactMetadata 和 UsageRecord 的身份、账号与来源关系可复核；
+- [ ] 原始简历在本地完成身份/真实实体名称清除，服务器请求、数据库、文件、模型、日志和埋点均无残留；
+- [ ] Future External Client 字段与 API 可为空且有来源/幂等/授权契约，不存在客户端、DOM 或站点实现；
+- [ ] 产品、运行、质量事件分流，正文、Resume Identity 与真实实体名称泄漏为 0；
 - [ ] 积分预留、结算、释放和重试幂等，不重复扣减；
 - [ ] 服务重启、数据库恢复和部署回滚后账号边界及任务状态正确；
-- [ ] 鉴权、RLS、助手权限、隐私扫描、埋点、权益与 cleanup 均有预登记歧义矩阵；验收报告的计数、
+- [ ] 鉴权、RLS、身份清除、隐私扫描、埋点、权益与 cleanup 均有预登记歧义矩阵；验收报告的计数、
   逐项结果、观察和最终结论一致，首次失败按完整问题类别一次性返工；
 - [ ] `Critical Invariant Register` 覆盖账号归属、内容来源、阶段状态、产物发布、权限、隐私、权益和
   资源生命周期；每条不变量均有 schema/接口强制点、运行时证据和独立负向验收；
-- [ ] 双账号、未归属旧数据和正负哨兵同时存在时，最终 DOCX/PDF 只包含目标账号事实，且可沿来源账本
-  追溯至 ApplicationCase、选择快照和源 Experience/Fact；
+- [ ] 双账号、未归属旧数据和正负哨兵同时存在时，服务器 ResumeRevision 只包含目标账号低敏事实，
+  且可沿来源账本追溯至 ApplicationCase、选择快照和源 Experience/Fact；
 - [ ] V2.2.0 已验收的 owner/当前履历来源、事实链、渐进状态、PDF 预览和下载能力无回归。
 
 ## 7. 正式 PLAN 前待冻结
 
 1. PostgreSQL 与 pgvector 的托管位置、版本、备份和恢复目标；
 2. 账号服务采用自建会话还是受支持的 OIDC 服务；
-3. 直接身份字段的服务器保存范围、字段级加密和删除策略；
-4. ResumeContentPlan、LayoutPlan、Artifact 和 UsageRecord 的最小字段、版本与状态；
-5. 服务端 Word/PDF 转换环境及许可证、非交互会话和失败回退边界；
-6. 内部 Alpha 的账号数、并发任务和数据是否全部使用合成资料；
-7. 浏览器助手协议探针是否在核心 Gate 后仍有容量；若做，冻结技术形态、受控页面和允许字段；
+3. Career Memory 允许的低敏实体字段白名单、opaque entity_ref 与本地映射迁移合同；
+4. ResumeContentPlan、LayoutPlan、ArtifactMetadata 和 UsageRecord 的最小字段、版本与状态；
+5. 内部 Alpha 的账号数、并发任务、合成/脱敏数据范围；
+6. 服务器备份恢复目标、回滚条件、RTO/RPO 和容量目标；
+7. 必要 Design Snapshot；
 8. 各高风险 Gate 的明确允许、明确阻断、不可消歧输入及 fail-open / fail-closed 判定矩阵。
 9. `Critical Invariant Register` 的正式字段、维护责任、变更触发条件，以及账号归属、内容来源、状态发布
     和产物追溯在 schema、接口、运行时证据与验收中的完整覆盖矩阵。
