@@ -1,8 +1,8 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_RETURNED`**
-> 当前阶段：新 SRC `f86058c` / HANDOFF `8bcc8af` / 新包 `d4249f66…DA0F` 的负向 Gate 证据未闭环（见 §R3-12）
+> 当前状态：**PLAN Revision 3（返工后）/ 开发侧必修 Gate 全部 PASS / 待验收**
+> 当前阶段：§R3-12 `DOC_RETURNED` 后按**路径 B** 返工收口；新 SRC `c37270c` / 新包 `7450efb0…345F`（见 §R3-13）
 > 未进入独立验收，固定 `review` 仍保持旧 HEAD
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -14,29 +14,26 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **当前被退回的开发交付对象（以下身份固定本次 Documentation Gate，不构成可验收对象）**：
+> **本轮交付对象（当前候选；是否可进入独立验收由 Documentation Gate 判定）**：
 >
-> - **SRC 候选校验和（SRC SHA）**：`f86058cfc50342205649f39f37865abf48b373bf`
+> - **SRC 候选校验和（SRC SHA）**：`c37270c62b19b5a45945bd40cd17d24a20a62002`（唯一 parent `92de329`，
+>   即文档门禁提交；其父为上一轮 HANDOFF `8bcc8af`）
 >
-> - **SRC 唯一父提交**：`8639fefd2b291e6c7fcd3a891fc5b81d197de6af`
+> - **上一轮被退回对象（历史，见 §R3-12 / HISTORY VH-034）**：SRC `f86058c`、HANDOFF `8bcc8af`、
+>   包 `d4249f66…DA0F`；因负向 Gate 证据未闭环退回，其 PASS 与包不得继承到本候选
 >
-> - **HANDOFF**：`8bcc8afa81cd82b8c45f39b8fa32bafa00366fbc`；唯一父为 SRC，差异仅
->   `docs/versions/v2.2.0/RESULT.md`（+183/-2）
+> - **分支 / 工作树**：`version/v2.2.0`；SRC.commit 前后 `git status --porcelain` 为空
 >
-> - **分支 / 接收状态**：`version/v2.2.0`；接收 HANDOFF 时 `git status --porcelain` 为空
->
-> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,832 B**）；EXE
->   16,833,332 B；SHA-256
->   `D4249F66486C9A10BF46C5453160498636273D1129922CE4FC0C2DADFD47DA0F`；前端 bundle
+> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,827 B**）；EXE
+>   16,833,327 B；SHA-256
+>   `7450efb0f5eb6232bee2a0785be26b6d53531687281d60d1573e205818e0345f`；前端 bundle
 >   `index-DWWBklCp.js`
 >
-> - **封存现场**：中央 `<acceptance-staging>/f86058c/` 与 `<acceptance-staging>/f86058c-evidence/`
->   均在场；包身份与 `package_identity.json` 一致
+> - **封存现场**：中央 `<acceptance-staging>/c37270c/` 与 `<acceptance-staging>/c37270c-evidence/`
+>   均在场；包身份与 `package_identity.json` 一致，总 manifest `final_verdict=true`
 >
-> - **当前门禁**：Documentation Gate 为 **`DOC_RETURNED`**。开发 RESULT 声明负向自测
->   7/7 fail-closed，但结构化证据把 7 个违规样本的内层退出码全部记为 0，且总 manifest 未把该项纳入
->   最终判定，详见 §R3-12；不得移动 `review`、启动独立 Acceptance、
->   进入 Product Owner 人工验收或发布。
+> - **当前门禁**：开发侧必修 Gate 全部 PASS（见 §R3-13）；顶部状态为 `待验收`。不移动 `review`、
+>   不启动独立 Acceptance、不进入人工验收或发布，也不写 `DOC_ALIGNED`。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -3268,3 +3265,104 @@ PASS。RESULT 必须列出新 SRC/唯一父/完整 diff、新包身份及全部 
 **Documentation Gate 结论：`DOC_RETURNED`。** 当前缺口属于证据与最终判定闭环，不需要修改 PLAN；
 `review` 不移动。本节已经一次性给出最小补证路径与触发全量重工程的边界，下一轮不得再用文字
 “7/7 FAIL-CLOSED”替代逐例实际退出码和 manifest 的机械判定。
+
+---
+
+## R3-13. §R3-12 路径 B 返工收口（新 SRC `c37270c` / 新包 `7450efb0…345F`，2026-09-25）
+
+> **状态**：`待验收`。Development Agent 在 §R3-12 `DOC_RETURNED` 后完成判定与收口：本轮属于
+> **路径 B（必须修改受控文件）**，因此形成新 SRC、从 clean SRC 重 build/重打包，并在新包上重跑
+> **全部强制 Gate**、重新生成中央包/证据目录/总 manifest。不改 PLAN、不改 HISTORY（HISTORY VH-034
+> 属文档门禁侧记录，本轮未改）、不移动 `review`、不启动独立验收、不写 `DOC_ALIGNED`。
+
+### 13.1 路径判定（为何不是路径 A）
+
+§R3-12 的缺口有两项，均落在受控文件内，故路径 A（仅重采证据）不适用：
+
+1. **负向自测退出码语义错误**：`backend/_e2e_v22_aggregate.py` 的 `--inject` 原实现为
+   `return 0 if not result else 1`——检出注入缺陷时反而退出 0，与"证明聚合器均非零退出"直接冲突。
+   要得到真实非零退出码只能改该受控脚本。
+2. **总 manifest 未纳入负向自测**：`scripts/h8_r3_manifest.py` 的 Gate 清单与 `final_verdict` 未包含
+   负向自测，该项判定必须写进受控脚本才能生效。
+
+按 §12.5「路径 B：必须修改受控文件」，必须新 SRC、重 build、重打包并重跑全部强制 Gate。
+
+### 13.2 新候选身份与链路
+
+| 项 | 值 |
+|---|---|
+| 文档门禁提交（本轮返工基线） | `92de3294c1648417d80ef0621fd8e1f3863251c7`（HISTORY VH-034 + RESULT §R3-12；docs-only） |
+| 新 SRC | `c37270c62b19b5a45945bd40cd17d24a20a62002`；唯一 parent `92de329`；分支 `version/v2.2.0` |
+| SRC diff（相对 `92de329`） | 3 files：`backend/_e2e_v22_aggregate.py`、`backend/_e2e_v22_negtest.py`（新增）、`scripts/h8_r3_manifest.py` |
+| 工作树 | `git status --porcelain` 为空 |
+| 新包 | `dist/ResumeAssistant/`（**4044 files / 170,353,827 B**）；EXE 16,833,327 B；SHA-256 `7450efb0f5eb6232bee2a0785be26b6d53531687281d60d1573e205818e0345f`；bundle `index-DWWBklCp.js` |
+| 中央封存 | 包 `<acceptance-staging>/c37270c/`；证据 `<acceptance-staging>/c37270c-evidence/` |
+| PLAN blob | 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`（未改） |
+
+### 13.3 两项缺口的修复
+
+**（1）聚合器负向退出码语义（`backend/_e2e_v22_aggregate.py`）**
+`--inject <case>` 现与**被测门禁同语义**：注入缺陷被检出 → **非零退出**（`exit_code=1`）且不输出 PASS
+摘要；仅当缺陷逃逸（聚合器放行）时退出 0。JSON 输出改为携带 `case/fail_closed/exit_code/fail_messages`。
+
+**（2）受控负向自测运行器（`backend/_e2e_v22_negtest.py`，新增）**
+对 7 类注入缺陷各以独立子进程调用聚合器，采集**真实退出码**，断言 7/7 均为非零退出且
+`fail_closed=true`；任一逃逸即运行器非零退出。产出结构化证据
+`six_grid_negative_selftest.json`，含逐例 `exit_code`、`all_fail_closed`、`all_exit_codes_nonzero`、
+`nonzero_exit_failures` 与目标 EXE 身份。该运行器属于受控脚本，可由 Acceptance 直接复现。
+
+**（3）总 manifest 纳入负向自测（`scripts/h8_r3_manifest.py`）**
+新增 `negative_selftest` 段与判定：要求 `cases>=7`、逐例 `fail_closed=true`、逐例退出码**非零**；
+任一不满足即写入 `problems` 并压低 `final_verdict`；`verify` 同样拒绝。manifest 现记录包路径/文件数/
+总字节/EXE 字节/SHA/bundle、各 Gate 命令/退出码/证据 hash/运行时间、cleanup、负向自测与最终判定。
+
+### 13.4 修复有效性证明（fail-closed 反向自测）
+
+- **正向**：新证据 `all_fail_closed=true`、`all_exit_codes_nonzero=true`、逐例 `exit_code=[1,1,1,1,1,1,1]`，
+  manifest `final_verdict=true`（rc 0）、`verify` rc 0。
+- **反向**：把上一轮"零退出码"负向证据（`validation-artifacts/h8/r3rework/six_grid_negative_selftest.json`）
+  与其它 Gate 证据组合后构建 manifest → `final_verdict=false`、rc 1，`problems` 明确记录
+  "负向自测存在零退出码用例"；`verify` rc 1。证明 manifest 已无法再对零退出码证据给出 `true`。
+  （反向探针目录：`validation-artifacts/h8/_negcheck/`，仅供核对，不入包、不作为证据入口。）
+
+### 13.5 全量强制 Gate 重跑（均在最终包 `7450efb0…345F` 上）
+
+| Gate | 命令（摘要） | 退出码 | 耗时 | 结论 |
+|---|---|---|---|---|
+| 统一 precheck（compile + 全回归 + 前端 build + Hooks） | `precheck.py` | 0 | 225s | 阻断项全过 |
+| package audit | `h8_package_audit.py` | 0 | 61s | `pass=true` |
+| PYZ/反伪造 | `h8_r2_pyz_check.py` | 0 | 2s | `all_ok=true` |
+| Word/PDF failure matrix | `h8_r2_failure_matrix.py`（pythonw） | 0 | 49s | `final_pass=true`、cleanup gate ok |
+| 三身份内容级 `/api/task` 真实模型 E2E | `h8_r3_real_model_content.py` | 0 | 43s | `ok=true` |
+| 主链纵向 E2E（7 视口 + API 直连） | `h8_real_model_e2e.py` | 0 | 722s | `ok=true` |
+| Design Fidelity 全状态 | `h8_design_fidelity.py` | 0 | 205s | `116 / 0` |
+| 六格真实性能（fail-closed 聚合器） | `_e2e_v22_aggregate.py` | 0 | 780s | `pass=true`；18/18；首 Fact 中位 **6.41s** / 最大 **8.15s**；Embedding 18/18=1 |
+| 六格聚合器负向自测（受控运行器） | `_e2e_v22_negtest.py` | 0 | 3s | 7/7 非零退出 + fail-closed |
+
+所有 Gate 证据均自带最终 EXE SHA-256 `7450efb0…345F`；总 manifest `final_verdict=true`、`problems=[]`。
+
+### 13.6 已知偏差与边界
+
+1. 打包仍**非字节可复现**（同 SRC 连续重建 EXE SHA 不同），故每轮源码变更都按路径 B 重建并全量重跑；
+   本轮身份以 `c37270c` SRC + `7450efb0…345F` 包冻结。
+2. 上一轮被退回的包 `d4249f66…DA0F`、SRC `f86058c`、HANDOFF `8bcc8af` 及其 PASS **全部作废**，不继承。
+3. 中央 `<acceptance-staging>/f86058c/`、`f86058c-evidence/` 为上一轮失效封存，保留仅作追溯；当前
+   有效封存为 `c37270c/` 与 `c37270c-evidence/`。
+4. `backend/_e2e_v22_negtest.py` 为新增受控文件（属 SRC diff），接受独立复核。
+
+### 13.7 待独立验收问题（增量）
+
+在 §11.8 之外，本轮新增：核对 `_e2e_v22_negtest.py` 是否真实以子进程运行聚合器并读取其退出码（而非
+硬编码），核对 `six_grid_negative_selftest.json` 逐例 `exit_code` 与现场重放一致，并核对总 manifest
+在负向证据被替换为零退出码时确实失败（可复现 §13.4 反向探针）。
+
+### 13.8 再次交接条件核对（对照 §R3-12 12.4）
+
+- ✅ 负向 7 例齐全，逐例内层退出码均非零（`[1,1,1,1,1,1,1]`），逐例失败判定与原因可机械解析；
+- ✅ 外层自测运行器只在 7/7 成立时退出 0，未硬编码 `all_fail_closed`（由实测退出码推导）；
+- ✅ 总 manifest 含负向证据实际 hash（`negative_selftest.sha256`），并把其 verdict 纳入 `final_verdict`；
+- ✅ 修改了受控文件 → 走路径 B：新 SRC `c37270c`、新包 `7450efb0…345F`、全量必做 Gate 重跑；
+- ✅ 新证据目录不可变、身份与现场一致；RESULT 顶部仅呈现最新候选/门禁；PLAN blob 不变；无开放 Challenge；
+  工作树 clean；`review` 仍保持旧 HEAD。
+
+> 以上为开发侧自述与证据入口，不构成 `DOC_ALIGNED`、独立验收或发布结论。
