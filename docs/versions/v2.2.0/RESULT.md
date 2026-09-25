@@ -1,9 +1,9 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_ALIGNED` / 待独立验收**
-> 当前阶段：路径 B 新 SRC `c37270c` / 开发 HANDOFF `b7bf632` / 新包 `7450efb0…345F` 已具备独立验收条件（见 §R3-14）
-> 固定 `review` 由 Documentation Agent 移动至包含 §R3-14 的验收对象；尚未形成独立验收结论
+> 当前状态：**PLAN Revision 3 / 独立验收 `ACCEPTANCE_FAIL` / 需修正**
+> 当前阶段：验收对象 `f8289de` 因 manifest 身份校验 fail-open 且完整产品强制项存在 `NOT_RUN` 未通过（见 §R3-15）
+> 固定 `review` 保持在失败对象 `f8289de` 供追溯；新候选 `DOC_ALIGNED` 前不得移动
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -35,8 +35,8 @@
 > - **封存现场**：中央 `<acceptance-staging>/c37270c/` 与 `<acceptance-staging>/c37270c-evidence/`
 >   均在场；包身份与 `package_identity.json` 一致，总 manifest `final_verdict=true`
 >
-> - **当前门禁**：Documentation Gate 为 **`DOC_ALIGNED`**。该结论只表示 RESULT、机械身份与证据入口
->   已具备进入独立 Acceptance 的条件，不表示源码、运行行为、人工验收或发布已通过。
+> - **当前门禁**：独立 Acceptance 最终结论为 **`ACCEPTANCE_FAIL`**。§R3-14 的 `DOC_ALIGNED` 仅保留为
+>   该失败对象曾具备进入验收的历史事实；不得进入人工验收或发布。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -3433,3 +3433,89 @@ PASS。RESULT 必须列出新 SRC/唯一父/完整 diff、新包身份及全部 
 下一步必须由未参与 `c37270c` 实现、自测、修复、负向运行器/manifest 修改或 RESULT 编写的
 Acceptance Agent，在 review 外的一次性源码副本、隔离 runtime 与中央精确包上执行 PLAN §8、§11.8
 及 §13.7 的完整独立验收。通过前不得进入 Product Owner 人工验收或发布。
+
+***
+
+## R3-15. 独立验收结论：`ACCEPTANCE_FAIL`（验收对象 `f8289de`，2026-09-25）
+
+> 本节由 Documentation Agent 接收独立 Acceptance 报告后登记。报告绑定 review HEAD
+> `f8289de5b82fee51340c345278a95c10869079ce`、SRC `c37270c`、开发 HANDOFF `b7bf632` 与精确包
+> `7450efb0…0345F`。独立 Agent 声明未参与实现、自测、修复、证据或 RESULT 编写；验收前后 review
+> 均为该 detached HEAD 且 clean。
+
+### 15.1 已独立完成并通过的范围
+
+- Git 父链、diff 作用域、PLAN blob、review detached/clean 与包精确身份全部一致；包为 4044 files /
+  170,353,827 B，EXE 16,833,327 B，SHA-256
+  `7450EFB0F5EB6232BEE2A0785BE26B6D53531687281D60D1573E205818E0345F`，bundle
+  `index-DWWBklCp.js`。
+- 聚合器 7 类注入逐例独立重放均为真实进程退出码 1、`fail_closed=true`、失败原因非空；外层
+  `_e2e_v22_negtest.py` 在 7/7 成立时退出 0，汇总字段与封存证据一致。
+- manifest 对缺少负向证据、少于 7 例、任一 exit 0、任一 `fail_closed=false`、JSON 截断、包 SHA/
+  bundle 错误及 PLAN blob 错误均按预期拒绝。
+
+上述通过项只保留为本失败对象的独立事实，不可继承为下一候选的验收 PASS。
+
+### 15.2 强制 FAIL：SRC/HANDOFF 身份未建立可信锚点
+
+独立篡改矩阵确认：向 `h8_r3_manifest.py` 传入错误 SRC 或错误 HANDOFF 时，build 仍 rc 0、
+`final_verdict=true`、`problems=[]`，verify 仍 rc 0。脚本只把 `args.src/args.handoff` 原样写入 manifest，
+verify 仅检查字段非空，没有把它们与真实 Git 对象、父链和固定验收身份比较。
+
+这直接违反 §R3-13/§R3-14 所声明的“任一身份不一致即 fail-closed”以及工作流 §8.3 的验收绑定规则。
+包 SHA、bundle、PLAN 与证据 hash 正确，不能替代候选 SRC/HANDOFF 的身份真实性。该项单独构成
+`ACCEPTANCE_FAIL`。
+
+### 15.3 强制 NOT_RUN
+
+独立 Agent 未运行以下完整产品验收：owner/IDOR、当前履历 ID→成品文本、migration/legacy-unowned、
+内容完整性、原子发布/失败路径、真实模型主链与六格、Design Fidelity、artifact/资源生命周期、
+package audit/PYZ/脱敏。开发封存证据没有被继承为独立结论。
+
+PLAN §8 要求上述范围完整独立验收；任何强制项 `NOT_RUN` 都排除 `ACCEPTANCE_PASS`。因此即使没有
+§15.2 的 manifest 缺陷，本轮也不能通过。
+
+### 15.4 同一 PLAN 下的一次性返工规则
+
+本轮不改变产品范围、Design Baseline 或验收合同，继续使用 PLAN Revision 3；不得新增 Revision 4。
+Development Agent 必须一次性完成以下内容：
+
+#### A. 为 manifest 建立可独立校验的 Git 身份锚点
+
+1. build 阶段必须在明确的 Git repo 上解析真实 HEAD，而不是信任自由文本。最终 manifest 只能在开发
+   HANDOFF 已形成后生成：实际 `HEAD` 必须等于 HANDOFF，且 HANDOFF 必须只有一个 parent 并等于 SRC。
+2. build 必须确认 SRC/HANDOFF 均为真实 commit object，记录完整 SHA、各自 tree SHA、parent 列表及
+   `SRC..HANDOFF` 文件清单；HANDOFF 相对 SRC 只能是批准的 RESULT 收口文件。调用者传入的任何声明值
+   与现场解析值不一致时必须写入 `problems`、`final_verdict=false` 并非零退出。
+3. verify 必须接受来自验收任务固定对象的可信 `--expected-src`、`--expected-handoff` 和 `--repo`（或
+   等价不可混淆入口），同时验证 manifest 字段、Git object、唯一父链、tree/diff 作用域和期望值。
+   只检查非空、只比较两个同源自由参数或允许缺少 Git object 的做法均不合格。
+4. 最终生成顺序固定为：完成 SRC 与新包/全量 Gate → 写完开发 RESULT 并形成唯一 HANDOFF → 在该
+   HANDOFF 的 clean 工作树生成最终 manifest/verify → 不再修改任何受控文件或 RESULT。若 manifest
+   失败，修正后必须形成新的对应身份，不得手工改 JSON。
+5. build 与 verify 的独立负向矩阵至少覆盖：错误 SRC、错误 HANDOFF、对象不存在、非 commit、错误
+   parent、多个 parent、`SRC..HANDOFF` 出现非 RESULT 文件、tree SHA 被篡改、缺少 repo、repo HEAD
+   不等于 HANDOFF。每例均须非零退出且 `final_verdict=false`。
+
+#### B. 新候选、重工程和证据
+
+1. `h8_r3_manifest.py` 属受控验证脚本；任何修改都必须形成新 SRC。由于打包非字节可复现且验收绑定
+   实现，新 SRC 必须重新 build/重打包，并在新精确包上重跑 PLAN 的全部强制开发 Gate。
+2. 新中央包和证据必须使用新的不可变目录；`c37270c` 包、证据及 `f8289de` 只保留为失败追溯，
+   不得覆盖或继承 PASS。
+3. 新 RESULT 必须记录：新 SRC/唯一父/完整 diff、新 HANDOFF/唯一父、Git 身份锚点字段、正反向
+   identity 篡改矩阵、全部 Gate 命令/退出码、新包身份、manifest hash/判定、cleanup、偏差与待验收问题。
+4. Development Agent 不得运行或宣称独立验收，不得移动 `review`，顶部保持“待验收”；交回后先重新
+   经过 Documentation Gate。
+
+#### C. 下一轮独立验收
+
+新候选 `DOC_ALIGNED` 后，必须安排未参与新修复的新独立 Acceptance。除复核 manifest 身份 fail-closed
+外，必须完整执行 PLAN §8、§11.8 和 §13.7 的所有产品运行时验收；不得再次以开发封存证据替代，且
+任何强制项 `NOT_RUN` 均不得给出 `ACCEPTANCE_PASS`。
+
+### 15.5 最终结论与当前状态
+
+**最终结论：`ACCEPTANCE_FAIL`。** 失败对象 `f8289de`、SRC `c37270c`、HANDOFF `b7bf632` 与包
+`7450efb0…0345F` 不得进入 Product Owner 人工验收或发布。固定 `review` 保持该失败对象供追溯；只有
+新候选完成 §15.4、重新取得 `DOC_ALIGNED` 并通过无 `NOT_RUN` 的完整独立验收后，流程才能继续。

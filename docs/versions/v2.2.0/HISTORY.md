@@ -653,3 +653,22 @@
 - 结论：`DOC_ALIGNED` 只表示交付可进入独立验收，不表示产品已通过。固定 `review` 指向包含 RESULT
   §R3-14 的文档收口对象；独立 Acceptance 必须复核 owner/内容来源/迁移/原子发布/真实模型/UI/隔离、
   新负向运行器和 manifest fail-closed，之后才可进入 Product Owner 人工验收。
+
+## VH-036 路径 B 候选独立验收失败
+
+- 日期：2026-09-25
+- 阶段：验收对象 `f8289de5b82fee51340c345278a95c10869079ce` / `ACCEPTANCE_FAIL`
+- 绑定对象：SRC `c37270c62b19b5a45945bd40cd17d24a20a62002`；开发 HANDOFF
+  `b7bf63240ca62ef828ccf5735410a29acb23b726`；精确包 EXE SHA-256
+  `7450EFB0F5EB6232BEE2A0785BE26B6D53531687281D60D1573E205818E0345F`。
+- 独立通过范围：Git/PLAN/包身份成立；7 类聚合器注入逐例真实退出码均为 1；负向运行器与多数
+  manifest 篡改场景按预期 fail-closed。
+- 失败原因：manifest 对 SRC/HANDOFF 只记录调用者传入字符串、verify 只检查非空；错误 SRC 或错误
+  HANDOFF 仍可得到 rc 0、`final_verdict=true`、`problems=[]`。候选身份未与真实 Git object、父链和
+  固定验收对象建立可信锚点，违反验收绑定规则。
+- 完整性原因：本轮独立 Agent 没有执行 owner/IDOR、内容来源、migration、内容完整性、原子发布、
+  真实模型、六格、Design Fidelity、failure matrix、artifact、package audit/PYZ/脱敏等强制产品验收，
+  均为 `NOT_RUN`；即使无上述脚本缺陷也不能通过。
+- 决定：继续 PLAN Revision 3，不形成新 Revision。修改受控 manifest 脚本后必须新 SRC、重 build/
+  重打包、全量开发 Gate、新中央封存、重新 Documentation Gate，并由独立 Agent 完整执行无
+  `NOT_RUN` 的验收。失败对象和包只保留追溯；`review` 保持 `f8289de`，不得进入人工验收或发布。
