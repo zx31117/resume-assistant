@@ -74,10 +74,11 @@ JobModelSnapshot
 
 ### 3.2 Role Profile 与 Company Context
 
-- 首批 Role Profile 只覆盖 Product Owner 批准的高频岗位，包含同义词、能力维度、证据类型、
-  召回词、边界、版本和审核状态；
+- 首批 Role Profile 只覆盖技术、产品/运营、通用职能三类固定质量集所需岗位，包含同义词、能力维度、
+  证据类型、召回词、边界、版本和审核状态；
 - 无法识别岗位或 Profile 置信度不足时只使用 JD，不强套相近岗位；
-- Company Context 只使用批准来源、缓存和 TTL，不建立无边界网络 Agent；
+- Company Context 首版只使用 JD 明示内容、用户主动粘贴/确认的信息和人工审核 Role Profile，不自动
+  搜索、访问或抓取公司页面，不建立复杂 TTL 或无边界网络 Agent；
 - 公司同名、部门或产品线不明确时显示不确定，不自动合并；
 - Company Context 可补回文本相似度较低但业务相关的 Fact，只改变 emphasis，不改变 proposition；
 - 来源失败、过期或冲突时退回 JD + Role Prior，并记录降级。
@@ -117,6 +118,10 @@ JobModelSnapshot
 正式 PLAN 冻结 Recall@K、Precision@K、nDCG 或等价指标，以及岗位要求覆盖、用户保留率、回退率、
 延迟、Embedding 调用和成本阈值。跨账号召回、未知 Fact 和本地身份进入率始终为 0。
 
+固定质量集为 12 个案例，覆盖技术、产品/运营、通用职能三类，并叠加 3—5 名真实受邀者的实际岗位。
+硬发布线为：虚构事实、跨账号内容和本地字段外泄均为 0；支持范围内成功成品的 PDF/批准 Word DOCX
+一页率 100%；针对版盲评优于 V2.2 基线的比例不低于 70%；每名真实测试者至少获得一份可直接投递成品。
+
 ## 6. 润色与内容计划冻结
 
 ### 6.1 ResumeContentPlan
@@ -144,6 +149,9 @@ JobModelSnapshot
 - 修改产生新 revision，不覆盖已经冻结的内容版本。
 
 ## 7. 方案 B：网页本地固定模板装配
+
+视觉基底沿用 DS-003，不重新设计品牌或引入多模板；新增 Design Snapshot 只冻结邀请账号接入、本地
+身份/实体装配、失败恢复和历史状态与现有工作台的关系。
 
 ### 7.1 三个数据域
 
@@ -239,10 +247,11 @@ PDF 使用固定字体资产和同一布局决策在本地生成；DOCX 使用�
 6. 冲突、低置信和模型补全不覆盖旧 Fact；
 7. Job Model 与模型推测永远不能写入 Person Model。
 
-## 9. Fast Lane / Precision Lane 与性能
+## 9. 低延迟候选机制与性能
 
-Fast Lane 先完成岗位识别、高置信候选和可复用 Stable Evidence；Precision Lane 完成扩展召回、
-rerank、信息缺口和 Adaptive Evidence。最终文件只从冻结最终快照生成，中间结果不成为第二真源。
+首发基线是单生成通道。Fast Lane / Precision Lane 与 Stable / Adaptive Evidence 仅是候选优化：只有在
+Day 3 前真实质量集证明有稳定正收益，且不增加双真源、状态错配或不可控延迟时才进入首发。无论采用
+哪种机制，最终文件只从冻结最终快照生成，中间结果不成为第二真源。
 
 性能门禁使用真实服务器 P50/P95、cold/warm、缓存命中/未命中、模型调用、Token、成本，以及桌面
 Chromium 的本地装配、预览、DOCX/PDF 生成和一页收敛时间。新增 Job Model 与本地检查不得无上限
@@ -257,7 +266,7 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 
 - ApplicationCase、首结果、最终内容版本和下载漏斗；
 - 召回规则、模型/Prompt/模板/LayoutPlan/本地装配器版本；
-- Stable Evidence 命中、Adaptive Evidence 重算和缓存节省；
+- 单通道总耗时；若候选优化启用，再记录 Stable Evidence 命中、Adaptive Evidence 重算和缓存节省；
 - 候选数、最终选择数、用户保留/重生成和反馈；
 - 页数结果、超页原因类别、收敛动作和失败阶段；
 - Token、成本、延迟、重试和资源；
@@ -307,18 +316,33 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 这些 Gate 先作为合并阻断条件持续验证，并在 V3.0.0 候选统一独立验收；任一硬 Gate 未通过，V3.0.0
 不得首发。
 
-## 13. 正式 PLAN 前待冻结
+## 13. Release Train PLAN 输入状态
 
-1. 首批 Role Profile、Company Context 来源和 TTL；
-2. 固定质量集及 Recall/Precision/人工盲评/延迟/成本阈值；
-3. Fast/Precision 中间状态和最终替换 UI；
-4. 单一生产模板、固定槽位、桌面 Chromium 版本和批准 Word/字体环境；
-5. Local Resume Identity 与 Local Entity Map 字段白名单、revision 和本地重录流程；
-6. IndexedDB/OPFS、WebCrypto、清除、迁移、无痕模式与存储失败语义；
-7. DOCX/PDF 本地生成器、同源检查、允许的 Word 差异和超页最大收敛轮次；
-8. Beta 用户规模、数据类型、退出条件和人工验收表；
-9. V2.4.0 向 V3.0.0 交接的冻结基线、可调参数白名单和禁止大改合同；
-10. 必要 Design Snapshot。
+Product Owner 输入已由 D-043—D-047 冻结。PLAN 不再回问岗位大类、质量集规模、70% 盲评线、
+3—5 名真实测试者、DS-003 视觉基底、单模板、Company Context 来源或本地/服务器身份边界。
 
-本文不单独授权开发；范围、阈值、模板、本地存储、参考环境和 Design Snapshot 由 V3.0.0 Release
-Train PLAN 统一冻结。
+PLAN 必须技术化冻结：具体 12 个案例与判分表、Recall/Precision/延迟/成本阈值、Fast/Precision 是否
+保留及状态替换合同、模板/槽位版本、桌面 Chromium 与批准 Word/字体环境、IndexedDB/OPFS/WebCrypto
+密钥与失败语义、DOCX/PDF 生成器、同源检查、超页最大收敛轮次、可调参数白名单和统一验收脚本。
+
+本文不单独授权开发；上述内容由 V3.0.0 Release Train PLAN 统一授权和验收。
+
+## 14. PLAN 前技术预演与阻断风险
+
+当前前端没有浏览器 DOCX/PDF 生成、本地结构化存储、WebCrypto 或客户端 PDF/DOCX 解析依赖；现有原始
+PDF、简历正文和身份字段均进入本地 FastAPI，再由 Windows Word COM 转换。迁移到服务器后不能复用这条
+路径，也不得以“服务器临时处理后删除”作为 Local-only 的替代。
+
+| 级别 | 风险 | PLAN 必须冻结的控制 |
+|---|---|---|
+| P0 | 方案 B 浏览器装配尚无真实技术纵切 | Day 1—2 先做固定模板、共享 LayoutPlan、Web Worker、DOCX Blob、PDF Blob、嵌入字体和同源 hash 的最小 spike；失败即暂停扩展功能 |
+| P0 | `window.print()` 只能调起打印对话框，不能产生可验收 PDF Blob | 选择可固定版本、可离线测试的浏览器生成库；禁止以打印对话框或服务器回传带身份文件兜底 |
+| P0 | 模型自由改写可能删除、拆分或幻化 opaque `entity_ref` | entity_ref 只出现在结构化字段；服务器输出 schema 校验引用完整性，本地受控恢复；未知/缺失映射 fail closed |
+| P0 | 浏览器本地导入与清除尚不存在 | 首发建议仅支持有文本层 PDF + 手工录入；扫描件 OCR 和 DOCX 导入移出 V3，网络探针证明原始文件字节/身份/真实实体零外发 |
+| P0 | 浏览器与 Word 的分页、字体度量不同 | 固定浏览器、批准 Word、模板和字体版本；共享内容预算/槽位，双环境真实一页验收；不能只看浏览器预览 |
+| P1 | Fast/Precision、Stable/Adaptive、混合召回和 Company Context 同时实现会挤占质量死线 | 首发采用单生成通道、账号内精确向量 + 简单关键词/评分；双通道和复杂缓存仅在 Day 3 前已有正收益证据时进入候选 |
+| P1 | 中文字体体积、许可和替代会影响加载与分页 | 固定可再分发字体/子集及 hash，预加载后生成；缺字体 fail closed，不静默使用系统字体 |
+| P1 | WebCrypto 只能保护静态存储，不能抵御同源 XSS/恶意依赖；本地身份库未按账号命名空间隔离还会在切号时串数据 | origin + account_id 分区；无不必要第三方脚本、严格 CSP/依赖锁；登出/切号清空解密内存；无痕、清缓存、拒绝存储和 XSS/依赖出站列为负向 Gate |
+
+以上是技术收敛，不降低硬目标：支持范围内的成功成品仍须一页、可直接投递，事实虚构和身份/跨账号
+泄漏仍须为 0。需要 Product Owner 冻结的是输入格式与算法复杂度，不是质量线。

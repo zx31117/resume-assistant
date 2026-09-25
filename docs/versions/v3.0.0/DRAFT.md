@@ -1,4 +1,4 @@
-# AI Career Resume Assistant V3.0.0 草稿：免费多用户 Public Release
+# AI Career Resume Assistant V3.0.0 草稿：免费多用户邀请制 Beta
 
 > 文档角色：版本范围草稿，供 Product Owner 审核
 > 状态：DRAFT，非开发指令，不改变当前版本状态
@@ -7,12 +7,12 @@
 > Git 历史保存
 > 并行发布列车：V2.3.0 底座工作流 ∥ V2.4.0 质量/装配工作流 ∥ V3.0.0 产品工作流；Day 3/6
 > 完成合并 Gate，Day 9 形成唯一 V3.0.0 冻结候选并统一独立验收
-> 核心目标：第一次公开提供免费、多用户、服务器化 AI Career Resume / Job Preparation 产品；
+> 核心目标：第一次通过正式 HTTPS 域名提供免费、多用户、服务器化邀请制 Beta；
 > 首发不接入人民币支付
 
 ## 1. 核心判断
 
-V3.0.0 是项目第一次面向真实用户的服务器化、多用户版本。产品长期方向仍是以 Career Memory 为
+V3.0.0 是项目第一次面向受邀真实用户的服务器化、多用户版本，不开放自由注册。产品长期方向仍是以 Career Memory 为
 事实底座，围绕用户主动选择的目标岗位完成岗位理解、事实选材、信息补充和针对性简历。
 
 V2.3/V2.4 不再形成独立发布候选或独立验收结论。模块测试、合同测试和 Day 3/6 真实纵切是持续合并
@@ -30,7 +30,7 @@ Gate；V3.0.0 的正式 Acceptance 必须一次覆盖底座隔离、生成质量
 
 ~~~text
 访问正式 HTTPS 域名
-→ 注册或登录账号
+→ 通过一次性邀请激活或登录账号
 → 在浏览器本地选择已有简历，或手工录入经历
 → 本地移除 Resume Identity 与真实实体名称
 → 服务器接收低敏 Experience / Fact / entity_ref
@@ -97,6 +97,8 @@ Job Model
 
 - JD 明示要求可以作为招聘方明确条件；
 - Role Prior 和 Company Context 可以补召回、排序和表达重点，但必须标注来源；
+- Company Context 首版只使用 JD 明示内容、用户主动粘贴/确认的信息和人工审核 Role Profile，不自动
+  搜索、访问或抓取公司网页；
 - 无来源推测不能进入选材；
 - 每次任务冻结 JobModelSnapshot，记录 JD hash、Role Profile、Company Context、规则、模型和时间。
 
@@ -124,7 +126,7 @@ ApplicationCase
 
 ### 4.1 Account / Auth Identity
 
-- 只服务注册、登录、账号恢复、授权、风控和安全审计；
+- 只服务邀请激活、登录、账号恢复、授权、风控和安全审计；
 - 认证邮箱、OIDC subject 等保存在独立 Auth 安全域；
 - 即使认证邮箱与简历联系邮箱相同，也不得自动复制到业务数据或本地简历身份；
 - 普通业务查询不能把 Auth Identity 当作 Career Memory Profile。
@@ -180,12 +182,13 @@ Career Memory 支持跨设备恢复、检索、导出和删除，但不包含 Re
 - fingerprint、dimension、Fact revision/hash 或模型版本不匹配时禁止使用旧向量；
 - production、staging 和 test 数据面物理隔离。
 
-### 5.2 服务器文件与产物元数据
+### 5.2 服务器结构化内容与产物元数据
 
-- 服务器只保存明确允许的低敏来源片段、无身份内容文件和 ArtifactMetadata；
+- 服务器只在 PostgreSQL 保存明确允许的低敏来源片段、结构化 ResumeRevision 和 ArtifactMetadata；
+  首发不建立内容文件对象存储；
 - 原始身份简历与最终带身份 DOCX/PDF 不进入对象存储、缓存、备份或 CDN；
 - URL、文件名或已知对象 ID 不能替代账号授权；
-- 代理、缓存和 Range/HEAD 请求保持相同授权；
+- 首发不提供服务器文件 Range/HEAD 下载；结构化对象读取继续经过会话、账号和 RLS 授权；
 - 删除、失败、超时和崩溃场景均有资源清理；
 - 账号导出/删除只覆盖服务器实际持有内容，并明确本地文件需由用户自行管理。
 
@@ -238,8 +241,8 @@ ResumeRevision、LayoutPlan、模板版本及本地 identity/entity map revision
 ## 7. 针对性简历与质量
 
 - V2.4.0 冻结的 Role Prior、Company Context、混合召回、内容计划、润色和一页纸闭环进入生产；
-- Stable Evidence 优先复用，Adaptive Evidence 针对当前岗位重新处理；
-- Fast Lane 提供高置信完整内容，Precision Lane 完成扩展召回和精排；
+- Stable/Adaptive 复用与 Fast/Precision 双通道是质量候选机制，只有在 Day 3 前证明比单通道有稳定
+  正收益且不威胁一页纸、延迟和事实边界时才进入首发；否则按 §16.3 CUT-02 使用单生成通道；
 - 服务器每条内容保留 fact_refs 和 opaque entity_ref，未知、跨账号、过期和无来源内容被拒绝；
 - ResumeContentPlan 为本地固定槽位预留明确空间预算；
 - 本地超页只向服务器提交批准的内容预算/溢出类别，不提交身份、真实名称或原始长度明细；
@@ -266,8 +269,12 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - 同一任务内正常修改、失败重试、刷新恢复和失败范围续试不重复扣减；
 - 高成本任务 reserve，首份可用内容形成后 settle；未产生可用结果时 release；
 - 系统故障可以 refund，所有变化进入不可变账本；
-- 新用户、自然恢复、Early User 和受控邀请可以发放免费积分；
+- 新账号按冻结规则赠送免费积分；周期恢复、签到和 Early User 额外赠送留到后续版本；
 - 充值、订单、支付、订阅和人民币价格明确不做。
+
+首发数值冻结为：新账号赠送 10 积分；新建专项 ApplicationCase 预留 1 积分，首份可用结果形成后
+结算；技术失败、失败范围续试、同任务恢复和再次下载不重复扣减；成功后用户主动完整重算作为新任务
+再扣 1 积分。基础简历始终不扣积分。
 
 本地重新装配或再次下载同一冻结内容不产生新的权益扣减。
 
@@ -300,6 +307,7 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 ## 10. 生产运行
 
 - 正式 HTTPS 域名和稳定 origin；
+- 邀请制、最多 20 个账号、最多 5 个并发生成任务；超过上限排队或明确拒绝；
 - 认证、授权、管理角色、会话失效、限流和滥用防护；
 - 服务端 Provider Gateway 与密钥管理，平台 Key 不下发前端；
 - 数据库迁移、备份核验、恢复演练、账号删除和版本回滚；
@@ -328,6 +336,8 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - 免费积分账本和任务级结算；
 - 产品、运行和质量埋点；
 - 服务器数据导出、删除、注销、隐私和第三方模型说明；
+- Career Memory 保留至用户删除/注销；活动库目标 24 小时内删除，备份最长 30 天退出，脱敏运行日志
+  保留 14 天；
 - 备份恢复、监控、告警、限流和回滚。
 
 ### 11.2 后续增强
@@ -371,6 +381,8 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - [ ] 基础简历免费可用，专项任务积分只结算一次；
 - [ ] 服务器内容对象绑定同一 ResumeRevision/LayoutPlan，只有 opaque entity_ref；
 - [ ] Product Owner 在代表性真实岗位完成人工验收。
+- [ ] 固定 12 案例覆盖技术、产品/运营、通用职能；针对版盲评优于 V2.2 基线不少于 70%；每名真实
+  测试者至少获得一份可直接投递成品。
 
 ### 12.3 本地身份与最终文件
 
@@ -392,20 +404,15 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 - [ ] 服务器真实模型纵切、并发、容量、故障注入和 Web E2E 通过；
 - [ ] Product Owner 完成真实账号、真实岗位和本地一页纸成品人工验收。
 
-## 13. 正式 PLAN 前待冻结
+## 13. Release Train PLAN 输入状态
 
-1. 免费积分、ApplicationCase 有效期、完整重算和公平使用上限；
-2. Public 或 Invite-only 发布方式；
-3. 首发目标账号数、并发、地区和 SLO；
-4. Role Profile、Company Context 来源和首发岗位范围；
-5. 服务端数据导出、删除、保留期和注销说明；低敏字段白名单已由 D-045 冻结；
-6. Local Resume Identity/Entity Map 本地存储、重新输入、清除和失败体验；
-7. 固定模板、固定槽位、桌面 Chromium、DOCX/PDF 生成器和 Word 兼容范围；
-8. 隐私说明、第三方模型数据处理和本地数据风险说明；
-9. 正式服务器、对象存储、数据库和灾难恢复方案；
-10. V3.0.0 必要 Design Snapshot。
+Product Owner 输入已由 D-043—D-047 冻结：邀请制 Beta、20 账号/5 并发、香港区域、12 案例和质量
+硬线、3—5 名真实测试者、免费积分规则、数据保留/删除目标、Company Context 来源、DS-003 视觉基底、
+单模板以及 Local-only 身份边界均不再作为待选项。
 
-Resume Identity 是否服务端保存已经冻结，不再列为待决策。
+PLAN 必须技术化冻结：ApplicationCase 有效期与公平使用限流、运行 SLO、活动库/备份删除作业、账号
+恢复、隐私与第三方模型说明、Local Identity/Entity Map 存储和失败语义、模板/槽位和浏览器/Word/字体
+版本、服务器/数据库/备份实现、最小 Design Snapshot、并行工作流所有权和 Day 3/6/9 统一验收矩阵。
 
 ## 14. 与既有决策的关系
 
@@ -415,7 +422,9 @@ Resume Identity 是否服务端保存已经冻结，不再列为待决策。
 - D-038：用户材料直接抽取与模型推断使用不同确认边界；
 - D-039：公开上线前实施真实认证、授权、审计和部署隔离；
 - D-044：Career Memory 服务端化，Resume Identity/Entity Map 与最终装配 Local-only；
-- D-045：V2.3.0 香港邀请制 Alpha、低敏白名单及共享 PostgreSQL/pgvector 强隔离基线。
+- D-045：V2.3.0 香港邀请制 Alpha、低敏白名单及共享 PostgreSQL/pgvector 强隔离基线；
+- D-046：三条工作流并行开发，V3.0.0 统一正式验收；
+- D-047：邀请制 Beta、质量门槛、免费积分、数据保留与设计基线。
 
 ## 15. Post-V3 Future Direction
 
@@ -424,3 +433,48 @@ V2.3.0 已预留 ApplicationCase 外部客户端接入合同，未来 Browser As
 
 在范围、配额、安全、部署、本地装配和必要 Design Snapshot 获批前，本文不授权开发；授权后由一份
 V3.0.0 Release Train PLAN 统一管理三条并行工作流、集成 Gate、冻结候选和最终验收。
+
+## 16. PLAN 前统一技术预演与可达性结论
+
+### 16.1 当前结论
+
+完整实现本文所有候选机制并在九天内稳定上线不可控；在邀请制 Beta、单模板和既有隐私/质量硬线不变的
+前提下，采用 §16.3 的首发收敛包后目标可达。V3 PLAN 不得把以下结构性差异当成开发细节：
+
+1. 当前 V2.2 是 SQLite + 固定 owner + loopback token + 进程内线程 + Windows/Word 本地产物；V3 是
+   PostgreSQL/RLS + 真实账号 + 持久 worker + Web Local-only 产物，属于五条新纵切；
+2. 免费基础简历和专项简历必须是同一正式状态机中的不同 `case_type`。`BASE` 不要求 JD、不扣积分；
+   `TARGETED` 绑定 JobModelSnapshot/ApplicationCase 并按 D-047 结算，不能复用“姓名 + JD 必填”的旧合同；
+3. 用户履历真实公司/学校属于 Local Entity Map；目标岗位公司名若来自 JD，可作为 Job Model 的岗位
+   上下文保存，但不得反向写入 Career Memory 的用户履历实体；
+4. 服务器不需要保存最终文件，也不需要首发对象存储。结构化 Revision/任务/账本/埋点进入 PostgreSQL，
+   最终 Preview/DOCX/PDF 只在浏览器装配；
+5. “最多 5 个并发生成任务”解释为容量/排队上限；初始真实模型执行并发建议为 2，由香港实例实测和
+   供应商限流证据调整，不以并发压垮质量或月度预算。
+
+### 16.2 统一 P0 Gate
+
+| 时间 | 必须形成的真实证据 | 失败处理 |
+|---|---|---|
+| Day 1 | 目标香港实例到真实模型/Embedding 的延迟、错误、Token/费用探针；共享 schema/API/event owner 冻结 | 不继续假设网络和成本可用，立即换规格/供应商或缩小运行容量 |
+| Day 2 | 浏览器固定模板生成 DOCX/PDF Blob，嵌入固定字体，同一 LayoutPlan，同源 hash；原始文件和身份零出站 | 方案 B 不成立即 `CHALLENGE_OPEN`；禁止改成服务器处理身份文件 |
+| Day 3 | 两账号 SQL/Embedding/缓存/账本负向矩阵；Web/worker 重启、lease reclaim、RLS 事务与连接池复用通过 | 不合并后续功能；先修底座 |
+| Day 6 | 香港正式域名、真实邀请账号、真实模型、真实岗位、浏览器本地恢复身份、PDF/DOCX 一页完整纵切 | 未通过则停止首发，不能以模块测试替代 |
+| Day 7 | 功能冻结；12 案例和 3—5 名真实测试者进入统一回归 | 只修 P0/P1，不新增功能 |
+| Day 9 | 单一 clean commit 候选、生产配置/回滚/恢复证据和独立验收 | 任一硬 Gate 失败即不发布 |
+
+### 16.3 首发收敛包（待 Product Owner 最后确认）
+
+| ID | V3 首发建议 | 保留到后续的内容 |
+|---|---|---|
+| CUT-01 | 简历导入只支持有文本层 PDF 与手工录入 | 扫描件 OCR、DOCX 导入 |
+| CUT-02 | 单生成通道；账号内精确向量 + 简单关键词/评分 | Fast/Precision 双通道、复杂 Stable/Adaptive 缓存、ANN 索引 |
+| CUT-03 | PostgreSQL 保存结构化 Revision 和 ArtifactMetadata | 对象存储、服务器最终文件 |
+| CUT-04 | 5 个任务可在途/排队，初始最多 2 个真实模型任务执行 | 更高实际执行并发 |
+| CUT-05 | 旧 V2.2 数据不整库自动迁移；用户在网页本地清除后导入或重录 | 自动 SQLite 迁移工具 |
+| CUT-06 | 只做 CLI/最小受保护运维入口 | 完整运营后台、自助找回和自动邮件 |
+| CUT-07 | 新账号仅赠送冻结的 10 积分，不启用周期自动恢复 | 签到、自然恢复、Early User 额外赠送 |
+
+这七项不改变邀请制、真实多用户、积分、埋点、账号隔离、生成效果、一页纸和可直接投递的硬目标。正式
+PLAN 前只需确认该收敛包；其余数据库角色、任务 lease、Cookie/CSRF、RLS transaction wrapper、CSP、
+SSE 代理、日志白名单和备份作业均属工程强制项，不再作为 Product Owner 选项。

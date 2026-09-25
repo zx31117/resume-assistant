@@ -26,7 +26,7 @@
 
 `V3.0-MUST`
 
-> 以服务器低敏 Career Memory 为事实底座，在产品 Web 端围绕用户选择的目标岗位完成岗位理解、
+> 以服务器低敏 Career Memory 为事实底座，在邀请制 Web Beta 中围绕用户选择的目标岗位完成岗位理解、
 > 事实选材、信息补充和一页纸针对性简历；真实身份与真实实体名称只在浏览器本地装配。
 
 ### 2.2 三个数据域
@@ -69,7 +69,7 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 
 | ID | 需求 | 状态 | 说明 |
 |---|---|---|---|
-| V3-ACC-01 | 注册、登录、退出、账号恢复 | V3.0-MUST | 正式账号生命周期 |
+| V3-ACC-01 | 邀请激活、登录、退出、账号恢复 | V3.0-MUST | 首发不开放自由注册 |
 | V3-ACC-02 | 低敏 Career Memory 跨设备恢复 | V3.0-MUST | 不包含 Local Resume Identity/Entity Map |
 | V3-ACC-03 | 普通用户、运营、管理员角色分离 | V3.0-MUST | 隐藏入口不算权限隔离 |
 | V3-ACC-04 | 服务器数据导出、删除与注销 | V3.0-MUST | 只覆盖服务器实际持有数据 |
@@ -157,8 +157,8 @@ DOCX/PDF 同源表示使用同一 ResumeRevision、LayoutPlan、模板与本地 
 |---|---|---|---|
 | V3-QLT-01 | JD + Role Prior + Company Context 混合召回 | V2-PREP | V2.4.0 调优主线 |
 | V3-QLT-02 | 固定评测集与 Recall@K/nDCG | V2-PREP | 反例、长短材料和缺失 JD |
-| V3-QLT-03 | Stable / Adaptive Evidence | V2-PREP | 可复用与目标岗位差异化内容 |
-| V3-QLT-04 | Fast / Precision Lane | V2-PREP | 新能力不线性增加等待 |
+| V3-QLT-03 | Stable / Adaptive Evidence | RESEARCH | 有正收益证据后再进入首发候选 |
+| V3-QLT-04 | Fast / Precision Lane | RESEARCH | 首发默认单通道，不为机制牺牲质量死线 |
 | V3-QLT-05 | fact_refs 与事实越界门禁 | V3.0-MUST | 质量提升不能放宽事实边界 |
 | V3-QLT-06 | ResumeContentPlan 与内容预算 | V2-PREP | 为本地槽位预留空间 |
 | V3-QLT-07 | 本地 PDF/批准 Word DOCX 均为一页 | V2-PREP / V3.0-MUST | 不靠截断或不可读缩字 |
@@ -172,10 +172,11 @@ DOCX/PDF 同源表示使用同一 ResumeRevision、LayoutPlan、模板与本地 
 | ID | 需求 | 状态 | 说明 |
 |---|---|---|---|
 | V3-ENT-01 | 基础简历免费 | V3.0-MUST | 保证正常使用下限 |
-| V3-ENT-02 | 专项 ApplicationCase 消耗积分 | V3.0-MUST | 按完整任务，不按模型调用 |
+| V3-ENT-02 | 专项 ApplicationCase 消耗积分 | V3.0-MUST | 新账号 10 分；新任务 1 分；失败/同任务恢复/下载不重复扣减 |
 | V3-ENT-03 | 不可变权益账本 | V2-PREP | grant/reserve/settle/release/refund/expire |
 | V3-ENT-04 | 重试、恢复和本地重装配不重复扣减 | V3.0-MUST | 幂等结算 |
-| V3-ENT-05 | 初始赠送和自然恢复 | V3.0-MUST | 数量待真实成本冻结 |
+| V3-ENT-05 | 新账号初始赠送 | V3.0-MUST | 新账号 10 积分 |
+| V3-ENT-06 | 周期恢复、签到和 Early User 额外赠送 | POST-V3-CANDIDATE | V3 首发不启用自动恢复 |
 | V3-ENT-06 | 弱感知等级、签到、邀请 | V3.x-CANDIDATE | 由真实留存证据决定 |
 | V3-ENT-07 | 充值、订单和支付 | V3.x-CANDIDATE | V3.0.0 明确不做 |
 | V3-ENT-08 | 按 Token 向用户计费 | OUT | Token 只用于内部成本和公平使用 |
@@ -232,7 +233,7 @@ V2.3.0 只预留 ApplicationCase.source、source URL/type、external client type
 
 | 工作流 | 从需求池选取的重点 | 不承担 |
 |---|---|---|
-| V2.3 底座 | 多用户底座、低敏 Career Memory 迁移、ApplicationCase、权益/埋点/部署、外部客户端合同 | 生成质量冻结、Browser Assistant |
+| V2.3 底座 | 多用户底座、低敏 Career Memory、可选本地清除后导入、ApplicationCase、权益/埋点/部署、外部客户端合同 | 生成质量冻结、Browser Assistant |
 | V2.4 质量/装配 | Job Model、召回/润色、Stable/Adaptive、Fast/Precision、方案 B 本地装配、质量 Beta | 支付、Browser Assistant |
 | V3 产品 | 免费多用户首发、基础/专项简历、账号体验、历史、权益、埋点和生产运行 | 支付、Browser Assistant |
 | V3 统一验收 | 上述三条工作流的隔离、质量、一页纸、产品和生产硬 Gate | 不接受模块证据代替真实完整纵切 |
@@ -251,17 +252,19 @@ Acceptance，且必须一次覆盖全部工作流。
 - “外部客户端合同”不等于 Browser Assistant 已经实现；
 - “V3 需求池”不等于所有候选已经批准。
 
-## 17. 正式 PLAN 前共同输入
+## 17. Release Train PLAN 共同输入状态
 
-1. 首发账号、并发、地域、SLO 和服务器部署目标；
-2. 首批 Role Profile、评测集和质量阈值；
-3. Company Context 来源、缓存和失效策略；
-4. 免费积分、ApplicationCase 有效期和公平使用上限；
-5. 低敏实体描述白名单及服务端保存、导出和删除策略；
-6. 固定模板/槽位、桌面 Chromium、本地存储、DOCX/PDF 生成和 Word 兼容范围；
-7. Public 或 Invite-only 发布方式；
-8. 隐私说明、第三方模型边界和本地数据风险说明；
-9. 对应版本获批 Design Snapshot；
-10. 每版开发前风险证伪、真实纵切后的架构复查和冻结前反证合同。
+D-043—D-047 已冻结发布方式、账号/并发/地域、低敏白名单、质量集范围和硬线、真实测试者、积分、
+Company Context 来源、保留/删除目标、模板与设计基底。PLAN 负责补齐运行 SLO、公平使用限流、确切
+评测样本、模板/槽位、浏览器/Word/字体、本地存储与生成器、第三方模型说明、服务器/备份实现、Design
+Snapshot，以及开发前证伪、真实纵切架构复查和冻结前反证合同。
 
-以上内容在 Product Owner 审核并进入对应版本 PLAN 前，均保持 DRAFT/CANDIDATE 语义。
+以上内容在正式 PLAN 获批前仍保持 DRAFT/CANDIDATE 语义。
+
+## 18. 九天首发技术收敛候选
+
+源码预演确认 V3 不是在 V2.2 上直接换数据库和部署方式：真实账号、PostgreSQL/RLS、持久 worker、浏览器
+本地清除与本地 DOCX/PDF、BASE/TARGETED 双任务合同均需要新的完整纵切。为保护生成效果、一页纸、
+多用户隔离和埋点死线，V3.0.0 DRAFT §16.3 提出七项待确认收敛：文本层 PDF/手工输入、单生成通道、
+不建对象存储、5 在途/2 执行、不自动整库迁移、最小运维入口、首发不启用自动积分恢复。上述项目在 Product Owner 确认和 PLAN
+批准前均不是已授权范围变更。
