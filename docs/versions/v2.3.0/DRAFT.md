@@ -3,11 +3,11 @@
 > 文档角色：版本范围草稿，供 Product Owner 审核
 > 状态：DRAFT，非开发指令，不改变当前版本状态
 > 草稿日期：2026-09-19
-> 最近修订：2026-09-23（补充 V2.2.0 owner/内容来源前置、迁移验收继承与关键业务不变量治理）
+> 最近修订：2026-09-25（补充 V2.4 生成合同交接，并将浏览器助手探针降为非阻断候选）
 > 假定前置：V2.2.0 已完成本地 owner 归属、当前履历到成品的内容来源闭环、渐进生成和真实结果预览收口
-> 发布列车：V2.3.0（底座）→ V2.4.0（召回与润色调优）→ V3.0.0（免费多用户首发）
+> 发布列车：V2.3.0（底座）→ V2.4.0（生成质量冻结）→ V3.0.0（免费多用户首发）
 > 核心目标：在不公开面向用户的前提下，把本地单用户产品迁入可验证的多用户服务器底座，并为
-> `ApplicationCase`、Job Model、浏览器助手、积分权益和埋点建立唯一数据契约
+> `ApplicationCase`、生成/产物身份、Job Model、积分权益和埋点建立唯一数据契约
 
 ## 1. 版本判断
 
@@ -30,8 +30,8 @@ V2.3.0 完成时，内部测试者应能够：
 4. 生成并恢复一份绑定该账号和岗位的针对性简历任务；
 5. 在产品、运行和质量三类埋点中看到脱敏事件，但看不到简历正文、JD、直接身份或密钥；
 6. 在服务重启、数据库备份恢复和版本回滚后保持账号与任务边界正确；
-7. 使用浏览器助手协议探针完成“当前标签页岗位 → 受控服务 → ApplicationCase”的身份绑定，
-   但不把实验性网页填充或文件上传宣传为本版用户能力。
+7. 若核心底座完成后仍有容量，可用浏览器助手协议探针验证“当前标签页岗位 → 受控服务 →
+   ApplicationCase”的身份绑定；该探针不构成本版或 V3.0.0 的阻断性用户能力。
 
 ## 3. 范围
 
@@ -57,10 +57,10 @@ SQLite 作为活动业务真源，也不另行引入 Qdrant、Milvus 或第二�
 ~~~text
 accounts / account_profiles
 experiences / facts / fact_enrichments / fact_embeddings
-application_cases / job_model_snapshots / evidence_selections
+application_cases / job_model_snapshots / evidence_selections / resume_content_plans
 generation_tasks / task_input_revisions / task_subtasks / task_snapshots / task_events
-resume_revisions / artifacts
-entitlement_ledger
+resume_revisions / layout_plans / artifacts
+usage_records / entitlement_ledger
 ~~~
 
 隔离规则：
@@ -126,7 +126,8 @@ JD 建立第一份快照。
 - 不绕过站点访问控制、反自动化机制或服务条款限制；
 - 不自动点击最终提交按钮。
 
-V2.3.0 的完成标准是协议和受控探针成立，不要求发布浏览器商店插件。
+浏览器助手协议和受控探针属于本版可选研究项，不得挤占账号隔离、服务器恢复、生成合同或埋点；
+未完成时不阻断 V2.3.0 或 V3.0.0，但必须保留产品内粘贴 JD、下载并手工上传的完整路径。
 
 ### 3.6 积分与权益底座
 
@@ -268,11 +269,34 @@ V2.3.0 必须防止的不只是某一次越权、错选数据或错误成功，�
 该机制不以“防止测试数据污染”为目标；环境隔离只是其中一层。即使运行库存在其他账号、测试身份、
 未归属历史数据或恶意构造 ID，架构本身仍必须保证它们无法进入当前账号的选择、文档与产物链。
 
+### 3.11 向 V2.4.0 交接的生成合同
+
+V2.3.0 不负责完成召回、润色或一页纸算法，但必须避免 V2.4.0 为质量闭环再次重做身份和持久化。
+以下对象须具备稳定 ID、版本、账号归属、来源关系和可审计状态：
+
+~~~text
+JobModelSnapshot
+→ EvidenceSelection
+→ ResumeContentPlan
+→ ResumeRevision
+→ LayoutPlan
+→ Artifact（DOCX / PDF / preview）
+~~~
+
+- `ResumeContentPlan` 保存章节、条目优先级和内容预算，不保存第二份职业事实真源；
+- `ResumeRevision` 的每个内容条目保留 `fact_refs`，并绑定实际使用的 EvidenceSelection；
+- `LayoutPlan` 保存模板版本和全局排版参数，不能让 DOCX、PDF 和预览各自维护一套隐式常量；
+- `Artifact` 只能发布自同一冻结 ResumeRevision/LayoutPlan，记录类型、hash、页数、渲染器和状态；
+- `UsageRecord` 保存阶段、供应商/模型版本、调用、Token、延迟和成本，但不得成为用户按调用扣费依据；
+- 上述对象全部继承账号隔离、来源账本、原子发布、删除、备份恢复和负向哨兵验收。
+
+V2.3.0 可以只建立最小可用字段和一次 JD-only 纵切，不得伪称已经完成 V2.4.0 的质量冻结。
+
 ## 4. 明确不做
 
 - 不公开注册或接受真实公众流量；
 - 不启用充值、订单、支付或订阅；
-- 不把 Role Prior、Company Context 或召回调优宣称为本版完成；
+- 不把 Role Prior、Company Context、召回/润色调优或一页纸质量冻结宣称为本版完成；
 - 不自动上传简历文件，不自动提交申请；
 - 不支持绕过验证码、MFA、登录、权限或站点限制；
 - 不承诺任意招聘网站通用适配；
@@ -284,8 +308,8 @@ V2.3.0 必须防止的不只是某一次越权、错选数据或错误成功，�
 | 阶段 | 重点 | 退出条件 |
 |---|---|---|
 | Day 1 | PostgreSQL/pgvector、账号上下文、Schema 和迁移纵切 | 双账号事实与向量隔离成立 |
-| Day 2 | ApplicationCase、任务/文件归属、埋点与积分账本 | 一次内部专项任务完整落库 |
-| Day 3 | 服务器部署、浏览器助手协议探针、备份恢复和反向测试 | 内部 Alpha Gate 全部可复核 |
+| Day 2 | ApplicationCase、生成公共合同、任务/文件归属、埋点与积分账本 | 一次内部专项任务完整落库 |
+| Day 3 | 服务器部署、备份恢复、反向测试；有余量再做助手协议探针 | 内部 Alpha 核心 Gate 全部可复核 |
 
 该节是排期假设，不构成减少测试、反思或独立验收的授权。高风险迁移、RLS、浏览器权限和文件隔离
 必须按工作流设置开发前证伪、真实纵切后的 Architecture Check 和候选冻结前 Falsification Check。
@@ -300,7 +324,8 @@ V2.3.0 必须防止的不只是某一次越权、错选数据或错误成功，�
 - [ ] 向量查询先按账号过滤，不可能从其他账号召回结果；
 - [ ] SQLite 到 PostgreSQL 的迁移、校验、回滚和失败清理可复核；
 - [ ] ApplicationCase、JobModelSnapshot 和 ResumeRevision 具备稳定版本关系；
-- [ ] 浏览器助手探针只读取用户确认的当前岗位字段，不读取会话秘密；
+- [ ] ResumeContentPlan、ResumeRevision、LayoutPlan、Artifact 和 UsageRecord 的身份、账号与来源关系可复核；
+- [ ] 若交付浏览器助手探针，它只读取用户确认的当前岗位字段，不读取会话秘密；未交付不阻断本版；
 - [ ] 产品、运行、质量事件分流，正文与直接身份泄漏为 0；
 - [ ] 积分预留、结算、释放和重试幂等，不重复扣减；
 - [ ] 服务重启、数据库恢复和部署回滚后账号边界及任务状态正确；
@@ -317,13 +342,12 @@ V2.3.0 必须防止的不只是某一次越权、错选数据或错误成功，�
 1. PostgreSQL 与 pgvector 的托管位置、版本、备份和恢复目标；
 2. 账号服务采用自建会话还是受支持的 OIDC 服务；
 3. 直接身份字段的服务器保存范围、字段级加密和删除策略；
-4. 首个浏览器助手技术形态：Chromium Extension、桌面桥接或其他受控方式；
-5. 首批受控岗位页面及其允许读取的字段；
-6. V2.3.0 是否只做协议探针，或同时形成一个不发布的扩展原型；
-7. 服务端 Word/PDF 转换环境及许可证、非交互会话和失败回退边界；
-8. 内部 Alpha 的账号数、并发任务和数据是否全部使用合成资料；
-9. 各高风险 Gate 的明确允许、明确阻断、不可消歧输入及 fail-open / fail-closed 判定矩阵。
-10. `Critical Invariant Register` 的正式字段、维护责任、变更触发条件，以及账号归属、内容来源、状态发布
+4. ResumeContentPlan、LayoutPlan、Artifact 和 UsageRecord 的最小字段、版本与状态；
+5. 服务端 Word/PDF 转换环境及许可证、非交互会话和失败回退边界；
+6. 内部 Alpha 的账号数、并发任务和数据是否全部使用合成资料；
+7. 浏览器助手协议探针是否在核心 Gate 后仍有容量；若做，冻结技术形态、受控页面和允许字段；
+8. 各高风险 Gate 的明确允许、明确阻断、不可消歧输入及 fail-open / fail-closed 判定矩阵。
+9. `Critical Invariant Register` 的正式字段、维护责任、变更触发条件，以及账号归属、内容来源、状态发布
     和产物追溯在 schema、接口、运行时证据与验收中的完整覆盖矩阵。
 
 在上述内容和必要 Design Snapshot 获批前，本文只表达产品与架构候选，不授权开发。

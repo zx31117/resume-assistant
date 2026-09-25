@@ -42,16 +42,16 @@ V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最�
 
 | 版本 | 定位 | 草稿 | 状态 |
 |---|---|---|---|
-| V2.3.0 | 多用户服务器底座、数据/向量隔离、ApplicationCase、埋点与浏览器助手协议 | [DRAFT](./v2.3.0/DRAFT.md) | 待 Product Owner 审核；内部 Alpha 候选 |
-| V2.4.0 | Job Model、召回与润色调优、Stable/Adaptive Evidence 与浏览器助手受控验证 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；受控 Beta 候选 |
-| V3.0.0 | 免费多用户 Job Application Agent 首发 | [DRAFT](./v3.0.0/DRAFT.md) | 已按 2026-09-19 新方向重写，待 Product Owner 审核 |
+| V2.3.0 | 多用户服务器底座、数据/向量隔离、ApplicationCase、生成公共合同与埋点 | [DRAFT](./v2.3.0/DRAFT.md) | 待 Product Owner 审核；内部 Alpha 候选 |
+| V2.4.0 | Job Model、召回/润色、内容预算、单一模板与一页纸成品质量冻结 | [DRAFT](./v2.4.0/DRAFT.md) | 待 Product Owner 审核；V3 前硬门禁候选 |
+| V3.0.0 | 免费多用户 Job Application Agent 首发；浏览器助手不阻断 | [DRAFT](./v3.0.0/DRAFT.md) | 已按 2026-09-25 生成质量准线重写，待 Product Owner 审核 |
 
 ## 阶段需求池（非开发指令）
 
 | 阶段 | 文档 | 说明 |
 |---|---|---|
-| V2 | [需求池](./V2_REQUIREMENTS_POOL.md) | 保存交互、预览、修订、模型管理、Token、质量和排版等长期候选；不要求 V2.0.0 一次实现 |
-| V3 | [需求池](./V3_REQUIREMENTS_POOL.md) | 保存 Job Application Agent、多用户、Job Model、浏览器助手、积分、增长和生产能力候选；只有进入正式 PLAN 的条目才是开发指令 |
+| V2 | [需求池](./V2_REQUIREMENTS_POOL.md) | V2 剩余工作、迁移去向与 V3 前生成质量硬门禁；旧 V2.0 大而全设想已清理 |
+| V3 | [需求池](./V3_REQUIREMENTS_POOL.md) | 保存 Job Application Agent、多用户、Job Model、浏览器助手、积分、增长和生产能力候选；浏览器助手不阻断 V3.0.0 |
 
 ## 后续草稿说明
 
