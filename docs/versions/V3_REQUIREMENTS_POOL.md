@@ -5,7 +5,7 @@
 > 首次整理：2026-09-19
 > 最近重整：2026-09-25
 > 核心方向：以低敏 Career Memory 为服务器底座，以网页本地身份装配交付可投递简历
-> 当前发布列车：V2.3.0 多用户底座 → V2.4.0 生成质量/本地装配冻结 → V3.0.0 免费多用户首发
+> 当前发布列车：V2.3.0 底座工作流 ∥ V2.4.0 质量/装配工作流 ∥ V3.0.0 产品工作流 → V3.0.0 统一验收与首发
 
 ## 1. 使用规则
 
@@ -228,14 +228,18 @@ V2.3.0 只预留 ApplicationCase.source、source URL/type、external client type
 
 自动提交、密码/Cookie/MFA/验证码采集和绕过站点控制仍为 `OUT`。
 
-## 15. 发布列车映射
+## 15. 并行发布列车映射
 
-| 版本 | 从需求池选取的重点 | 不承担 |
+| 工作流 | 从需求池选取的重点 | 不承担 |
 |---|---|---|
-| V2.3.0 | 多用户底座、低敏 Career Memory 迁移、ApplicationCase、权益/埋点/部署、外部客户端合同 | 公开用户、质量冻结、Browser Assistant |
-| V2.4.0 | Job Model、召回/润色、Stable/Adaptive、Fast/Precision、方案 B 本地装配、质量 Beta | 公开发布、支付、Browser Assistant |
-| V3.0.0 | 免费多用户首发、基础/专项简历、本地 Preview/DOCX/PDF、权益、埋点和生产运行 | 支付、Browser Assistant |
+| V2.3 底座 | 多用户底座、低敏 Career Memory 迁移、ApplicationCase、权益/埋点/部署、外部客户端合同 | 生成质量冻结、Browser Assistant |
+| V2.4 质量/装配 | Job Model、召回/润色、Stable/Adaptive、Fast/Precision、方案 B 本地装配、质量 Beta | 支付、Browser Assistant |
+| V3 产品 | 免费多用户首发、基础/专项简历、账号体验、历史、权益、埋点和生产运行 | 支付、Browser Assistant |
+| V3 统一验收 | 上述三条工作流的隔离、质量、一页纸、产品和生产硬 Gate | 不接受模块证据代替真实完整纵切 |
 | Post-V3 | Browser Assistant、招聘网站集成、字段填充、确认上传 | 具体版本另行冻结 |
+
+V2.3/V2.4 不单独发布或独立验收。Day 3/Day 6 是合并阻断 Gate；只有冻结的 V3.0.0 候选进入独立
+Acceptance，且必须一次覆盖全部工作流。
 
 ## 16. 当前拒绝的扩大解释
 
