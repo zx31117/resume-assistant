@@ -44,8 +44,8 @@ def _sha256_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def _collect(size: str, mode: str, n: int) -> list[dict]:
-    """运行单格矩阵 cell 并解析其 JSON 输出行。cell 非零退出即视为本格失败。"""
+def _run_cell_process(size: str, mode: str, n: int) -> tuple[list[dict], int, str]:
+    """在独立 OS 进程中运行单格矩阵 cell，解析其 JSON 输出行。"""
     env = dict(os.environ)
     env["PYTHONPATH"] = str(_THIS_DIR)
     proc = subprocess.run(
@@ -69,11 +69,39 @@ def _collect(size: str, mode: str, n: int) -> list[dict]:
         elif line.startswith(("SUMMARY", "WARMUP_FAILED")):
             continue
     cell_meta = [r for r in rows if r.get("size") == size and r.get("mode") == mode]
-    if proc.returncode != 0 or not cell_meta:
+    tail = (proc.stdout or "")[-300:]
+    return cell_meta, proc.returncode, tail
+
+
+def _collect(size: str, mode: str, n: int) -> list[dict]:
+    """收集单格样本。
+
+    冷启动格（cold）必须"每样本独立全新 OS 进程 + 新 DB + 新 runtime 目录"（矩阵进程内的
+    module-global 引擎会跨样本复用，导致第 2/3 个样本崩溃或复用旧库）。因此 cold 逐样本以
+    `--n 1` 独立进程采样并重新编号，保证 (size, mode, sample) 身份唯一且互相隔离；
+    warm 保持同进程复用（先 warmup 再计数）。
+    """
+    if mode == "cold":
+        rows: list[dict] = []
+        for i in range(n):
+            got, rc, tail = _run_cell_process(size, mode, 1)
+            if rc != 0 or not got:
+                return [{"status": "CELL_FAILED", "size": size, "mode": mode,
+                         "sample": i + 1, "first_fact_s": None,
+                         "reason": f"cold sample {i + 1} returncode={rc} "
+                                   f"valid_rows={len(got)} stdout_tail={tail}"}]
+            for x in got:
+                x = dict(x)
+                x["sample"] = i + 1
+                rows.append(x)
+        return rows
+
+    cell_meta, rc, tail = _run_cell_process(size, mode, n)
+    if rc != 0 or not cell_meta:
         return [{"status": "CELL_FAILED", "size": size, "mode": mode,
                  "sample": -1, "first_fact_s": None,
-                 "reason": f"cell returncode={proc.returncode} valid_rows={len(cell_meta)} "
-                           f"stdout_tail={proc.stdout[-300:] if proc.stdout else ''}"}]
+                 "reason": f"cell returncode={rc} valid_rows={len(cell_meta)} "
+                           f"stdout_tail={tail}"}]
     return cell_meta
 
 
