@@ -131,7 +131,9 @@ ApplicationCase
 
 - 低敏 Experience / Fact；
 - Fact enrichment、Embedding 和派生索引；
-- opaque entity_ref 与批准低敏描述，例如学校层级、行业、企业规模；
+- opaque entity_ref 与 V2.3.0 冻结的低敏白名单：学校层级、学历层级/宽口径专业、企业行业/类型/
+  规模区间、岗位族/职级、年月粒度时间、技能/工具/业务场景及已移除专有名称的职责/量化成果；
+- 省、市、大区首版不保存；白名单外字段不得通过自由文本、来源片段、日志或 Embedding 绕过；
 - ApplicationCase、JobModelSnapshot、EvidenceSelection；
 - ResumeContentPlan、无身份 ResumeRevision、LayoutPlan；
 - Task、ArtifactMetadata、UsageRecord、权益和脱敏事件；
@@ -166,9 +168,11 @@ Career Memory 支持跨设备恢复、检索、导出和删除，但不包含 Re
 
 - PostgreSQL 是服务器业务真源；
 - pgvector 保存可从低敏 Fact 重建的派生向量；
-- 所有业务数据具有非空 account_id；
-- Row-Level Security 默认拒绝，普通应用角色不能跨账号查询；
-- 向量检索先在 SQL 层限定账号，再执行相似度排序；
+- 所有业务数据具有非空 account_id，父子对象使用账号维度复合外键防止跨账号引用；
+- Row-Level Security 必须 ENABLE/FORCE；普通应用角色不是表 owner、superuser 且无 BYPASSRLS，
+  无事务级可信账号上下文时默认拒绝；
+- Embedding 与源 Fact 使用同账号复合外键；向量检索先在 SQL 层限定账号、状态、revision/hash 和模型
+  版本，再执行相似度排序，禁止跨账号向量去重、缓存或结果复用；
 - fingerprint、dimension、Fact revision/hash 或模型版本不匹配时禁止使用旧向量；
 - production、staging 和 test 数据面物理隔离。
 
@@ -346,7 +350,10 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 ### 12.1 多用户与服务器数据
 
 - [ ] 跨账号 SQL、向量、任务、元数据和账本泄漏为 0；
+- [ ] 非空 account_id、账号维度复合外键和 FORCE RLS 同时成立，运行角色无 BYPASSRLS；
 - [ ] 已知其他账号对象 ID 仍不能读取、修改或下载；
+- [ ] 相同文本、近似向量、相同 fingerprint 和已知对方 Embedding ID 不造成跨账号召回、缓存命中、
+  重建、删除、统计或存在性泄漏；
 - [ ] 连接池、后台任务、失败回滚和管理员路径保持隔离；
 - [ ] 账号导出、删除、注销和恢复覆盖全部服务器持有数据；
 - [ ] production、staging 和 test 无共享数据面；
@@ -387,7 +394,7 @@ V3.0.0 不接支付，但启用完整免费权益语义：
 2. Public 或 Invite-only 发布方式；
 3. 首发目标账号数、并发、地区和 SLO；
 4. Role Profile、Company Context 来源和首发岗位范围；
-5. 低敏实体描述白名单及服务端导出/删除说明；
+5. 服务端数据导出、删除、保留期和注销说明；低敏字段白名单已由 D-045 冻结；
 6. Local Resume Identity/Entity Map 本地存储、重新输入、清除和失败体验；
 7. 固定模板、固定槽位、桌面 Chromium、DOCX/PDF 生成器和 Word 兼容范围；
 8. 隐私说明、第三方模型数据处理和本地数据风险说明；
@@ -403,7 +410,8 @@ Resume Identity 是否服务端保存已经冻结，不再列为待决策。
 - D-036：服务端 Career Memory 方向继续有效；身份、真实实体名称和最终文件边界由 D-044 取代；
 - D-038：用户材料直接抽取与模型推断使用不同确认边界；
 - D-039：公开上线前实施真实认证、授权、审计和部署隔离；
-- D-044：Career Memory 服务端化，Resume Identity/Entity Map 与最终装配 Local-only。
+- D-044：Career Memory 服务端化，Resume Identity/Entity Map 与最终装配 Local-only；
+- D-045：V2.3.0 香港邀请制 Alpha、低敏白名单及共享 PostgreSQL/pgvector 强隔离基线。
 
 ## 15. Post-V3 Future Direction
 

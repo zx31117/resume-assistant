@@ -82,9 +82,9 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 |---|---|---|---|
 | V3-DATA-01 | PostgreSQL 服务器业务真源 | V2-PREP | 服务器模式不保留活动 SQLite 真源 |
 | V3-DATA-02 | pgvector 派生向量 | V2-PREP | 从低敏 Fact 重建 |
-| V3-DATA-03 | 所有业务数据非空 account_id | V2-PREP | 任务、快照、元数据、账本均覆盖 |
-| V3-DATA-04 | PostgreSQL RLS 默认拒绝 | V2-PREP | 请求、后台任务、连接池和异常路径验收 |
-| V3-DATA-05 | 向量先按账号过滤再排序 | V2-PREP | 跨账号召回容忍度为 0 |
+| V3-DATA-03 | 所有业务数据非空 account_id | V2-PREP | 任务、快照、元数据、账本均覆盖，父子关系使用账号维度复合外键 |
+| V3-DATA-04 | PostgreSQL RLS 默认拒绝 | V2-PREP | 应用角色 FORCE RLS 且无 BYPASSRLS；请求、后台任务、连接池和异常路径验收 |
+| V3-DATA-05 | 向量账号内派生与检索 | V2-PREP | 与 Fact 同账号外键；先按账号过滤再排序，禁止跨账号去重/缓存，跨账号召回容忍度为 0 |
 | V3-DATA-06 | 服务器备份、恢复、删除和导出 | V3.0-MUST | 不声称恢复本地身份/文件 |
 | V3-DATA-07 | production/staging/test 物理隔离 | V2-PREP | 不共享数据库、凭据和文件目录 |
 | V3-DATA-08 | 低敏来源片段和元数据隔离 | V2-PREP | 原始身份简历和最终文件不上服务器 |
@@ -96,7 +96,7 @@ Job Model 只能改变召回、排序和表达重点，不能改变用户事实�
 |---|---|---|---|
 | V3-CM-01 | Experience / Fact 唯一服务器事实源 | V3.0-MUST | 不建立平行业务画像真源 |
 | V3-CM-02 | opaque entity_ref | V2-PREP | 维持经历归属，不保存真实名称 |
-| V3-CM-03 | 低敏实体描述白名单 | V2-PREP | 如学校层级、行业、企业规模 |
+| V3-CM-03 | 低敏字段白名单 | V2-PREP | 学校/学历/宽口径专业、企业类型、岗位族、年月、技能场景及去专名成果；省/市/大区首版不保存 |
 | V3-CM-04 | OBSERVED/DERIVED/PROPOSED/CONFIRMED/REJECTED | V2-PREP | 区分事实、派生和待确认内容 |
 | V3-CM-05 | 真实任务中发现信息缺口 | V3.0-MUST | 不要求用户先完善数据库 |
 | V3-CM-06 | 用户确认后写回低敏 Fact | V3.0-MUST | 未确认只服务当前任务 |
