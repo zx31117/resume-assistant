@@ -21,6 +21,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -33,6 +34,14 @@ _ALL_SIZES = ("short", "typical", "long")
 _ALL_MODES = ("cold", "warm")
 
 FIRST_FACT_LIMIT_S = 15.0
+
+
+def _sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _collect(size: str, mode: str, n: int) -> list[dict]:
@@ -195,12 +204,18 @@ def main(argv=None) -> int:
     n = 3
     sizes = list(_ALL_SIZES)
     inject = None
+    exe_path = None
+    out = None
     if "--n" in args:
         n = int(args[args.index("--n") + 1])
     if "--sizes" in args:
         sizes = [s.strip() for s in args[args.index("--sizes") + 1].split(",")]
     if "--inject" in args:
         inject = args[args.index("--inject") + 1]
+    if "--exe" in args:
+        exe_path = Path(args[args.index("--exe") + 1])
+    if "--out" in args:
+        out = Path(args[args.index("--out") + 1])
 
     ctx: dict = {"fails": [], "cells": {}, "first_fact_median": None, "first_fact_max": None}
 
@@ -262,6 +277,29 @@ def main(argv=None) -> int:
         "fail_messages": ctx["fails"],
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+    if out is not None:
+        exe_sha = None
+        exe_bytes = 0
+        if exe_path is not None:
+            p = Path(exe_path)
+            exe_bytes = p.stat().st_size if p.is_file() else 0
+            if p.is_file():
+                exe_sha = _sha256_file(p)
+        evidence = {
+            "_meta": {
+                "generator": "backend/_e2e_v22_aggregate.py",
+                "plan_blob": "7d8a249a5ec3e607855f20d794bb7ed9cda351ee",
+            },
+            "exe": {"path": str(exe_path) if exe_path is not None else None,
+                    "sha256": exe_sha, "size": exe_bytes},
+            "gate_passed": bool(pass_all),
+            "pass": bool(pass_all),
+            # 逐样本原始数据：供 Acceptance 复算中位数/最大值、样本身份唯一性与调用契约。
+            "samples": dataset,
+            **summary,
+        }
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
     return 0 if pass_all else 1
 
 

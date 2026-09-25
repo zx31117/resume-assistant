@@ -423,7 +423,20 @@ def main() -> int:
             and not residue_after_rerun["new_console_or_word_windows"]
         )
 
+    # R3 §R3-10 C：证据自带最终 EXE 身份，供总 manifest 绑定同一包。
+    def _exe_sha(p: Path) -> str:
+        hh = hashlib.sha256()
+        with open(p, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                hh.update(chunk)
+        return hh.hexdigest()
+
+    _exe = Path(args.exe)
+    _exe_sha256 = _exe_sha(_exe) if _exe.is_file() else None
     evid = {
+        "exe_sha256": _exe_sha256,
+        "exe": {"path": str(_exe), "sha256": _exe_sha256,
+                "size": _exe.stat().st_size if _exe.is_file() else 0},
         "first_run_exit": first_rc,
         "first_run_failed": first_failed,
         "first_evid": first_evid,

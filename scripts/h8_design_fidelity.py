@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -801,6 +802,19 @@ def main() -> int:
     workbench_full_states(base, args.exe, runtime)
 
     # 汇总
+    # R3 §R3-10 C：证据自带最终 EXE 身份，供总 manifest 绑定同一包。
+    _exe_sha = None
+    _exe_meta = None
+    if args.exe and Path(args.exe).is_file():
+        _h = hashlib.sha256()
+        with open(args.exe, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                _h.update(chunk)
+        _exe_sha = _h.hexdigest()
+        _exe_meta = {"path": str(args.exe), "sha256": _exe_sha,
+                     "size": Path(args.exe).stat().st_size}
+    EVIDENCE["exe_sha256"] = _exe_sha
+    EVIDENCE["exe"] = _exe_meta
     summary = {"pass": PASS, "fail": len(FAILS), "exit": 0 if not FAILS else 1,
                "viewport_screens": sorted(p for route in EVIDENCE["viewports"] for p in EVIDENCE["viewports"][route])}
     EVIDENCE["summary"] = summary

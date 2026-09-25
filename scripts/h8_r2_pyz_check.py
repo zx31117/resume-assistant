@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import marshal
 import sys
@@ -92,7 +93,15 @@ def main() -> int:
 
     pyz = car.open_embedded_archive("PYZ.pyz")
 
-    result: dict = {"exe": str(exe), "modules": {}}
+    # R3 §R3-10 C：证据自带最终 EXE 身份（path/sha256/size），供总 manifest 绑定同一包。
+    h = hashlib.sha256()
+    with open(exe, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    result: dict = {
+        "exe": {"path": str(exe), "sha256": h.hexdigest(), "size": exe.stat().st_size},
+        "modules": {},
+    }
     all_ok = True
     for mod in MODULES:
         code = _module_code(pyz, mod)

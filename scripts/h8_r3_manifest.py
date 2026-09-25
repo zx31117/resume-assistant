@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,7 +79,19 @@ def _evidence_exe_sha(ev_dir: Path, fname: str, path: str | None):
         val = _get_by_path(data, path)
         if isinstance(val, dict):
             val = val.get("sha256")
-        return (val.lower() if isinstance(val, str) else val), None
+        if isinstance(val, str):
+            val = val.lower()
+            # 若既非 64 位 hex SHA-256，也非合法路径，按无法绑定处理。
+            if not re.fullmatch(r"[0-9a-f]{64}", val):
+                # 视为指向最终 EXE 的本地路径：hash 该文件绑定到目标 EXE SHA。
+                fp = Path(val)
+                if fp.is_file():
+                    try:
+                        return sha256_file(fp), None
+                    except Exception as e:  # noqa: BLE001
+                        return None, f"hash-failed:{fname}:{e}"
+                return None, f"exe-path-missing:{fname}:{val}"
+        return (val if isinstance(val, str) else val), None
     return None, f"no-sha-path:{fname}"
 
 
