@@ -318,11 +318,11 @@ V3.0.0 后允许继续调优召回权重、top-k、阈值、Role/Company 内容�
 
 ## 13. Release Train PLAN 输入状态
 
-Product Owner 输入已由 D-043—D-047 冻结。PLAN 不再回问岗位大类、质量集规模、70% 盲评线、
+Product Owner 输入已由 D-043—D-048 冻结。PLAN 不再回问岗位大类、质量集规模、70% 盲评线、
 3—5 名真实测试者、DS-003 视觉基底、单模板、Company Context 来源或本地/服务器身份边界。
 
-PLAN 必须技术化冻结：具体 12 个案例与判分表、Recall/Precision/延迟/成本阈值、Fast/Precision 是否
-保留及状态替换合同、模板/槽位版本、桌面 Chromium 与批准 Word/字体环境、IndexedDB/OPFS/WebCrypto
+PLAN 必须技术化冻结：具体 12 个案例与判分表、Recall/Precision/延迟/成本阈值、单生成通道的状态与
+性能合同、模板/槽位版本、桌面 Chromium 与批准 Word/字体环境、IndexedDB/OPFS/WebCrypto
 密钥与失败语义、DOCX/PDF 生成器、同源检查、超页最大收敛轮次、可调参数白名单和统一验收脚本。
 
 本文不单独授权开发；上述内容由 V3.0.0 Release Train PLAN 统一授权和验收。
@@ -338,7 +338,7 @@ PDF、简历正文和身份字段均进入本地 FastAPI，再由 Windows Word C
 | P0 | 方案 B 浏览器装配尚无真实技术纵切 | Day 1—2 先做固定模板、共享 LayoutPlan、Web Worker、DOCX Blob、PDF Blob、嵌入字体和同源 hash 的最小 spike；失败即暂停扩展功能 |
 | P0 | `window.print()` 只能调起打印对话框，不能产生可验收 PDF Blob | 选择可固定版本、可离线测试的浏览器生成库；禁止以打印对话框或服务器回传带身份文件兜底 |
 | P0 | 模型自由改写可能删除、拆分或幻化 opaque `entity_ref` | entity_ref 只出现在结构化字段；服务器输出 schema 校验引用完整性，本地受控恢复；未知/缺失映射 fail closed |
-| P0 | 浏览器本地导入与清除尚不存在 | 首发建议仅支持有文本层 PDF + 手工录入；扫描件 OCR 和 DOCX 导入移出 V3，网络探针证明原始文件字节/身份/真实实体零外发 |
+| P0 | 浏览器本地导入与清除尚不存在 | 首发只支持有文本层 PDF + 手工录入；扫描件 OCR 和 DOCX 导入移出 V3，网络探针证明原始文件字节/身份/真实实体零外发 |
 | P0 | 浏览器与 Word 的分页、字体度量不同 | 固定浏览器、批准 Word、模板和字体版本；共享内容预算/槽位，双环境真实一页验收；不能只看浏览器预览 |
 | P1 | Fast/Precision、Stable/Adaptive、混合召回和 Company Context 同时实现会挤占质量死线 | 首发采用单生成通道、账号内精确向量 + 简单关键词/评分；双通道和复杂缓存仅在 Day 3 前已有正收益证据时进入候选 |
 | P1 | 中文字体体积、许可和替代会影响加载与分页 | 固定可再分发字体/子集及 hash，预加载后生成；缺字体 fail closed，不静默使用系统字体 |
