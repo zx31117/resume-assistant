@@ -199,6 +199,25 @@ def _fact_call(
     budget: llm_service.TaskTokenBudget,
     provider: object | None,
 ) -> tuple[TaskFactOut, llm_service.LLMCallRecord]:
+    # 绑定性契约（PLAN §2.3）：作为 invoke_observed_json 的 validate 钩子传入。
+    # 真实模型偶发把 experience_id 截断/改写（如 `d738db08-0478-…` → `d738db08`）；
+    # 该失败在**同一逻辑调用**的 attempt 预算内重试，不新增 logical call（保持 1+2F），
+    # 也不放松最终门禁（越界输出重试耗尽后仍严格失败）。
+    def _validate_fact_binding(payload: object) -> None:
+        f = TaskFactOut.model_validate(payload)
+        if f.experience_id and f.experience_id != prep.experience_id:
+            raise ContentGenerationError(
+                f"Fact 输出 experience_id 越界：{f.experience_id} != {prep.experience_id}",
+                details={"expected": prep.experience_id, "got": f.experience_id},
+                stage="fact",
+            )
+        if f.fact_refs and not set(f.fact_refs).issubset({src.fact_id}):
+            raise ContentGenerationError(
+                f"Fact 输出 fact_refs 越界：{f.fact_refs} 不在允许集 {src.fact_id} 内",
+                details={"fact_refs": f.fact_refs, "allowed": [src.fact_id]},
+                stage="fact",
+            )
+
     data, rec = llm_service.invoke_observed_json(
         task_fact.SYSTEM, task_fact.USER_TEMPLATE,
         max_tokens=task_core.FACT_MAX_TOKENS, budget=budget, stage="fact",
@@ -208,9 +227,10 @@ def _fact_call(
             "facts_json": _json_dumps([{"fact_id": src.fact_id, "text": src.text}]),
         },
         provider=provider,
+        validate=_validate_fact_binding,
     )
     fact = TaskFactOut.model_validate(data)
-    # 绑定性门禁：experience_id / fact_id / fact_refs 必须落在已知集合内（PLAN §2.3 / Gate）
+    # 绑定性门禁（最终复核，防御性重复）：experience_id / fact_id / fact_refs 必须落在已知集合内
     if fact.experience_id and fact.experience_id != prep.experience_id:
         raise ContentGenerationError(
             f"Fact 输出 experience_id 越界：{fact.experience_id} != {prep.experience_id}",
@@ -242,6 +262,14 @@ def _reason_call(
     provider: object | None,
 ) -> tuple[str, llm_service.LLMCallRecord]:
     """P3 旁侧 reason：一次逻辑调用返回 delta+done，delta 即该 fact 的完整理由文本。"""
+    def _validate_reason_binding(payload: object) -> None:
+        o = TaskReasonOut.model_validate(payload)
+        if o.fact_id and o.fact_id != fact.fact_id:
+            raise ContentGenerationError(
+                f"reason 绑定越界：{o.fact_id} != {fact.fact_id}",
+                details={"expected": fact.fact_id, "got": o.fact_id}, stage="reason",
+            )
+
     data, rec = llm_service.invoke_observed_json(
         task_reason.SYSTEM, task_reason.USER_TEMPLATE,
         max_tokens=task_core.REASON_MAX_TOKENS, budget=budget, stage="reason",
@@ -253,6 +281,7 @@ def _reason_call(
             "reason_so_far": "",
         },
         provider=provider,
+        validate=_validate_reason_binding,
     )
     out = TaskReasonOut.model_validate(data)
     if out.fact_id and out.fact_id != fact.fact_id:

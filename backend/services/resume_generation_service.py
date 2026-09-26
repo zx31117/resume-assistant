@@ -66,6 +66,10 @@ from services import (
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = settings.DOCX_OUTPUT_DIR
+# V2.2.0 Revision 3 返工：旧 `/api/resume/generate-docx` 兼容链不再是 V2.2 主链，
+# 其产物写入**非公开** legacy_debug 目录且不提供任何下载 URL —— 用户简历下载唯一
+# 走 `/api/task/{task_id}/artifact/{kind}`（task-scoped + owner-scoped）。
+LEGACY_DEBUG_DIR = str(Path(settings.RESUME_DATA_DIR) / "legacy_debug")
 # V1.4：BASE_DIR 已在 Settings 中显式暴露；保留字符串形式的 BACKEND_ROOT 供 TemplateRenderer 形参消费
 BACKEND_ROOT = str(settings.BASE_DIR)
 
@@ -316,18 +320,18 @@ def _safe_artifact_id(artifact_id: str) -> str:
 
 def write_pdf_artifact(pdf_bytes: bytes, user_id: str, template_id: str,
                        artifact_id: str) -> dict:
-    """把 PDF 字节以不可变 artifact 身份写入 OUTPUT_DIR。
+    """把 PDF 字节写入**非公开** legacy_debug 目录（V2.2.0 R3：不再对外提供下载 URL）。
 
     命名含唯一身份（resume_<user>_<template>_<artifact_id>.pdf），同一 artifact_id
     只落一个文件、不原地覆盖；再次生成使用新 artifact_id → 新文件。
     返回 artifact 元数据：artifact_id / file_name / file_path / download_url /
     sha256（内容 SHA-256）/ size_bytes。
     """
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(LEGACY_DEBUG_DIR, exist_ok=True)
     safe_user_id = "".join(c for c in (user_id or "") if c.isalnum() or c in "-_") or "user"
     artifact_id = _safe_artifact_id(artifact_id)
     file_name = f"resume_{safe_user_id}_{template_id}_{artifact_id}.pdf"
-    file_path_abs = os.path.join(OUTPUT_DIR, file_name)
+    file_path_abs = os.path.join(LEGACY_DEBUG_DIR, file_name)
     try:
         with open(file_path_abs, "wb") as f:
             f.write(pdf_bytes)
@@ -336,8 +340,9 @@ def write_pdf_artifact(pdf_bytes: bytes, user_id: str, template_id: str,
     return {
         "artifact_id": artifact_id,
         "file_name": file_name,
-        "file_path": f"output/{file_name}",
-        "download_url": f"/api/template/download?path=output/{file_name}",
+        "file_path": f"legacy_debug/{file_name}",
+        # 旧兼容链不再暴露用户 artifact 下载入口（RESULT §R3-18 B8）。
+        "download_url": "",
         "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
         "size_bytes": len(pdf_bytes),
     }
@@ -490,13 +495,13 @@ def generate_docx(
 
         # ── 10. 保存 DOCX ──────────────────────────────────────
         with recording.stage("save_docx", "输出文件保存", ResourceType.LOCAL_FILE):
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            os.makedirs(LEGACY_DEBUG_DIR, exist_ok=True)
             safe_user_id = "".join(c for c in user_id if c.isalnum() or c in "-_") or "user"
             # H8 §20.3.4 不可变 revision：文件名按 operation 唯一，禁固定命名覆盖/跨轮串场；
             # 本轮 docx_sha256 与 Word 下载字节一致，后续轮次不覆盖历史 revision。
             _op_slug = (recording.operation_id or str(uuid.uuid4()))[:16]
             file_name = f"resume_{safe_user_id}_{req.template_id}_{_op_slug}.docx"
-            file_path_abs = os.path.join(OUTPUT_DIR, file_name)
+            file_path_abs = os.path.join(LEGACY_DEBUG_DIR, file_name)
             try:
                 doc.save(file_path_abs)
             except Exception as e:
@@ -571,7 +576,8 @@ def generate_docx(
             except Exception as _e_pdf:  # noqa: BLE001 —— 真实失败状态由响应字段 + warning 表达
                 logger.warning("Word→PDF 转换失败（不影响 DOCX）: %s", _e_pdf)
                 warnings.append(f"PDF 生成失败（可下载 Word；PDF 不可用）: {type(_e_pdf).__name__}: {_e_pdf}")
-        download_url = f"/api/template/download?path=output/{file_name}"
+        # V2.2.0 R3：旧兼容链不再返回用户 artifact 下载 URL（唯一入口为 task-scoped 路由）。
+        download_url = ""
 
         # ── 11. 组装响应 ───────────────────────────────────────
         with recording.stage("response_assembly", "响应组装与下载就绪", ResourceType.LOCAL_CPU):

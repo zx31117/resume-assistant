@@ -51,6 +51,39 @@ import time
 import zipfile
 from pathlib import Path
 
+
+def _rmtree_force(path, attempts: int = 8) -> bool:
+    """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。
+
+    Windows 上 `shutil.rmtree(..., ignore_errors=True)` 遇到只读文件会**静默失败**，
+    导致隔离 runtime 残留、Gate cleanup 误判失败（已在 mainchain/design_fidelity/
+    atomic_publish 复现）。这里在出错回调里清除只读位后重试，并做有限次整体重试以
+    吸收句柄释放延迟。
+    """
+    import inspect as _inspect
+    import stat as _stat
+    import time as _time
+
+    def _fix(func, p, exc=None):
+        try:
+            os.chmod(p, _stat.S_IWRITE)
+            func(p)
+        except Exception:  # noqa: BLE001
+            pass
+
+    _params = _inspect.signature(shutil.rmtree).parameters
+    _kw = {"onexc": _fix} if "onexc" in _params else {"onerror": _fix}
+    for _ in range(attempts):
+        try:
+            shutil.rmtree(path, **_kw)
+        except Exception:  # noqa: BLE001
+            pass
+        if not os.path.exists(path):
+            return True
+        _time.sleep(0.4)
+    return not os.path.exists(path)
+
+
 HERE = Path(__file__).resolve().parent                 # scripts/
 ROOT = HERE.parent                                     # repo root
 EVID = ROOT / "validation-artifacts" / "h8" / "r3"
@@ -80,6 +113,8 @@ def step(name: str, **kw) -> None:
 
 def check(cond, name, extra=""):
     global _passed, _failed
+    _cc = EVIDENCE.setdefault("content_checks", {})
+    _cc[name] = bool(cond)
     if cond:
         _passed += 1
         log(f"  [PASS] {name}")
@@ -456,11 +491,13 @@ def run() -> int:
 
         if final_status == "SUCCEEDED":
             _content_asserts(s, base, db, tid, view, runtime, cur_owner)
-            _artifact_asserts(s, base, view, runtime)
+            _artifact_asserts(s, base, tid, view, runtime)
         else:
-            log("[e2e] 真实模型未 SUCCEEDED，跳过内容级断言（需在打包后真实执行验证）")
+            # V2.2.0 R3：主链未 SUCCEEDED 就是失败，不得“跳过断言”后仍判通过。
+            check(False, "真实模型主链最终 SUCCEEDED",
+                  extra=f"actual={final_status}")
             EVIDENCE["limits"].update(
-                {"real_model_note": "若模型/凭据不可用则无法 SUCCEEDED；产物为完整脚本，需打包后真实执行验证"})
+                {"real_model_note": "主链未 SUCCEEDED，判定失败"})
 
         # ── Provider 计数（证明真实 LLM/Embedding 调用发生） ──
         c1 = _proxy_counts(proxy_out)
@@ -473,8 +510,10 @@ def run() -> int:
 
         _error_path_checks(s, base, db, cur_owner)
 
+        EVIDENCE["content_checks_all_true"] = all(
+            v is True for v in EVIDENCE.get("content_checks", {}).values())
         result = 1 if _failed > 0 else 0
-        ok = _failed == 0
+        ok = (_failed == 0) and bool(EVIDENCE.get("content_checks"))
         EVIDENCE["ok"] = ok
         EVIDENCE["gate_passed"] = ok
         return result
@@ -483,25 +522,51 @@ def run() -> int:
         traceback.print_exc()
         EVIDENCE["exception"] = repr(e)
         ok = False
+        EVIDENCE["ok"] = False
+        EVIDENCE["gate_passed"] = False
         return 2
     finally:
+        # 资源生命周期：所有返回路径统一清理；cleanup 失败必须压低 verdict。
+        cleanup = {"app_terminated": None, "proxy_terminated": None,
+                   "runtime_removed": None}
         try:
             app.terminate()
             app.wait(timeout=15)
+            cleanup["app_terminated"] = True
         except Exception:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            cleanup["app_terminated"] = False
         try:
             app_fh.close()
         except Exception:
             pass
-        proxy.terminate()
+        try:
+            proxy.terminate()
+            cleanup["proxy_terminated"] = True
+        except Exception:
+            cleanup["proxy_terminated"] = False
         time.sleep(1)
         if not args.keep:
-            shutil.rmtree(runtime, ignore_errors=True)
-            EVIDENCE["runtime_deleted"] = True
+            _rmtree_force(runtime)
+            cleanup["runtime_removed"] = not runtime.exists()
+            EVIDENCE["runtime_deleted"] = bool(cleanup["runtime_removed"])
+        else:
+            cleanup["runtime_removed"] = None
+            EVIDENCE["runtime_deleted"] = False
+        cleanup_ok = (cleanup["app_terminated"] in (True, None)
+                      and cleanup["proxy_terminated"] in (True, None)
+                      and (cleanup["runtime_removed"] is True or args.keep))
+        if cleanup_ok is not True:
+            EVIDENCE["ok"] = False
+            EVIDENCE["gate_passed"] = False
+        EVIDENCE["cleanup"] = cleanup
+        EVIDENCE["cleanup_ok"] = cleanup_ok
         OUT.write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
-        log(f"[e2e] wrote {OUT} OK={ok}")
+        log(f"[e2e] wrote {OUT} OK={EVIDENCE.get('ok')} cleanup_ok={cleanup_ok}")
 
 
 def _proxy_counts(path: Path) -> dict:
@@ -617,9 +682,9 @@ def _locate_artifact(rel: str, runtime: Path) -> str | None:
     return str(cand) if cand.is_file() else None
 
 
-def _artifact_asserts(s, base, view: dict, runtime: Path) -> None:
-    """DOCX/PDF 磁盘 artifact 与 HTTP 下载字节一致。"""
-    print("\n[artifact] 磁盘 artifact vs HTTP 下载 字节一致")
+def _artifact_asserts(s, base, tid: str, view: dict, runtime: Path) -> None:
+    """DOCX/PDF 磁盘 artifact 与 task-scoped 权威路由下载字节一致（不再用 filename 路由）。"""
+    print("\n[artifact] 磁盘 artifact vs task-scoped 下载 字节一致")
     docx_rel = view.get("published_docx_path") or ""
     pdf_rel = view.get("published_pdf_path") or ""
     docx_disk = _locate_artifact(docx_rel, runtime)
@@ -629,19 +694,19 @@ def _artifact_asserts(s, base, view: dict, runtime: Path) -> None:
     if docx_disk:
         out["docx_disk"] = {"sha256": sha256_file(Path(docx_disk)),
                             "size": Path(docx_disk).stat().st_size}
-        dcode, dbytes = _http_get(s, base, f"/api/template/download?path={docx_rel}")
-        if dcode < 400:
-            out["docx_download"] = {"status": dcode, "sha256": sha256_bytes(dbytes)}
-            check(dcode < 400 and sha256_file(Path(docx_disk)) == sha256_bytes(dbytes),
-                  "[artifact] DOCX 磁盘 artifact 与下载字节一致")
+        dcode, dbytes = _http_get(s, base, f"/api/task/{tid}/artifact/docx")
+        out["docx_download"] = {"status": dcode, "sha256": sha256_bytes(dbytes),
+                                "url": f"/api/task/{tid}/artifact/docx"}
+        check(dcode < 400 and sha256_file(Path(docx_disk)) == sha256_bytes(dbytes),
+              "[artifact] DOCX 磁盘 artifact 与 task-scoped 下载字节一致")
     if pdf_disk:
         out["pdf_disk"] = {"sha256": sha256_file(Path(pdf_disk)),
                            "size": Path(pdf_disk).stat().st_size}
-        pcode, pbytes = _http_get(s, base, f"/api/template/download?path={pdf_rel}")
-        if pcode < 400:
-            out["pdf_download"] = {"status": pcode, "sha256": sha256_bytes(pbytes)}
-            check(pcode < 400 and sha256_file(Path(pdf_disk)) == sha256_bytes(pbytes),
-                  "[artifact] PDF 磁盘 artifact 与下载字节一致")
+        pcode, pbytes = _http_get(s, base, f"/api/task/{tid}/artifact/pdf")
+        out["pdf_download"] = {"status": pcode, "sha256": sha256_bytes(pbytes),
+                               "url": f"/api/task/{tid}/artifact/pdf"}
+        check(pcode < 400 and sha256_file(Path(pdf_disk)) == sha256_bytes(pbytes),
+              "[artifact] PDF 磁盘 artifact 与 task-scoped 下载字节一致")
     EVIDENCE["artifacts"] = out
 
 

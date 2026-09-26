@@ -75,34 +75,54 @@ def _run_cell_process(size: str, mode: str, n: int) -> tuple[list[dict], int, st
     return cell_meta, proc.returncode, tail
 
 
+def _run_cell_with_retry(size: str, mode: str, n: int,
+                         attempts: int = 3) -> tuple[list[dict], int, str, int]:
+    """收集单格，遇到**瞬时**上游/环境失败（进程被外部信号杀、embedding 限流）时有限重试。
+
+    真实产品缺陷在每次尝试都会复现，故重试**不会掩盖系统性失败**（重试耗尽仍 CELL_FAILED），
+    只吸收瞬时抖动，避免把环境噪声写成产品性能失败。返回 (rows, rc, tail, used_attempts)。
+    """
+    import time as _time
+    last: tuple[list[dict], int, str] = ([], 1, "")
+    for a in range(max(1, attempts)):
+        got, rc, tail = _run_cell_process(size, mode, n)
+        if rc == 0 and got:
+            return got, rc, tail, a + 1
+        last = (got, rc, tail)
+        _time.sleep(2.0 * (a + 1))
+    return last[0], last[1], last[2], max(1, attempts)
+
+
 def _collect(size: str, mode: str, n: int) -> list[dict]:
     """收集单格样本。
 
     冷启动格（cold）必须"每样本独立全新 OS 进程 + 新 DB + 新 runtime 目录"（矩阵进程内的
     module-global 引擎会跨样本复用，导致第 2/3 个样本崩溃或复用旧库）。因此 cold 逐样本以
     `--n 1` 独立进程采样并重新编号，保证 (size, mode, sample) 身份唯一且互相隔离；
-    warm 保持同进程复用（先 warmup 再计数）。
+    warm 保持同进程复用（先 warmup 再计数）。两者均对**瞬时**失败做有限重试。
     """
     if mode == "cold":
         rows: list[dict] = []
         for i in range(n):
-            got, rc, tail = _run_cell_process(size, mode, 1)
+            got, rc, tail, tries = _run_cell_with_retry(size, mode, 1)
             if rc != 0 or not got:
                 return [{"status": "CELL_FAILED", "size": size, "mode": mode,
                          "sample": i + 1, "first_fact_s": None,
                          "reason": f"cold sample {i + 1} returncode={rc} "
-                                   f"valid_rows={len(got)} stdout_tail={tail}"}]
+                                   f"valid_rows={len(got)} attempts={tries} "
+                                   f"stdout_tail={tail}"}]
             for x in got:
                 x = dict(x)
                 x["sample"] = i + 1
                 rows.append(x)
         return rows
 
-    cell_meta, rc, tail = _run_cell_process(size, mode, n)
+    cell_meta, rc, tail, tries = _run_cell_with_retry(size, mode, n)
     if rc != 0 or not cell_meta:
         return [{"status": "CELL_FAILED", "size": size, "mode": mode,
                  "sample": -1, "first_fact_s": None,
                  "reason": f"cell returncode={rc} valid_rows={len(cell_meta)} "
+                           f"attempts={tries} "
                            f"stdout_tail={tail}"}]
     return cell_meta
 

@@ -315,14 +315,27 @@ def invoke_observed_json(
                     content, completion = provider(system, user_template, vars, max_tokens)
                     record.completion_tokens += int(completion or 0)
                     data = _extract_json(content)
-                    return data, record
-                llm = build_task_llm(max_tokens=max_tokens)  # 惰性：仅真实路径构造
-                prompt = ChatPromptTemplate.from_messages([("system", system), ("user", user_template)])
-                chain = prompt | llm
-                resp = chain.invoke(vars)
-                content = resp.content if hasattr(resp, "content") else str(resp)
-                data = _extract_json(content)
-                record.completion_tokens += _completion_tokens(resp)
+                else:
+                    llm = build_task_llm(max_tokens=max_tokens)  # 惰性：仅真实路径构造
+                    prompt = ChatPromptTemplate.from_messages([("system", system), ("user", user_template)])
+                    chain = prompt | llm
+                    resp = chain.invoke(vars)
+                    content = resp.content if hasattr(resp, "content") else str(resp)
+                    data = _extract_json(content)
+                    record.completion_tokens += _completion_tokens(resp)
+                # 输出契约校验（experience_id / fact_refs / reason 绑定性）：真实模型偶发把 UUID
+                # 截断或改写，属**可重试的模型输出错误**，在同一逻辑调用的 attempt 预算内重试
+                # （不新增 logical call，保持 1+2F 契约；成功后不重试）。
+                if validate is not None:
+                    try:
+                        validate(data)  # type: ignore[misc]
+                    except Exception as _ve:  # noqa: BLE001 - 契约不满足 → 重试
+                        last_exc = _ve
+                        record.retry_reasons.append(
+                            f"attempt{record.attempts}:{type(_ve).__name__}")
+                        if record.attempts < LLM_MAX_ATTEMPTS:
+                            continue
+                        break
                 return data, record
             except Exception as e:
                 last_exc = e

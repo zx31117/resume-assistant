@@ -39,6 +39,9 @@ SCHEMA_VERSION_TASK_SCHEMA = "v2.2.0-task-schema"
 # V2.2.0 P0（owner 迁移，PLAN Revision 3）：① tasks 表补 user_id 列（幂等）；
 # ② 确保默认身份行存在。kind="owner"（同时需要 engine 与 session）。
 SCHEMA_VERSION_OWNER = "v2.2.0-owner-schema"
+# V2.2.0 Revision 3 返工：不可变 artifact 引用表（artifacts）。schema 步骤复用 create_all，
+# 幂等创建缺失表；仅新增空表，不 backfill 历史 output 文件（历史文件不获得授权）。
+SCHEMA_VERSION_ARTIFACT_SCHEMA = "v2.2.0-artifact-schema"
 
 # 顺序迁移注册表：(version, description, callable(session_or_engine))
 # schema 步骤接收 engine；数据步骤接收 session；owner 步骤同时接收 engine 与 session。
@@ -47,6 +50,7 @@ _MIGRATIONS = [
     (SCHEMA_VERSION_FACT_MIGRATION, "Deterministic Experience -> Fact migration", "session"),
     (SCHEMA_VERSION_TASK_SCHEMA, "Create V2.2.0 temporary task tables", "engine"),
     (SCHEMA_VERSION_OWNER, "Add tasks.user_id + ensure default identity row", "owner"),
+    (SCHEMA_VERSION_ARTIFACT_SCHEMA, "Create V2.2.0 immutable artifact reference table", "engine"),
 ]
 
 

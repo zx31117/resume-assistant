@@ -1,24 +1,15 @@
 import { useMemo } from 'react'
 import { useWorkbenchTask } from './WorkbenchTaskContext'
+import { artifactFileName, taskArtifactUrl } from '../../api/artifact'
 import type { PdfAnchor } from '../../api/types'
 
 /**
  * V2.2.0 T06：P4 成功后的右侧说明卡，对应冻结 DS-003 `successAside()`。
  * 信息层级：intro（「已为这个岗位整理好」）→ 完成摘要 → 底部固定下载区（↓ Word / ↓ PDF）。
- * - 下载与主面板 PDF.js viewer 读取同一 artifact（published_pdf_path / published_docx_path），字节一致；
+ * - 下载与主面板 PDF.js viewer 读取同一 artifact（同一 task-scoped 权威路由），字节一致；
  * - PDF 缺失（生成失败）时保留 Word 下载，绝不伪造 PDF 链接。
+ * - V2.2.0 R3：URL 由 `taskArtifactUrl(taskId, kind)` 唯一构造，不再使用 filename 路由。
  */
-
-/** 相对路径 output/<file> → 同源下载 URL（沿用 /api/template/download）。 */
-function artifactUrl(relPath: string): string {
-  return `/api/template/download?path=${encodeURIComponent(relPath)}`
-}
-
-/** output/<file> → <file>（用于 <a download> 文件名）。 */
-function basename(relPath: string): string {
-  const parts = relPath.split('/')
-  return parts[parts.length - 1] || relPath
-}
 
 interface ArtifactsView {
   pdf_path?: string
@@ -29,7 +20,7 @@ interface ArtifactsView {
 }
 
 export default function StepSuccessAside() {
-  const { status, snapshotPayload, publishedDocxPath, publishedPdfPath } = useWorkbenchTask()
+  const { taskId, status, snapshotPayload, publishedDocxPath, publishedPdfPath } = useWorkbenchTask()
 
   const artifacts = useMemo<ArtifactsView>(() => {
     const a = snapshotPayload?.artifacts
@@ -40,14 +31,9 @@ export default function StepSuccessAside() {
   const docxRel = publishedDocxPath || artifacts.docx_path || ''
   const pdfRel = publishedPdfPath || artifacts.pdf_path || ''
   const pdfAvailable = status === 'SUCCEEDED' && !!pdfRel
-  const docxAvailable = !!docxRel
-
-  // 读取 word/pdf 相对路径，仅用于 <a download> 的文件名与 URL。
-  const pdfName = useMemo(() => (pdfRel ? basename(pdfRel) : ''), [pdfRel])
-  const docxName = useMemo(() => (docxRel ? basename(docxRel) : ''), [docxRel])
-
-  // 锚点仅存在于快照 artifacts（与主面板 viewer 共用同一真源），此卡不渲染命中层。
-  void artifacts
+  const docxAvailable = status === 'SUCCEEDED' && !!docxRel
+  const docxHref = docxAvailable ? taskArtifactUrl(taskId, 'docx') : ''
+  const pdfHref = pdfAvailable ? taskArtifactUrl(taskId, 'pdf') : ''
 
   // V220-R3-G07：下载区不保留空占位；真实可验证 hash（PDF SHA-256）有值才展示，无值不渲染。
   const pdfSha256 = (artifacts.pdf_sha256 || '').trim()
@@ -96,21 +82,21 @@ export default function StepSuccessAside() {
         </ul>
       </div>
       <footer className="wb-panel__foot wb-success-downloads" aria-label="简历下载">
-        {docxAvailable ? (
+        {docxHref ? (
           <a
             className="wb-btn wb-btn--ghost wb-btn--sm"
-            href={artifactUrl(docxRel)}
-            download={docxName}
+            href={docxHref}
+            download={artifactFileName(taskId, 'docx')}
             data-role="download-word"
           >
             ↓ Word
           </a>
         ) : null}
-        {pdfAvailable ? (
+        {pdfHref ? (
           <a
             className="wb-btn wb-btn--primary wb-btn--sm"
-            href={artifactUrl(pdfRel)}
-            download={pdfName}
+            href={pdfHref}
+            download={artifactFileName(taskId, 'pdf')}
             data-role="download-pdf"
           >
             ↓ PDF

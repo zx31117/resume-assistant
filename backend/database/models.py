@@ -271,6 +271,41 @@ class TaskEvent(Base):
     )
 
 
+class Artifact(Base):
+    """V2.2.0 Revision 3 返工：不可变 artifact 引用（PLAN G04/G05、§3.1、§3.3）。
+
+    这是用户简历 DOCX/PDF 的**唯一授权真源**：下载路由只能通过 (task_id, kind,
+    resume_revision) 解析到这里登记的行，再据此取文件；客户端传入的 filename、
+    basename、相对路径或磁盘路径一律不作为授权依据。
+
+    - `artifact_id`：不可变引用 id（登记时生成，之后不得改写）。
+    - `task_id` / `user_id`：归属（Task 与 owner 双绑）；解析时必须同时匹配当前 owner。
+    - `kind`："docx" | "pdf"。
+    - `resume_revision`：本条 artifact 对应的冻结 InputRevision（同一任务不同轮次互不覆盖）。
+    - `file_name`：最终发布目录下的文件名（不含任何目录分隔）；`rel_dir` 为发布目录语义标签。
+    - `sha256` / `size_bytes`：登记时校验通过的实际文件身份，供发布后复核与同源判定。
+
+    只有全部 staging 校验通过、文件提升成功、且与 `SUCCEEDED` 在同一数据库事务边界提交时，
+    才允许写入本表；未登记的磁盘文件永远不会被下载路由暴露。
+    """
+    __tablename__ = "artifacts"
+
+    artifact_id = Column(String, primary_key=True, default=_gen_uuid)
+    task_id = Column(String, ForeignKey("tasks.task_id"), nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    kind = Column(String, nullable=False)
+    resume_revision = Column(Integer, nullable=False, default=0)
+    file_name = Column(String, nullable=False)
+    rel_dir = Column(String, nullable=False, default="output")
+    sha256 = Column(String, nullable=False, default="")
+    size_bytes = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("task_id", "kind", "resume_revision", name="uq_artifact_task_kind_rev"),
+    )
+
+
 # ── V1.5.0 Fact Embedding（BLOB 向量派生表，PLAN §6.2） ────────── #
 
 class EmbeddingStatus(str, enum.Enum):

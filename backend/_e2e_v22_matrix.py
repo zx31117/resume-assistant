@@ -338,7 +338,14 @@ def _run_one(datadir: str, size: str, seed: bool) -> dict:
     if seed:
         _seeds()[size](db)
         from services.embedding_service import rebuild_embeddings
+        # 上游 embedding 端点在六格 18 样本持续负载下偶发限流/超时；对**失败的单条 fact**
+        # 做有限重试（不改变产品语义，仅提升门禁对瞬时上游抖动的健壮性）。重试仍失败才 EMBED_FAIL。
         er = rebuild_embeddings(db)
+        for _attempt in range(3):
+            if not er.get("failed"):
+                break
+            time.sleep(1.5 * (_attempt + 1))
+            er = rebuild_embeddings(db)
         if er.get("failed"):
             db.close()
             return {"status": "EMBED_FAIL", "first_fact_s": None, "total_s": None}

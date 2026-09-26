@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import BrandLink from './BrandLink'
 
 function IconDoc() {
   return (
@@ -39,8 +40,9 @@ export default function AppShell() {
   return (
     <div className="shell">
       <aside className="app-sidebar" aria-label="主导航">
-        {/* V220-R3-G07：品牌区可点击 / 键盘可达，仅路由跳转回工作台根 `/` */}
-        <NavLink to="/" className="app-brand" aria-label="简历助手，返回工作台首页">
+        {/* V220-R3-G07：品牌区完整键盘语义（click / Enter / Space / focus-visible），
+            仅路由跳转回工作台根 `/`。 */}
+        <BrandLink className="app-brand" label="简历助手，返回工作台首页">
           <div className="logo" aria-hidden="true">
             简
           </div>
@@ -48,7 +50,7 @@ export default function AppShell() {
             <div className="name">简历助手</div>
             <div className="sub">本地预览版</div>
           </div>
-        </NavLink>
+        </BrandLink>
         <nav className="app-nav" aria-label="主要页面">
           {NAV_ITEMS.map((item) => (
             <NavLink

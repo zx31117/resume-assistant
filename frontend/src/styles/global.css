@@ -156,6 +156,14 @@ code {
 .app-brand:hover {
   opacity: 0.9;
 }
+/* V2.2.0 R3 D：品牌区键盘可见焦点（click / Enter / Space 同一导航）。 */
+.app-brand:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.app-brand:focus:not(:focus-visible) {
+  outline: none;
+}
 
 .app-brand .logo {
   width: 28px;

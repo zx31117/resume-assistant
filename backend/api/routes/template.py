@@ -2,9 +2,9 @@
 
 4 个接口（V1.2 主路线 + V1.1 兼容保留但 deprecated）：
 - GET  /api/template/list:                     系统内置模板列表（V1.2 主用）
-- POST /api/template/generate-docx:            生成简历 DOCX（返回 path+report+download_url，§10.3）
+- POST /api/template/generate-docx:            生成简历 DOCX（返回 path+report，§10.3）
 - POST /api/template/generate-report:          调试报告版（V1.2 主用）
-- GET  /api/template/download:                 按 path 下载（§10.4）
+- GET  /api/template/download:                 只下载**公开内置模板资产**（V2.2.0 R3 收口）
 
 【deprecated 保留】V1.1 旧路线（解析任意模板）接口不删除，仅标记 deprecated：
 - POST /api/template/upload
@@ -219,13 +219,17 @@ def _build_and_render(req: GenerateDocxRequest) -> dict:
     if capacity_warnings:
         warnings.extend(capacity_warnings)
 
-    # 5. 保存（固定文件名，不时间戳，避免循环堆积——§10.3 用户审核反馈）
+    # 5) 保存（固定文件名，不时间戳，避免循环堆积——§10.3 用户审核反馈）
+    # V2.2.0 Revision 3 返工：本兼容入口不再产出用户可下载 artifact；产物写入非公开
+    # legacy_debug 目录，响应不返回任何用户下载 URL（用户简历唯一走 task-scoped 路由）。
     safe_user_id = "".join(c for c in req.user_id if c.isalnum() or c in "-_") or "user"
     file_name = f"resume_{safe_user_id}_{req.template_id}.docx"
-    file_path = os.path.join(OUTPUT_DIR, file_name)
+    legacy_dir = os.path.join(str(settings.RESUME_DATA_DIR), "legacy_debug")
+    os.makedirs(legacy_dir, exist_ok=True)
+    file_path = os.path.join(legacy_dir, file_name)
     doc.save(file_path)
 
-    download_url = f"/api/template/download?path=output/{file_name}"
+    download_url = ""
 
     report = {
         "sections_rendered": sections_rendered,
@@ -238,7 +242,7 @@ def _build_and_render(req: GenerateDocxRequest) -> dict:
 
     return {
         "ok": True,
-        "file_path": f"output/{file_name}",
+        "file_path": f"legacy_debug/{file_name}",
         "file_name": file_name,
         "report": report,
         "download_url": download_url,
@@ -315,24 +319,57 @@ def head_download_file(path: str = Query(..., description="HEAD 版本，方法�
     return _serve_template_file(path)
 
 
+def _public_template_assets() -> dict[str, str]:
+    """返回 {允许的 basename: 绝对路径}，限定为 config/template_mapping.json 登记的内置模板资产。
+
+    V2.2.0 Revision 3 返工：`/api/template/download` 只服务**公开模板/明确非用户调试对象**，
+    不再承担任何用户简历下载。用户 DOCX/PDF 一律走 `/api/task/{task_id}/artifact/{kind}`。
+    """
+    assets: dict[str, str] = {}
+    mapping_path = os.path.join(BACKEND_ROOT, "config", "template_mapping.json")
+    if not os.path.exists(mapping_path):
+        return assets
+    try:
+        with open(mapping_path, "r", encoding="utf-8") as f:
+            mapping = json.load(f)
+    except Exception:  # noqa: BLE001
+        return assets
+    templates_root = os.path.abspath(os.path.join(BACKEND_ROOT, "templates"))
+    for entry in mapping.values():
+        for key in ("docx", "json"):
+            rel = (entry or {}).get(key) or ""
+            if not rel:
+                continue
+            abs_p = os.path.abspath(os.path.join(BACKEND_ROOT, rel.replace("/", os.sep)))
+            if not abs_p.startswith(templates_root + os.sep):
+                continue
+            assets[os.path.basename(abs_p)] = abs_p
+    return assets
+
+
 def _serve_template_file(path: str):
+    """公开模板资产下载（非用户对象）。
+
+    V2.2.0 Revision 3 正返工：本路由只允许访问 config/template_mapping.json 登记的内置模板
+    资产（backend/templates/ 下）。任何其它路径——包括 `output/resume_*.docx|pdf` 形式的
+    用户成品——一律返回同样的 404，不泄露存在性差异。用户简历下载唯一走
+    `/api/task/{task_id}/artifact/{kind}`。
+    """
     if not path:
-        raise HTTPException(status_code=400, detail="path 为空")
+        raise HTTPException(status_code=404, detail="Not found")
     normalized = path.replace("\\", "/")
-    if normalized.startswith("output/"):
-        normalized = normalized[len("output/"):]
     filename = os.path.basename(normalized)
     if not filename or filename in (".", ".."):
-        raise HTTPException(status_code=400, detail="path 非法")
-    abs_output = os.path.abspath(OUTPUT_DIR)
-    abs_requested = os.path.join(abs_output, filename)
-    if not os.path.isfile(abs_requested):
-        raise HTTPException(status_code=404, detail=f"文件不存在: {filename}")
+        raise HTTPException(status_code=404, detail="Not found")
+    assets = _public_template_assets()
+    abs_requested = assets.get(filename)
+    if not abs_requested or not os.path.isfile(abs_requested):
+        raise HTTPException(status_code=404, detail="Not found")
     ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
-    if ext == "pdf":
-        media_type = "application/pdf"
-    elif ext == "docx":
+    if ext == "docx":
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    elif ext == "json":
+        media_type = "application/json"
     else:
         media_type = "application/octet-stream"
     return FileResponse(
