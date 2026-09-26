@@ -1,10 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**（PLAN Revision 3；开发候选冻结完成；不写独立通过、不冻结候选、不写可发布）
-> 当前阶段：§R3-18 四类强制失败（Gate verdict 判定链 / 用户 artifact 授权 / 原子发布 / 品牌区
-> 键盘交互）已按同一 PLAN Revision 3 一次性返工收口；新 SRC `f961c2e2`、新包 `C4E82791…B5D713`，
-> 全部 13 项强制 Gate 真实退出码 0。返工范围与证据入口见 §R3-19
+> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_RETURNED` / 需修正**
+> 当前阶段：§R3-19 的产品返工与 13 项开发 Gate 已形成新候选，但中央封存的 manifest 仍绑定脱敏前
+> 证据 hash，现场 verify rc 1；verify 摘要与最终 JSON 又互相矛盾，六格必要后置条件也未全部进入
+> manifest 机械判定。一次性退回规则见 §R3-20
 > 固定 `review` 保持失败对象 `e960f3a` 供追溯；新候选重新取得 `DOC_ALIGNED` 前不得移动
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
@@ -16,31 +16,29 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮交付对象（独立验收失败；仅供追溯）**：
+> **本轮交付对象（Documentation Gate 退回；仅供追溯）**：
 >
-> - **SRC 候选校验和（SRC SHA）**：`32388b7d63a08c8cf6e194d771fb46d9371490ca`（唯一 parent `8271e72`，
->   即记录 §R3-15 `ACCEPTANCE_FAIL` 的 RESULT-only 提交）
+> - **SRC 候选校验和（SRC SHA）**：`f961c2e29f9dd587a677913b6eda66ca581ca205`（唯一 parent
+>   `9869dc6a2119a6cde80dd14620d7e0d31a0109b3`；tree `f35637776978f0d279b28df7be57d14ef033bf2d`）
 >
-> - **开发 HANDOFF**：`eed6513ab93826f52a25a1135f30265302349e5c`（唯一 parent 为 SRC；差异仅
+> - **开发 HANDOFF**：`fc19921f68710794e741093de59dc4b79c687e32`（唯一 parent 为 SRC；差异仅
 >   `docs/versions/v2.2.0/RESULT.md`）
 >
-> - **上一轮失败对象（历史，见 §R3-15）**：SRC `c37270c`、HANDOFF `b7bf632`、验收对象 `f8289de`、
->   包 `7450efb0…0345F`；因 manifest 身份校验 fail-open 与完整产品强制项 `NOT_RUN` 判
->   `ACCEPTANCE_FAIL`，其 PASS、证据与包全部不得继承到本候选
+> - **上一轮失败对象（历史，见 §R3-18）**：SRC `32388b7`、HANDOFF `eed6513a`、验收对象 `e960f3a`、
+>   包 `221A12BC…89E97`；其 PASS、证据与包未继承到本候选
 >
-> - **分支 / 工作树**：`version/v2.2.0`；SRC.commit 前后 `git status --porcelain` 为空
+> - **分支 / 工作树**：`version/v2.2.0`；HANDOFF 与 SRC 均 clean
 >
-> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,353,861 B**）；EXE
->   16,833,361 B；SHA-256
->   `221a12bc917e3ef6128d40b258f602feb8f55c0db42b88049ad7d2d49c589e97`；前端 bundle
->   `index-DWWBklCp.js`
+> - **精确包身份（最终包）**：onedir `dist/ResumeAssistant/`（**4044 files / 170,371,652 B**）；EXE
+>   16,850,495 B；SHA-256
+>   `c4e827914b59bcae87f9950015929c28934c4f2f590b7498417a50c443b5d713`；前端 bundle
+>   `index-BS9UDXcl.js`
 >
-> - **封存现场**：中央 `<acceptance-staging>/32388b7/` 与 `<acceptance-staging>/32388b7-evidence/`
->   在场（含 `gate_manifest.json`、`CHECKSUMS.sha256`）；旧封存 `c37270c/`、`c37270c-evidence/`
->   保留追溯、未被覆盖
+> - **封存现场**：中央 `<acceptance-staging>/f961c2e2/` 与 `<acceptance-staging>/f961c2e2-evidence/`
+>   在场；包身份与 `CHECKSUMS.sha256` 自洽，但 `gate_manifest.json` 对最终脱敏证据的 hash 已失配
 >
-> - **当前门禁**：开发侧全部强制 Gate 曾声明 `PASS`，但已被 §R3-18 的四项独立强制 FAIL 覆盖；
->   本对象不得进入人工验收或发布，其开发 PASS、包和证据不得继承到下一候选。
+> - **当前门禁**：中央封存 manifest verify 现场 rc 1、`final_verdict=false`；本对象不得进入独立/人工
+>   验收或发布，其开发 PASS、包和证据不得继承到下一候选。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -4120,3 +4118,110 @@ fail-closed 合同内（另含两项必要的稳健性收口：只读文件清�
 及其 PASS/证据只供追溯，不得继承。本节点不声明 `DOC_ALIGNED`、`ACCEPTANCE_PASS`、
 人工通过或可发布；仍须经 Documentation Gate 后移动固定 `review` 并启动新的完整独立验收，
 且不得进入 Product Owner 人工验收。
+
+## R3-20. Documentation Gate：`DOC_RETURNED`（最终封存身份与六格判定闭环，2026-09-26）
+
+> **边界**：Documentation Agent 只依据 PLAN、RESULT、Git 机械身份和中央结构化证据入口复核交付
+> 闭环，不读取源码或把开发 PASS 升级为产品正确性结论。本轮退回由中央封存现场可直接复现，不需要
+> 源码判断。
+
+### 20.1 已核对且不构成放行的事实
+
+- HANDOFF `fc19921f68710794e741093de59dc4b79c687e32` 唯一 parent 为 SRC
+  `f961c2e29f9dd587a677913b6eda66ca581ca205`；SRC 唯一 parent 为失败登记对象 `9869dc6`；
+  SRC tree `f35637776978f0d279b28df7be57d14ef033bf2d`；37 files / +5419 / −903；HANDOFF 相对
+  SRC 仅修改 RESULT；PLAN blob `7d8a249a…351ee`、HISTORY blob `6141406b…ae` 未变；
+- 中央包独立复算为 4044 files / 170,371,652 B；EXE 16,850,495 B，SHA-256
+  `C4E827914B59BCAE87F9950015929C28934C4F2F590B7498417A50C443B5D713`；bundle
+  `index-BS9UDXcl.js`；
+- 中央证据目录共 30 个文件；`CHECKSUMS.sha256` 对其余 29 个文件逐项 hash 全部一致，无缺失或额外
+  未登记文件；`SEAL_REPORT.json` `ok=true`、`problems=[]`；独立复算 `gate_manifest.json` SHA-256
+  为 `DCACBDDA6BCB6EC2D6F7F80AD1378EF5D7A055A8FB64E240D0CC25F6147F7001`；
+- 结构化证据登记 13 项 Gate、13 个 rc 0、全绑定新 EXE；20 项 Gate verdict、21 项 artifact 授权、
+  19 项原子发布、25 次 Git 身份与 7 项六格负向矩阵均声明通过；主链证据登记 UI P4、viewer ready
+  与 PDF 同源，Design Fidelity 登记 121/0、四页面 Space/Enter/click/focus/task-kept 与 1686×1076；
+- 六格最终 18 个样本现场数据均为 `SUCCEEDED`，6 格各 3；首 Fact 中位 5.70s / 最大 6.94s；四个
+  typical/long cold/warm 总时长中位相对 PLAN 基线降幅均超过 25%，逐样本 Embedding 1、`1+2F`、
+  attempts≤3、成功后不重试、completion≤16k。上述事实只说明最终样本内容可计算为满足合同，不能
+  修复以下 manifest/封存身份缺口。
+
+### 20.2 阻断一：脱敏后证据与 manifest 断链
+
+中央 `CHECKSUMS.sha256` 与现场文件一致，但最终 `gate_manifest.json` 仍记录封存脱敏前的证据 hash。
+在 HANDOFF clean 工作树上清除 `PYTHONPATH` 后，对**中央封存目录**执行固定 SRC/HANDOFF verify，
+实际结果为 rc 1、JSON `final_verdict=false`，并报告 8 个 hash 不一致：
+
+- `precheck.log`
+- `pyz_check.json`
+- `failure_matrix.json`
+- `content_real_model.json`
+- `real_model_e2e.json`
+- `design_fidelity.json`
+- `six_grid_aggregate.json`
+- `artifact_auth_matrix.json`
+
+这证明开发侧所称 build/verify 通过只适用于脱敏前工作目录，不适用于交给 Documentation/Acceptance
+的中央最终证据；manifest、CHECKSUMS 和最终封存没有形成同一个不可变字节集合。中央证据不能用
+脱敏前 hash 替代，也不能由 `SEAL_REPORT.ok=true` 覆盖 verify 失败。
+
+### 20.3 阻断二：verify 失败仍输出成功摘要
+
+同一次 verify 先输出 `[verify] final_verdict=True ... problems=8`，随后 JSON 才输出
+`final_verdict=false` 并以 rc 1 退出。虽然进程最终 fail-closed，但人类可见摘要仍使用 manifest 内旧
+成功值而非本次 verify 的计算结果，违反 §R3-18 “失败不得输出或保留可被误认为 PASS 的摘要”要求。
+verify 的控制台摘要、JSON verdict 与退出码仍未完全一致。
+
+### 20.4 阻断三：六格必要后置条件未全部进入 manifest
+
+最终六格样本本身满足合同，但 manifest 的 `six_grid.postconditions` 只机械重算：
+
+- `six_grid_samples_ge_18`
+- `six_grid_first_fact_within_limit`
+
+没有独立重算并记录：6 格各 `n>=3`、全部 `SUCCEEDED`、typical/long cold/warm 四格相对 V2.1.0
+总时长中位降幅均 ≥25%、Embedding 0/1、`logical_calls == 1+2F`、attempts≤3、成功后不重试、
+completion≤16k。`six_grid_aggregate.json` 也没有结构化输出四格基线、总时长中位、降幅与逐项 verdict，
+这些值只在 RESULT 中人工计算。因而坏样本或不达标降幅仍可能依赖顶层 `pass=true`，与本轮宣称的
+“manifest 逐 Gate 重算必要后置条件”不一致。
+
+RESULT §19.10 提到 cell/整轮有限重试与“取上游稳定的一次完整运行”。PLAN 的首 Fact 最大值和四格
+降幅是硬门禁，不能因环境敏感被独立验收降级为观察项；完整产生但超限的样本不得从同一 Gate 中丢弃
+后重跑到通过。外部信号导致无有效 JSON 的基础设施失败可以有限重试，但必须保留 retry ledger、退出码
+与原因，且不能把完成的慢样本或业务失败样本当成无效基础设施尝试。
+
+### 20.5 一次性返工与封存顺序
+
+本轮需要修改受控 manifest、seal、六格聚合/验证脚本，属于 §R3-18 路径 B：必须新 SRC、重新 build/
+打包并全量重跑，不能仅重封证据。
+
+1. Gate 原始证据生成后，先复制到全新的 final staging evidence 目录并完成脱敏；脱敏后的文件即为
+   manifest 的唯一输入，后续不得再原地修改；
+2. 在最终脱敏字节上重新计算每项 evidence hash，更新/生成 `gates_run.json`，再 build manifest；
+3. 对同一 final staging 目录运行 manifest verify，要求 rc 0、计算后的 `final_verdict=true`、
+   `problems=[]`；随后生成 `SEAL_REPORT.json`，最后生成覆盖全部文件但不覆盖自身的
+   `CHECKSUMS.sha256`；生成 checksum 后任何文件变化都使封存失败；
+4. 将包与证据复制到新的中央目录后，再对**中央副本**复算包身份、全部 checksum，并再次运行 manifest
+   verify；中央 verify 通过才允许交接；不得只验证 current 内脱敏前目录；
+5. verify 输出只使用本次重新计算的 verdict：有任一 problem 时摘要必须明确 `final_verdict=false`、
+   JSON false、rc 非零，不得打印存量 manifest 的 true；
+6. 新增正反向测试：脱敏/任意后处理改变证据字节、中央复制后 hash 变化、manifest stale hash、checksum
+   缺失/额外/不一致、verify 有问题却输出 true 摘要，全部 fail-closed；
+7. 六格证据结构化写入 6 格计数、每格全部样本、首 Fact 中位/最大、四格基线与总时长中位/降幅、全部
+   调用契约及逐项 verdict；manifest 必须从样本和 PLAN 基线独立重算，不能信任顶层 `pass`；
+8. 六格 runner 记录每次 cell/整轮尝试的 retry ledger。只有无有效 JSON 的明确基础设施失败可有限重试；
+   已完成的慢样本、业务失败或合同失败必须保留并压低本轮 Gate，不得筛选“稳定轮次”；对应负向矩阵
+   至少覆盖格缺失/重复、样本失败、首 Fact 超限、四格任一降幅不足、Embedding=2、`1+2F` 不成立、
+   attempts>3、成功后重试、completion>16k 和完成慢样本被丢弃；
+9. 新 SRC 后从 clean tree 重建新包，在该最终包上完整重跑 §R3-19 的 13 项 Gate 和新增封存/六格负向
+   场景，不复用本轮 PASS；形成新的中央包、中央 evidence 与 checksum；
+10. 新 HANDOFF 相对 SRC 只能修改 RESULT，顶部保持“待验收”，记录最终中央 verify 命令/rc、manifest
+    SHA 留给 Documentation Agent 独立复算；不改 PLAN/HISTORY，不移动 `review`，不启动独立验收。
+
+### 20.6 结论
+
+**Documentation Gate 结论：`DOC_RETURNED`。**
+
+本轮是最终证据身份、verify 输出一致性和既有六格硬门禁机械闭环未满足，产品范围、技术路线、Design
+Baseline 与 PLAN 合同不变，继续 PLAN Revision 3，不形成新 Revision。SRC `f961c2e2`、HANDOFF
+`fc19921f`、包 `C4E82791…B5D713` 及其开发 PASS 只供追溯；`review` 保持 `e960f3a`，不得进入独立/
+人工验收或发布。

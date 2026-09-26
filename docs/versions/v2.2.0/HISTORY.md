@@ -711,3 +711,20 @@
 - 决定：四类问题均已由 PLAN Revision 3 覆盖，不新增 PLAN Revision。产品源码、前端和验证脚本均需
   修改，因此必须新 SRC、重 build/重打包、全量开发 Gate、全新中央封存、重新 Documentation Gate 与
   完整独立验收。`review` 保持失败对象 `e960f3a`，不得进入人工验收或发布。
+
+## VH-039 §R3-19 候选因最终封存身份断链被 Documentation Gate 退回
+
+- 日期：2026-09-26
+- 阶段：PLAN Revision 3 / Documentation Gate `DOC_RETURNED`
+- 候选：SRC `f961c2e29f9dd587a677913b6eda66ca581ca205`；HANDOFF
+  `fc19921f68710794e741093de59dc4b79c687e32`；精确包 EXE SHA-256
+  `C4E827914B59BCAE87F9950015929C28934C4F2F590B7498417A50C443B5D713`。
+- 已确认：Git 父链、RESULT-only HANDOFF、PLAN/HISTORY blob、包身份和中央 checksum 成立；13 项开发
+  Gate、新 artifact/atomic/verdict 矩阵及最终六格样本均有结构化入口。
+- 退回原因：中央 evidence 经脱敏后至少 8 个文件字节变化，但 manifest 仍记录脱敏前 hash；对中央
+  目录现场 verify 为 rc 1、`final_verdict=false`。同一 verify 又先打印旧的
+  `final_verdict=True problems=8`，失败摘要仍与最终判定冲突。六格 manifest 还只重算样本数和首 Fact，
+  没有机械重算格分布、四格 ≥25% 降幅和全部调用契约。
+- 决定：不改变 PLAN Revision 3。因受控 manifest/seal/六格脚本必须修改，继续路径 B：新 SRC、重
+  build/打包、全量 Gate、先脱敏后 manifest、中央副本二次 verify，以及六格完整后置条件与 retry
+  ledger 负向矩阵。`review` 保持 `e960f3a`，不得进入独立/人工验收或发布。
