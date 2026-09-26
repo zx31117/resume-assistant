@@ -728,3 +728,24 @@
 - 决定：不改变 PLAN Revision 3。因受控 manifest/seal/六格脚本必须修改，继续路径 B：新 SRC、重
   build/打包、全量 Gate、先脱敏后 manifest、中央副本二次 verify，以及六格完整后置条件与 retry
   ledger 负向矩阵。`review` 保持 `e960f3a`，不得进入独立/人工验收或发布。
+
+## VH-040 §R3-20 返工候选通过 Documentation Gate
+
+- 日期：2026-09-26
+- 阶段：PLAN Revision 3 / `DOC_ALIGNED` → 待完整独立验收
+- 候选：SRC `741b7abac1a4c2ca11ae440b89c0bfcdcaa2e203`；HANDOFF
+  `7b40ebcb6bf501d5c075812457c9bab7f4b92076`；精确包 EXE SHA-256
+  `AAB555D3803A933AD65214191501D0CF76D264ABE7E03832FD149B322A69C367`。
+- 封存闭环：中央 manifest 独立 SHA-256 为
+  `8C21EB84FA75AF48E68B29CF021703276E49A2163D307084007452EE9FA35167`；中央 manifest verify rc 0，
+  33/33 checksum verify rc 0；14 项 Gate、新 seal/manifest 9 项负向矩阵和六格 11 项后置条件均有
+  结构化新包绑定入口。
+- 拓扑处置：Development SRC 从 `9869dc6` 重构而未线性承接 Documentation 提交 `cc687f2`，但 PLAN/
+  HISTORY blob 与 `cc687f2` 完全一致且 §R3-20/VH-039 在场。Documentation Agent 以 docs-only 双 parent
+  集成对象同时承接 HANDOFF 与 `cc687f2`，恢复正式退回文档的祖先关系；此为一次性恢复，不允许后续
+  Development 重构文档父链或代签 HISTORY。
+- 过程偏差：被取代的失败中间封存 `f961c2e2` 已被 Development 删除；当前候选不引用该证据，且其
+  verify 失败已在 §R3-20/VH-039 固化，故不改变本轮结论。以后中央封存清理由 Documentation Agent
+  统一决定，其他角色不得自行删除。
+- 结论：`DOC_ALIGNED` 不表示产品正确或可发布。固定 `review` 指向本次 docs-only 集成对象后，只能
+  启动不继承开发 PASS、无强制 `NOT_RUN` 的完整独立验收；通过前不得进入 Product Owner 人工验收。
