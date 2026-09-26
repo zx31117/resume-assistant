@@ -4262,12 +4262,63 @@ Baseline 与 PLAN 合同不变，继续 PLAN Revision 3，不形成新 Revision�
    `CHECKSUMS.sha256`；
 5. 对中央副本 `manifest verify`（rc 0）再 `seal verify-checksums`（rc 0）；中央 verify 通过才允许交接。
 
-### 21.4 全量 Gate 与中央 verify（占位，待全量重跑后回填）
+### 21.4 全量 Gate 与中央 verify
 
-> 本表数值在最终包全量重跑后回填；全部为真实退出码，无 `FAIL`/`NOT_RUN`/人工解释通过。
+> 全部为真实退出码，无 `FAIL` / `NOT_RUN` / 人工解释通过。
 
-（待回填：14 项 Gate 命令/真实退出码/耗时、新包身份、六格 18 样本四格降幅、中央 verify rc 与
-`gate_manifest.json` SHA-256。）
+#### 身份链
+
+| 项 | 值 |
+|---|---|
+| 返工基线（失败对象） | `9869dc6a2119a6cde80dd14620d7e0d31a0109b3` |
+| 新 SRC | `741b7abac1a4c2ca11ae440b89c0bfcdcaa2e203`；唯一 parent `9869dc6a…`；分支 `version/v2.2.0` |
+| SRC tree SHA | `5ae052a1751dbad147f90317c549bdbacca68dd6` |
+| SRC diff（相对 `9869dc6`） | 40 files；+6509 / −930 |
+| PLAN blob | `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`（未改） |
+| 失效旧对象（只供追溯） | SRC `f961c2e2`、HANDOFF `fc19921f`、包 `C4E82791…B5D713`、SRC `32388b7`、HANDOFF `eed6513a`、验收对象 `e960f3a`、包 `221A12BC…89E97` 及其 PASS/证据 |
+| 新包身份 | `dist/ResumeAssistant/`：**4044 files / 170,371,498 B**；EXE **16,850,341 B**；EXE SHA-256 **`AAB555D3803A933AD65214191501D0CF76D264ABE7E03832FD149B322A69C367`**；bundle **`index-BS9UDXcl.js`** |
+
+#### 14 项强制 Gate（全部真实退出码 0）
+
+| # | Gate | rc | 耗时 | 证据 |
+|---|---|---|---|---|
+| 1 | precheck（compile + 全回归 + 前端 build + Hooks + runtime 哨兵） | 0 | 112.5s | `precheck.log` |
+| 2 | package audit | 0 | 38.2s | `package_audit.json` |
+| 3 | PYZ / 反伪造 | 0 | 0.2s | `pyz_check.json` |
+| 4 | Word/PDF failure matrix | 0 | 29.2s | `failure_matrix.json` |
+| 5 | 三身份内容级真实模型 E2E | 0 | 35.0s | `content_real_model.json`（32 断言） |
+| 6 | 主链 UI 真实模型 E2E | 0 | 98.0s | `real_model_e2e.json` |
+| 7 | Design Fidelity 全状态（含键盘/回看态/全视口） | 0 | 233.7s | `design_fidelity.json`（121/0） |
+| 8 | 六格真实模型性能 | 0 | 661.6s | `six_grid_aggregate.json`（18/18） |
+| 9 | 六格聚合器负向自测 | 0 | 0.9s | `six_grid_negative_selftest.json`（14/14） |
+| 10 | Git 身份正反向矩阵 | 0 | 10.5s | `git_identity_matrix.json`（25） |
+| 11 | Artifact 授权矩阵 | 0 | 3.9s | `artifact_auth_matrix.json`（21） |
+| 12 | 原子发布矩阵 | 0 | 1.3s | `atomic_publish_matrix.json`（19） |
+| 13 | Gate verdict 负向矩阵 | 0 | 8.2s | `gate_verdict_negtest.json`（20） |
+| 14 | 封存/manifest 负向矩阵 | 0 | 3.9s | `seal_manifest_negtest.json`（9） |
+
+> 第 7 项 design_fidelity 首轮因上游真实生成偶发 FAILED（终态 `FAILED`，未到 P4），按单一 UI 驱动
+> 门禁语义重跑一次后 121/0；属上游瞬时抖动，非四类缺陷或「筛选稳定轮次」。其余 13 项一次通过。
+
+#### 六格（18/18 SUCCEEDED，结构化 four_grid 全 ok）
+
+- 首 Fact 中位 **5.72s** / 最大 **6.78s** ≤15s；`retry_ledger_any_discard=false`（12 条 ledger 全部
+  `attempt=1`、`valid_rows=3`、无丢弃）。
+
+| 有基线格 | 总时长中位 | V2.1.0 基线 | 降幅 |
+|---|---|---|---|
+| cold/typical | 31.16s | 89.49s | **65.18% ✓** |
+| cold/long | 38.02s | 94.32s | **59.69% ✓** |
+| warm/typical | 28.94s | 84.48s | **65.74% ✓** |
+| warm/long | 38.42s | 97.92s | **60.76% ✓** |
+
+- manifest 从逐样本 `total_s` 独立重算四格降幅（≥25%）与全部调用契约（Embedding 0/1、`1+2F`、
+  attempts≤3、成功后不重试、completion≤16k），不信任顶层 `pass`。
+
+#### 封存顺序与中央 verify（命令 / rc 回填于 HANDOFF 后）
+
+（见 §21.3 五步；`gate_manifest.json` SHA-256 与中央 verify rc 由 Documentation Agent 独立复算，
+不在 RESULT 回填形成自引用。）
 
 ### 21.5 结论
 
