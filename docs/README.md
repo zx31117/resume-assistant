@@ -18,14 +18,17 @@
 
 | 角色 | 最小必读路径 |
 |---|---|
+| Rules | 治理事件包 → `HUMAN_AI_WORKFLOW.md` 中命中的规则 ID、状态和转换 → 必要时读取相关 `DECISIONS.md` 与当前 PLAN 的适用参数；不读取源码或接管项目执行 |
 | Development | 本文 → `CURRENT_STATE.md` → 当前版本 `PLAN.md` → PLAN“Required Reading”列出的 `HUMAN_AI_WORKFLOW.md` 定向章节 → PLAN 绑定的 Design Baseline（如有） → 源码与相关测试 |
-| Documentation | 本文 → `CURRENT_STATE.md` → 上一版本 RESULT → 当前需求/DRAFT/PLAN → 按需读取 DECISIONS 与 `HUMAN_AI_WORKFLOW.md` |
+| Documentation | 本文 → `CURRENT_STATE.md` → 上一版本 RESULT → 当前需求/DRAFT/PLAN → 按需读取 DECISIONS 与 Role Card；只同步规则变化的项目影响，不维护治理规则语义 |
 | Acceptance | 当前 PLAN → 当前 RESULT → RESULT“待独立验收问题” → `HUMAN_AI_WORKFLOW.md` §7、§8、§11 → 相关源码与失败路径 |
 | Design | 本文的产品目标/边界 → 当前设计任务与已批准 Design Snapshot → `HUMAN_AI_WORKFLOW.md` §3.1、§3.3 |
 
-`HUMAN_AI_WORKFLOW.md` 不要求所有角色每次全文重读，但其中被当前 PLAN 点名的章节属于强制开发
-上下文。发生上下文压缩、任务恢复、角色切换或长时间中断后，必须重新读取当前 PLAN 的
-“Required Reading”，不能只依赖会话摘要。
+`HUMAN_AI_WORKFLOW.md` 是全局治理、角色边界和状态转换的唯一人工可编辑真源，但不要求所有角色每次
+全文重读。普通 Agent 应消费当前 PLAN 和最小 Role Card；被当前 PLAN 点名的定向章节
+仍属于强制上下文。发生上下文压缩、任务恢复、角色切换或长时间中断后，必须重新读取当前 PLAN 的
+“Required Reading”，不能只依赖会话摘要。自动事件路由、Gate 校验和 Role Card 生成尚未实现，此后
+新启动的版本/任务按 [HUMAN_AI_WORKFLOW.md §3.5](./HUMAN_AI_WORKFLOW.md#35-分层状态机强制门禁与规则路由) 的人工状态记录执行；文档 Agent 可在 PLAN 或交接中提供一次性最小 Role Card 视图，但不得把它表述为自动生成或第二规则真源。
 
 文档的核心目的是留存开发经验：记录问题、方案、决策依据、实际结果和计划偏差，供后续回忆与他人学习。能依据记录复刻当时的开发路径，是检验记录完整度的标准，不是项目目的。
 
@@ -118,6 +121,7 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | [README.md](./README.md) | 稳定产品目标、版本边界和架构不变量 |
 | [CURRENT_STATE.md](./CURRENT_STATE.md) | 当前已经验收的实现事实和已知缺口 |
 | [DECISIONS.md](./DECISIONS.md) | 影响后续版本的重要产品与技术决策 |
+| [HUMAN_AI_WORKFLOW.md](./HUMAN_AI_WORKFLOW.md) | 全局治理规则、角色权限、Gate、状态与转换；由规则 Agent 维护语义 |
 | [V2_REQUIREMENTS_POOL.md](./versions/V2_REQUIREMENTS_POOL.md) | V2 阶段尚未排入具体版本的候选需求；不是实施范围真源 |
 | `design/baselines/<version>/DS-xxx/` | 正式 PLAN 导入并绑定的不可变设计基线；设计获批不等于能力已实现 |
 | `versions/<version>/PLAN.md` | 该版本当前唯一有效的执行合同 |
@@ -125,7 +129,8 @@ V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向�
 | `versions/<version>/HISTORY.md` | V2.2.0 起记录重要事件、PLAN 修订和候选失效历史；不是开发指令 |
 
 规则：PLAN 规定要做什么，RESULT 记录实际做了什么，CURRENT_STATE 只记录已经验收的事实。
-Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定哪些内容进入开发。
+Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定哪些内容进入开发。治理规则只在
+`HUMAN_AI_WORKFLOW.md` 人工维护；Role Card、检查表和路由配置是可再生视图，不能成为平行真源。
 
 版本目录同时遵守以下结构约束：
 
@@ -136,7 +141,9 @@ Design Snapshot 只规定已批准设计，必须由 PLAN 的实施矩阵决定�
 3. HISTORY 只记录 P0/P1、技术路线推翻、重复问题、候选/包身份错误、路径/工作区事故、跨角色
    职责错误和可提炼跨版本规则的事件。普通 Bug、长日志、截图、审计、迁移、验证、交付、评审和
    manifest 等阶段产物仍写入 RESULT 摘要、临时目录或 runtime data root，不新增第四个真源。
-4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，文档 Agent 必须在当前版本 PLAN / RESULT 中建立源码同步任务；由开发 Agent 实施，并在必要时由验收 Agent 复核。文档 Agent 不直接以改源码代替任务交接。
+4. 文档路径、版本目录或交付规则的变化如果影响 `.gitignore`、源码脚本、测试或构建配置，规则 Agent
+   先确定治理语义和适用范围，文档 Agent 再在当前版本 PLAN / RESULT 中建立源码同步任务；由开发
+   Agent 实施，并在必要时由验收 Agent 复核。规则 Agent 和文档 Agent 都不直接以改源码代替任务交接。
 5. 大版本需求池只保存尚未排期的候选想法，不使用完成状态，也不构成开发指令；具体版本只从中选择必要范围写入本版本 DRAFT / PLAN，版本范围冲突时以本版本 DRAFT / PLAN 为准。
 
 协作路径采用三个固定独立 Git 仓库和一个非 Git 设计工作区：`<canonical-repo>`、
@@ -186,7 +193,8 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 
 ## 8. 文档同步规则
 
-文档 Agent 在版本验收或需求变更后按影响更新，不新增重复真源：
+规则 Agent 在治理事件成立时更新治理真源；文档 Agent 在版本验收、需求变更或收到已接受的规则影响
+后按项目影响同步其他文档，不新增重复真源：
 
 | 变化 | 更新位置 |
 |---|---|
@@ -196,6 +204,7 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | 已验收能力、API、数据模型、模块、运行基线和缺口 | `CURRENT_STATE.md` |
 | 稳定产品目标、版本边界或架构不变量 | `README.md` |
 | 影响后续版本的重要选择或既有决策状态变化 | `DECISIONS.md` |
+| 角色职责、权限、Gate、状态、转换或治理路由 | `HUMAN_AI_WORKFLOW.md`；必要时在 `DECISIONS.md` 记录决策，不复制规则正文 |
 | 用户批准设计、版本导入基线及视觉/交互范围 | 本地 Design Snapshot → `design/baselines/<version>/DS-xxx/`，并由版本 PLAN 绑定 |
 | 版本状态和入口 | `README.md` 与 `versions/README.md` |
 
@@ -214,6 +223,10 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 11. RESULT 记录被验收源码 commit 和冻结核对结果；最终发布 commit 不回写自身 SHA，发布后由 annotated tag 的目标 commit 作为唯一发布标识，避免“写入 SHA 导致 commit 再变化”的循环。
 12. 界面版本的源 Snapshot、canonical `DS-xxx`、manifest hash、PLAN 实施矩阵和最终产品能力
     状态可以互相追溯；未导入快照、Mock 和 Design-only 内容没有进入 CURRENT_STATE。
+13. 治理变化由规则 Agent 给出 `NO_RULE_CHANGE`、`ENFORCEMENT_CORRECTION`、`RULE_UPDATED` 或
+    `PRODUCT_DECISION_REQUIRED` 之一，并声明适用范围；文档 Agent 只同步项目影响，没有建立第二套规则。
+14. 自动状态机、路由器、Gate 校验器和 Role Card 生成器在独立实现与验收前始终标记为目标机制，
+    不进入 `CURRENT_STATE.md`，也不被用来证明 Gate 已自动执行。
 
 ## 9. 版本索引
 

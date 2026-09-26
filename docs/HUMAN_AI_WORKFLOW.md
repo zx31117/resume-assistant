@@ -4,7 +4,7 @@
 > 不属于产品、架构或版本开发文档  
 > 不要求开发 Agent 默认全文读取；当前 PLAN 明确引用的定向章节属于强制上下文
 > 首次记录：2026-08-15
-> 最近更新：2026-09-13
+> 最近更新：2026-09-26
 
 本文记录项目当前约定的人机协作方式，便于后续回忆。具体版本的开发范围和验收要求仍以该版本 `PLAN.md` 为准。
 
@@ -15,11 +15,12 @@
 - 人：提出需求、验收实际产品，并在必要时选择技术方案；
 - Design Agent：只读全局文档与必要源码，在独立设计工作区持续生成、修改 HTML 原型和设计
   说明；不修改生产源码、canonical 文档或产品状态；
-- 文档 Agent：只接触项目文档，负责架构连续性、版本规划、文档验收、项目记忆，以及用户确认后的公开仓库最终发布；
+- 规则 Agent：不参与产品开发、版本规划、实现、验收或发布；仅在治理事件被路由时诊断规则缺口、冲突或不可执行性，并维护全局治理规则与状态转换；
+- 文档 Agent：只接触项目文档，负责项目与版本管理、架构连续性、版本规划、文档验收、项目记忆，以及用户确认后的公开仓库最终发布；不再拥有全局治理规则的语义修改权；
 - 开发 Agent：读取开发文档和源码，负责实现、测试，并在候选冻结前提交版本 RESULT 的实施、自测与偏差；
 - 验收 Agent：在 PLAN 标记高风险任务或阶段收口审查时介入，检查相关源码、测试、失败路径和结构一致性。
 
-协作参与者和执行过程只按职责记录“Design Agent”“开发 Agent”“验收 Agent”“文档 Agent”，不使用具体客户端、模型、执行器或自动化工具名称指代协作者。产品依赖、配置和架构事实仍按实际技术名称记录；历史档案中的协作者名称只允许做不改变原意的中性化修正。
+协作参与者和执行过程只按职责记录“规则 Agent”“Design Agent”“开发 Agent”“验收 Agent”“文档 Agent”，不使用具体客户端、模型、执行器或自动化工具名称指代协作者。产品依赖、配置和架构事实仍按实际技术名称记录；历史档案中的协作者名称只允许做不改变原意的中性化修正。
 
 “独立源码验收”要求执行者独立：参与同一候选实现、自测、源码修复或开发结论编写的开发 Agent，不得兼任该候选的验收 Agent。更换工作目录、会话、模型或职责名称不构成独立性。开发 Agent 可以做补充自查，但只能记录为开发验证；没有符合条件的验收 Agent 时，独立验收任务保持未完成，版本保持“待验收”。
 
@@ -29,7 +30,9 @@ RESULT 是否完整、内部一致，以及开发声明的理解是否符合 PLA
 由独立验收 Agent 核实。版本通过需要同时具备开发验证证据、必要的高风险源码验收、人工验收和
 文档一致性验收。
 
-文档 Agent 负责统领全局影响，但“统领”不等于亲自修改源码。若文档改名、目录收束或架构规则变化会影响源码中的路径、构建脚本、测试输出或发布配置，文档 Agent 必须把依赖项写入当前版本 PLAN / RESULT，明确新状态、旧状态退出和复验要求；开发 Agent 完成源码修改后，再按风险安排源码验收。未完成这条同步链路前，版本不能完成最终冻结。
+文档 Agent 负责统领项目与版本层面的全局影响，但“统领”不等于拥有治理规则或亲自修改源码。若规则 Agent 接受的治理变化，或文档改名、目录收束、架构规则变化会影响源码中的路径、构建脚本、测试输出或发布配置，文档 Agent 必须把项目依赖项写入当前版本 PLAN / RESULT，明确新状态、旧状态退出和复验要求；开发 Agent 完成源码修改后，再按风险安排源码验收。未完成这条同步链路前，版本不能完成最终冻结。
+
+规则 Agent 是异常处理角色，不是每个任务的固定参与者，也不是新的常规审批层。普通执行失败、证据缺项和合同内返工仍由原责任角色按当前 PLAN 消化；只有命中治理路由条件时才进入规则 Agent。除需要产品取舍、风险接受、新外部授权或不可逆真实数据操作外，规则问题应由规则与既有授权内部闭环，不得把可机械判断的事项推给人。
 
 开发 Agent 只交付候选分支、候选 commit 和 RESULT，不操作公开 `main` 或正式 tag。文档 Agent 的发布职责不代表可以绕过用户确认、开发验证或源码验收；它只负责在全部结论收口后执行最终远端核对和发布。
 
@@ -38,6 +41,7 @@ RESULT 是否完整、内部一致，以及开发声明的理解是否符合 PLA
 ~~~text
 根 README           GitHub 普通用户的项目介绍与使用入口
 docs/README         开发目标、版本边界和架构不变量
+HUMAN_AI_WORKFLOW   全局治理规则、角色边界、状态与转换的唯一人工可编辑真源
 CURRENT_STATE       当前已经验收的实现事实
 DECISIONS           影响后续版本的重要决策
 Design Snapshot     用户已批准、不可变的可执行视觉与交互基线
@@ -48,7 +52,7 @@ HISTORY             V2.2.0 起记录版本内重要事件、PLAN 修订与候选
 
 规则：根 README 不属于开发事实真源；PLAN 规定当前有效合同，RESULT 记录实际做了什么和当前验收
 结论，HISTORY 记录重要演进事实，CURRENT_STATE 只记录已经验收的事实。HISTORY 不构成开发指令，
-其中具有跨版本价值的结论再提炼到 DECISIONS 或本工作流。
+其中具有跨版本价值的产品或架构结论再提炼到 DECISIONS；全局治理规则只在本工作流维护，其他文档仅引用规则编号或记录适用结果，不复制规则正文。
 
 ## 3. 工作路径与版本身份
 
@@ -73,17 +77,18 @@ HISTORY             V2.2.0 起记录版本内重要事件、PLAN 修订与候选
 
 ### 3.1 文件与 Git 权限
 
-| 对象或操作 | 人 | Design Agent | 文档 Agent | 开发 Agent | 验收 Agent |
-|---|---|---|---|---|---|
-| 设计工作稿 | 预览、反馈、打回 | 唯一写入者 | 只读核对 | 不跟随 | 只读 |
-| Design Snapshot | 唯一批准者 | 按批准生成且不得原地修改 | 校验、映射并导入 canonical | 只读冻结基线 | 只读并验收符合度 |
-| 当前 PLAN | 审核、批准或撤回 | 只读 | 唯一写入者 | 只读；有疑问时停止并报告 | 只读 |
-| 当前 RESULT | 确认人工结果 | 不修改 | 负责验收、收口和发布状态 | 只在候选冻结前写实施、自测和偏差 | 只读，只返回报告 |
-| 全局文档、CURRENT_STATE、根 README | 决策与确认 | 只读 | 按已验证事实写入 | 只读 | 只读 |
-| 源码、测试、依赖和构建配置 | 提需求并人工验收 | 只读 | 不修改 | 在 PLAN 范围内修改 | 不修改 |
-| current 活动分支 | 无日常操作要求 | 不操作 | 接收文档同步时管理 | 实现并提交候选 | 不操作 |
-| review 仓库 | 无日常操作要求 | 不操作 | 准备冻结候选 | 不操作 | detached 只读验收 |
-| 本地 `main`、正式 tag、GitHub remote | 批准发布或事故处置 | 禁止 | 唯一操作者 | 禁止 | 禁止 |
+| 对象或操作 | 人 | 规则 Agent | Design Agent | 文档 Agent | 开发 Agent | 验收 Agent |
+|---|---|---|---|---|---|---|
+| 全局治理规则、角色边界和状态转换 | 提出规则方向；仅处理必须由人判断的事件 | 唯一语义写入者 | 只读 Role Card | 只读并同步项目影响 | 只读 Role Card | 只读 Role Card |
+| 设计工作稿 | 预览、反馈、打回 | 不参与 | 唯一写入者 | 只读核对 | 不跟随 | 只读 |
+| Design Snapshot | 唯一批准者 | 不参与 | 按批准生成且不得原地修改 | 校验、映射并导入 canonical | 只读冻结基线 | 只读并验收符合度 |
+| 当前 PLAN | 审核、批准或撤回 | 不修改 | 只读 | 唯一写入者 | 只读；有疑问时停止并报告 | 只读 |
+| 当前 RESULT | 确认人工结果 | 不修改 | 不修改 | 负责验收、收口和发布状态 | 只在候选冻结前写实施、自测和偏差 | 只读，只返回报告 |
+| 产品全局文档、CURRENT_STATE、根 README | 决策与确认 | 不修改 | 只读 | 按已验证事实写入 | 只读 | 只读 |
+| 源码、测试、依赖和构建配置 | 提需求并人工验收 | 不修改 | 只读 | 不修改 | 在 PLAN 范围内修改 | 不修改 |
+| current 活动分支 | 无日常操作要求 | 不操作 | 不操作 | 接收文档同步时管理 | 实现并提交候选 | 不操作 |
+| review 仓库 | 无日常操作要求 | 不操作 | 不操作 | 准备冻结候选 | 不操作 | detached 只读验收 |
+| 本地 `main`、正式 tag、GitHub remote | 批准发布或事故处置 | 禁止 | 禁止 | 唯一操作者 | 禁止 | 禁止 |
 
 同一 Windows 账户无法用 NTFS ACL 区分三个 Agent，文件只读属性也可以被同账户解除并可能阻断 Git 更新。因此上述权限由独立仓库、单目录 workspace、remote 收缩和提交/验收门禁共同执行；Git hook 只能防误操作，不能替代最终 diff 与身份核对。
 
@@ -188,6 +193,94 @@ Challenge 至少记录原始反馈、受影响不变量、最小复现、原路�
 真实主路径和冻结前 5 分钟反证。反思发现普通实现问题时继续同一 PLAN；改变产品范围、技术路线、
 Design Baseline 或强制验收合同才形成 PLAN Revision。
 
+### 3.5 分层状态机、强制门禁与规则路由
+
+项目流程采用三层状态，而不是靠自然语言提醒推进：
+
+1. **阶段状态（Phase State）**：表示版本当前所处的主阶段，例如 `PLAN_DRAFT`、`PLAN_APPROVED`、
+   `IMPLEMENTING`、`CANDIDATE_FROZEN`、`DOC_REVIEW`、`SOURCE_REVIEW`、`HUMAN_ACCEPTANCE`、
+   `RELEASE_READY` 和 `RELEASED`；
+2. **门禁状态（Gate State）**：表示进入下一阶段所需的独立条件。每个 Gate 必须有稳定 ID、责任角色、
+   触发事件、所需证据、`PASS / FAIL / BLOCKED / NOT_APPLICABLE` 判定和失败回路；任何强制 Gate 未
+   `PASS` 时不得进入后继阶段；
+3. **治理状态（Governance State）**：正常为 `GOVERNANCE_OK`。只有命中本节的治理事件时才进入
+   `RULE_REVIEW_REQUIRED`；规则 Agent 处理结束后返回 `GOVERNANCE_OK`、`PRODUCT_DECISION_REQUIRED`
+   或保持阻断，不替代产品流程本身。
+
+Gate 按判断来源分成三类：
+
+- `RULE_RESOLVABLE`：证据与判定规则已经明确，由系统或责任 Agent 直接判定并闭环，不请求人批准；
+- `HUMAN_TRIGGERED`：需要人亲自执行或发出一个事实事件，但不要求人重新设计流程。人工触发前 Gate
+  保持未完成，后继转换不存在；反思暂停点、真实产品试用、Design Snapshot 批准和最终发布确认属于
+  此类；
+- `HUMAN_JUDGMENT`：确实需要产品取舍、主观质量判断、风险接受、新外部授权或不可逆真实数据操作。
+  只有这类事项才升级给人决定，且必须附带选项、证据、影响和默认保持安全状态的结果。
+
+路由由**事件类型、当前状态和规则表**共同决定，不能让各 Agent 临场判断“要不要叫规则 Agent”。
+以下事件进入规则 Agent：
+
+- Product Owner 明确提出新增、删除或修改全局治理规则；
+- 已登记的事件在当前状态下没有合法转换，或两条现行规则给出冲突转换；
+- 强制流程只能依赖提醒、口头约定或事后补记，无法形成可验证 Gate；
+- 角色职责、写权限或真源归属冲突，现有规则无法唯一确定责任方；
+- 同一治理根因在修正后再次发生，说明执行纠偏不足以消除系统性缺口；
+- 已有规则导致无法执行、循环等待，或把本可由规则消化的事项反复升级给人。
+
+普通实现缺陷、证据缺项、一次性违反现有规则、合同内返工和已定义的 PLAN 修订，不进入规则 Agent；
+它们沿现有失败回路处理。规则 Agent 只允许给出四类结论：`NO_RULE_CHANGE`（按现有规则执行）、
+`ENFORCEMENT_CORRECTION`（规则充分，修正执行或门禁）、`RULE_UPDATED`（规则真源已更新并声明适用
+范围）和 `PRODUCT_DECISION_REQUIRED`（满足上述人工判断条件）。规则 Agent 不写产品 PLAN、源码、
+测试、RESULT、验收结论或发布状态。
+
+每个角色的默认输入是从本工作流和当前 PLAN 生成的最小 **Role Card**，只包含当前状态、允许动作、
+禁止动作、必须产出的事件/证据、退出 Gate 和适用规则 ID。Agent 不需要为判断路由而全文阅读规则；
+路由器消费结构化事件并选择下一状态或规则 Agent。Role Card 是生成视图，不是新的真源，不得人工
+维护与本工作流平行的规则副本；PLAN 只引用规则 ID，并补充本版本参数与证据合同。
+
+最低主流程转换如下；具体版本可增加 Gate，但不得绕过这些阻断关系：
+
+| 当前状态 | 事件 | 必须满足 | 下一状态或动作 |
+|---|---|---|---|
+| `PLAN_DRAFT` | `PLAN_APPROVED` | 人明确批准，PLAN commit/blob 已记录 | `PLAN_APPROVED` |
+| `PLAN_APPROVED` | `PREMORTEM_TRIGGERED` | 人主动触发 | 打开 `G-REFLECT-PRE`，阶段不变 |
+| `PLAN_APPROVED` | `PREMORTEM_PASSED` | 已有触发记录；责任 Agent 的反思输出通过 `G-REFLECT-PRE` | 允许 `IMPLEMENTING` |
+| `IMPLEMENTING` | `TRUE_SLICE_READY` | 已有首条真实纵切证据 | 设置 `G-REFLECT-ARCH=BLOCKED`，阻断继续扩展 |
+| `IMPLEMENTING` | `ARCHITECTURE_CHECK_TRIGGERED` | 人主动触发 | 打开 `G-REFLECT-ARCH`，阶段不变且继续阻断 |
+| `IMPLEMENTING` | `ARCHITECTURE_CHECK_PASSED` | 已有触发记录；不变量和真实路径证据通过 | 解除扩展阻断 |
+| `IMPLEMENTING` | `FALSIFICATION_TRIGGERED` | 候选已准备；人主动触发 | 打开 `G-REFLECT-FALSE`，阻断候选冻结 |
+| `IMPLEMENTING` | `CANDIDATE_SUBMITTED` | 开发 Gate、`G-REFLECT-FALSE`、clean 候选身份全部通过 | `CANDIDATE_FROZEN`，随后进入 `DOC_REVIEW` |
+| `DOC_REVIEW` | `DOC_ALIGNED` | RESULT 合同和机械身份完整 | 按 PLAN 进入 `SOURCE_REVIEW` 或 `HUMAN_ACCEPTANCE` |
+| `SOURCE_REVIEW` | `SOURCE_ACCEPTED` | 绑定同一候选且独立验收通过 | `HUMAN_ACCEPTANCE` |
+| `HUMAN_ACCEPTANCE` | `HUMAN_ACCEPTED` | 人实际使用并明确通过 | `RELEASE_READY` |
+| `RELEASE_READY` | `RELEASE_CONFIRMED` | 人明确确认发布，远端和 tag 前置核对通过 | `RELEASED` |
+| 任意未发布状态 | `CHALLENGE_RAISED` | 命中 §3.4 | `CHALLENGE_OPEN`，阻断扩展、冻结和发布 |
+| 任意状态 | `GOVERNANCE_EVENT` | 命中本节治理路由条件 | `RULE_REVIEW_REQUIRED`，仅规则 Agent 可给出治理结论 |
+
+`HUMAN_TRIGGERED` 的“人主动触发”只负责发出不可伪造的启动或确认事件；反思内容、证据整理和规则可
+判定部分仍由责任 Agent 完成，不把分析工作转嫁给人。路由器收到一个事件后，先校验事件 schema，
+再校验当前状态是否允许该事件，随后计算强制 Gate，最后只提交一个原子状态转换；无转换、多个转换、
+证据引用缺失或 Gate 结果不唯一时均不得猜测前进，并按本节条件进入执行纠偏或规则审查。
+
+事件最小 schema 为：`event_id`、`event_type`、`workflow_id`、`phase_before`、`actor_role`、`occurred_at`、
+`evidence_refs`、`rule_source_hash` 和 `idempotency_key`；禁止把自由文本本身当作事件类型。路由结果必须
+记录命中的 transition ID、逐项 Gate 判定、`phase_after`、治理状态和拒绝/阻断 reason code。同一
+`idempotency_key` 只能产生一次转换；事件账本追加写，状态由已接受事件重放得到，人工不能直接改写
+“当前状态”字段绕过历史。
+
+规则更新必须声明生效范围：仅未来任务、当前未开始阶段，或使当前候选/证据失效。规则 Agent 负责
+治理语义和适用性分类；文档 Agent 负责把已接受的项目影响同步到 PLAN、HISTORY、RESULT 或全局产品
+文档；开发 Agent 负责经 PLAN 授权的工具、脚本或产品源码实现。规则更新不能由规则 Agent 直接改写
+版本事实，也不能自动把历史文档改写成新规则下的结论。
+
+**当前实施状态**：本节从 2026-09-26 起作为此后新启动版本/任务的人工规范性状态表；规则 Agent 与
+文档 Agent 的职责分离立即生效，但本节不追溯改变已经批准的 PLAN、已经发生的阶段或候选身份。自动
+事件账本、路由器、Gate 校验器和 Role Card 生成器尚未实现，不得表述为现有代码能力。机械化实现
+必须进入后续获批 PLAN，由开发 Agent 完成并经独立验收；在此之前，责任 Agent 必须在交接中显式
+记录当前状态、收到的事件、Gate 判定和下一合法转换，缺项时 fail closed。文档 Agent 可在 PLAN 或
+交接中按适用规则 ID 提供一次性最小 Role Card 视图，但不得修改规则语义、另建长期规则文件或把人工
+整理称为自动生成。若要把新 Gate 用于正在执行的既有 PLAN，必须先由规则 Agent 声明适用范围，再按
+PLAN Revision 和候选失效规则处理，不能事后补做记录伪装成当时已经通过。
+
 ## 4. 人的阅读路径
 
 ### 提需求或审核方案
@@ -209,9 +302,23 @@ V2.1.0 及以前按版本依次阅读 `PLAN.md → RESULT.md`。V2.2.0 起按需
 `PLAN.md → HISTORY.md → RESULT.md`：PLAN 是最后生效的合同，HISTORY 解释路线与身份为何变化，
 RESULT 是实际结果和验收结论。只关心当前任务时不默认读取 HISTORY。
 
-## 5. 文档 Agent 的阅读路径
+## 5. 规则 Agent 与文档 Agent 的阅读路径
 
-### 编写新版本 PLAN
+### 规则 Agent：处理治理事件
+
+~~~text
+治理事件包（event type、当前状态、触发证据、已尝试的现行规则）
+→ 本工作流中被引用的规则 ID、状态与转换
+→ 必要时读取相关 DECISIONS 和当前 PLAN 的适用参数
+→ 输出四类规则结论之一，并声明适用范围
+~~~
+
+规则 Agent 不默认读取源码、测试、全部版本历史或产品工作稿；证据不足时要求事件发出者补齐事件包，
+不自行进入开发或验收。若结论为 `RULE_UPDATED`，必须在同一次变更中收束冲突、删除失效表达，并让
+规则可被 Gate 或事件判定；不得只在文档末尾追加例外。规则 Agent 完成规则语义后，把项目同步事项
+交给文档 Agent，不代替文档 Agent 修改版本合同和版本事实。
+
+### 文档 Agent：编写新版本 PLAN
 
 ~~~text
 docs/README
@@ -227,7 +334,7 @@ docs/README
 Preview、哪些隐藏或不实施；不得把整份设计快照自动解释成开发范围。若采用计划内分批授权，早期
 Revision 必须明确标记 Design Gate，且不能授权任何需要猜测该快照的可见实现。
 
-### 验收版本文档
+### 文档 Agent：验收版本文档
 
 ~~~text
 当前 PLAN
@@ -422,17 +529,21 @@ PLAN 出现“改为、只允许、不再、统一、替换、废弃、删除、
 
 ## 9. 项目工作流
 
+下列顺序是 §3.5 状态机的人工可读投影，不是可以自由跳步的清单。每次交接必须先记录当前阶段状态、
+Gate 状态和事件；转换表未允许的下一步即不可执行。规则 Agent 不加入正常主线，只在收到
+`GOVERNANCE_EVENT` 后工作。
+
 ~~~text
 1. 人提出产品方向、设计反馈或版本需求
 2. Design Agent 持续修改 HTML 工作稿；人预览、打回并作最终设计判断
 3. 人明确要求生成 Design Snapshot；Design Agent 冻结不可变本地快照
 4. 到达版本边界时，文档 Agent 根据已验收状态和用户需求编写 PLAN；涉及界面版本时把选中的本地快照映射并导入 canonical `DS-xxx`
-5. 人审核 PLAN；文档 Agent 记录批准 commit/blob、Design Baseline 和 manifest hash
-6. 开发 Agent 在 current 核对基线、PLAN 身份和 `DS-xxx`，按实施矩阵实现和测试
+5. 人审核 PLAN；文档 Agent 记录批准 commit/blob、Design Baseline 和 manifest hash；人主动触发 Pre-mortem，责任 Agent 完成且 `G-REFLECT-PRE` PASS 后才允许开发
+6. 开发 Agent 在 current 核对基线、PLAN 身份和 `DS-xxx`，按实施矩阵实现和测试；首条真实纵切形成后暂停扩展，等待人主动触发 Architecture Check，`G-REFLECT-ARCH` PASS 后才继续
 7. Design Agent 可继续演进下一版工作稿，但不改变当前开发目标
-8. 开发 Agent 在 RESULT 记录实施、自测、交付映射、偏差和待独立验收问题；开发 Gate 全部 PASS 后提交 clean 候选 H
+8. 开发 Agent 在 RESULT 记录实施、自测、交付映射、偏差和待独立验收问题；候选准备后由人主动触发 Falsification Check，开发 Gate 与 `G-REFLECT-FALSE` 全部 PASS 后提交 clean 候选 H
 9. 文档 Agent 接收 H，先做机器前置过滤，再只依据 PLAN、RESULT、机械身份和证据入口完成一次 RESULT 语义交付审查；DOC_ALIGNED 仅表示文档交付可进入验收，此后才保护候选并把 review detached 到 H
-10. DOC_RETURNED 时集中返回完整缺口，PLAN 不变；PLAN_REVISION_REQUIRED 时由文档 Agent 形成完整新 Revision、更新 HISTORY 并重新取得用户批准
+10. DOC_RETURNED 时集中返回完整缺口，PLAN 不变；PLAN_REVISION_REQUIRED 时由文档 Agent 形成完整新 Revision、更新 HISTORY 并重新取得用户批准；只有命中 §3.5 治理条件时才发出 GOVERNANCE_EVENT，由规则 Agent 处理
 11. 如 PLAN 有高风险、设计符合度或阶段审查标记，安排未参与实现、自测或修复的验收 Agent 按 PLAN、RESULT 和待独立验收问题检查源码与运行行为；动态测试在一次性临时副本和隔离 runtime 中执行
 12. 验收 Agent 返回绑定 H 的 Design Fidelity、Integration 和适用源码报告；文档 Agent 将结论写入 RESULT
 13. 人实际使用并验收产品
@@ -449,6 +560,10 @@ PLAN 出现“改为、只允许、不再、统一、替换、废弃、删除、
 HISTORY 三份正式版本文档，HISTORY 不是交接或验收报告。文档 Agent 可以在 canonical 并行讨论下一版本 DRAFT；当前候选
 冻结前，开发 Agent 必须同步已批准的文档变化，未批准 DRAFT 和未导入的新设计快照都不构成
 当前版本任务。
+
+流程失败优先沿现有状态机回路处理：缺证据回责任角色补齐、实现缺陷回开发、合同变化回文档 Agent
+形成 PLAN Revision、主观产品判断再交给人。只有状态表本身缺失、冲突、不可执行或反复制造同一治理
+根因时才路由规则 Agent；规则 Agent 的介入不得成为逃避当前职责或增加人工审批的通道。
 
 ## 10. RESULT 的最低信息
 
@@ -481,6 +596,10 @@ RESULT 顶部只使用三个状态：`待验收`、`需修正`、`已验收`。
 ## 11. 上下文控制
 
 - 默认只读取完成当前角色所需的最少文档；
+- 普通 Agent 默认读取当前 PLAN 和由规则真源生成的最小 Role Card，不通过全文阅读所有治理文档来
+  自行判断路由；只有规则 Agent 在被事件路由后读取相关规则全文；
+- Role Card 必须带规则源版本/hash 和适用规则 ID；生成物与规则真源不一致时停止，不得把缓存卡片
+  当成新的规则来源；
 - 会话发生上下文压缩、任务恢复、角色切换或长时间中断后，在执行交接、打回、验收收口或发布前，
   当前 Agent 必须重新读取本文与当前版本 PLAN 中和自身角色相关的边界及合同；不得只凭会话摘要、
   历史做法或角色名称推断权限；
@@ -490,4 +609,6 @@ RESULT 顶部只使用三个状态：`待验收`、`需修正`、`已验收`。
 - V2.1.0 及以前的历史细节留在各版本 RESULT；V2.2.0 起的重要过程放入 HISTORY，RESULT 只保留实际结果、当前 Gate 和最终验收结论；
 - HISTORY 默认冷读取：只有追查 PLAN 修订、候选失效、重大事故或跨版本经验时才打开；
 - 文档 Agent 的交接默认只读取当前 PLAN、当前 RESULT、机械身份和 RESULT 指向的证据入口；不打开源码、测试实现或原始长日志来替代 Acceptance；
+- 规则 Agent 的事件包只包含触发治理判断所需的状态、规则 ID、冲突或复现证据和影响范围；不得把
+  全部项目上下文倾倒给规则 Agent，也不得要求所有其他 Agent 预读规则 Agent 的完整上下文；
 - 根 README 只服务普通 GitHub 用户，不进入开发 Agent 的默认上下文；
