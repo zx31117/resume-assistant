@@ -139,6 +139,15 @@
 .wb-brand-link:hover {
   background: var(--subtle);
 }
+/* V2.2.0 R3 D：键盘可达必须有可见焦点；Space/Enter 激活同一导航。 */
+.wb-brand-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  background: var(--subtle);
+}
+.wb-brand-link:focus:not(:focus-visible) {
+  outline: none;
+}
 
 .wb-brand-logo {
   width: 26px;

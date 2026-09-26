@@ -31,6 +31,39 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+
+def _rmtree_force(path, attempts: int = 8) -> bool:
+    """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。
+
+    Windows 上 `shutil.rmtree(..., ignore_errors=True)` 遇到只读文件会**静默失败**，
+    导致隔离 runtime 残留、Gate cleanup 误判失败（已在 mainchain/design_fidelity/
+    atomic_publish 复现）。这里在出错回调里清除只读位后重试，并做有限次整体重试以
+    吸收句柄释放延迟。
+    """
+    import inspect as _inspect
+    import stat as _stat
+    import time as _time
+
+    def _fix(func, p, exc=None):
+        try:
+            os.chmod(p, _stat.S_IWRITE)
+            func(p)
+        except Exception:  # noqa: BLE001
+            pass
+
+    _params = _inspect.signature(shutil.rmtree).parameters
+    _kw = {"onexc": _fix} if "onexc" in _params else {"onerror": _fix}
+    for _ in range(attempts):
+        try:
+            shutil.rmtree(path, **_kw)
+        except Exception:  # noqa: BLE001
+            pass
+        if not os.path.exists(path):
+            return True
+        _time.sleep(0.4)
+    return not os.path.exists(path)
+
+
 HERE = Path(__file__).resolve().parent            # scripts/
 ROOT = HERE.parent                               # repo root
 EVID = ROOT / "validation-artifacts" / "h8" / "e2e"
@@ -96,8 +129,409 @@ EVIDENCE: dict = {"steps": [], "limits": {
     "python": PY, "note": "Key 由应用从 Windows 凭据库读取；本脚本不接触任何 Key"}}
 
 
+# ── 判定链（V2.2.0 R3 §R3-18 A）：默认失败，单一 finalizer ──────── #
 def log(m: str) -> None:
     print(m, flush=True)
+
+
+class Verdict:
+    """主链 Gate 的唯一判定状态。
+
+    纪律（硬约束）：
+    - 初值一律为**失败**（没有显式 `require(...)` 全部通过就绝不写成功）；
+    - 任何失败/异常/超时/取消/提前返回只做 `fail(...)`，绝不中途置成功；
+    - 只有 `ok` 为真（= 所有必需断言成立、无失败原因、cleanup 后置条件成立）时，
+      finalizer 才允许写 `ok=true` / `gate_passed=true` / rc 0。
+    """
+
+    def __init__(self) -> None:
+        self.checks: dict[str, bool] = {}
+        self.failures: list[str] = []
+        self.stage = "init"
+        self.cleanup: dict = {}
+        self.cleanup_ok: bool | None = None
+
+    def require(self, name: str, cond: bool, **detail) -> bool:
+        ok = bool(cond)
+        self.checks[name] = ok
+        if not ok:
+            self.fail(f"assert_failed:{name}", **detail)
+        return ok
+
+    def fail(self, reason: str, **detail) -> None:
+        entry = reason
+        if detail:
+            entry = reason + " | " + json.dumps(detail, ensure_ascii=False)[:300]
+        if entry not in self.failures:
+            self.failures.append(entry)
+
+    def enter(self, stage: str) -> None:
+        self.stage = stage
+
+    @property
+    def ok(self) -> bool:
+        return (bool(self.checks) and all(self.checks.values())
+                and not self.failures and self.cleanup_ok is True)
+
+
+VD = Verdict()
+
+
+def finalize(rc_internal: int) -> int:
+    """唯一 finalizer：写 JSON 判定 + 推导真实退出码；失败绝不输出 PASS 摘要。"""
+    ok = VD.ok
+    # 失败时强制非零退出：内部 rc 为 0 也必须提升为 1。
+    rc = rc_internal if not ok else 0
+    if ok and rc_internal != 0:
+        rc = rc_internal          # 成功判定但内部 rc 非零 → 视为矛盾，保持非零
+        ok = False
+    if not ok:
+        rc = rc_internal if rc_internal not in (0, None) else 1
+    EVIDENCE["verdict"] = {
+        "ok": bool(ok),
+        "gate_passed": bool(ok),
+        "stage": VD.stage,
+        "checks": VD.checks,
+        "failures": VD.failures,
+        "cleanup": VD.cleanup,
+        "cleanup_ok": VD.cleanup_ok,
+        "internal_rc": rc_internal,
+        "exit_code": rc,
+    }
+    EVIDENCE["ok"] = bool(ok)
+    EVIDENCE["gate_passed"] = bool(ok)
+    EVIDENCE["failures"] = VD.failures
+    EVIDENCE["cleanup_ok"] = VD.cleanup_ok
+    OUT.write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
+    if ok:
+        log(f"[e2e] PASS → {OUT} (ok=true, rc=0)")
+    else:
+        log(f"[e2e] FAIL → {OUT} ok=false rc={rc} stage={VD.stage}")
+        for f in VD.failures[:12]:
+            log(f"[e2e]   - {f}")
+    return rc
+
+
+def _fail_early(stage: str, reason: str, rc: int, **detail) -> int:
+    VD.enter(stage)
+    VD.fail(reason, **detail)
+    return rc
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--exe", required=True, help="最终 onedir 的 ResumeAssistant.exe")
+    ap.add_argument("--api-only", action="store_true",
+                    help="跳过浏览器 UI 段（仅 API 直连，作诊断用；正式 Gate 不允许作为 PASS 依据）")
+    ap.add_argument("--keep", action="store_true", help="结束后不删 runtime（排障用）")
+    args = ap.parse_args()
+
+    exe = Path(args.exe).resolve()
+    if not exe.exists():
+        log(f"[fatal] exe 不存在：{exe}")
+        VD.enter("precheck")
+        VD.fail("exe_missing")
+        return finalize(2)
+    exe_sha = sha256_file(exe)
+    EVIDENCE["exe"] = {"path": str(exe), "sha256": exe_sha,
+                       "size": exe.stat().st_size}
+    log(f"[e2e] exe={exe} sha256={exe_sha[:16]}…")
+
+    # ── 隔离 runtime（仓库外）──
+    runtime = Path(os.environ.get("TEMP", ".")) / f"h8e2e_{int(time.time())}"
+    runtime.mkdir(parents=True, exist_ok=True)
+    EVIDENCE["runtime_dir"] = str(runtime)
+    log(f"[e2e] isolated RESUME_DATA_DIR={runtime}")
+
+    proxy = None
+    app = None
+    app_fh = None
+    rc_internal = 1
+    try:
+        # ── ARK 计数代理（独占空闲端口，避免误连残留实例）──
+        proxy_port = _free_port(8799)
+        proxy_out = EVID / "ark_counts.json"
+        proxy = subprocess.Popen([PY, str(PROXY_PY), "--port", str(proxy_port),
+                                  "--out", str(proxy_out)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 cwd=str(EVID))
+        if not wait_port(proxy_port, 30):
+            rc_internal = _fail_early("proxy", "ark_proxy_not_ready", 2)
+            return rc_internal
+        step("proxy_up", port=proxy_port, counts_file=str(proxy_out))
+
+        # app 端口同样独占空闲端口：残留 app 占 8317 时，固定端口会让本 Gate
+        # “连上别人的实例”，重启本 Gate 也无法自愈（已有独立证据）。
+        app_port = _free_port(8317)
+        env = dict(os.environ)
+        env["RESUME_DATA_DIR"] = str(runtime)
+        env["ARK_BASE_URL"] = f"http://127.0.0.1:{proxy_port}/api/v3"
+        env["APP_PORT"] = str(app_port)
+        env.pop("ARK_API_KEY", None)          # 强制走凭据库，不经脚本注入
+        env.pop("H8_CONV_WORKER", None)
+        env.pop("PYTHONPATH", None)           # 环境 shim 会拦截子进程删除/写入
+
+        ww_before = winword_pids()
+        app_stdout = EVID / "app_stdout.log"
+        app_fh = open(app_stdout, "w", encoding="utf-8", errors="replace")
+        app = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=env,
+                               stdout=app_fh, stderr=subprocess.STDOUT)
+        VD.enter("boot")
+        if not wait_port(app_port, 120):
+            rc_internal = _fail_early("boot", "app_boot_failed", 3,
+                                      pid=app.pid, ret=app.poll())
+            return rc_internal
+        base = f"http://127.0.0.1:{app_port}"
+        step("app_up", pid=app.pid, port=app_port, winword_before=ww_before)
+
+        # 用 requests.Session 维持 ra_session cookie（写操作必须带启动会话令牌）
+        import requests
+        s = requests.Session()
+        r = s.get(f"{base}/api/system/status", timeout=30)
+        step("status", code=r.status_code, has_cookie=bool(s.cookies.get("ra_session")))
+        VD.require("status_200", r.status_code == 200, code=r.status_code)
+        if r.status_code != 200:
+            rc_internal = _fail_early("status", "status_not_200", 4, code=r.status_code)
+            return rc_internal
+        EVIDENCE["status_before"] = r.json()
+
+        # ── 1) 迁移 ──
+        VD.enter("migrate")
+        r = s.post(f"{base}/api/system/migrate", timeout=180)
+        step("migrate", code=r.status_code, body=str(r.json())[:200])
+        VD.require("migrate_200", r.status_code == 200, code=r.status_code)
+        if r.status_code != 200:
+            rc_internal = _fail_early("migrate", "migrate_not_200", 5, code=r.status_code)
+            return rc_internal
+
+        # ── 2) 导入（无隐私测试简历：直接结构化写入，不经 LLM）──
+        VD.enter("import")
+        exp_ids = []
+        for exp in TEST_EXPERIENCES:
+            rr = s.post(f"{base}/api/experience/", json=exp, timeout=120)
+            if rr.status_code != 200:
+                rc_internal = _fail_early("import", "experience_import_failed", 6,
+                                          code=rr.status_code)
+                return rc_internal
+            exp_ids.append(rr.json().get("id"))
+        step("import_experiences", count=len(exp_ids), ids=exp_ids)
+        VD.require("import_experiences_ok", len(exp_ids) == len(TEST_EXPERIENCES))
+
+        # ── 3) Embedding 重建（真实 embedding provider）──
+        VD.enter("rebuild")
+        r = s.post(f"{base}/api/system/rebuild", timeout=600)
+        step("rebuild_embeddings", code=r.status_code, body=str(r.json())[:300])
+        VD.require("rebuild_200", r.status_code == 200, code=r.status_code)
+        if r.status_code != 200:
+            rc_internal = _fail_early("rebuild", "rebuild_not_200", 7, code=r.status_code)
+            return rc_internal
+        st = s.get(f"{base}/api/system/status", timeout=30).json()
+        EVIDENCE["status_after_rebuild"] = st
+        step("status_after_rebuild", embeddings=st.get("embeddings"), ready=st.get("ready"))
+
+        # ── 4) 记录计数基线 ──
+        def counts() -> dict:
+            try:
+                return json.loads(proxy_out.read_text(encoding="utf-8"))
+            except Exception:
+                return {"total": 0, "by_path": {}, "calls": []}
+        c0 = counts()
+        base_total = c0.get("total", 0)
+        step("proxy_baseline", total=base_total, by_path=c0.get("by_path", {}))
+        emb_before = c0.get("by_path", {}).get("/api/v3/embeddings/multimodal", 0)
+
+        # ── 5) 生成：UI 优先；UI 未到 P4 一律判失败（API 回退仅诊断）──
+        VD.enter("generate")
+        EVIDENCE["api_only"] = bool(args.api_only)
+        ui = None
+        if args.api_only:
+            VD.fail("api_only_mode_not_allowed_for_pass")
+        else:
+            ui = _ui_generate(base, app_port, proxy_out, base_total)
+        gen = ui
+        if gen is None:
+            # 诊断性 API 直连（旧兼容链）：只记录，不提高 UI verdict，也不作为主链 PASS 依据。
+            diag = _api_generate(s, base, proxy_out, base_total)
+            EVIDENCE["api_fallback_diagnostic"] = {
+                "used": True,
+                "ok": bool(diag),
+                "note": "UI 未自行到达 P4；API 回退仅提供诊断信息，不参与 UI/主链 verdict",
+            }
+            VD.fail("ui_did_not_reach_p4")
+            rc_internal = 8
+            return rc_internal
+        EVIDENCE["generate"] = gen
+        VD.require("ui_p4_reached", bool(EVIDENCE.get("ui_p4_reached")),
+                   ui_p4_scroll_ok=EVIDENCE.get("ui_p4_scroll"))
+
+        op_id = gen.get("operation_id")
+        # ── 6) 终态计时（P1–P4 服务端投影）──
+        if op_id:
+            rr = s.get(f"{base}/api/system/operations/{op_id}", timeout=60)
+            if rr.status_code == 200:
+                op = rr.json().get("operation", {})
+                ups = op.get("user_phases") or []
+                ssum = sum(int(u.get("elapsed_ms") or 0) for u in ups)
+                elapsed = int(op.get("elapsed_ms") or 0)
+                EVIDENCE["operation_terminal"] = {
+                    "operation_id": op_id, "status": op.get("status"),
+                    "elapsed_ms": elapsed, "phase_sum_ms": ssum,
+                    "delta_ms": abs(elapsed - ssum),
+                    "jd_analysis_started_events": sum(
+                        1 for s2 in (op.get("stages") or [])
+                        if s2.get("stage_code") == "jd_analysis"
+                        and s2.get("event_type") == "STARTED"),
+                    "content_generation_started_events": sum(
+                        1 for s2 in (op.get("stages") or [])
+                        if s2.get("stage_code") == "content_generation"
+                        and s2.get("event_type") == "STARTED"),
+                    "stage_codes": sorted({s2.get("stage_code") for s2 in (op.get("stages") or [])}),
+                    "user_phases": [{"code": u.get("code"), "label": u.get("label"),
+                                     "status": u.get("status"),
+                                     "elapsed_ms": u.get("elapsed_ms"),
+                                     "live_elapsed_ms": u.get("live_elapsed_ms")} for u in ups],
+                }
+                step("operation_terminal", status=op.get("status"), elapsed_ms=elapsed,
+                     phase_sum_ms=ssum, delta_ms=abs(elapsed - ssum))
+
+        # ── 7) 字节一致性：DOCX/PDF 磁盘 artifact vs 下载 vs 响应 ──
+        VD.enter("artifacts")
+        checks = _verify_artifacts(s, base, gen, runtime)
+        for k, v in (checks or {}).items():
+            VD.require(f"artifact_{k}", v is True, detail=k)
+
+        # —— viewer 同源收口（V2.2.0 R2-16 新 DOM）——
+        vp_pdf_href = None
+        for _k, _v in (EVIDENCE.get("viewports") or {}).items():
+            if isinstance(_v, dict) and _v.get("pdfHref"):
+                vp_pdf_href = _v.get("pdfHref")
+                break
+        _dl = (EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}
+        _dl_url = _dl.get("url") or ""
+        _dl_sha = _dl.get("sha256") or ""
+        _vr_ok = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_ready")
+        _pages = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_pages")
+        _same_src = bool(_vr_ok and vp_pdf_href and _dl_url
+                         and vp_pdf_href.split('?')[0] == _dl_url.split('?')[0])
+        EVIDENCE["pdf_viewer_same_source_final"] = {
+            "viewer_ready": bool(_vr_ok), "viewer_pages": _pages,
+            "download_pdf_href_from_viewport": vp_pdf_href,
+            "download_pdf_url": _dl_url, "download_pdf_sha256": _dl_sha,
+            "same_source": _same_src,
+        }
+        step("pdf_viewer_same_source_final", same_source=_same_src,
+             pdf_href=vp_pdf_href, pdf_url=_dl_url, pdf_sha256=(_dl_sha or "")[:16], pages=_pages)
+        VD.require("viewer_ready", bool(_vr_ok))
+        VD.require("viewer_same_source", bool(_same_src))
+
+        # 下载引用必须来自当前 Task（task-scoped 路由），不得是 filename 路由。
+        _dl_refs = [u for u in (_dl_url, (EVIDENCE.get("artifacts") or {})
+                                .get("word_download", {}).get("url")) if u]
+        _task_scoped = bool(_dl_refs) and all("/api/task/" in u and "/artifact/" in u
+                                              for u in _dl_refs)
+        EVIDENCE["download_refs_task_scoped"] = {
+            "urls": _dl_refs, "task_scoped": _task_scoped}
+        VD.require("download_refs_task_scoped", _task_scoped)
+
+        # ── 8) Provider 计数 ──
+        c1 = counts()
+        jd_calls = c1.get("by_path", {}).get("/api/v3/chat/completions", 0) - \
+            c0.get("by_path", {}).get("/api/v3/chat/completions", 0)
+        emb_calls = c1.get("by_path", {}).get("/api/v3/embeddings/multimodal", 0) - emb_before
+        EVIDENCE["provider_counts"] = {
+            "chat_completions_in_generate_window": jd_calls,
+            "embeddings_in_window": emb_calls,
+            "total_before": base_total, "total_after": c1.get("total"),
+            "by_path_after": c1.get("by_path", {}),
+            "calls_in_window": [c for c in c1.get("calls", [])[base_total:]][:40],
+        }
+        step("provider_counts", chat_in_window=jd_calls, emb_in_window=emb_calls)
+        VD.require("provider_calls_happened", jd_calls >= 1)
+
+        # ── 9) WINWORD / 进程泄漏 ──
+        time.sleep(2)
+        ww_after = winword_pids()
+        leaks = sorted(set(ww_after) - set(ww_before))
+        EVIDENCE["cleanup"] = {"winword_before": ww_before, "winword_after": ww_after,
+                               "winword_leaked": leaks}
+        step("winword_check", before=ww_before, after=ww_after, leaked=leaks)
+        VD.require("no_winword_leak", not leaks, leaked=leaks)
+
+        st2 = s.get(f"{base}/api/system/status", timeout=30)
+        EVIDENCE["http_health_final"] = {"status_code": st2.status_code}
+        VD.require("http_health_final", st2.status_code == 200, code=st2.status_code)
+
+        rc_internal = 0
+        return rc_internal
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        EVIDENCE["exception"] = repr(e)
+        VD.enter("exception")
+        VD.fail(f"uncaught_exception:{type(e).__name__}")
+        rc_internal = 9
+        return rc_internal
+    finally:
+        # 资源生命周期：所有返回路径统一在此清理（异常/失败/超时/提前返回同样覆盖）。
+        VD.enter("teardown")
+        cleanup = {"app_terminated": None, "proxy_terminated": None,
+                   "runtime_removed": None, "winword_leaked": None}
+        try:
+            if app is not None:
+                try:
+                    app.terminate()
+                    app.wait(timeout=15)
+                    cleanup["app_terminated"] = True
+                except Exception:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    cleanup["app_terminated"] = app.poll() is not None
+                if cleanup["app_terminated"] is not True:
+                    VD.fail("teardown_app_still_running")
+        except Exception:  # noqa: BLE001
+            cleanup["app_terminated"] = False
+            VD.fail("teardown_app_terminate_failed")
+        try:
+            if app_fh is not None:
+                app_fh.close()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            if proxy is not None:
+                proxy.terminate()
+                cleanup["proxy_terminated"] = True
+        except Exception:  # noqa: BLE001
+            cleanup["proxy_terminated"] = False
+            VD.fail("teardown_proxy_terminate_failed")
+        time.sleep(1)
+        if not args.keep:
+            _rmtree_force(runtime)
+            cleanup["runtime_removed"] = not runtime.exists()
+            EVIDENCE["runtime_deleted"] = bool(cleanup["runtime_removed"])
+        else:
+            cleanup["runtime_removed"] = None
+            EVIDENCE["runtime_deleted"] = False
+        if cleanup["runtime_removed"] is not True:
+            # keep 模式不参与判定；非 keep 模式下删不掉 = cleanup 失败，必须压低 verdict
+            if not args.keep:
+                VD.fail("teardown_runtime_not_removed")
+        try:
+            ww = winword_pids()
+            cleanup["winword_leaked"] = sorted(ww)
+            if ww:
+                VD.fail("teardown_winword_leaked", leaked=sorted(ww))
+        except Exception:  # noqa: BLE001
+            cleanup["winword_leaked"] = None
+        VD.cleanup = cleanup
+        VD.cleanup_ok = (
+            cleanup["app_terminated"] in (True, None)
+            and cleanup["proxy_terminated"] in (True, None)
+            and cleanup["winword_leaked"] in ([], None)
+            and (cleanup["runtime_removed"] is True or args.keep)
+        )
+        EVIDENCE["teardown_cleanup"] = cleanup
+        rc = finalize(rc_internal)
+        return rc
 
 
 def shot_size(v: dict) -> str:
@@ -126,8 +560,9 @@ def sha256_file(p: Path) -> str:
 
 
 # PLAN §4.3/§7.1 的 7 个冻结 viewport。
+# PLAN §4.3/§7.1 的冻结 viewport（V2.2.0 R3：追加 1686x1076 参考桌面视口）。
 VIEWPORTS: list[tuple[int, int]] = [
-    (1920, 1080), (1440, 900), (1280, 800), (1024, 768),
+    (1686, 1076), (1920, 1080), (1440, 900), (1280, 800), (1024, 768),
     (720, 450), (390, 844), (320, 568),
 ]
 
@@ -180,10 +615,37 @@ def wait_port(port: int, timeout: float = 90.0) -> bool:
     return False
 
 
+def _port_in_use(port: int) -> bool:
+    """该端口是否已有监听者（用于避免误连到残留 app 实例）。"""
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+    try:
+        s.bind(("127.0.0.1", port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def _free_port(preferred: int, tries: int = 200) -> int:
+    """优先用 preferred；被占用则顺序探测到首个空闲端口。
+
+    避免固定端口（8317/8799）被上一轮残留 app/proxy 占用时，本 Gate 会
+    `wait_port` 立即成功却把请求发给**别的实例**（在崩溃残留场景已复现）。
+    """
+    if not _port_in_use(preferred):
+        return preferred
+    for p in range(preferred + 1, preferred + 1 + tries):
+        if not _port_in_use(p):
+            return p
+    return preferred
+
+
 def winword_pids() -> list[int]:
     try:
         r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq WINWORD.EXE", "/FO", "CSV", "/NH"],
-                           capture_output=True, text=True, timeout=20)
+                           capture_output=True, text=True, errors="replace", timeout=20)
         pids = []
         for ln in r.stdout.splitlines():
             parts = [x.strip('"') for x in ln.split(",")]
@@ -194,221 +656,6 @@ def winword_pids() -> list[int]:
         return []
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--exe", required=True, help="最终 onedir 的 ResumeAssistant.exe")
-    ap.add_argument("--api-only", action="store_true", help="跳过浏览器 UI 段（仅 API 直连）")
-    ap.add_argument("--keep", action="store_true", help="结束后不删 runtime（排障用）")
-    args = ap.parse_args()
-
-    exe = Path(args.exe).resolve()
-    if not exe.exists():
-        log(f"[fatal] exe 不存在：{exe}")
-        return 2
-    exe_sha = sha256_file(exe)
-    EVIDENCE["exe"] = {"path": str(exe), "sha256": exe_sha,
-                       "size": exe.stat().st_size}
-    log(f"[e2e] exe={exe} sha256={exe_sha[:16]}…")
-
-    # ── 隔离 runtime（仓库外）──
-    runtime = Path(os.environ.get("TEMP", ".")) / f"h8e2e_{int(time.time())}"
-    runtime.mkdir(parents=True, exist_ok=True)
-    EVIDENCE["runtime_dir"] = str(runtime)
-    log(f"[e2e] isolated RESUME_DATA_DIR={runtime}")
-
-    # ── ARK 计数代理 ──
-    proxy_port = 8799
-    proxy_out = EVID / "ark_counts.json"
-    proxy = subprocess.Popen([PY, str(PROXY_PY), "--port", str(proxy_port), "--out", str(proxy_out)],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(EVID))
-    if not wait_port(proxy_port, 30):
-        log("[fatal] ARK 代理未就绪")
-        proxy.kill()
-        return 2
-    step("proxy_up", port=proxy_port, counts_file=str(proxy_out))
-
-    app_port = 8317
-    env = dict(os.environ)
-    env["RESUME_DATA_DIR"] = str(runtime)
-    env["ARK_BASE_URL"] = f"http://127.0.0.1:{proxy_port}/api/v3"
-    env["APP_PORT"] = str(app_port)
-    env.pop("ARK_API_KEY", None)          # 强制走凭据库，不经脚本注入
-    env.pop("H8_CONV_WORKER", None)
-
-    ww_before = winword_pids()
-    app_stdout = EVID / "app_stdout.log"
-    app_fh = open(app_stdout, "w", encoding="utf-8", errors="replace")
-    app = subprocess.Popen([str(exe)], cwd=str(exe.parent), env=env,
-                           stdout=app_fh, stderr=subprocess.STDOUT)
-    ok = False
-    try:
-        if not wait_port(app_port, 120):
-            step("app_boot_failed", pid=app.pid, ret=app.poll())
-            return 3
-        ok = True
-        base = f"http://127.0.0.1:{app_port}"
-        step("app_up", pid=app.pid, port=app_port, winword_before=ww_before)
-
-        # 用 requests.Session 维持 ra_session cookie（写操作必须带启动会话令牌）
-        import requests
-        s = requests.Session()
-        r = s.get(f"{base}/api/system/status", timeout=30)
-        step("status", code=r.status_code, has_cookie=bool(s.cookies.get("ra_session")))
-        if r.status_code != 200:
-            return 4
-        EVIDENCE["status_before"] = r.json()
-
-        # ── 1) 迁移 ──
-        r = s.post(f"{base}/api/system/migrate", timeout=180)
-        step("migrate", code=r.status_code, body=str(r.json())[:200])
-        if r.status_code != 200:
-            return 5
-
-        # ── 2) 导入（无隐私测试简历：直接结构化写入，不经 LLM）──
-        exp_ids = []
-        for exp in TEST_EXPERIENCES:
-            rr = s.post(f"{base}/api/experience/", json=exp, timeout=120)
-            if rr.status_code != 200:
-                step("experience_import_failed", code=rr.status_code, body=rr.text[:200])
-                return 6
-            exp_ids.append(rr.json().get("id"))
-        step("import_experiences", count=len(exp_ids), ids=exp_ids)
-
-        # ── 3) Embedding 重建（真实 embedding provider）──
-        r = s.post(f"{base}/api/system/rebuild", timeout=600)
-        step("rebuild_embeddings", code=r.status_code, body=str(r.json())[:300])
-        if r.status_code != 200:
-            return 7
-        st = s.get(f"{base}/api/system/status", timeout=30).json()
-        EVIDENCE["status_after_rebuild"] = st
-        step("status_after_rebuild", embeddings=st.get("embeddings"), ready=st.get("ready"))
-
-        # ── 4) 记录计数基线 ──
-        def counts() -> dict:
-            try:
-                return json.loads(proxy_out.read_text(encoding="utf-8"))
-            except Exception:
-                return {"total": 0, "by_path": {}, "calls": []}
-        c0 = counts()
-        base_total = c0.get("total", 0)
-        step("proxy_baseline", total=base_total, by_path=c0.get("by_path", {}))
-        emb_before = c0.get("by_path", {}).get("/api/v3/embeddings/multimodal", 0)
-
-        # ── 5) 生成（真实模型；浏览器 UI 驱动，若可用）──
-        ui = None
-        if not args.api_only:
-            ui = _ui_generate(base, app_port, proxy_out, base_total)
-        gen = ui
-        if gen is None:
-            gen = _api_generate(s, base, proxy_out, base_total)
-        if not gen:
-            return 8
-        EVIDENCE["generate"] = gen
-
-        op_id = gen.get("operation_id")
-        # ── 6) 终态计时（P1–P4 服务端投影）──
-        if op_id:
-            rr = s.get(f"{base}/api/system/operations/{op_id}", timeout=60)
-            if rr.status_code == 200:
-                op = rr.json().get("operation", {})
-                ups = op.get("user_phases") or []
-                ssum = sum(int(u.get("elapsed_ms") or 0) for u in ups)
-                elapsed = int(op.get("elapsed_ms") or 0)
-                EVIDENCE["operation_terminal"] = {
-                    "operation_id": op_id, "status": op.get("status"),
-                    "elapsed_ms": elapsed, "phase_sum_ms": ssum, "delta_ms": abs(elapsed - ssum),
-                    "jd_analysis_started_events": sum(
-                        1 for s in (op.get("stages") or [])
-                        if s.get("stage_code") == "jd_analysis" and s.get("event_type") == "STARTED"),
-                    "content_generation_started_events": sum(
-                        1 for s in (op.get("stages") or [])
-                        if s.get("stage_code") == "content_generation" and s.get("event_type") == "STARTED"),
-                    "stage_codes": sorted({s.get("stage_code") for s in (op.get("stages") or [])}),
-                    "user_phases": [{"code": u.get("code"), "label": u.get("label"),
-                                     "status": u.get("status"), "elapsed_ms": u.get("elapsed_ms"),
-                                     "live_elapsed_ms": u.get("live_elapsed_ms")} for u in ups],
-                }
-                step("operation_terminal", status=op.get("status"), elapsed_ms=elapsed,
-                     phase_sum_ms=ssum, delta_ms=abs(elapsed - ssum))
-
-        # ── 7) 字节一致性：DOCX/PDF 磁盘 artifact vs 下载 vs 响应 ──
-        _verify_artifacts(s, base, gen, runtime)
-
-        # —— viewer 同源收口（V2.2.0 R2-16 新 DOM）——
-        # 主面板 PdfPreview 以 fetch(pdfUrl) 读取 /api/template/download?path=output/<pdf>；
-        # successAside「↓ PDF」的 href 来自同一 published_pdf_path → 同 URL（同一 artifact）。
-        # 证据=viewer ready + 下载锚 href == 成品 PDF url + 下载字节 sha 与响应一致。
-        vp_pdf_href = None
-        for _k, _v in (EVIDENCE.get("viewports") or {}).items():
-            if isinstance(_v, dict) and _v.get("pdfHref"):
-                vp_pdf_href = _v.get("pdfHref")
-                break
-        _dl_url = ((EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}).get("url") or ""
-        _dl_sha = ((EVIDENCE.get("artifacts") or {}).get("pdf_download") or {}).get("sha256") or ""
-        _vr_ok = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_ready")
-        _pages = (EVIDENCE.get("ui_pdf_viewer") or {}).get("viewer_pages")
-        # viewer 与下载走同一条成熟；同源 = 下载锚 href 与成品 PDF URL 一致（同一不可变 artifact）
-        _same_src = bool(_vr_ok and vp_pdf_href and _dl_url
-                         and vp_pdf_href.split('?')[0] == _dl_url.split('?')[0])
-        EVIDENCE["pdf_viewer_same_source_final"] = {
-            "viewer_ready": bool(_vr_ok),
-            "viewer_pages": _pages,
-            "download_pdf_href_from_viewport": vp_pdf_href,
-            "download_pdf_url": _dl_url,
-            "download_pdf_sha256": _dl_sha,
-            "same_source": _same_src,
-        }
-        step("pdf_viewer_same_source_final", same_source=_same_src,
-             pdf_href=vp_pdf_href, pdf_url=_dl_url, pdf_sha256=_dl_sha[:16], pages=_pages)
-
-        # ── 8) Provider 计数（JD 恰 1 / rewrite 次数 / 无输入页预分析）──
-        c1 = counts()
-        jd_calls = c1.get("by_path", {}).get("/api/v3/chat/completions", 0) - \
-            c0.get("by_path", {}).get("/api/v3/chat/completions", 0)
-        emb_calls = c1.get("by_path", {}).get("/api/v3/embeddings/multimodal", 0) - emb_before
-        EVIDENCE["provider_counts"] = {
-            "chat_completions_in_generate_window": jd_calls,
-            "embeddings_in_window": emb_calls,
-            "total_before": base_total, "total_after": c1.get("total"),
-            "by_path_after": c1.get("by_path", {}),
-            "calls_in_window": [c for c in c1.get("calls", [])[base_total:]
-                                if True][:40],
-        }
-        step("provider_counts", chat_in_window=jd_calls, emb_in_window=emb_calls)
-
-        # ── 9) WINWORD / 进程泄漏 ──
-        time.sleep(2)
-        ww_after = winword_pids()
-        leaks = sorted(set(ww_after) - set(ww_before))
-        EVIDENCE["cleanup"] = {"winword_before": ww_before, "winword_after": ww_after,
-                               "winword_leaked": leaks}
-        step("winword_check", before=ww_before, after=ww_after, leaked=leaks)
-
-        st2 = s.get(f"{base}/api/system/status", timeout=30)
-        EVIDENCE["http_health_final"] = {"status_code": st2.status_code}
-        return 0 if not leaks else 9
-    finally:
-        try:
-            app.terminate()
-            app.wait(timeout=15)
-        except Exception:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            app_fh.close()
-        except Exception:
-            pass
-        proxy.terminate()
-        time.sleep(1)
-        if not args.keep:
-            # 只删本次全新隔离 runtime（仓库外、本脚本创建）
-            shutil.rmtree(runtime, ignore_errors=True)
-            EVIDENCE["runtime_deleted"] = True
-        # R3 §R3-10 B/C：JSON 结论、控制台结论与进程退出码必须一致，不能只看日志。
-        EVIDENCE["ok"] = bool(ok)
-        EVIDENCE["gate_passed"] = bool(ok)
-        OUT.write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
-        log(f"[e2e] wrote {OUT} ok={ok}")
 
 
 # ── 浏览器 UI 驱动（真实点击下载）──────────────────────────────── #
@@ -573,7 +820,8 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
         if not poll_p4():
             step("ui_p4_not_reached", note="工作台未推进到 P4 成品视图，回退 API 直连")
             return None
-        step("ui_p4_reached", note="P4 成品视图可见（含下载区）")
+        EVIDENCE["ui_p4_reached"] = True
+        step("ui_p4_reached", note="P4 成品视图由 UI 自身推进到达（含下载区）")
 
         # PDF.js viewer 与「下载 PDF」为同一 artifact 的真实同一源断言。
         # pdfjs-dist 是模块内引入，`window['PDF.js']` 不存在 → 不能用全局探针；改为等待
@@ -729,6 +977,14 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
             v["shot_exists"] = shot.exists()
             vp_results[f"{vw}x{vh}"] = v
         EVIDENCE["viewports"] = vp_results
+        _ref = vp_results.get("1686x1076") or {}
+        EVIDENCE["ui_p4_scroll"] = {
+            "viewport": "1686x1076",
+            "doc_overflow": (_ref.get("overflow") or {}).get("doc"),
+            "body_overflow": (_ref.get("overflow") or {}).get("body"),
+            "scrollables": _ref.get("scrollables"),
+            "note": "P4 成功态参考桌面视口下的整页/内部滚动观察（正式 1686x1076 回看态断言在 design_fidelity Gate）",
+        }
         for (vw, vh) in VIEWPORTS:
             k = f"{vw}x{vh}"
             v = vp_results.get(k, {})
@@ -765,7 +1021,7 @@ def _api_generate(s, base: str, proxy_out: Path, base_total: int) -> dict | None
     return r.json()
 
 
-def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> None:
+def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> dict:
     """DOCX/PDF 磁盘 artifact vs HTTP 下载 字节一致；无 404/405/5xx。"""
     out: dict = {}
     # 磁盘定位
@@ -774,13 +1030,21 @@ def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> None:
     cands = []
     if fp:
         cands.append(Path(fp) if Path(fp).is_absolute() else runtime / fp)
-    cands.append(runtime / "output" / str(gen.get("file_name") or ""))
+    if gen.get("file_name"):
+        cands.append(runtime / "output" / str(gen.get("file_name")))
+    # V2.2.0 R3：UI 路径的下载 href 已是 task-scoped 路由（不含 path 参数），
+    # 文件名不再从 URL 推断；改为从 output 目录按 mtime 取最新 docx 兜底定位磁盘 artifact。
+    docx_cands = sorted((runtime / "output").glob("*.docx"),
+                        key=lambda p: p.stat().st_mtime, reverse=True) \
+        if (runtime / "output").is_dir() else []
+    cands += list(docx_cands[:1])
     for c in cands:
-        if c and c.exists():
-            docx_disk = c
+        if c and Path(c).is_file():
+            docx_disk = Path(c)
             break
     pdf_disk = None
-    for c in sorted((runtime / "output").glob("*.pdf")) if (runtime / "output").is_dir() else []:
+    for c in sorted((runtime / "output").glob("*.pdf"), key=lambda p: p.stat().st_mtime,
+                    reverse=True) if (runtime / "output").is_dir() else []:
         pdf_disk = c
         break
     out["docx_disk"] = {"path": str(docx_disk), "sha256": sha256_file(docx_disk),
@@ -872,6 +1136,7 @@ def _verify_artifacts(s, base: str, gen: dict, runtime: Path) -> None:
     checks["head_no_4xx_5xx"] = bool(codes_rng) and all(isinstance(c, int) and c < 400 for c in codes_rng)
     EVIDENCE["artifact_checks"] = checks
     step("artifact_checks", **checks)
+    return checks
 
 
 def _anchors_bound(gen: dict) -> dict:

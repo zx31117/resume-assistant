@@ -108,52 +108,18 @@ def _make_package(root: Path) -> tuple[Path, str]:
 
 
 def _make_evidence(root: Path, exe_sha: str) -> Path:
+    """写出与 `h8_r3_manifest.py` 逐 Gate 合同一致的“全通过”证据集合。
+
+    V2.2.0 R3 返工：manifest 已改为逐 Gate 交叉核验（命令/退出码/证据 hash/证据内 verdict/
+    包身份/后置条件/cleanup），因此夹具必须由共享构造器生成，否则正向对照无法成立。
+    """
     ev = root / "ev"
     ev.mkdir(parents=True, exist_ok=True)
-    _write(ev / "package_audit.json", json.dumps(
-        {"dir": "pkg", "files": 2, "pass": True, "exe_sha256": exe_sha}))
-    _write(ev / "pyz_check.json", json.dumps(
-        {"all_ok": True, "exe": {"sha256": exe_sha}}))
-    _write(ev / "failure_matrix.json", json.dumps(
-        {"final_pass": True, "exe_sha256": exe_sha, "cleanup_gate_ok": True}))
-    _write(ev / "content_real_model.json", json.dumps(
-        {"ok": True, "exe": {"sha256": exe_sha}, "runtime_deleted": True}))
-    _write(ev / "real_model_e2e.json", json.dumps(
-        {"ok": True, "exe": {"sha256": exe_sha}, "runtime_deleted": True,
-         "cleanup": {"winword_leaked": []}}))
-    _write(ev / "design_fidelity.json", json.dumps(
-        {"exe_sha256": exe_sha, "summary": {"pass": 1, "fail": 0},
-         "cleanup": {"runtime_removed": True}}))
-    _write(ev / "six_grid_aggregate.json", json.dumps(
-        {"pass": True, "exe": {"sha256": exe_sha}, "n_samples": 18,
-         "first_fact_median_s": 1.0, "first_fact_max_s": 2.0}))
-    cases = [{"case": c, "fail_closed": True, "exit_code": 1, "fail_messages": ["injected"]}
-             for c in ("missing_sample", "dup_sample", "missing_grid", "embedding_2",
-                       "false_check", "truncated_evidence", "cleanup_failed")]
-    _write(ev / "six_grid_negative_selftest.json", json.dumps(
-        {"cases": cases, "all_fail_closed": True, "all_exit_codes_nonzero": True,
-         "nonzero_exit_failures": []}))
-    # 身份矩阵证据（夹具内为占位；真实运行由本运行器产出后放入证据目录）。
-    idm_cases = [{"id": i, "case": f"fixture_case_{i}", "mode": "build", "exit_code": 1,
-                  "pass_emitted": False, "verdict_false": True, "problems_nonempty": True,
-                  "problems": ["fixture"], "ok": True} for i in range(1, 16)]
-    _write(ev / "git_identity_matrix.json", json.dumps(
-        {"_meta": {"generator": "fixture"},
-         "positive_control": {"ok": True},
-         "cases": idm_cases,
-         "case_ids": list(range(1, 16)),
-         "all_ok": True, "failures": []}))
-    _write(ev / "gates_run.json", json.dumps({
-        "_meta": {"generator": "fixture"},
-        "gates": [{"gate": "precheck", "command": "true", "exit_code": 0,
-                   "runtime_s": 0, "evidence": "precheck.log", "evidence_sha256": None}],
-        "all_exit_zero": True,
-        "cleanup": {"content_runtime_deleted": True, "e2e_runtime_deleted": True,
-                    "fidelity_runtime_removed": True,
-                    "failure_matrix_cleanup_gate_ok": True, "winword_leaked": []},
-        "verdicts": {"ok": True},
-        "final_verdict": True,
-    }))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import h8_r3_gate_fixtures as fx_mod  # noqa: PLC0415
+
+    runs = fx_mod.write_valid_evidence(ev, exe_sha)
+    _write(ev / "gates_run.json", json.dumps(runs, ensure_ascii=False, indent=2))
     return ev
 
 

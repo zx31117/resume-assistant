@@ -457,6 +457,20 @@ export interface TaskOut {
   subtasks: unknown[]
 }
 
+/** V2.2.0 R3：已登记且经文件级校验的不可变 artifact 引用。 */
+export interface TaskArtifactRef {
+  artifact_id: string
+  task_id?: string
+  user_id?: string
+  kind: 'docx' | 'pdf'
+  resume_revision: number
+  file_name: string
+  rel_dir?: string
+  sha256: string
+  size_bytes: number
+  download_path?: string
+}
+
 /** GET /api/task/records 一条真实生成记录（V220-R2-T08「我的简历」列表项）。 */
 export interface TaskRecordOut {
   task_id: string
@@ -464,6 +478,8 @@ export interface TaskRecordOut {
   published_resume_revision: number | null
   published_docx_path: string | null
   published_pdf_path: string | null
+  /** V2.2.0 R3：缺省/为空视为不可下载（fail closed，不伪造下载入口）。 */
+  artifacts?: TaskArtifactRef[]
   created_at: string
   updated_at: string
   latest_input: {

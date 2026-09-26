@@ -40,6 +40,7 @@ from core.task import (
     TaskStatus,
 )
 from database.models import (
+    Artifact,
     InputRevision,
     Task,
     TaskEvent,
@@ -256,21 +257,19 @@ class TaskRepository:
     def list_records(self, *, limit: int = 200) -> list[dict]:
         """列出真实可用的生成记录（我的简历列表，V220-R2-T08 补齐）。
 
-        仅返回 SUCCEEDED 且已发布 DOCX/PDF 产物的任务；每条含可复核的发布引用与最新入参。
-        为空则不伪造历史，如实返回 []。
+        仅返回 SUCCEEDED 且已登记不可变 artifact 引用的任务；每条含可复核的发布引用与最新入参。
+        为空则不伪造历史，如实返回 []。**文件级 fail-closed 校验**（存在/非零/hash）
+        由 `TaskService.list_records` 完成，避免仓储层触碰文件系统。
         """
         rows = (self._db.query(Task)
                 .filter(Task.user_id == current_user_id())  # V2.2.0 P0：只列 owner 的记录
                 .filter(Task.status == TaskStatus.SUCCEEDED.value)
-                .filter(
-                    Task.published_docx_path.isnot(None),
-                    Task.published_docx_path != "",
-                )
                 .order_by(Task.updated_at.desc())
                 .limit(limit)
                 .all())
         out: list[dict] = []
         for t in rows:
+            arts = self.list_artifacts(t.task_id)
             latest = (self._db.query(InputRevision)
                       .filter_by(task_id=t.task_id)
                       .order_by(InputRevision.revision.desc())
@@ -282,6 +281,7 @@ class TaskRepository:
                 "published_resume_revision": t.published_resume_revision,
                 "published_docx_path": t.published_docx_path,
                 "published_pdf_path": t.published_pdf_path,
+                "artifacts": arts,
                 "created_at": t.created_at.isoformat() if t.created_at else "",
                 "updated_at": t.updated_at.isoformat() if t.updated_at else "",
                 "latest_input": {
@@ -291,6 +291,40 @@ class TaskRepository:
                 } if latest else None,
             })
         return out
+
+    # ── 不可变 artifact 引用（V2.2.0 Revision 3 返工） ──
+    @staticmethod
+    def _artifact_view(a: "Artifact") -> dict[str, Any]:
+        return {
+            "artifact_id": a.artifact_id,
+            "task_id": a.task_id,
+            "user_id": a.user_id,
+            "kind": a.kind,
+            "resume_revision": a.resume_revision,
+            "file_name": a.file_name,
+            "rel_dir": a.rel_dir,
+            "sha256": a.sha256,
+            "size_bytes": a.size_bytes,
+        }
+
+    def list_artifacts(self, task_id: str) -> list[dict[str, Any]]:
+        rows = (self._db.query(Artifact)
+                .filter_by(task_id=task_id)
+                .order_by(Artifact.kind, Artifact.resume_revision)
+                .all())
+        return [self._artifact_view(a) for a in rows]
+
+    def resolve_artifact(self, task_id: str, kind: str,
+                         resume_revision: Optional[int] = None) -> Optional[dict[str, Any]]:
+        """按 (task_id, kind, resume_revision) 解析**已登记**的不可变 artifact 引用。
+
+        未登记 → None（调用方统一按 404 处理，不泄露存在性差异）。
+        """
+        q = self._db.query(Artifact).filter_by(task_id=task_id, kind=kind)
+        if resume_revision is not None:
+            q = q.filter(Artifact.resume_revision == resume_revision)
+        a = q.order_by(Artifact.resume_revision.desc()).first()
+        return self._artifact_view(a) if a is not None else None
 
     def assert_writable(self, task: Task) -> None:
         """终态（SUCCEEDED/FAILED/CANCELLED）拒收现状结果写入（T5：迟到结果不得发布）。
@@ -608,8 +642,15 @@ class TaskRepository:
 
     # ── 状态发布（终态引用产物） ──
     def publish_artifacts(self, task: Task, *, resume_revision: int,
-                          docx_path: str, pdf_path: str) -> None:
-        """仅在 SUCCEEDED 终态发布最终产物引用（T5：取消/失败不得发布 artifact）。"""
+                          docx_path: str, pdf_path: str,
+                          docx_artifact_id: str = "",
+                          pdf_artifact_id: str = "") -> None:
+        """仅在 SUCCEEDED 终态发布最终产物引用（T5：取消/失败不得发布 artifact）。
+
+        V2.2.0 Revision 3 返工：本方法只接受**已登记**的不可变 artifact 文件名；
+        调用方必须在同一事务内先 `register_artifact(...)` 再 `transition(SUCCEEDED)`
+        再调用本方法（或用 `publish_success(...)` 一次性完成）。
+        """
         if TaskStatus(task.status) != TaskStatus.SUCCEEDED:
             raise TaskStateError("仅在 SUCCEEDED 发布最终产物引用",
                                  details={"status": task.status})
@@ -617,6 +658,91 @@ class TaskRepository:
         task.published_docx_path = docx_path
         task.published_pdf_path = pdf_path
         task.updated_at = _utcnow()
+
+    def register_artifact(self, task: Task, *, kind: str, resume_revision: int,
+                          file_name: str, sha256: str, size_bytes: int,
+                          rel_dir: str = "output") -> Artifact:
+        """登记一条不可变 artifact 引用（仅接受已提升到发布目录的文件名）。
+
+        fail-closed 前置条件：
+        - 任务必须归属 owner（与 `task.user_id` 一致）；
+        - `kind` ∈ {docx, pdf}；
+        - `file_name` 必须是单段文件名（不含分隔符/上级引用）。
+        """
+        owner = current_user_id()
+        if task.user_id != owner:
+            raise TaskStateError("artifact 归属与当前 owner 不一致，拒绝登记",
+                                 details={"task_id": task.task_id})
+        k = (kind or "").strip().lower()
+        if k not in ("docx", "pdf"):
+            raise TaskStateError(f"非法 artifact kind：{kind}",
+                                 details={"kind": kind})
+        if (not file_name) or "/" in file_name or "\\" in file_name \
+                or file_name in (".", ".."):
+            raise TaskStateError("非法 artifact file_name（必须为单段文件名）",
+                                 details={"file_name": file_name})
+        existing = (self._db.query(Artifact)
+                    .filter_by(task_id=task.task_id, kind=k,
+                               resume_revision=resume_revision)
+                    .first())
+        if existing is not None:
+            existing.file_name = file_name
+            existing.sha256 = sha256
+            existing.size_bytes = int(size_bytes)
+            existing.rel_dir = rel_dir
+            existing.created_at = _utcnow()
+            return existing
+        a = Artifact(
+            artifact_id=_new_uuid(),
+            task_id=task.task_id,
+            user_id=owner,
+            kind=k,
+            resume_revision=resume_revision,
+            file_name=file_name,
+            rel_dir=rel_dir,
+            sha256=sha256,
+            size_bytes=int(size_bytes),
+            created_at=_utcnow(),
+        )
+        self._db.add(a)
+        self._db.flush()
+        return a
+
+    def publish_success(self, task: Task, *, resume_revision: int,
+                        promoted: dict[str, Any]) -> None:
+        """在**同一事务边界**登记不可变 artifact 引用 + `SUCCEEDED` + 发布引用。
+
+        `promoted` 为 `document_assembler.promote_staged_artifacts` 的返回值：
+        {"docx": {...}|None, "pdf": {...}|None}。DOCX 为必需（无则拒绝发布）。
+        调用方负责 commit；本方法只做同一 session 内的顺序写入，保证原子性。
+        """
+        docx = (promoted or {}).get("docx")
+        if not docx or not docx.get("file_name"):
+            raise TaskStateError("缺少已提升的 DOCX，拒绝发布成功终态",
+                                 details={"task_id": task.task_id})
+        if TaskStatus(task.status) not in (TaskStatus.RUNNING, TaskStatus.READY):
+            raise TaskStateError(
+                f"仅 RUNNING/READY 可原子发布成功，当前 {task.status}",
+                details={"status": task.status})
+        docx_a = self.register_artifact(
+            task, kind="docx", resume_revision=resume_revision,
+            file_name=docx["file_name"], sha256=docx.get("sha256", ""),
+            size_bytes=int(docx.get("size_bytes") or 0))
+        pdf = (promoted or {}).get("pdf")
+        pdf_a = None
+        if pdf and pdf.get("file_name"):
+            pdf_a = self.register_artifact(
+                task, kind="pdf", resume_revision=resume_revision,
+                file_name=pdf["file_name"], sha256=pdf.get("sha256", ""),
+                size_bytes=int(pdf.get("size_bytes") or 0))
+        self.transition(task, TaskStatus.SUCCEEDED)
+        self.publish_artifacts(
+            task, resume_revision=resume_revision,
+            docx_path=f"output/{docx_a.file_name}",
+            pdf_path=f"output/{pdf_a.file_name}" if pdf_a is not None else "",
+            docx_artifact_id=docx_a.artifact_id,
+            pdf_artifact_id=pdf_a.artifact_id if pdf_a is not None else "",
+        )
 
     # ── 事件读取（SSE 重连：先取快照，再从 seq+1 订阅） ──
     def list_events_after(self, task_id: str, after_seq: int,

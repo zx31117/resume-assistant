@@ -37,6 +37,17 @@ _ALL_MODES = ("cold", "warm")
 
 FIRST_FACT_LIMIT_S = 15.0
 
+# V2.1.0 同格总时长中位（s）—— PLAN §5.5「typical/long 总时长相对 V2.1.0 同格中位数
+# 降低 ≥25%」的硬门禁基线。值取自 V2.1.0 六格实测（RESULT §R2 表），为固定参照常量，
+# 不随本轮运行变化。short 两格无基线，不参与降幅判定。
+V21_BASELINE_TOTAL_MEDIAN_S = {
+    "cold/typical": 89.49,
+    "cold/long": 94.32,
+    "warm/typical": 84.48,
+    "warm/long": 97.92,
+}
+REDUCTION_MIN = 0.25  # 降幅 ≥25%（等价于 total 中位 ≤ 0.75×基线）
+
 
 def _sha256_file(p: Path) -> str:
     h = hashlib.sha256()
@@ -75,36 +86,68 @@ def _run_cell_process(size: str, mode: str, n: int) -> tuple[list[dict], int, st
     return cell_meta, proc.returncode, tail
 
 
-def _collect(size: str, mode: str, n: int) -> list[dict]:
-    """收集单格样本。
+def _run_cell_with_retry(size: str, mode: str, n: int,
+                         attempts: int = 3) -> tuple[list[dict], int, str, int, list[dict]]:
+    """收集单格，**仅对无有效 JSON 的明确基础设施失败**做有限重试。
+
+    §R3-20 返工关键约束：完成样本（含超限慢样本、业务失败样本、合同失败样本）一旦产出
+    有效 JSON，**必须保留并压低本轮 Gate，不得丢弃后重跑**。只有进程被外部信号杀 / 无输出 /
+    JSON 全不可解析这类"无有效样本"的基础设施失败才允许有限重试。返回
+    (rows, rc, tail, used_attempts, retry_ledger)。
+    """
+    import time as _time
+    ledger: list[dict] = []
+    for a in range(max(1, attempts)):
+        got, rc, tail = _run_cell_process(size, mode, n)
+        ledger.append({
+            "attempt": a + 1, "rc": rc, "valid_rows": len(got),
+            "discarded_valid_rows": False,
+        })
+        if got:
+            # 有有效 JSON 样本 = 完成样本，必须保留；即使 rc!=0（业务/合同失败）也不重跑。
+            return got, rc, tail, a + 1, ledger
+        if a + 1 < attempts:
+            _time.sleep(2.0 * (a + 1))
+    # 重试耗尽仍无有效样本：返回空 + 非零 rc，最终由 _evaluate 判 CELL_FAILED。
+    return [], 1, "", max(1, attempts), ledger
+
+
+def _collect(size: str, mode: str, n: int) -> tuple[list[dict], list[dict]]:
+    """收集单格样本，返回 (rows, retry_ledger)。
 
     冷启动格（cold）必须"每样本独立全新 OS 进程 + 新 DB + 新 runtime 目录"（矩阵进程内的
     module-global 引擎会跨样本复用，导致第 2/3 个样本崩溃或复用旧库）。因此 cold 逐样本以
     `--n 1` 独立进程采样并重新编号，保证 (size, mode, sample) 身份唯一且互相隔离；
-    warm 保持同进程复用（先 warmup 再计数）。
+    warm 保持同进程复用（先 warmup 再计数）。两者均**仅对无有效样本的基础设施失败**做有限重试，
+    完成样本一律保留。
     """
+    ledger: list[dict] = []
     if mode == "cold":
         rows: list[dict] = []
         for i in range(n):
-            got, rc, tail = _run_cell_process(size, mode, 1)
+            got, rc, tail, tries, led = _run_cell_with_retry(size, mode, 1)
+            ledger.extend(led)
             if rc != 0 or not got:
                 return [{"status": "CELL_FAILED", "size": size, "mode": mode,
                          "sample": i + 1, "first_fact_s": None,
                          "reason": f"cold sample {i + 1} returncode={rc} "
-                                   f"valid_rows={len(got)} stdout_tail={tail}"}]
+                                   f"valid_rows={len(got)} attempts={tries} "
+                                   f"stdout_tail={tail}"}], ledger
             for x in got:
                 x = dict(x)
                 x["sample"] = i + 1
                 rows.append(x)
-        return rows
+        return rows, ledger
 
-    cell_meta, rc, tail = _run_cell_process(size, mode, n)
+    cell_meta, rc, tail, tries, led = _run_cell_with_retry(size, mode, n)
+    ledger.extend(led)
     if rc != 0 or not cell_meta:
         return [{"status": "CELL_FAILED", "size": size, "mode": mode,
                  "sample": -1, "first_fact_s": None,
                  "reason": f"cell returncode={rc} valid_rows={len(cell_meta)} "
-                           f"stdout_tail={tail}"}]
-    return cell_meta
+                           f"attempts={tries} "
+                           f"stdout_tail={tail}"}], ledger
+    return cell_meta, ledger
 
 
 def _inject(dataset: list[dict], case: str) -> list[dict]:
@@ -143,6 +186,36 @@ def _inject(dataset: list[dict], case: str) -> list[dict]:
         d.insert(0, {"status": "CELL_FAILED", "size": "short", "mode": "cold",
                      "sample": -1, "first_fact_s": None,
                      "reason": "simulated cleanup failure"})
+    elif case == "sample_failed":
+        # 某样本状态非 SUCCEEDED（业务失败/超时/取消）
+        for x in d:
+            if x.get("status") == "SUCCEEDED":
+                x["status"] = "FAILED"
+                x["reason"] = "simulated business failure"
+                break
+    elif case == "first_fact_over_limit":
+        # 首 Fact 超 15s（完成慢样本必须压低 Gate，不得丢弃）
+        for x in d:
+            if x.get("status") == "SUCCEEDED":
+                x["first_fact_s"] = 16.5
+                break
+    elif case == "four_grid_shortfall":
+        # 四格任一降幅不足：把 typical/long 格 total 中位抬到基线附近（降幅 <25%）
+        for x in d:
+            if x.get("size") in ("typical", "long") and x.get("status") == "SUCCEEDED":
+                x["total_s"] = 85.0
+    elif case == "attempts_gt_3":
+        for x in d:
+            if x.get("telemetry") is not None:
+                x["telemetry"]["attempts_all_le_3"] = False
+    elif case == "retry_after_success":
+        for x in d:
+            if x.get("telemetry") is not None:
+                x["telemetry"]["no_retry_after_success"] = False
+    elif case == "completion_gt_16k":
+        for x in d:
+            if x.get("telemetry") is not None:
+                x["telemetry"]["completion_le_16k"] = False
     return d
 
 
@@ -226,6 +299,40 @@ def _evaluate(dataset: list[dict], ctx: dict) -> bool:
                                f"{sid}: embedding_calls={tel.get('embedding_calls')}（应 0/1）")
         if tel.get("completion_le_16k") is False:
             pass_all = _record(pass_all, ctx, f"{sid}: completion 超 16k")
+
+    # 5b) 四格有基线格（typical/long × cold/warm）总时长中位降幅 ≥25% —— PLAN §5.5 硬门禁。
+    #     必须从样本 total_s 独立重算，不信任顶层 pass；short 两格无基线不参与。
+    four_grid: dict[str, dict] = {}
+    totals_by_cell: dict[str, list[float]] = {}
+    for x in ok_samples:
+        ts = x.get("total_s")
+        if isinstance(ts, (int, float)):
+            totals_by_cell.setdefault(f"{x.get('mode')}/{x.get('size')}", []).append(float(ts))
+    for cell, base in V21_BASELINE_TOTAL_MEDIAN_S.items():
+        vals = sorted(totals_by_cell.get(cell, []))
+        if len(vals) < 3:
+            four_grid[cell] = {"baseline": base, "total_median": None, "n": len(vals),
+                               "reduction": None, "ok": False}
+            pass_all = _record(pass_all, ctx,
+                               f"有基线格 {cell} 样本数 {len(vals)} < 3，无法判定降幅")
+            continue
+        med = vals[len(vals) // 2] if len(vals) % 2 else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2
+        reduction = 1.0 - med / base
+        ok = reduction >= REDUCTION_MIN
+        four_grid[cell] = {"baseline": base, "total_median": round(med, 2), "n": len(vals),
+                           "reduction": round(reduction, 4), "ok": ok}
+        if not ok:
+            pass_all = _record(pass_all, ctx,
+                               f"有基线格 {cell} 降幅 {reduction:.2%} < {REDUCTION_MIN:.0%}（{med:.2f}s / {base}s）")
+    ctx["four_grid"] = four_grid
+
+    # 5c) retry ledger 丢弃完成样本的防御性不变量：任何一次尝试已有有效样本却仍继续重试
+    #     （discarded_valid_rows）即为违规，fail-closed。正常固定逻辑绝不可能触发。
+    ledger = ctx.get("retry_ledger") or []
+    for e in ledger:
+        if e.get("discarded_valid_rows") or (e.get("attempt", 1) > 1 and e.get("valid_rows", 0) > 0):
+            pass_all = _record(pass_all, ctx, "retry ledger 记录到完成样本被丢弃（attempt 后续仍重试）")
+            break
     return pass_all
 
 
@@ -254,12 +361,16 @@ def main(argv=None) -> int:
         # 即**非零退出**且不输出 PASS 摘要。退出码语义与真实门禁完全一致：检出缺陷 → 非零。
         # 外部自测运行器据此断言"7 类注入全部得到非零退出码"。
         good: list[dict] = []
+        # 合成基线样本的 total_s：typical/long 取远低于 V2.1 基线（降幅 ~60%），short 取绝对值，
+        # 确保"理想基线"在四格降幅硬门禁上也通过，注入缺陷才是唯一失败源。
+        _total_s_for = {"short": 19.0, "typical": 30.0, "long": 38.0}
         for mode in _ALL_MODES:
             for size in _ALL_SIZES:
                 for i in range(n):
                     good.append({
                         "status": "SUCCEEDED", "size": size, "mode": mode, "sample": i + 1,
                         "first_fact_s": 7.0 + (i * 0.5),
+                        "total_s": _total_s_for[size] + (i * 0.3),
                         "telemetry": {
                             "logical_calls_eq_1_plus_2F": True,
                             "attempts_all_le_3": True,
@@ -272,6 +383,10 @@ def main(argv=None) -> int:
         assert _evaluate(good, {"fails": []}) is True, "理想基线应通过"
         broken = _inject(good, inject)
         bad_ctx: dict = {"fails": []}
+        if inject == "discarded_valid_rows":
+            # 完成样本被丢弃：retry ledger 记录到某次尝试已有有效样本却仍继续重试。
+            bad_ctx["retry_ledger"] = [{"attempt": 2, "rc": 0, "valid_rows": 3,
+                                        "discarded_valid_rows": True}]
         result = _evaluate(broken, bad_ctx)      # True = 未检出注入缺陷（门禁会放行）
         fail_closed = not result
         exit_code = 0 if result else 1           # 检出缺陷 → 非零退出
@@ -284,11 +399,13 @@ def main(argv=None) -> int:
     # 正常门禁模式：跑真实 6 格 x n
     print(f"[sixgrid] 开始收集 {len(sizes)}x{len(_ALL_MODES)} 格 x n={n}（真实模型，较慢）...", flush=True)
     dataset: list[dict] = []
+    retry_ledger: list[dict] = []
     for mode in _ALL_MODES:
         for size in sizes:
             print(f"[sixgrid]  {mode}/{size} n={n} ...", flush=True)
-            rows = _collect(size, mode, n)
+            rows, led = _collect(size, mode, n)
             dataset.extend(rows)
+            retry_ledger.extend(led)
             print(f"[sixgrid]    -> {len(rows)} 样本", flush=True)
 
     ctx["cells"] = {}
@@ -298,6 +415,7 @@ def main(argv=None) -> int:
             ctx["cells"][key] = sum(1 for x in dataset
                                     if x.get("status") == "SUCCEEDED"
                                     and x.get("mode") == mode and x.get("size") == size)
+    ctx["retry_ledger"] = retry_ledger
 
     pass_all = _evaluate(dataset, ctx)
     summary = {
@@ -308,6 +426,15 @@ def main(argv=None) -> int:
         "first_fact_median_s": ctx["first_fact_median"],
         "first_fact_max_s": ctx["first_fact_max"],
         "first_fact_limit_s": FIRST_FACT_LIMIT_S,
+        # §R3-20：结构化输出四格基线与降幅（供 manifest 独立重算，不信任顶层 pass）。
+        "four_grid": ctx.get("four_grid", {}),
+        "four_grid_all_ok": all(v.get("ok") is True for v in ctx.get("four_grid", {}).values()),
+        # §R3-20：逐 cell/整轮尝试的 retry ledger；只有无有效 JSON 的基础设施失败可重试。
+        "retry_ledger": retry_ledger,
+        "retry_ledger_any_discard": any(
+            e.get("discarded_valid_rows")
+            or (e.get("attempt", 1) > 1 and e.get("valid_rows", 0) > 0)
+            for e in retry_ledger),
         "fail_messages": ctx["fails"],
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

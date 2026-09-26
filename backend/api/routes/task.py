@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from api import schemas
@@ -96,6 +96,45 @@ def list_records(limit: int = 200, svc: TaskService = Depends(_svc)):
     必须在 GET /{task_id} 之前声明，避免被路径参数捕获。为空返回 []，不伪造历史。
     """
     return svc.list_records(limit=limit)
+
+
+@router.get("/{task_id}/artifact/{kind}")
+def download_task_artifact(task_id: str, kind: str, svc: TaskService = Depends(_svc)):
+    """用户简历 artifact 的**唯一权威**下载入口（V2.2.0 Revision 3 返工）。
+
+    授权链（服务端可信，客户端不可指定）：
+      当前 owner → Task（owner 必须匹配）→ 已登记的不可变 artifact 引用
+      → 明确 artifact kind（docx/pdf）→ 实际文件。
+
+    客户端传入的 filename、basename、相对路径或磁盘路径**不参与授权**；未授权与
+    不存在的对象返回完全一致的安全拒绝（404），不泄露对象是否存在。GET 与 HEAD
+    走同一处理器，执行同等校验。
+    """
+    return _serve_task_artifact(svc, task_id, kind)
+
+
+@router.head("/{task_id}/artifact/{kind}")
+def head_task_artifact(task_id: str, kind: str, svc: TaskService = Depends(_svc)):
+    """HEAD 版本：与 GET 执行同一 owner/task/kind/引用校验（仅不返回 body）。"""
+    return _serve_task_artifact(svc, task_id, kind)
+
+
+def _serve_task_artifact(svc: TaskService, task_id: str, kind: str):
+    from fastapi.responses import FileResponse
+    try:
+        ref = svc.resolve_artifact_download(task_id, kind)
+    except Exception as e:  # noqa: BLE001 —— 统一安全拒绝，不区分“不存在/未授权”
+        from core.errors import DomainError
+        if isinstance(e, DomainError):
+            raise HTTPException(status_code=e.http_status or 404,
+                                detail="Artifact not found") from None
+        raise HTTPException(status_code=404, detail="Artifact not found") from None
+    media_type = (
+        "application/pdf" if ref.get("kind") == "pdf"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    return FileResponse(ref["abs_path"], media_type=media_type,
+                        filename=ref.get("file_name") or f"{kind}")
 
 
 @router.get("/{task_id}", response_model=schemas.TaskOut)

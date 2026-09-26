@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import unicodedata
 import uuid
 from typing import Any, Optional
@@ -466,27 +467,26 @@ def assemble_and_render(
     summary,
     compact,
     *,
+    task_id: str,
     contact: dict[str, str],
     template_id: str,
     experience_rows: list[dict[str, Any]],
     user_id: str = "",
     backend_root: Optional[str] = None,
     timeout_s: float = 90.0,
+    forbidden_sentinels: Optional[list[str]] = None,
 ) -> tuple[bool, dict[str, Any]]:
-    """task_generation 的 P4 assembler 实现：装配 ResumeDocument → DOCX → 同源 PDF。
+    """task_generation 的 P4 assembler 实现：装配 → DOCX/PDF 写入 task-scoped staging → 校验。
 
-    入参：
-      - summary：GenerationSummary（experiences 为 GeneratedExperience）
-      - compact：P1 紧凑 JD（dict 或 JDAnalysisOutLike）
-      - contact：联系方式（name/phone/email/location，来自冻结 InputRevision）
-      - experience_rows：由调用方从 DB 查得的经历元信息
-        [{experience_id, type, school/company, major/role, degree,
-          start_time, end_time}]，用于把生成结果映射到 Education/Work/Project。
+    与 Revision 3 之前的版本相比，本函数**不再**直接写最终 output 目录：
+    全部产物先落到 `<RESUME_DATA_DIR>/staging/<task_id>/<op_slug>/`（不可公开），
+    完成 `validate_staged_artifacts` 全部校验后由 `run_generation` 在同盘原子提升并
+    与 `SUCCEEDED` 一起提交。任一步失败都 fail closed（不发布、清理 staging）。
 
-    返回 (assembled, artifacts)；artifacts 至少含 docx_path / pdf_path / file_name。
-    任何一步失败 → fail closed：返回 (False, {})，由 run_generation 交回内容成功
-    状态（不发布残缺 artifact）。
+    返回 (assembled, artifacts)；artifacts 至少含最终的 docx/pdf 文件名与前缀语义标签；
+    真实字节位于 `docx_staged_abs` / `pdf_staged_abs`（尚未提升）。
     """
+    stage_dir = None
     try:
         # 1) 把 summary.experiences 与 experience_rows 合并出装配需要的字段
         by_id = {r["experience_id"]: r for r in experience_rows if r.get("experience_id")}
@@ -529,18 +529,17 @@ def assemble_and_render(
                     end_time=row.get("end_time", ""),
                 ))
 
+        compact_dict = _compact_dict(compact)
         resume_doc = build_resume_document(
-            contact=contact, compact=_compact_dict(compact), experiences=merged,
+            contact=contact, compact=compact_dict, experiences=merged,
         )
 
-        # 2) 渲染 + 保存 DOCX（复用 TemplateRenderer；模板资产缺失时 fail closed）
-        from services import docx_to_pdf, template_renderer
+        # 2) 渲染（复用 TemplateRenderer；模板资产缺失时 fail closed）
+        from services import artifact_store, docx_to_pdf, template_renderer
         from core.config import settings
 
         if backend_root is None:
             backend_root = str(settings.BASE_DIR)
-        out_dir = settings.DOCX_OUTPUT_DIR
-        os.makedirs(out_dir, exist_ok=True)
 
         renderer = template_renderer.TemplateRenderer(template_id, backend_root=backend_root)
         renderer.bold_headline = True  # T07c：headline 加粗、正文普通
@@ -556,43 +555,63 @@ def assemble_and_render(
                          "template_id": template_id},
             )
 
-        safe_user = "".join(c for c in (user_id or "user") if c.isalnum() or c in "-_") or "user"
+        # 3) 写入不可公开的 task-scoped staging（绝不直接写最终 output）
+        save_user = user_id or contact.get("name") or ""
+        safe_user = artifact_store.safe_token(save_user)[:40] or "user"
         op_slug = uuid.uuid4().hex[:16]
+        stage_dir = artifact_store.task_staging_dir(task_id or "unknown", op_slug)
+        if not artifact_store.assert_inside_staging(stage_dir):
+            raise ArtifactInvalidError(
+                "staging 目录不在受控根内，拒绝写盘",
+                details={"template_id": template_id},
+            )
         docx_name = f"resume_{safe_user}_{template_id}_{op_slug}.docx"
-        docx_abs = os.path.join(out_dir, docx_name)
+        pdf_name = f"resume_{safe_user}_{template_id}_{op_slug}.pdf"
+        docx_staged = os.path.join(str(stage_dir), docx_name)
         try:
-            doc.save(docx_abs)
+            doc.save(docx_staged)
         except Exception as e:  # noqa: BLE001
             raise ArtifactInvalidError(
-                f"DOCX 落盘失败，artifact 不可用：{e}",
+                f"DOCX 写入 staging 失败，artifact 不可用：{e}",
                 details={"template_id": template_id},
             ) from e
-        # V2.2.0 P0：artifact 可读性校验 —— 落盘后必须可读且非空，否则视为结构性失败拒不发布。
-        if not os.path.exists(docx_abs) or os.path.getsize(docx_abs) == 0:
-            raise ArtifactInvalidError(
-                "DOCX artifact 落盘后不可读/为空，拒绝发布",
-                details={"docx_path": docx_abs},
-            )
 
-        # 3) 同源 PDF（Word COM）；失败则 DOCX 仍有效，PDF 置空
-        pdf_name = ""
-        pdf_abs = ""
-        pdf_sha256 = ""
+        # 4) 同源 PDF（Word COM）；失败则 DOCX 仍有效，PDF 置空（不得伪造）
+        pdf_staged = ""
         pdf_bytes = b""
         try:
-            conv = docx_to_pdf.convert_docx_to_pdf_bytes(docx_abs, timeout_s=timeout_s)
+            conv = docx_to_pdf.convert_docx_to_pdf_bytes(docx_staged, timeout_s=timeout_s)
             pdf_bytes = conv["pdf_bytes"]
-            pdf_name = f"resume_{safe_user}_{template_id}_{op_slug}.pdf"
-            pdf_abs = os.path.join(out_dir, pdf_name)
-            with open(pdf_abs, "wb") as f:
-                f.write(pdf_bytes)
-            pdf_sha256 = _file_sha256(pdf_abs)
+            pdf_staged = os.path.join(str(stage_dir), pdf_name)
+            if pdf_bytes:
+                with open(pdf_staged, "wb") as f:
+                    f.write(pdf_bytes)
+            else:
+                pdf_staged = ""
         except Exception as e:  # noqa: BLE001 —— fail closed：PDF 不可用不标成功
             logger.warning("T07 P4 Word→PDF 失败（DOCX 仍有效）: %s", e)
-            pdf_name = ""
-            pdf_abs = ""
+            pdf_staged = ""
 
-        # 4) PreviewAnchor：从 Word 转换后的确切 PDF 文本层重建（T06 anchor/依据定位）。
+        if not pdf_staged:
+            pdf_name = ""
+
+        # 5) 发布前内容级校验（存在/非零/可读/格式/章节/字段守恒/education/占位符/同源/哨兵）
+        problems = validate_staged_artifacts(
+            docx_path=docx_staged,
+            pdf_path=pdf_staged or None,
+            task_id=task_id or "",
+            owner=user_id or "",
+            resume_doc=resume_doc,
+            render_stats=render_stats,
+            contact=contact,
+            experience_rows=experience_rows,
+            template_id=template_id,
+            forbidden_sentinels=forbidden_sentinels or [],
+        )
+        if problems:
+            assert_publishable(problems)
+
+        # 6) PreviewAnchor：从 Word 转换后的确切 PDF 文本层重建（T06 anchor/依据定位）。
         #    绑定本 revision artifact 身份 op_slug；无法可靠定位的行记 unavailable（不高亮，诚实降级）。
         pdf_anchors: list[dict] = []
         if pdf_bytes:
@@ -625,28 +644,310 @@ def assemble_and_render(
                 logger.warning("T06 P4 锚点重建失败（PDF 仍可用）: %s", e)
                 warnings.append(f"PDF: 锚点重建失败（预览可用，anchor 不可用）: {type(e).__name__}")
 
+        docx_sha = artifact_store.sha256_file(docx_staged)
+        pdf_sha = artifact_store.sha256_file(pdf_staged) if pdf_staged else ""
         artifacts = {
+            # 最终发布名（提升后相对 output 目录的语义标签；staging 阶段尚未存在）
             "docx_path": f"output/{docx_name}",
             "pdf_path": f"output/{pdf_name}" if pdf_name else "",
-            "docx_abs": docx_abs,
-            "pdf_abs": pdf_abs,
+            "docx_file_name": docx_name,
+            "pdf_file_name": pdf_name or "",
+            "docx_staged_abs": docx_staged,
+            "pdf_staged_abs": pdf_staged,
+            "staging_dir": str(stage_dir),
+            "staged": True,
             "template_id": template_id,
             "resume_revision_key": op_slug,
             "pdf_artifact_id": op_slug if pdf_name else "",
-            "docx_sha256": _file_sha256(docx_abs),
-            "pdf_sha256": pdf_sha256,
+            "docx_sha256": docx_sha,
+            "docx_size_bytes": os.path.getsize(docx_staged) if os.path.exists(docx_staged) else 0,
+            "pdf_sha256": pdf_sha,
+            "pdf_size_bytes": os.path.getsize(pdf_staged) if pdf_staged else 0,
             "pdf_anchors": pdf_anchors,
             "warnings": list(warnings),
+            "validate": {"ok": True, "problems": []},
         }
         return True, artifacts
     except DomainError as e:  # noqa: BLE001
         # V2.2.0 P0：结构性错误（来源丢失/模板结构/artifact 不可用）不再静默吞掉，
         # 向上抛出让 run_generation 把任务置 FAILED 且不发布残缺 artifact。
+        # 失败路径必须清理本轮 staging（不得留下可被误认为产物的残留）。
+        if stage_dir is not None:
+            try:
+                from services import artifact_store as _as
+                _as.cleanup_dir_quiet(stage_dir)
+            except Exception:  # noqa: BLE001
+                logger.error("artifact staging cleanup failed after DomainError")
         logger.warning("T07 P4 assemble_and_render 结构性错误阻断发布: %s", e)
         raise
     except Exception as e:  # noqa: BLE001
+        if stage_dir is not None:
+            try:
+                from services import artifact_store as _as
+                _as.cleanup_dir_quiet(stage_dir)
+            except Exception:  # noqa: BLE001
+                logger.error("artifact staging cleanup failed after failure")
         logger.exception("T07 P4 assemble_and_render 失败（fail closed）")
         return False, {"error": type(e).__name__, "message": str(e)}
+
+
+# ── 发布前内容级校验（RESULT §R3-18 C2） ──────────────────────── #
+
+# 已知的其它身份 / stub 哨兵标记（与内容 E2E 使用的固定哨兵一致；大小写不敏感）。
+_RESERVED_SENTINEL_MARKERS = (
+    "STUB-占位", "OTHER-异主", "OTHER-异校", "stub-user", "other-user",
+    "LEGACY_UNOWNED",
+)
+
+
+def assert_publishable(problems: list[str]) -> None:
+    """发布门禁：任一内容校验问题都必须阻断发布（fail closed）。
+
+    这是 staging → 原子提升之间**唯一**的放行点；`assemble_and_render` 与
+    任何其它调用方都必须经由此处，禁止“先发布后补校验”。
+    """
+    if problems:
+        raise ArtifactInvalidError(
+            "staging artifact 未通过发布前内容校验，拒绝发布",
+            details={"problems": list(problems)[:20], "count": len(problems)},
+        )
+
+
+def validate_staged_artifacts(
+    *,
+    docx_path: str,
+    pdf_path: Optional[str],
+    task_id: str,
+    owner: str,
+    resume_doc: ResumeDocument,
+    render_stats: dict[str, Any],
+    contact: dict[str, str],
+    experience_rows: list[dict[str, Any]],
+    template_id: str,
+    forbidden_sentinels: list[str],
+) -> list[str]:
+    """对 staging 中的 DOCX/PDF 做发布前全量校验，返回问题列表（空 = 通过）。
+
+    fail-closed：任何一项不成立都返回非空 problems，调用方据此拒绝发布。
+    """
+    from services import artifact_store as _as
+
+    problems: list[str] = []
+
+    # 1) 路径必须位于当前 task staging 内（越界路径直接拒）。
+    if not _as.assert_inside_staging(docx_path):
+        problems.append("docx:NOT_IN_TASK_STAGING")
+    if pdf_path and not _as.assert_inside_staging(pdf_path):
+        problems.append("pdf:NOT_IN_TASK_STAGING")
+    # staging 目录语义必须包含本任务 id（owner/task/source 一致性锚点）。
+    if task_id and _as.safe_token(task_id)[:64] not in os.path.normpath(docx_path):
+        problems.append("docx:TASK_ID_NOT_BOUND")
+
+    # 2) 存在 / 非零 / 可读。
+    problems += _as.file_problems(docx_path, min_bytes=_as.MIN_DOCX_BYTES, label="docx")
+    if pdf_path:
+        problems += _as.file_problems(pdf_path, min_bytes=_as.MIN_PDF_BYTES, label="pdf")
+    if problems:
+        return problems
+
+    # 3) 格式可解析。
+    problems += _as.docx_problems(docx_path)
+    if pdf_path:
+        problems += _as.pdf_problems(pdf_path)
+
+    # 4) 未替换占位符（结构性错误）。
+    if render_stats.get("unreplaced_placeholders"):
+        problems.append("docx:UNREPLACED_PLACEHOLDER")
+
+    # 5) 必需章节：源里有 work/project/education 时成品必须有对应条目。
+    n_work_src = sum(1 for r in experience_rows if (r.get("type") or "") == "work")
+    n_proj_src = sum(1 for r in experience_rows if (r.get("type") or "") == "project")
+    n_edu_src = sum(1 for r in experience_rows if (r.get("type") or "") == "education")
+    if n_work_src and not resume_doc.work:
+        problems.append("docx:REQUIRED_SECTION_WORK_MISSING")
+    if n_proj_src and not resume_doc.projects:
+        problems.append("docx:REQUIRED_SECTION_PROJECT_MISSING")
+    if n_edu_src and not resume_doc.education:
+        problems.append("docx:REQUIRED_SECTION_EDUCATION_MISSING")
+
+    # 6) 非空源字段守恒（company / name / role / school / major / degree / time）。
+    problems += _field_conservation_problems(resume_doc, experience_rows)
+
+    # 7) 联系方式：非空字段必须出现（且恰一次由渲染保证），全空时不出现空标签。
+    docx_text = ""
+    try:
+        docx_text = _as.docx_text(docx_path)
+    except Exception:  # noqa: BLE001
+        problems.append("docx:TEXT_EXTRACT_FAILED")
+    norm_docx = _as.normalize_for_match(docx_text)
+
+    for key in ("phone", "email", "location"):
+        val = _display_text(contact.get(key, "") or "")
+        if val and _as.normalize_for_match(val) not in norm_docx:
+            problems.append(f"docx:CONTACT_FIELD_LOST:{key}")
+    name_val = _display_text(contact.get("name", "") or "")
+    if name_val and _as.normalize_for_match(name_val) not in norm_docx:
+        problems.append("docx:CONTACT_FIELD_LOST:name")
+
+    # 8) 模板样例文字 / 原型占位泄漏。
+    for marker in ("{{", "}}", "[[", "]]"):
+        if marker in docx_text:
+            problems.append(f"docx:TEMPLATE_MARKER_LEAK:{marker}")
+
+    # 9) 其他 owner / stub 哨兵不得出现。
+    haystack = norm_docx
+    for tok in list(forbidden_sentinels) + list(_RESERVED_SENTINEL_MARKERS):
+        t = _as.normalize_for_match(str(tok))
+        if len(t) < 4:
+            continue
+        if t in haystack:
+            problems.append(f"docx:FOREIGN_OWNER_SENTINEL:{str(tok)[:24]}")
+
+    # 10) DOCX / PDF 内容同源（PDF 存在时必须成立）。
+    if pdf_path:
+        try:
+            pdf_text = _as.pdf_text(pdf_path)
+            norm_pdf = _as.normalize_for_match(pdf_text)
+            if not norm_pdf:
+                problems.append("pdf:EMPTY_TEXT_LAYER")
+            else:
+                problems += _same_source_problems(resume_doc, norm_pdf)
+        except Exception:  # noqa: BLE001
+            problems.append("pdf:TEXT_EXTRACT_FAILED")
+
+    if not owner:
+        problems.append("artifact:OWNER_EMPTY")
+    return problems
+
+
+def _norm(s: Any) -> str:
+    return re.sub(r"\s+", "", _display_text(str(s or "")))
+
+
+def _field_conservation_problems(resume_doc: ResumeDocument,
+                                 experience_rows: list[dict[str, Any]]) -> list[str]:
+    """源中非空的 role/company/name/school/major/degree/time 必须进入成品对应字段。"""
+    problems: list[str] = []
+    work_norm = [
+        {k: _norm(getattr(w, k, "")) for k in ("company", "role", "start_time", "end_time")}
+        for w in resume_doc.work
+    ]
+    proj_norm = [
+        {k: _norm(getattr(p, k, "")) for k in ("name", "role", "start_time", "end_time")}
+        for p in resume_doc.projects
+    ]
+    edu_norm = [
+        {k: _norm(getattr(e, k, "")) for k in ("school", "major", "degree")}
+        for e in resume_doc.education
+    ]
+
+    def _present(rows: list[dict[str, str]], fields: tuple[str, ...], val: str) -> bool:
+        nv = _norm(val)
+        if not nv:
+            return True
+        return any(any(nv == r.get(f, "") or nv in (r.get(f, "") or "") for f in fields)
+                   for r in rows)
+
+    for row in experience_rows:
+        etype = (row.get("type") or "")
+        if etype == "work":
+            for f in ("company", "role"):
+                if not _present(work_norm, ("company", "role"), row.get(f, "")):
+                    problems.append(f"docx:SOURCE_FIELD_LOST:work.{f}")
+        elif etype == "project":
+            name = row.get("title") or row.get("name") or ""
+            if not _present(proj_norm, ("name", "role"), name):
+                problems.append("docx:SOURCE_FIELD_LOST:project.name")
+            if not _present(proj_norm, ("name", "role"), row.get("role", "")):
+                problems.append("docx:SOURCE_FIELD_LOST:project.role")
+        elif etype == "education":
+            for f in ("school", "major"):
+                if not _present(edu_norm, ("school", "major", "degree"), row.get(f, "")):
+                    problems.append(f"docx:SOURCE_FIELD_LOST:education.{f}")
+    return problems
+
+
+def _same_source_problems(resume_doc: ResumeDocument, norm_pdf: str) -> list[str]:
+    """DOCX/PDF 同源：成品的关键条目文本必须同时出现在 PDF 文本层。"""
+    problems: list[str] = []
+    checked = 0
+    for item in list(resume_doc.work) + list(resume_doc.projects):
+        for bullet in list(getattr(item, "bullets", []) or [])[:1]:
+            seg = _norm(bullet)[:24]
+            if len(seg) < 8:
+                continue
+            checked += 1
+            if seg not in norm_pdf:
+                problems.append("pdf:NOT_SAME_SOURCE_AS_DOCX")
+                return problems
+    for edu in resume_doc.education:
+        seg = _norm(getattr(edu, "school", ""))[:12]
+        if len(seg) < 4:
+            continue
+        checked += 1
+        if seg not in norm_pdf:
+            problems.append("pdf:EDUCATION_NOT_IN_PDF")
+            return problems
+    if checked == 0:
+        # 无任何可比对条目时不能声明同源成立（诚实 fail-closed）。
+        problems.append("pdf:NO_COMPARABLE_CONTENT")
+    return problems
+
+
+def promote_staged_artifacts(artifacts: dict[str, Any]) -> dict[str, Any]:
+    """把 staging 中的 DOCX/PDF 同盘原子提升到最终 output 目录。
+
+    返回提升后的 `promoted` 子字典（final abs 路径 + 文件名 + sha + size）。
+    任一文件提升失败：回滚本次已提升文件并抛 ArtifactInvalidError（不留下半成品）。
+    """
+    from services import artifact_store as _as
+
+    out_dir = str(_as.publish_root())
+    promoted: dict[str, Any] = {"docx": None, "pdf": None}
+    done: list[str] = []
+    try:
+        docx_final, err = _as.promote(artifacts.get("docx_staged_abs", ""), out_dir,
+                                      artifacts.get("docx_file_name", ""))
+        if err or not docx_final:
+            raise ArtifactInvalidError(
+                f"DOCX 原子提升失败：{err}", details={"reason": err})
+        done.append(docx_final)
+        promoted["docx"] = {
+            "file_name": artifacts.get("docx_file_name", ""),
+            "abs": docx_final,
+            "sha256": _as.sha256_file(docx_final),
+            "size_bytes": os.path.getsize(docx_final),
+        }
+        if artifacts.get("pdf_staged_abs"):
+            pdf_final, err = _as.promote(artifacts.get("pdf_staged_abs", ""), out_dir,
+                                         artifacts.get("pdf_file_name", ""))
+            if err or not pdf_final:
+                raise ArtifactInvalidError(
+                    f"PDF 原子提升失败：{err}", details={"reason": err})
+            done.append(pdf_final)
+            promoted["pdf"] = {
+                "file_name": artifacts.get("pdf_file_name", ""),
+                "abs": pdf_final,
+                "sha256": _as.sha256_file(pdf_final),
+                "size_bytes": os.path.getsize(pdf_final),
+            }
+        return promoted
+    except Exception:
+        # 回滚：删除本次已提升文件，避免"提升了一半"的半成品对后续可见。
+        for f in done:
+            _as.remove_file_quiet(f)
+        raise
+
+
+def _rollback_promoted(promoted: Optional[dict[str, Any]]) -> None:
+    """回滚已提升文件（幂等）。"""
+    from services import artifact_store as _as
+    if not promoted:
+        return
+    for kind in ("docx", "pdf"):
+        rec = promoted.get(kind)
+        if rec and rec.get("abs"):
+            _as.remove_file_quiet(rec["abs"])
 
 
 def _compact_dict(jd_analysis) -> dict[str, Any]:
@@ -666,6 +967,7 @@ def _file_sha256(path: str) -> str:
 def make_task_assembler(
     db,
     *,
+    task_id: str,
     contact: dict[str, str],
     template_id: str,
     user_id: str = "",
@@ -677,11 +979,27 @@ def make_task_assembler(
       - 从 summary.experiences 的 experience_id 回查 DB Experience 的 type/字段；
       - **单独取当前 owner 的教育经历**（教育不经过 P2 选材，必须确定性装配进成品）；
       所有查询都限定 user_id == current_user_id()，隔离异主/LEGACY 素材。
+    V2.2.0 Revision 3 返工：产物写入 task-scoped staging，并收集**其它身份**的内容特征
+    作为禁止哨兵，供发布前校验证明成品不含异主内容。
     """
     from core.owner import current_user_id
     from database.models import Experience
 
     owner = current_user_id() if not user_id else user_id
+
+    # 其它身份（含 stub/LEGACY 无主）的显著内容特征 → 禁止出现在当前 owner 的成品里。
+    forbidden: list[str] = []
+    try:
+        others = (db.query(Experience)
+                  .filter((Experience.user_id.is_(None)) | (Experience.user_id != owner))
+                  .all())
+        for e in others:
+            for tok in (e.company, e.title, getattr(e, "role", "")):
+                t = (tok or "").strip()
+                if len(t) >= 4 and t not in forbidden:
+                    forbidden.append(t)
+    except Exception:  # noqa: BLE001 —— 收集失败不阻断主链（仍有保留哨兵兜底）
+        logger.warning("collect forbidden sentinels failed", exc_info=True)
 
     def _asm(summary, compact):
         ids = [e.experience_id for e in getattr(summary, "experiences", [])]
@@ -731,9 +1049,10 @@ def make_task_assembler(
                 "major": e.role or "", "degree": "", "start_time": start, "end_time": end,
             })
         return assemble_and_render(
-            db, summary, compact, contact=contact,
+            db, summary, compact, task_id=task_id, contact=contact,
             experience_rows=rows, template_id=template_id,
             user_id=owner, backend_root=backend_root,
+            forbidden_sentinels=forbidden,
         )
 
     return _asm

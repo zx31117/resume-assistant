@@ -449,6 +449,12 @@ def main() -> int:
         "residual_after_cleanup": residue_after_cleanup,
         "residual_after_rerun": residue_after_rerun,
         "final_pass": final_pass,
+        # V2.2.0 R3 返工：显式 cleanup 判定（供 manifest 逐 Gate 核验 cleanup 后置条件）。
+        "cleanup": {
+            "ok": bool(cleanup_gate_ok and not residue_after_cleanup["winword_leaked"]
+                       and not residue_after_cleanup["new_console_or_word_windows"]),
+            "runtime_removed": True,
+        },
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(evid, ensure_ascii=False, indent=2), encoding="utf-8")

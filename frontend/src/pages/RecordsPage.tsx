@@ -2,27 +2,19 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import WbTaskHeading from '../components/layout/WbTaskHeading'
 import { taskApi } from '../api/endpoints'
+import { artifactFileName, taskArtifactUrl } from '../api/artifact'
 import type { TaskRecordOut } from '../api/types'
 
 /**
  * V2.2.0 T07/R2-T08：我的简历——查看真实可用的生成记录与 artifact。
  *
  * 真实能力映射（无 fixture、无伪造列表）：
- * - 后端 GET /api/task/records 只返回 SUCCEEDED 且已发布 DOCX/PDF 产物的任务，
- *   为空返回 []，绝不伪造历史列表；
- * - 每条记录渲染真实 `/api/template/download` 下载链接（与工作台 P4 同源逐字一致）；
+ * - 后端 GET /api/task/records 只返回 SUCCEEDED 且已登记不可变 artifact、且经文件级
+ *   校验（存在/非零/hash 一致）的任务，为空返回 []，绝不伪造历史列表；
+ * - 每条记录使用**同一权威 task-scoped owner-scoped 路由**
+ *   `/api/task/{task_id}/artifact/{kind}`（不再经 filename 路由）；
  * - 文档未生成/运行中/失败/取消 → 不出现在列表，如实显示空与下一步。
  */
-
-/** 相对路径 output/<file> → 同源下载 URL（沿用 /api/template/download）。 */
-function artifactUrl(relPath: string): string {
-  return `/api/template/download?path=${encodeURIComponent(relPath)}`
-}
-
-function basename(relPath: string): string {
-  const parts = relPath.split('/')
-  return parts[parts.length - 1] || relPath
-}
 
 function fmtDate(iso: string): string {
   if (!iso) return '—'
@@ -110,9 +102,11 @@ export default function RecordsPage() {
               {records!.map((rec) => {
                 const name = rec.latest_input?.name?.trim()
                 const jdLen = rec.latest_input?.jd_len ?? 0
-                const docxRel = rec.published_docx_path
-                const pdfRel = rec.published_pdf_path
-                const pdfAvailable = !!pdfRel
+                const arts = rec.artifacts ?? []
+                const hasDocx = arts.some((a) => a.kind === 'docx')
+                const hasPdf = arts.some((a) => a.kind === 'pdf')
+                const docxHref = hasDocx ? taskArtifactUrl(rec.task_id, 'docx') : ''
+                const pdfHref = hasPdf ? taskArtifactUrl(rec.task_id, 'pdf') : ''
                 return (
                   <li className="wb-record" key={rec.task_id}>
                     <div className="wb-record__top">
@@ -126,11 +120,11 @@ export default function RecordsPage() {
                       </span>
                     </div>
                     <div className="wb-record__actions">
-                      {docxRel ? (
+                      {docxHref ? (
                         <a
                           className="wb-btn wb-btn--ghost wb-btn--sm"
-                          href={artifactUrl(docxRel)}
-                          download={basename(docxRel)}
+                          href={docxHref}
+                          download={artifactFileName(rec.task_id, 'docx')}
                           data-role="download-word-record"
                         >
                           下载 Word
@@ -138,11 +132,11 @@ export default function RecordsPage() {
                       ) : (
                         <span className="wb-success-downloads__missing">无 Word 产物</span>
                       )}
-                      {pdfAvailable ? (
+                      {pdfHref ? (
                         <a
                           className="wb-btn wb-btn--primary wb-btn--sm"
-                          href={artifactUrl(pdfRel!)}
-                          download={basename(pdfRel!)}
+                          href={pdfHref}
+                          download={artifactFileName(rec.task_id, 'pdf')}
                           data-role="download-pdf-record"
                         >
                           下载 PDF

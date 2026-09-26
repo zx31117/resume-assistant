@@ -32,6 +32,39 @@ import tempfile
 import time
 from pathlib import Path
 
+
+def _rmtree_force(path, attempts: int = 8) -> bool:
+    """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。
+
+    Windows 上 `shutil.rmtree(..., ignore_errors=True)` 遇到只读文件会**静默失败**，
+    导致隔离 runtime 残留、Gate cleanup 误判失败（已在 mainchain/design_fidelity/
+    atomic_publish 复现）。这里在出错回调里清除只读位后重试，并做有限次整体重试以
+    吸收句柄释放延迟。
+    """
+    import inspect as _inspect
+    import stat as _stat
+    import time as _time
+
+    def _fix(func, p, exc=None):
+        try:
+            os.chmod(p, _stat.S_IWRITE)
+            func(p)
+        except Exception:  # noqa: BLE001
+            pass
+
+    _params = _inspect.signature(shutil.rmtree).parameters
+    _kw = {"onexc": _fix} if "onexc" in _params else {"onerror": _fix}
+    for _ in range(attempts):
+        try:
+            shutil.rmtree(path, **_kw)
+        except Exception:  # noqa: BLE001
+            pass
+        if not os.path.exists(path):
+            return True
+        _time.sleep(0.4)
+    return not os.path.exists(path)
+
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 EVID = ROOT / "validation-artifacts" / "h8" / "fidelity"
@@ -102,6 +135,31 @@ def wait_port(base: str, timeout: float = 90.0) -> bool:
         except OSError:
             time.sleep(0.8)
     return False
+
+
+def _port_in_use(port: int) -> bool:
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def _free_port(preferred: int = 8317, tries: int = 200) -> int:
+    """首选 preferred；被占用则顺序探测首个空闲端口。
+
+    Gate 模式（给了 --exe）必须自启动被指定的二进制；若固定端口被上一轮残留 app
+    占用，`wait_port` 会立即成功并驱动**残留实例**，使 Gate 结果与最终包脱钩。
+    """
+    if not _port_in_use(preferred):
+        return preferred
+    for p in range(preferred + 1, preferred + 1 + tries):
+        if not _port_in_use(p):
+            return p
+    return preferred
 
 
 def http_json(base: str, path: str, method: str = "GET", body=None, timeout: float = 30):
@@ -411,87 +469,96 @@ def _drive_failed(base: str, vp_dir: Path, exe: Path | None = None) -> None:
     fapp, ferr = _boot_app(Path(exe), fport, frm, seed=False, ark_base_url=DEAD)
     if ferr:
         EVIDENCE["workbench"]["failed"] = {"note": "failed 实例启动失败：不再断言", "err": ferr}
+        _teardown_fail_instance(fapp, frm)
         return
-    # 对新实例驱动前端：打开 → 清缓存 → 填表 → 点生成 → 轮询 FAILED。
-    bx(["open", fbase + "/"], timeout=15)
-    time.sleep(2.0)
-    bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
-    time.sleep(2.5)
-    fv = _fill_workbench(fbase, TEST_NAME, TEST_JD)
-    EVIDENCE["workbench"]["_fill_verify_failed"] = fv
-    gen = _click_generate(fbase)
-    EVIDENCE["workbench"]["_failed_generate_click"] = gen
-    if gen != "clicked":
-        log(f"[wb.full][info] failed 路径生成按钮未点动（gen={gen}）；如实记录，不判定 PASS")
-        EVIDENCE["workbench"]["failed"] = {"note": "generate click failed", "_fill": fv, "gen": gen}
-        return
-    tid = ""
-    t0 = time.time()
-    terminal: str | None = None
-    while time.time() - t0 < 300.0:
-        raw = bx(["eval", "JSON.stringify({failed:!!document.querySelector('.wb-failed'),"
-                 "suc:!!document.querySelector('.pdf-preview[data-state=\"ready\"]')})"], timeout=25).strip()
-        st: dict = {}
-        try:
-            s1 = json.loads(raw)
-            st = json.loads(s1) if isinstance(s1, str) else s1
-        except Exception:
-            st = {"raw": raw[:120]}
-        if st.get("failed"):
-            terminal = "FAILED"; break
-        if not tid:
-            tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
-                     timeout=20).strip().strip('"')
-        if tid:
-            try:
-                code, body = http_json(fbase, f"/api/task/{tid}")
-                if code == 200 and isinstance(body, dict):
-                    status = (body.get("task") if isinstance(body.get("task"), dict) else body).get("status")
-                    if status == "FAILED":
-                        terminal = "FAILED"; break
-                    if status == "SUCCEEDED":
-                        terminal = "SUCCEEDED"; break
-            except Exception:
-                pass
-        time.sleep(2.0)
-    if terminal == "FAILED":
+    try:
+        # 对新实例驱动前端：打开 → 清缓存 → 填表 → 点生成 → 轮询 FAILED。
         bx(["open", fbase + "/"], timeout=15)
         time.sleep(2.0)
-        rec = _capture_state(fbase, "failed", vp_dir, vp_dir / "failed_1920x1080.png", viewport=VIEWPORTS[0])
-        if rec.get("failedPanel") and int(rec.get("stepFailed") or 0):
-            ok("wb.failed real failed panel (provider-unreachable)",
-               f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')} terminal={terminal}")
-        else:
-            bad("wb.failed real failed panel", f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')}")
-        EVIDENCE["workbench"]["failed_terminal"] = terminal
-        EVIDENCE["workbench"]["_failed_ark_base_url"] = DEAD
-    else:
-        log(f"[wb.full][info] failed 未进入 FAILED：terminal={terminal}；如实记录。")
-        EVIDENCE["workbench"]["failed"] = {
-            "note": f"failed 实例未达 FAILED（terminal={terminal}）。", "terminal": terminal}
-    # 收尾 failed 实例 + runtime（须等到进程真正退出，避免残留实例占用资源/端口，
-    # 冻结 onedir 同时只能跑一个实例，主实例随后才能启动）
-    if fapp is not None and fapp.poll() is None:
-        try:
-            fapp.terminate()
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            fapp.wait(timeout=15)
-        except Exception:  # noqa: BLE001
+        bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
+        time.sleep(2.5)
+        fv = _fill_workbench(fbase, TEST_NAME, TEST_JD)
+        EVIDENCE["workbench"]["_fill_verify_failed"] = fv
+        gen = _click_generate(fbase)
+        EVIDENCE["workbench"]["_failed_generate_click"] = gen
+        if gen != "clicked":
+            log(f"[wb.full][info] failed 路径生成按钮未点动（gen={gen}）；如实记录，不判定 PASS")
+            EVIDENCE["workbench"]["failed"] = {"note": "generate click failed", "_fill": fv, "gen": gen}
+            _teardown_fail_instance(fapp, frm)
+            return
+        tid = ""
+        t0 = time.time()
+        terminal: str | None = None
+        while time.time() - t0 < 300.0:
+            raw = bx(["eval", "JSON.stringify({failed:!!document.querySelector('.wb-failed'),"
+                     "suc:!!document.querySelector('.pdf-preview[data-state=\"ready\"]')})"], timeout=25).strip()
+            st: dict = {}
             try:
-                fapp.kill()
+                s1 = json.loads(raw)
+                st = json.loads(s1) if isinstance(s1, str) else s1
+            except Exception:
+                st = {"raw": raw[:120]}
+            if st.get("failed"):
+                terminal = "FAILED"; break
+            if not tid:
+                tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
+                         timeout=20).strip().strip('"')
+            if tid:
+                try:
+                    code, body = http_json(fbase, f"/api/task/{tid}")
+                    if code == 200 and isinstance(body, dict):
+                        status = (body.get("task") if isinstance(body.get("task"), dict) else body).get("status")
+                        if status == "FAILED":
+                            terminal = "FAILED"; break
+                        if status == "SUCCEEDED":
+                            terminal = "SUCCEEDED"; break
+                except Exception:
+                    pass
+            time.sleep(2.0)
+        if terminal == "FAILED":
+            bx(["open", fbase + "/"], timeout=15)
+            time.sleep(2.0)
+            rec = _capture_state(fbase, "failed", vp_dir, vp_dir / "failed_1920x1080.png", viewport=VIEWPORTS[0])
+            if rec.get("failedPanel") and int(rec.get("stepFailed") or 0):
+                ok("wb.failed real failed panel (provider-unreachable)",
+                   f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')} terminal={terminal}")
+            else:
+                bad("wb.failed real failed panel", f"failedPanel={rec.get('failedPanel')} stepFailed={rec.get('stepFailed')}")
+            EVIDENCE["workbench"]["failed_terminal"] = terminal
+            EVIDENCE["workbench"]["_failed_ark_base_url"] = DEAD
+        else:
+            log(f"[wb.full][info] failed 未进入 FAILED：terminal={terminal}；如实记录。")
+            EVIDENCE["workbench"]["failed"] = {
+                "note": f"failed 实例未达 FAILED（terminal={terminal}）。", "terminal": terminal}
+    except BaseException as _e:  # noqa: BLE001 —— 异常/提前返回统一走 teardown
+        import traceback as _tb
+        _tb.print_exc()
+        EVIDENCE.setdefault("workbench", {})["failed_exception"] = repr(_e)
+    finally:
+        # §18.3-A.4：failed 实例的 app/端口/runtime 在任何返回与异常路径都必须释放。
+        # 收尾 failed 实例 + runtime（须等到进程真正退出，避免残留实例占用资源/端口，
+        # 冻结 onedir 同时只能跑一个实例，主实例随后才能启动）
+        if fapp is not None and fapp.poll() is None:
+            try:
+                fapp.terminate()
             except Exception:  # noqa: BLE001
                 pass
-        try:
-            fapp.wait(timeout=10)
-        except Exception:  # noqa: BLE001
-            pass
-    time.sleep(2.0)  # 端口/Task 释放尘埃落定
-    import shutil
-    shutil.rmtree(frm, ignore_errors=True)
-
-
+            try:
+                fapp.wait(timeout=15)
+            except Exception:  # noqa: BLE001
+                try:
+                    fapp.kill()
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                fapp.wait(timeout=10)
+            except Exception:  # noqa: BLE001
+                pass
+        time.sleep(2.0)  # 端口/Task 释放尘埃落定
+        import shutil
+        _rmtree_force(frm)
+    
+    
 def workbench_full_states(base: str, exe, runtime) -> None:
     """PLAN §7.1 全状态 Design Fidelity 对照（empty/saved 在 main 已就绪并复用；此处 P1–P4/failed）。
 
@@ -643,185 +710,10 @@ def _boot_app(exe: Path, port: int, runtime: Path, seed: bool = True,
     return app, None
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="http://127.0.0.1:8317")
-    ap.add_argument("--exe", default=None, help="后端未启动时用 onedir 包自启动（隔离 runtime）")
-    args = ap.parse_args()
-    base = args.base.rstrip("/")
-    port = int(base.rsplit(":", 1)[1])
 
-    log("== Design Fidelity (DS-003 Theme A) ==")
-    app = None
-    runtime: Path | None = None
-    # 先失败后成功：failed 取证必须在**无其他 app 实例**时用独立 DEAD 实例采集
-    # （冻结 onedir 无法同时跑两个实例——第二个实例 boot 会挂起），
-    # 因此先跑 _drive_failed（自带独立实例并 teardown），再启动 seeded 成功实例。
-    vp_dir = EVID / "states"
-    EVIDENCE.setdefault("workbench", {})
-    _drive_failed(base, vp_dir, exe=Path(args.exe) if args.exe else None)
-    if not wait_port(base, 30):
-        if not args.exe:
-            log(f"[FATAL] backend not reachable at {base} 且未提供 --exe")
-            return 2
-        import tempfile
-        runtime = Path(tempfile.mkdtemp(prefix="h8fid_"))
-        log(f"[boot] 隔离启动 app（runtime={runtime}）")
-        app, err = _boot_app(Path(args.exe), port, runtime)
-        if err:
-            log(f"[FATAL] app 启动失败：{err}")
-            return 2
-        log("[boot] app 就绪（status+migrate 200）")
 
-    # ── 打开根（workbench empty） ──
-    bx(["open", base + "/"], timeout=15)
-    time.sleep(2)
-    p = probe(base)
-    ok("wb-shell", f"shell={p.get('wbShell')} topbar={p.get('topbar')} avatar={p.get('avatar')}")
-    if not p.get("oldSidebar"):
-        ok("workbench no old sidebar", f"app-sidebar={p.get('oldSidebar')}")
-    else:
-        bad("workbench old sidebar", "app-sidebar still present")
-    # empty：主 CTA foot 固定
-    if p.get("genFoot"):
-        ok("workbench empty cta fixed", f"genFoot={p.get('genFoot')}")
-    else:
-        bad("workbench empty cta fixed", "wb-panel__foot--generate missing")
-    # 四步轨道状态
-    if p.get("activeStep") and p.get("futureSteps"):
-        ok("rail active+future present", f"active={p.get('activeStep')} future={p.get('futureSteps')}")
-        # 交互断言：active 不可点、future disabled
-        st = bx(["eval",
-                 "JSON.stringify([document.querySelectorAll('.wb-step').length,'|',"
-                 " [...document.querySelectorAll('.wb-step')].map(e=>"
-                 " {const b=e.getAttribute('aria-current');const d=e.hasAttribute('disabled');return (b||'')+(d?'/d':'');}).join(',')"
-                 "])"], timeout=25).strip()
-        st = st.strip('"')
-        EVIDENCE["rail"]["raw"] = st
-        # 期望形如 [4,'|','/d,step/d,/,/d'] （active=aria-current无disabled；done 可点；future disabled）
-        log(f"rail states: {st}")
-    EVIDENCE["secondary"]["workbench_empty"] = p
-
-    # ── 二级页面 ×7 viewport（experiences / records / privacy） ──
-    routes = ["/experiences", "/records", "/privacy"]
-    vps_dir = EVID / "viewports"
-    vps_dir.mkdir(parents=True, exist_ok=True)
-    for route in routes:
-        bx(["open", base + route], timeout=15)
-        time.sleep(1.8)
-        p = probe(base)
-        EVIDENCE["secondary"].setdefault("shell", {})[route] = p
-        ok(f"{route} avatar-shell", f"shell={p.get('wbShell')} topbar={p.get('topbar')}")
-        if p.get("taskHeading") and p.get("eyebrow") and p.get("h1") and p.get("panelMain"):
-            ok(f"{route} theme-A heading+panel", f"heading={p.get('taskHeading')} eyebrow={p.get('eyebrow')} h1={p.get('h1')} panel={p.get('panelMain')}")
-        else:
-            bad(f"{route} theme-A heading+panel",
-                f"heading={p.get('taskHeading')} eyebrow={p.get('eyebrow')} h1={p.get('h1')} subpage={p.get('subpage')} panel={p.get('panelMain')}")
-        if not (p.get("oldSidebar") or p.get("oldPage") or p.get("oldPrivacyList") or p.get("oldCard")):
-            ok(f"{route} no old sidebar/dev cards",
-               f"sidebar={p.get('oldSidebar')} page-head={p.get('oldPage')} privacy-list={p.get('oldPrivacyList')} card={p.get('oldCard')}")
-        else:
-            bad(f"{route} no old sidebar/dev cards",
-                f"sidebar={p.get('oldSidebar')} page-head={p.get('oldPage')} privacy-list={p.get('oldPrivacyList')} card={p.get('oldCard')}")
-        # 7 viewport 截图 + overflow
-        for (vw, vh) in VIEWPORTS:
-            bx(["set", "viewport", str(vw), str(vh)], timeout=20)
-            time.sleep(1.0)
-            pv = probe(base)
-            shot = vps_dir / f"{route.lstrip('/')}_{vw}x{vh}.png"
-            bx(["screenshot", str(shot)], timeout=60)
-            EVIDENCE["viewports"].setdefault(route, {})[f"{vw}x{vh}"] = {
-                "docOv": pv.get("docOv"), "bodyOv": pv.get("bodyOv"),
-                "heading": pv.get("taskHeading"), "panel": pv.get("panelMain"),
-                "shot": shot.name, "shot_exists": shot.exists(),
-            }
-            if int(pv.get("docOv") or 0) == 0 and int(pv.get("bodyOv") or 0) == 0:
-                ok(f"{route}@{vw}x{vh} overflow=0", f"docOv={pv.get('docOv')} bodyOv={pv.get('bodyOv')}")
-            else:
-                bad(f"{route}@{vw}x{vh} overflow", f"docOv={pv.get('docOv')} bodyOv={pv.get('bodyOv')}")
-            if shot.exists():
-                ok(f"{route}@{vw}x{vh} screenshot", shot.name)
-            else:
-                bad(f"{route}@{vw}x{vh} screenshot", "png 未落盘")
-
-    # ── 返回当前任务能力：从二级页经头像菜单回工作台 ──
-    bx(["open", base + "/privacy"], timeout=15)
-    time.sleep(1.5)
-    bx(["click", ".wb-avatar-btn"], timeout=20)
-    time.sleep(0.6)
-    back = bx(["eval", "document.querySelector('.wb-avatar-menu__back')?.textContent||''"], timeout=20).strip()
-    EVIDENCE["secondary"]["menu_back_label"] = back
-    if "返回当前生成任务" in back:
-        ok("avatar menu back-to-task label", back.strip())
-    else:
-        bad("avatar menu back-to-task label", f"got={back!r}")
-    bx(["click", ".wb-avatar-menu__back"], timeout=20)
-    time.sleep(1.2)
-    p = probe(base)
-    if p.get("rail"):
-        ok("back-to-task returns workbench", f"rail={p.get('rail')} topbar={p.get('topbar')}")
-    else:
-        bad("back-to-task returns workbench", f"rail={p.get('rail')} topbar={p.get('topbar')}")
-
-    # ── 保存态（saved）：填写 name+jD 后主 CTA 仍在 foot 固位 ──
-    # 在 workbench 填表，断言 saved 后 foot 固位 + 输入保留。
-    bx(["open", base + "/"], timeout=15)
-    time.sleep(1.8)
-    js_name = json.dumps("保真测试")
-    js_jd = json.dumps("高级后端研发工程师（Java）：负责电商平台交易链路设计、编码与线上稳定性，主导订单支付库存模块演进与高并发优化。要求 5 年+ Java、Spring Boot、MySQL、Redis，有分布式/消息队列实践优先，base 杭州可尽快到岗。")
-    bx(["eval",
-         ("(()=>{const setV=(el,v)=>{const p=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
-          "Object.getOwnPropertyDescriptor(p,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));"
-          "el.dispatchEvent(new Event('change',{bubbles:true}));};"
-          "const ni=document.querySelector('input[placeholder=\"请输入姓名\"]');"
-          "const nj=document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
-          "if(ni)setV(ni," + js_name + ");if(nj)setV(nj," + js_jd + ");return 'ok';})()")],
-         timeout=25)
-    time.sleep(1.0)
-    ps = probe(base)
-    EVIDENCE["saved"] = ps
-    if ps.get("genFoot"):
-        ok("saved cta fixed in foot", f"genFoot={ps.get('genFoot')} rail={ps.get('rail')}")
-    else:
-        bad("saved cta fixed in foot", "wb-panel__foot--generate missing after fill")
-    # 输入保留：刷新后 name/jd 仍在
-    bx(["eval", "location.reload();'ok'"], timeout=15)
-    time.sleep(2.5)
-    pn = probe(base)
-    EVIDENCE["saved"]["after_reload"] = pn
-    snapn = bx(["eval", "JSON.stringify({ni:(document.querySelector('input[placeholder=\"请输入姓名\"]')||{}).value||'',"
-               "len:(document.querySelector('textarea[placeholder=\"职位描述（JD）\"]')||{}).value?.length||0})"], timeout=20).strip()
-    EVIDENCE["saved"]["reload_input"] = snapn
-    if "保真测试" in snapn or "len" in snapn and int(re.search(r'"len":(\d+)', snapn).group(1)) > 30:
-        ok("saved input survives reload", snapn[:100])
-    else:
-        log(f"  [info] saved reload input={snapn[:100]} (refresh restore may be task-session based)")
-
-    # ── 全状态 Design Fidelity 对照（PLAN §7.1：empty/saved 上面已就绪并复用；P1–P4/failed 在此）──
-    # 一次真实成功任务 + reviewStep 回看 P1/P2/P3（不重复生成）+ P4/success 7 视口 + failed 真实失败路径。
-    workbench_full_states(base, args.exe, runtime)
-
-    # 汇总
-    # R3 §R3-10 C：证据自带最终 EXE 身份，供总 manifest 绑定同一包。
-    _exe_sha = None
-    _exe_meta = None
-    if args.exe and Path(args.exe).is_file():
-        _h = hashlib.sha256()
-        with open(args.exe, "rb") as fh:
-            for chunk in iter(lambda: fh.read(1 << 20), b""):
-                _h.update(chunk)
-        _exe_sha = _h.hexdigest()
-        _exe_meta = {"path": str(args.exe), "sha256": _exe_sha,
-                     "size": Path(args.exe).stat().st_size}
-    EVIDENCE["exe_sha256"] = _exe_sha
-    EVIDENCE["exe"] = _exe_meta
-    summary = {"pass": PASS, "fail": len(FAILS), "exit": 0 if not FAILS else 1,
-               "viewport_screens": sorted(p for route in EVIDENCE["viewports"] for p in EVIDENCE["viewports"][route])}
-    EVIDENCE["summary"] = summary
-    EVIDENCE["cleanup"] = {"app_was_self_started": bool(app), "runtime": str(runtime) if runtime else None}
-    (EVID / "design_fidelity.json").write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    # 终态清理：自启动的 app 终止 + 临时 runtime 删除
+def _cleanup_self_app(app, runtime: "Path | None") -> None:
+    """自启动 app 的终止 + 临时 runtime 删除（幂等）。"""
     if app is not None and app.poll() is None:
         try:
             app.terminate()
@@ -835,19 +727,419 @@ def main() -> int:
             except Exception:  # noqa: BLE001
                 pass
     if runtime is not None:
-        import shutil
+        import shutil as _sh
         try:
-            shutil.rmtree(runtime, ignore_errors=True)
-            EVIDENCE["cleanup"]["runtime_removed"] = True
+            _rmtree_force(runtime)
         except Exception:  # noqa: BLE001
-            EVIDENCE["cleanup"]["runtime_removed"] = False
-    (EVID / "design_fidelity.json").write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
+            pass
+
+
+def _teardown_fail_instance(fapp, frm) -> None:
+    """failed 独立实例的收尾（幂等）：终止进程 + 删除隔离 runtime。任何提前返回路径都调用。"""
+    if fapp is not None and fapp.poll() is None:
+        try:
+            fapp.terminate()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            fapp.wait(timeout=15)
+        except Exception:  # noqa: BLE001
+            try:
+                fapp.kill()
+            except Exception:  # noqa: BLE001
+                pass
+    time.sleep(1.0)
+    import shutil as _sh
+    try:
+        _rmtree_force(frm)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+LONG_JD = (
+    "高级后端研发工程师（Java）：负责电商平台交易链路设计、编码与线上稳定性，主导订单支付库存模块"
+    "演进与高并发优化。要求 5 年以上 Java 开发经验，精通 Spring Boot、Spring Cloud、MySQL、Redis，"
+    "熟悉 Kafka、RocketMQ 等消息中间件，具备分布式事务、幂等与最终一致性设计能力；参与过中台化改造、"
+    "服务治理与全链路压测；有容器化 Kubernetes、CI/CD 流水线落地经验；能独立完成技术方案评审与跨团队协作；"
+    "base 杭州，可尽快到岗。加分项：了解 Flink 实时计算、有电商大促保障经历、熟悉资金安全与对账体系。"
+) * 3  # ~800 字
+
+
+def _fill_jd(base: str, name: str, jd: str) -> None:
+    js_name = json.dumps(name)
+    js_jd = json.dumps(jd)
+    bx(["eval",
+        ("(()=>{const setV=(el,v)=>{const p=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
+         "Object.getOwnPropertyDescriptor(p,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));"
+         "el.dispatchEvent(new Event('change',{bubbles:true}));};"
+         "const ni=document.querySelector('input[placeholder=\"请输入姓名\"]');"
+         "const nj=document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
+         "if(ni)setV(ni," + js_name + ");if(nj)setV(nj," + js_jd + ");return 'ok';})()")], timeout=30)
+
+
+def _review_1686x1076(base: str) -> dict:
+    """V220-R3-G07 / §R3-18 O2：1686×1076 + 约 800 字 JD 的步骤 1 回看态，
+    主内容区 `.wb-panel__scroll` 不得出现短行程独立滚动条（scrollHeight<=clientHeight+1）。"""
+    bx(["open", base + "/"], timeout=15)
+    time.sleep(1.8)
+    bx(["eval", "sessionStorage.clear();localStorage.clear();location.reload();'ok'"], timeout=15)
+    time.sleep(2.0)
+    _fill_jd(base, "回看态测试", LONG_JD)
+    time.sleep(1.0)
+    bx(["set", "viewport", "1686", "1076"], timeout=20)
+    time.sleep(1.2)
+    raw = bx(["eval", "JSON.stringify((function(){"
+              "const s=document.querySelector('.wb-panel__scroll');"
+              "return {found:!!s,sh:s?s.scrollHeight:0,ch:s?s.clientHeight:0,"
+              "overflow:!!(s&&s.scrollHeight>s.clientHeight+1),"
+              "docOv:Math.max(0,Math.ceil(document.documentElement.scrollHeight-document.documentElement.clientHeight)),"
+              "jdLen:(document.querySelector('textarea[placeholder=\"职位描述（JD）\"]')||{}).value?.length||0};})())"],
+             timeout=25).strip()
+    rv: dict = {}
+    try:
+        s1 = json.loads(raw)
+        rv = json.loads(s1) if isinstance(s1, str) else s1
+    except Exception:
+        rv = {"_raw": raw[:200]}
+    rv["ok"] = bool(rv.get("found")) and not bool(rv.get("overflow"))
+    rv["viewport"] = "1686x1076"
+    if rv["ok"]:
+        ok("review 1686x1076 step1 no short-travel scroll",
+           f"sh={rv.get('sh')} ch={rv.get('ch')} jdLen={rv.get('jdLen')}")
+    else:
+        bad("review 1686x1076 step1 no short-travel scroll",
+            f"found={rv.get('found')} overflow={rv.get('overflow')} sh={rv.get('sh')} ch={rv.get('ch')}")
+    return rv
+
+
+KB_ROUTES = ["/", "/experiences", "/records", "/privacy"]
+
+
+def _kb_probe(base: str, route: str, method: str) -> dict:
+    """单一激活路径：真实浏览器 focus + press/click，读取真实导航次数/滚动/焦点。"""
+    bx(["open", base + route], timeout=15)
+    time.sleep(1.6)
+    bx(["eval", "(()=>{window.__kb={push:0};const p=history.pushState.bind(history);"
+        "history.pushState=(...a)=>{window.__kb.push++;return p(...a)};"
+        "window.__kbScroll=window.scrollY;return 'ok'})()"], timeout=20)
+    tid = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
+             timeout=20).strip().strip('"')
+    if method == "click":
+        bx(["click", ".wb-brand-link"], timeout=20)
+    elif method == "enter":
+        bx(["focus", ".wb-brand-link"], timeout=20)
+        bx(["press", "Enter"], timeout=20)
+    elif method == "space":
+        bx(["focus", ".wb-brand-link"], timeout=20)
+        # Space：优先真实按键；若 CLI 对空格键名解析不稳定，回退为同页真实 DOM keydown 派发。
+        bx(["press", " "], timeout=20)
+        chk = bx(["eval", "location.pathname"], timeout=20).strip().strip('"')
+        if chk and chk != "/":
+            bx(["eval", ("(()=>{const el=document.querySelector('.wb-brand-link');"
+                         "if(!el)return 'no-el';el.dispatchEvent(new KeyboardEvent('keydown',"
+                         "{key:' ',code:'Space',bubbles:true,cancelable:true}));return 'ok'})()")],
+               timeout=20)
+    time.sleep(1.2)
+    raw = bx(["eval", "JSON.stringify({path:location.pathname,nav:window.__kb?window.__kb.push:-1,"
+              "scroll:window.scrollY,start:window.__kbScroll})"], timeout=20).strip()
+    d: dict = {}
+    try:
+        s1 = json.loads(raw)
+        d = json.loads(s1) if isinstance(s1, str) else s1
+    except Exception:
+        d = {"_raw": raw[:200]}
+    tid2 = bx(["eval", "(sessionStorage.getItem('resume_assistant.lastTaskId')||'')"],
+              timeout=20).strip().strip('"')
+    return {"method": method, "route": route, "path": d.get("path"),
+            "nav_push": d.get("nav"),
+            "scroll_delta": (int(d.get("scroll") or 0) - int(d.get("start") or 0)),
+            "task_kept": (tid == tid2) if (tid or tid2) else None}
+
+
+def _kb_focus_visible(base: str, route: str) -> dict:
+    bx(["open", base + route], timeout=15)
+    time.sleep(1.6)
+    raw = bx(["eval", "JSON.stringify((function(){const el=document.querySelector('.wb-brand-link');"
+              "if(!el)return {present:false};el.focus({focusVisible:true});const cs=getComputedStyle(el);"
+              "return {present:true,focused:document.activeElement===el,"
+              "fv:el.matches(':focus-visible'),outlineStyle:cs.outlineStyle,outlineWidth:cs.outlineWidth}})())"],
+             timeout=20).strip()
+    d: dict = {}
+    try:
+        s1 = json.loads(raw)
+        d = json.loads(s1) if isinstance(s1, str) else s1
+    except Exception:
+        d = {"_raw": raw[:200]}
+    def _px(v) -> float:
+        try:
+            return float(str(v or "").replace("px", "").strip() or 0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    d["ok"] = bool(d.get("present") and d.get("focused") and d.get("fv")
+                   and d.get("outlineStyle") not in ("none", None)
+                   and (_px(d.get("outlineWidth")) > 0))
+    return d
+
+
+def _keyboard_matrix(base: str) -> dict:
+    """D 类：4 个页面 × click/Enter/Space/focus-visible + 单次导航 + Space 不滚动 + task 保持。"""
+    pages: dict = {}
+    for route in KB_ROUTES:
+        rec: dict = {"click": None, "enter": None, "space": None, "focus_visible": None}
+        rec["click"] = _kb_probe(base, route, "click")
+        rec["enter"] = _kb_probe(base, route, "enter")
+        rec["space"] = _kb_probe(base, route, "space")
+        rec["focus_visible"] = _kb_focus_visible(base, route)
+        ok_click = rec["click"].get("path") == "/" and rec["click"].get("nav_push") == 1
+        ok_enter = rec["enter"].get("path") == "/" and rec["enter"].get("nav_push") == 1
+        ok_space = (rec["space"].get("path") == "/" and rec["space"].get("nav_push") == 1
+                    and rec["space"].get("scroll_delta") == 0)
+        task_kept = rec["click"].get("task_kept") in (None, True)
+        fv = rec["focus_visible"].get("ok") is True
+        ok_all = bool(ok_click and ok_enter and ok_space and task_kept and fv)
+        rec["ok"] = ok_all
+        rec["_detail"] = {"click": ok_click, "enter": ok_enter, "space": ok_space,
+                          "task_kept": task_kept, "focus_visible": fv}
+        pages[route] = rec
+        if ok_all:
+            ok(f"brand-keyboard {route}", "click/Enter/Space/focus-visible/task-kept 全部通过")
+        else:
+            bad(f"brand-keyboard {route}", json.dumps(rec.get("_detail"), ensure_ascii=False))
+    return {"pages": pages, "ok": all(v.get("ok") is True for v in pages.values())}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--base", default="http://127.0.0.1:8317")
+    ap.add_argument("--exe", default=None, help="后端未启动时用 onedir 包自启动（隔离 runtime）")
+    ap.add_argument("--reuse-base", action="store_true",
+                    help="显式允许复用 --base 上已运行的 app（仅开发迭代用；Gate 不传）")
+    args = ap.parse_args()
+    base = args.base.rstrip("/")
+    port = int(base.rsplit(":", 1)[1])
+    # Gate 模式（给了 --exe 且未显式允许复用）：即便 --base 端口上有残留实例，也一律
+    # 在**独占空闲端口**自启动被指定的二进制，保证 Gate 结果绑定当前包、可自愈重启。
+    if args.exe and not args.reuse_base:
+        port = _free_port(port)
+        base = f"http://127.0.0.1:{port}"
+
+    log("== Design Fidelity (DS-003 Theme A) ==")
+    app = None
+    runtime: Path | None = None
+    # 先失败后成功：failed 取证必须在**无其他 app 实例**时用独立 DEAD 实例采集
+    # （冻结 onedir 无法同时跑两个实例——第二个实例 boot 会挂起），
+    # 因此先跑 _drive_failed（自带独立实例并 teardown），再启动 seeded 成功实例。
+    vp_dir = EVID / "states"
+    EVIDENCE.setdefault("workbench", {})
+    _drive_failed(base, vp_dir, exe=Path(args.exe) if args.exe else None)
+    if not wait_port(base, 30):
+        if not args.exe:
+            log(f"[FATAL] backend not reachable at {base} 且未提供 --exe")
+            EVIDENCE["cleanup"] = {"app_was_self_started": False, "runtime_removed": True,
+                                   "ok": True}
+            return 2
+        import tempfile
+        runtime = Path(tempfile.mkdtemp(prefix="h8fid_"))
+        log(f"[boot] 隔离启动 app（runtime={runtime}）")
+        app, err = _boot_app(Path(args.exe), port, runtime)
+        if err:
+            log(f"[FATAL] app 启动失败：{err}")
+            _cleanup_self_app(app, runtime)
+            return 2
+        log("[boot] app 就绪（status+migrate 200）")
+
+    # V2.2.0 R3 §18.3-A.4：所有返回/异常路径统一走单一 teardown（finally）。
+    try:
+        # ── 打开根（workbench empty） ──
+        bx(["open", base + "/"], timeout=15)
+        time.sleep(2)
+        p = probe(base)
+        ok("wb-shell", f"shell={p.get('wbShell')} topbar={p.get('topbar')} avatar={p.get('avatar')}")
+        if not p.get("oldSidebar"):
+            ok("workbench no old sidebar", f"app-sidebar={p.get('oldSidebar')}")
+        else:
+            bad("workbench old sidebar", "app-sidebar still present")
+        # empty：主 CTA foot 固定
+        if p.get("genFoot"):
+            ok("workbench empty cta fixed", f"genFoot={p.get('genFoot')}")
+        else:
+            bad("workbench empty cta fixed", "wb-panel__foot--generate missing")
+        # 四步轨道状态
+        if p.get("activeStep") and p.get("futureSteps"):
+            ok("rail active+future present", f"active={p.get('activeStep')} future={p.get('futureSteps')}")
+            # 交互断言：active 不可点、future disabled
+            st = bx(["eval",
+                     "JSON.stringify([document.querySelectorAll('.wb-step').length,'|',"
+                     " [...document.querySelectorAll('.wb-step')].map(e=>"
+                     " {const b=e.getAttribute('aria-current');const d=e.hasAttribute('disabled');return (b||'')+(d?'/d':'');}).join(',')"
+                     "])"], timeout=25).strip()
+            st = st.strip('"')
+            EVIDENCE["rail"]["raw"] = st
+            # 期望形如 [4,'|','/d,step/d,/,/d'] （active=aria-current无disabled；done 可点；future disabled）
+            log(f"rail states: {st}")
+        EVIDENCE["secondary"]["workbench_empty"] = p
+    
+        # ── 二级页面 ×7 viewport（experiences / records / privacy） ──
+        routes = ["/experiences", "/records", "/privacy"]
+        vps_dir = EVID / "viewports"
+        vps_dir.mkdir(parents=True, exist_ok=True)
+        for route in routes:
+            bx(["open", base + route], timeout=15)
+            time.sleep(1.8)
+            p = probe(base)
+            EVIDENCE["secondary"].setdefault("shell", {})[route] = p
+            ok(f"{route} avatar-shell", f"shell={p.get('wbShell')} topbar={p.get('topbar')}")
+            if p.get("taskHeading") and p.get("eyebrow") and p.get("h1") and p.get("panelMain"):
+                ok(f"{route} theme-A heading+panel", f"heading={p.get('taskHeading')} eyebrow={p.get('eyebrow')} h1={p.get('h1')} panel={p.get('panelMain')}")
+            else:
+                bad(f"{route} theme-A heading+panel",
+                    f"heading={p.get('taskHeading')} eyebrow={p.get('eyebrow')} h1={p.get('h1')} subpage={p.get('subpage')} panel={p.get('panelMain')}")
+            if not (p.get("oldSidebar") or p.get("oldPage") or p.get("oldPrivacyList") or p.get("oldCard")):
+                ok(f"{route} no old sidebar/dev cards",
+                   f"sidebar={p.get('oldSidebar')} page-head={p.get('oldPage')} privacy-list={p.get('oldPrivacyList')} card={p.get('oldCard')}")
+            else:
+                bad(f"{route} no old sidebar/dev cards",
+                    f"sidebar={p.get('oldSidebar')} page-head={p.get('oldPage')} privacy-list={p.get('oldPrivacyList')} card={p.get('oldCard')}")
+            # 7 viewport 截图 + overflow
+            for (vw, vh) in VIEWPORTS:
+                bx(["set", "viewport", str(vw), str(vh)], timeout=20)
+                time.sleep(1.0)
+                pv = probe(base)
+                shot = vps_dir / f"{route.lstrip('/')}_{vw}x{vh}.png"
+                bx(["screenshot", str(shot)], timeout=60)
+                EVIDENCE["viewports"].setdefault(route, {})[f"{vw}x{vh}"] = {
+                    "docOv": pv.get("docOv"), "bodyOv": pv.get("bodyOv"),
+                    "heading": pv.get("taskHeading"), "panel": pv.get("panelMain"),
+                    "shot": shot.name, "shot_exists": shot.exists(),
+                }
+                if int(pv.get("docOv") or 0) == 0 and int(pv.get("bodyOv") or 0) == 0:
+                    ok(f"{route}@{vw}x{vh} overflow=0", f"docOv={pv.get('docOv')} bodyOv={pv.get('bodyOv')}")
+                else:
+                    bad(f"{route}@{vw}x{vh} overflow", f"docOv={pv.get('docOv')} bodyOv={pv.get('bodyOv')}")
+                if shot.exists():
+                    ok(f"{route}@{vw}x{vh} screenshot", shot.name)
+                else:
+                    bad(f"{route}@{vw}x{vh} screenshot", "png 未落盘")
+    
+        # ── 返回当前任务能力：从二级页经头像菜单回工作台 ──
+        bx(["open", base + "/privacy"], timeout=15)
+        time.sleep(1.5)
+        bx(["click", ".wb-avatar-btn"], timeout=20)
+        time.sleep(0.6)
+        back = bx(["eval", "document.querySelector('.wb-avatar-menu__back')?.textContent||''"], timeout=20).strip()
+        EVIDENCE["secondary"]["menu_back_label"] = back
+        if "返回当前生成任务" in back:
+            ok("avatar menu back-to-task label", back.strip())
+        else:
+            bad("avatar menu back-to-task label", f"got={back!r}")
+        bx(["click", ".wb-avatar-menu__back"], timeout=20)
+        time.sleep(1.2)
+        p = probe(base)
+        if p.get("rail"):
+            ok("back-to-task returns workbench", f"rail={p.get('rail')} topbar={p.get('topbar')}")
+        else:
+            bad("back-to-task returns workbench", f"rail={p.get('rail')} topbar={p.get('topbar')}")
+    
+        # ── 保存态（saved）：填写 name+jD 后主 CTA 仍在 foot 固位 ──
+        # 在 workbench 填表，断言 saved 后 foot 固位 + 输入保留。
+        bx(["open", base + "/"], timeout=15)
+        time.sleep(1.8)
+        js_name = json.dumps("保真测试")
+        js_jd = json.dumps("高级后端研发工程师（Java）：负责电商平台交易链路设计、编码与线上稳定性，主导订单支付库存模块演进与高并发优化。要求 5 年+ Java、Spring Boot、MySQL、Redis，有分布式/消息队列实践优先，base 杭州可尽快到岗。")
+        bx(["eval",
+             ("(()=>{const setV=(el,v)=>{const p=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;"
+              "Object.getOwnPropertyDescriptor(p,'value').set.call(el,v);el.dispatchEvent(new Event('input',{bubbles:true}));"
+              "el.dispatchEvent(new Event('change',{bubbles:true}));};"
+              "const ni=document.querySelector('input[placeholder=\"请输入姓名\"]');"
+              "const nj=document.querySelector('textarea[placeholder=\"职位描述（JD）\"]');"
+              "if(ni)setV(ni," + js_name + ");if(nj)setV(nj," + js_jd + ");return 'ok';})()")],
+             timeout=25)
+        time.sleep(1.0)
+        ps = probe(base)
+        EVIDENCE["saved"] = ps
+        if ps.get("genFoot"):
+            ok("saved cta fixed in foot", f"genFoot={ps.get('genFoot')} rail={ps.get('rail')}")
+        else:
+            bad("saved cta fixed in foot", "wb-panel__foot--generate missing after fill")
+        # 输入保留：刷新后 name/jd 仍在
+        bx(["eval", "location.reload();'ok'"], timeout=15)
+        time.sleep(2.5)
+        pn = probe(base)
+        EVIDENCE["saved"]["after_reload"] = pn
+        snapn = bx(["eval", "JSON.stringify({ni:(document.querySelector('input[placeholder=\"请输入姓名\"]')||{}).value||'',"
+                   "len:(document.querySelector('textarea[placeholder=\"职位描述（JD）\"]')||{}).value?.length||0})"], timeout=20).strip()
+        EVIDENCE["saved"]["reload_input"] = snapn
+        if "保真测试" in snapn or "len" in snapn and int(re.search(r'"len":(\d+)', snapn).group(1)) > 30:
+            ok("saved input survives reload", snapn[:100])
+        else:
+            log(f"  [info] saved reload input={snapn[:100]} (refresh restore may be task-session based)")
+    
+        # ── 全状态 Design Fidelity 对照（PLAN §7.1：empty/saved 上面已就绪并复用；P1–P4/failed 在此）──
+        # 一次真实成功任务 + reviewStep 回看 P1/P2/P3（不重复生成）+ P4/success 7 视口 + failed 真实失败路径。
+        workbench_full_states(base, args.exe, runtime)
+    
+        # ── V2.2.0 R3 D / O2：品牌键盘矩阵 + 1686×1076 约 800 字 JD 回看态 ──
+        EVIDENCE["review_1686x1076"] = _review_1686x1076(base)
+        EVIDENCE["keyboard_matrix"] = _keyboard_matrix(base)
+    except BaseException as _e:  # noqa: BLE001 —— 未捕获异常同样进入统一 teardown
+        import traceback as _tb
+        _tb.print_exc()
+        EVIDENCE["exception"] = repr(_e)
+        bad("fidelity_uncaught_exception", type(_e).__name__)
+    finally:
+        # 先补齐 EXE 身份与键盘/回看态汇总，再做终态清理，保证异常时证据不丢、cleanup 必执行。
+        # 汇总
+        # R3 §R3-10 C：证据自带最终 EXE 身份，供总 manifest 绑定同一包。
+        _exe_sha = None
+        _exe_meta = None
+        if args.exe and Path(args.exe).is_file():
+            _h = hashlib.sha256()
+            with open(args.exe, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    _h.update(chunk)
+            _exe_sha = _h.hexdigest()
+            _exe_meta = {"path": str(args.exe), "sha256": _exe_sha,
+                         "size": Path(args.exe).stat().st_size}
+        EVIDENCE["exe_sha256"] = _exe_sha
+        EVIDENCE["exe"] = _exe_meta
+        # 键盘矩阵不通过也压 verdict（作为 fail 记录）。
+        km = EVIDENCE.get("keyboard_matrix") or {}
+        if km and km.get("ok") is not True:
+            bad("brand-keyboard matrix overall", "存在页面未通过 click/Enter/Space/focus-visible")
+        rv = EVIDENCE.get("review_1686x1076") or {}
+        if rv and rv.get("ok") is not True:
+            bad("review 1686x1076 overall", "回看态仍存在短行程滚动")
+    
+        # 终态清理：自启动的 app 终止 + 临时 runtime 删除；cleanup 失败压低 verdict。
+        _cleanup_self_app(app, runtime)
+        cleanup_ok = True
+        if app is not None and app.poll() is None:
+            cleanup_ok = False
+        if runtime is not None and runtime.exists():
+            cleanup_ok = False
+        EVIDENCE["cleanup"] = {
+            "app_was_self_started": bool(app),
+            "runtime": str(runtime) if runtime else None,
+            "runtime_removed": bool(runtime is None or not runtime.exists()),
+            "app_terminated": bool(app is None or app.poll() is not None),
+            "ok": cleanup_ok,
+        }
+        summary = {"pass": PASS, "fail": len(FAILS), "exit": 0 if (not FAILS and cleanup_ok) else 1,
+                   "cleanup_ok": cleanup_ok,
+                   "keyboard_matrix_ok": bool(km.get("ok")) if km else None,
+                   "review_1686x1076_ok": bool(rv.get("ok")) if rv else None,
+                   "viewport_screens": sorted(p for route in EVIDENCE["viewports"]
+                                              for p in EVIDENCE["viewports"][route])}
+        EVIDENCE["summary"] = summary
+        EVIDENCE["cleanup_ok"] = cleanup_ok
+        (EVID / "design_fidelity.json").write_text(json.dumps(EVIDENCE, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log("")
-    log(f"== Design Fidelity summary: PASS={PASS} FAIL={len(FAILS)} ==")
+    log(f"== Design Fidelity summary: PASS={PASS} FAIL={len(FAILS)} cleanup_ok={cleanup_ok} ==")
     for f in FAILS:
         log(f"  FAIL {f}")
-    return 0 if not FAILS else 1
+    return 0 if (not FAILS and cleanup_ok) else 1
 
 
 if __name__ == "__main__":

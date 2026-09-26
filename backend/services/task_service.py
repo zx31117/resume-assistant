@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import Any
 
@@ -68,6 +69,52 @@ def _run_task_cleanup(db: Session) -> None:
     except Exception as e:  # noqa: BLE001
         db.rollback()
         logger.error("T9 task-terminal cleanup failed task=%r: %r", id(db), e)
+
+
+def _rollback_promoted(promoted: dict[str, Any] | None) -> None:
+    """把已提升到发布目录、但事务未提交的 artifact 文件删除（幂等、错误可见）。"""
+    if not promoted:
+        return
+    try:
+        from services import document_assembler
+        document_assembler._rollback_promoted(promoted)
+    except Exception:  # noqa: BLE001
+        logger.error("rollback promoted artifacts failed", exc_info=True)
+
+
+def _cleanup_staging_quiet(task_id: str) -> bool:
+    """删除本任务的 staging 根（幂等）。失败只记录，不影响任务终态。"""
+    try:
+        from services import artifact_store
+        ok = artifact_store.cleanup_task_staging(task_id)
+        if not ok:
+            logger.error("staging cleanup incomplete task_id=%s", task_id)
+        return ok
+    except Exception:  # noqa: BLE001
+        logger.error("staging cleanup failed task_id=%s", task_id, exc_info=True)
+        return False
+
+
+def _cleanup_staging_visible(db: Session, task, artifacts: dict[str, Any]) -> None:
+    """发布成功后清理 staging 并把结果写入快照（错误可见，不静默）。"""
+    try:
+        from services import artifact_store
+        ok = artifact_store.cleanup_dir_quiet(artifacts.get("staging_dir") or "")
+        if not ok:
+            logger.error("staging dir cleanup incomplete after publish task_id=%s",
+                         getattr(task, "task_id", ""))
+    except Exception:  # noqa: BLE001
+        ok = False
+        logger.error("staging dir cleanup failed after publish", exc_info=True)
+    try:
+        from database.models import TaskSnapshot
+        snap = (db.query(TaskSnapshot).filter_by(task_id=task.task_id).first())
+        if snap is not None and isinstance(snap.payload, dict):
+            payload = dict(snap.payload)
+            payload["staging_cleanup_ok"] = bool(ok)
+            snap.payload = payload
+    except Exception:  # noqa: BLE001
+        logger.warning("record staging cleanup verdict failed", exc_info=True)
 
 
 def _require_owner(task) -> None:
@@ -139,8 +186,91 @@ class TaskService:
         return _task_view_dict(view)
 
     def list_records(self, *, limit: int = 200) -> list[dict[str, Any]]:
-        """列出真实可用的生成记录（V220-R2-T08：我的简历）。"""
-        return self._repo.list_records(limit=limit)
+        """列出真实可用的生成记录（V220-R2-T08：我的简历）。
+
+        V2.2.0 Revision 3 返工：对每一条候选记录做**文件级 fail-closed 校验**——
+        已登记的不可变 artifact 引用必须指向真实存在、非零、hash 一致的文件；
+        任一不成立则整条记录从列表剔除（绝不暴露假成功下载入口）。
+        """
+        from services import artifact_store
+
+        rows = self._repo.list_records(limit=limit)
+        out: list[dict[str, Any]] = []
+        for rec in rows:
+            arts = rec.get("artifacts") or []
+            if not arts:
+                continue  # 无任何已登记 artifact → 不是可下载的真实记录
+            verified: list[dict[str, Any]] = []
+            damaged = False
+            for a in arts:
+                ok, path = self._verify_artifact_on_disk(a)
+                if not ok:
+                    damaged = True
+                    break
+                verified.append({**a, "download_path": path})
+            if damaged or not verified:
+                logger.warning("records: 剔除存在损坏/缺失 artifact 的记录 task_id=%s",
+                               rec.get("task_id"))
+                continue
+            rec = dict(rec)
+            rec["artifacts"] = verified
+            out.append(rec)
+        return out
+
+    def _verify_artifact_on_disk(self, art: dict[str, Any]) -> tuple[bool, str]:
+        """校验已登记 artifact 的文件确实存在、非零且 hash 一致。返回 (ok, 相对语义路径)。"""
+        from services import artifact_store
+
+        fn = art.get("file_name") or ""
+        if not fn:
+            return False, ""
+        abs_path = os.path.join(str(artifact_store.publish_root()), fn)
+        if not artifact_store.assert_inside_publish(abs_path):
+            return False, ""
+        if not os.path.isfile(abs_path) or os.path.getsize(abs_path) <= 0:
+            return False, ""
+        if art.get("size_bytes") and os.path.getsize(abs_path) != int(art["size_bytes"]):
+            return False, ""
+        if art.get("sha256") and artifact_store.sha256_file(abs_path) != art["sha256"]:
+            return False, ""
+        return True, f"{(art.get('rel_dir') or 'output')}/{fn}"
+
+    def resolve_artifact_download(self, task_id: str, kind: str) -> dict[str, Any]:
+        """task-scoped、owner-scoped 的 artifact 下载解析（RESULT §R3-18 B）。
+
+        授权链：当前 owner → Task（owner 必须匹配）→ 已登记的不可变 artifact 引用
+        → 明确 artifact kind → 实际文件。客户端传入的 filename/basename/相对路径
+        一律不参与授权。
+
+        未授权与不存在对象返回同一错误（不泄露存在性差异）：`TaskNotFoundError`（404）。
+        """
+        from services import artifact_store
+
+        k = (kind or "").strip().lower()
+        if k not in ("docx", "pdf"):
+            raise TaskNotFoundError(
+                f"任务或产物不存在：{task_id}",
+                details={"task_id": task_id},
+            )
+        task = self._repo.get(task_id)
+        if task is None or task.user_id != current_user_id():
+            raise TaskNotFoundError(
+                f"任务或产物不存在：{task_id}", details={"task_id": task_id})
+        if TaskStatus(task.status) != TaskStatus.SUCCEEDED:
+            raise TaskNotFoundError(
+                f"任务或产物不存在：{task_id}", details={"task_id": task_id})
+        ref = self._repo.resolve_artifact(
+            task_id, k, resume_revision=task.published_resume_revision)
+        if ref is None or ref.get("user_id") != current_user_id():
+            raise TaskNotFoundError(
+                f"任务或产物不存在：{task_id}", details={"task_id": task_id})
+        ok, _ = self._verify_artifact_on_disk(ref)
+        if not ok:
+            # 已登记但磁盘对象缺失/损坏 → fail closed，同样报“不存在”（不泄露差异）。
+            raise TaskNotFoundError(
+                f"任务或产物不存在：{task_id}", details={"task_id": task_id})
+        abs_path = os.path.join(str(artifact_store.publish_root()), ref["file_name"])
+        return {**ref, "abs_path": abs_path}
 
     def cancel_task(self, task_id: str) -> dict[str, Any]:
         """实际取消（PLAN V220-G02 / Gate 6.1）。
@@ -227,6 +357,7 @@ class TaskService:
             from services.task_generation import generate_task
 
             local = db_session.SessionLocal()
+            promoted_for_rollback: dict[str, Any] | None = None
             try:
                 db_task = local.get(db_models.Task, task_id)
                 if db_task is None:
@@ -253,7 +384,7 @@ class TaskService:
                 from services import document_assembler
                 effective_assembler = assembler if assembler is not None else (
                     document_assembler.make_task_assembler(
-                        local, contact=contact,
+                        local, task_id=task_id, contact=contact,
                         template_id="pm_template",  # V2.2.0 P0：装配归主用真实 owner，不用 task_id 冒充
                     )
                 )
@@ -261,21 +392,23 @@ class TaskService:
                                         budget=None, provider=provider,
                                         selector=selector, assembler=effective_assembler,
                                         preload=preload)
-                # V2.2.0 P0：成功终态 + artifact 引用必须在同一 DB 事务内原子提交。
-                # （P4 已做归属/来源完整性/必需章节/未替换占位符/原型文字/artifact 可读性
-                # 硬校验；结构性错误已在 assembler 内抛错导致 FAILED，不会走到这里。）
-                repo.transition(db_task, TaskStatus.SUCCEEDED)
-                if summary.assembled and summary.artifacts.get("docx_path"):
-                    repo.publish_artifacts(
-                        db_task, resume_revision=revision,
-                        docx_path=summary.artifacts["docx_path"],
-                        pdf_path=summary.artifacts.get("pdf_path") or "",
-                    )
+                # V2.2.0 Revision 3 返工：产物先写 task-scoped staging → 全量内容校验 →
+                # 同盘原子提升 → 在**同一 DB 事务**登记不可变 artifact 引用 + SUCCEEDED。
+                # 任一环节失败都不得出现 SUCCEEDED，并回滚已提升文件与 staging。
+                promoted_for_rollback = document_assembler.promote_staged_artifacts(
+                    summary.artifacts or {})
+                repo.publish_success(db_task, resume_revision=revision,
+                                     promoted=promoted_for_rollback)
                 local.commit()
+                promoted_for_rollback = None  # 已提交：不再需要回滚
                 logger.info("run_generation SUCCEEDED task_id=%s revision=%d", task_id, revision)
+                # 发布成功后才清理 staging（提升已移走文件，目录应为空）。
+                _cleanup_staging_visible(local, db_task, summary.artifacts or {})
                 _run_task_cleanup(local)  # T9：任务进入终态后触发 cleanup（幂等）
             except TaskCancelledError:
                 local.rollback()
+                _rollback_promoted(promoted_for_rollback)
+                _cleanup_staging_quiet(task_id)
                 cancelled = local.get(db_models.Task, task_id)
                 if cancelled is not None:
                     try:
@@ -287,6 +420,8 @@ class TaskService:
                         local.rollback()
             except Exception as e:  # noqa: BLE001
                 local.rollback()
+                _rollback_promoted(promoted_for_rollback)
+                _cleanup_staging_quiet(task_id)
                 from core.errors import DomainError as _DE
                 code = e.error_code if isinstance(e, _DE) else "GENERATION_FAILED"
                 failed = local.get(db_models.Task, task_id)
