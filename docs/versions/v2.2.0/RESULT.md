@@ -5191,6 +5191,16 @@ Python 路径写死；`h8_r3_seal.py` 的脱敏列表还显式写入同一用户
 
 ### 29.6 封存后数值（由收口 commit 记录）
 
-- 中央入口：`<acceptance-staging>/bbe3532/`、`<acceptance-staging>/bbe3532-evidence/`；
-- manifest SHA-256 / checksum 条数 / 中央副本 `manifest verify` 与 `verify-checksums` 的 `rc`：
-  **待 RESULT-only 收口 commit 填入**。
+- 中央入口：`<acceptance-staging>/bbe3532/`（包 4045 files）与
+  `<acceptance-staging>/bbe3532-evidence/`（证据 52 files + `CHECKSUMS.sha256`）；
+- `manifest.json` 字节 SHA-256：`16ac8243f1804fdd263c6c6dbdc69c9f9fb28231d7e58e6473903efe76ddbbb2`
+  （staged 与中央副本逐字节一致）；
+- `CHECKSUMS.sha256`：**52** 条，中央副本 `verify-checksums` → `listed=52 / actual=52`、`ok=true`、`rc=0`；
+- 中央副本 `manifest verify`：`final_verdict=true`、`problems=[]`、`rc=0`；
+- 中央副本独立零命中复扫：对 52 个证据文件（排除 `CHECKSUMS.sha256` 自身）检查用户名 / 工作区
+  （反斜杠与正斜杠）/ 类 Unix 用户目录 / Windows 用户目录 / 任意盘符绝对路径 / UNC，全部 **0 命中**
+  （`ZERO_HIT_OK`）；
+- `verdicts` 全绿：`plan_blob_ok` / `git_identity_ok` / `package_ok` / `gates_ok` /
+  `negative_selftest_ok` / `identity_matrix_ok` / **`aux_matrix_ok`** / `gates_meta_ok` / `cleanup_ok`
+  均为 `true`；`aux_matrix.ok=true`、`runner_sha256_recorded == runner_sha256_live`、
+  `missing_case_ids=[]`、`bad_exit_codes=[]`、`failures=[]`。
