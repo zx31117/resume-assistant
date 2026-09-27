@@ -1,10 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / Documentation Gate `DOC_ALIGNED` / 待独立验收**
-> 当前阶段：§R3-20 的最终封存与六格闭环已按 §R3-21 收口；Documentation Agent 已独立复核中央
-> manifest/checksum，并通过 docs-only 集成对象恢复文档退回对象的候选祖先关系（见 §R3-22）
-> 固定 `review` 应指向 §R3-22 的 docs-only 集成对象；完整独立验收通过前不得进入人工验收或发布
+> 当前状态：**PLAN Revision 3 / 独立验收 `ACCEPTANCE_PASS` / 待 Product Owner 人工验收**
+> 当前阶段：`review@c8a63e0` 的完整独立验收先因方舟 403 阻断，额度恢复后在同一候选上仅续验真实
+> Provider 双 runtime 主链与六格性能；A～J 合并无 FAIL / NOT_RUN / BLOCKED（见 §R3-23）
+> 固定 `review` 继续指向 §R3-22 的 docs-only 集成对象；人工验收通过前不得发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -15,7 +15,7 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮交付对象（`DOC_ALIGNED`；待完整独立验收）**：
+> **本轮交付对象（独立验收已通过；待 Product Owner 人工验收）**：
 >
 > - **SRC 候选校验和（SRC SHA）**：`741b7abac1a4c2ca11ae440b89c0bfcdcaa2e203`（唯一 parent
 >   `9869dc6a2119a6cde80dd14620d7e0d31a0109b3`；tree `5ae052a1751dbad147f90317c549bdbacca68dd6`）
@@ -36,8 +36,9 @@
 > - **封存现场**：中央 `<acceptance-staging>/741b7aba/` 与 `<acceptance-staging>/741b7aba-evidence/`
 >   在场；中央 manifest verify 与 33/33 checksum verify 均为 rc 0
 >
-> - **当前门禁**：Documentation Gate `DOC_ALIGNED` 只表示身份、RESULT 与证据入口具备进入独立验收
->   的条件，不表示产品正确、独立通过或可发布。
+> - **当前门禁**：独立验收对象为 docs-only 集成 commit
+>   `c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`，结论为 `ACCEPTANCE_PASS`；该结论允许进入 Product
+>   Owner 人工验收，但不等于人工通过或可发布。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -4398,3 +4399,91 @@ RESULT/HISTORY。机械复核同时确认：
 
 本结论只表示当前 docs-only 集成对象具备进入完整独立验收的机械与文档条件。旧失败对象、开发 PASS
 与封存证据均不得作为独立结论继承；独立验收通过前不得进入 Product Owner 人工验收或发布。
+
+## R3-23. 独立验收结论：`ACCEPTANCE_PASS`（对象 `c8a63e0`，2026-09-27）
+
+### 23.1 对象、独立性与执行边界
+
+- 验收对象：docs-only 集成 commit `c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`；两个 parent 依次为
+  HANDOFF `7b40ebcb…` 与 Documentation 退回对象 `cc687f2…`；`review` 验收前后均 detached、clean；
+- 冻结产品对象未变化：SRC `741b7aba…`、HANDOFF `7b40ebcb…`、4044 files / 170,371,498 B、EXE
+  16,850,341 B、SHA-256 `AAB555D3803A933AD65214191501D0CF76D264ABE7E03832FD149B322A69C367`、
+  bundle `index-BS9UDXcl.js`；中央 manifest/checksum 身份仍成立；
+- Acceptance Agent 声明未参与候选实现、修复、开发自测、受控 Gate 编写、开发证据或文档门禁；动态
+  验证位于 review 外的一次性副本和隔离 runtime，不修改 review、冻结包或中央开发证据；
+- 2026-09-26 首轮独立验收完成 A～F、I、J，但真实方舟 chat 因账号欠费返回 403，G/H 如实
+  `NOT_RUN`，总体为 `ACCEPTANCE_BLOCKED`。Product Owner 明确批准本地替代 Provider 只用于机制、
+  fail-closed 与 UI 取证，不把其输出冒充真实模型性能或质量；
+- 2026-09-27 额度恢复后，Product Owner 只授权在同一固定候选上续验 G（真实方舟双 runtime 主链）
+  与 H（真实六格），禁止重跑 A～F、I、J、build、打包或完整开发 Gate。本节合并两份独立报告。
+
+### 23.2 已通过范围
+
+- 身份、包与封存：Git 父链、PLAN blob、包文件数/字节/EXE SHA/bundle、中央 manifest SHA
+  `8C21EB84…35167`、manifest verify rc 0 与 checksum 33/33 均独立复核一致；
+- 基础与包：统一 precheck、Python 编译、前端 build/Hooks、PYZ、package audit 和禁止路径/敏感内容
+  检查通过；ruff、pip-audit、ESLint 与 npm audit 环境中断作为既有非阻断技术债记录，不改写为 PASS；
+- 内容来源与 owner：独立三身份数据证明当前用户履历 ID → 候选/Fact refs → P3/P4 → DOCX/PDF；
+  当前用户教育、工作、项目、姓名和电话进入成品，other/stub/legacy/template 样例均不进入；owner/IDOR、
+  CRUD、records、continue、GET/HEAD artifact、旧下载旁路、migration/legacy-unowned 均按合同隔离；
+- 发布与失败：task-scoped staging、不可变产物、原子发布、缺失/损坏/错误归属和失败 cleanup 矩阵通过；
+  Gate verdict 20、seal/manifest 9、six-grid 14、Git identity 25 项负向矩阵均 fail-closed；
+- Design Fidelity：Product Owner 授权的本地替代 Provider 只负责驱动同一产品状态机；独立浏览器验证
+  empty/saved/P1～P4/failed/success、7 视口、1686×1076 约 800 字 JD 回看态、四页面品牌区 mouse/
+  Enter/Space/focus/task-kept 与 cleanup，无文档/body 溢出或无意义短行程滚动；
+- failure matrix 与资源生命周期通过；真实 runtime 元数据哨兵前后一致，未读写或清理真实用户内容。
+
+### 23.3 G：真实方舟双 runtime 主链
+
+真实 Provider 身份通过无模型调用的配置、环境、端口、DNS/TLS 与证书检查建立：base URL 为
+`https://ark.cn-beijing.volces.com/api/v3`，LLM 为 `deepseek-v4-pro-ga-260813`，Embedding 为
+`doubao-embedding-vision-251215`；无 localhost、替代 Provider、环境变量或 `.env` 覆盖，Key 只由
+Windows Credential Manager 提供且未回显或落盘。
+
+- 冻结 EXE fresh runtime：22 PASS / 0 FAIL，任务 `SUCCEEDED`，DOCX/PDF 200、MIME 正确、当前用户
+  哨兵完整且无其他身份/模板文本；
+- 冻结 EXE migrated runtime：23 PASS / 0 FAIL，额外包含迁移幂等 200，其余同上；
+- 同产品代码路径的独立账本复算：fresh 24/0、migrated 25/0；每个 runtime `F=3`、chat=7=`1+2F`、
+  生成期 embedding=1、全部 attempt=1、成功后不重试、completion 641/632 ≤16k；
+- owner/source/structure fail-closed 与 viewer ready 已由同候选首轮 A～F、I 的独立证据覆盖；本轮按
+  Product Owner 的定向续验边界不重复 failure matrix 或 Design Fidelity，不因环境恢复使已通过证据
+  自动失效。
+
+### 23.4 H：真实方舟六格
+
+冻结 EXE 新产生 18 个有效样本，六格各 3，全部 `SUCCEEDED`：
+
+| 格 | 首 Fact 三样本（秒） | 总时长三样本（秒） | F / chat / embedding |
+|---|---|---|---|
+| cold / short | 7.28 / 9.03 / 7.68 | 21.36 / 23.09 / 19.49 | 2 / 5 / 1 |
+| cold / typical | 7.59 / 7.30 / 6.90 | 31.56 / 29.74 / 33.05 | 7 / 15 / 1 |
+| cold / long | 7.06 / 6.90 / 7.13 | 43.36 / 39.50 / 38.55 | 10 / 21 / 1 |
+| warm / short | 7.29 / 7.14 / 6.77 | 20.80 / 20.76 / 20.75 | 2 / 5 / 1 |
+| warm / typical | 7.08 / 7.12 / 7.15 | 30.56 / 30.91 / 31.40 | 7 / 15 / 1 |
+| warm / long | 6.91 / 7.20 / 7.34 | 37.26 / 38.29 / 39.80 | 10 / 21 / 1 |
+
+首 Fact 中位 7.14s、最大 9.03s；四格降幅 64.73% / 58.12% / 63.41% / 60.90%；246 chat +
+18 embedding，chat token 154,670；逐样本 `1+2F`、embedding 0/1、attempts≤3、成功后不重试、
+completion≤16k 全成立，实际全部 attempt=1；retry ledger 无丢弃、替换或筛选有效样本。
+
+### 23.5 成本预算、执行偏差与 cleanup
+
+- 本轮定向续验硬上限为 350 次实际 HTTP 请求与 250,000 token。H 正式轮 264 次；G 可观测账本
+  24 次；冻结 EXE 双 runtime 按调用合同上界≤24 次；H 首次误漏 `--out` 后在 cold/short 完成、进入
+  cold/typical 前立即中止，上界≤34 次。总请求上界≤346；已记录 chat token 与保守估计合计
+  ≤约 193,400，未触发熔断；
+- 漏 `--out` 的首轮没有形成逐样本 JSON/retry ledger，未进入任何通过判定；补做轮不是为了替换产品
+  失败或慢样本，正式轮 18 个样本全部保留。该执行事故、冻结 EXE attempt/token不可观测、Provider
+  request ID与 embedding token 未完整落账均作为流程/可观测性偏差保留，交由后续工作流治理，不要求
+  当前候选再次产生付费证据；
+- 一次性源码副本、隔离 runtime、190 个六格临时 runtime、应用/worker/浏览器/WINWORD和监听端口均已
+  清理。结构化 G 文件生成时曾记录 `runtime_removed=false`，Documentation Agent 在报告交回后现场
+  确认对应目录均不存在、相关进程为空；`review` 仍为 `c8a63e0`、detached、clean。
+
+### 23.6 结论
+
+**独立验收最终结论：`ACCEPTANCE_PASS`。**
+
+本结论绑定 `review@c8a63e0` 与 EXE `AAB555D3…69C367`。它表示当前固定候选可以进入 Product Owner
+人工验收；不表示人工通过、文档发布收口完成或可以发布。人工验收必须使用同一精确包；发生任何产品
+源码、测试、依赖、配置、构建、模型合同或入包文件变化时，本结论按工作流重新评估，不得静默继承。

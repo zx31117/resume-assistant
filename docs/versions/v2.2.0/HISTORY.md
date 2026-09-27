@@ -749,3 +749,38 @@
   统一决定，其他角色不得自行删除。
 - 结论：`DOC_ALIGNED` 不表示产品正确或可发布。固定 `review` 指向本次 docs-only 集成对象后，只能
   启动不继承开发 PASS、无强制 `NOT_RUN` 的完整独立验收；通过前不得进入 Product Owner 人工验收。
+
+## VH-041 `c8a63e0` 独立验收经定向续验后通过
+
+- 日期：2026-09-27
+- 阶段：独立 Acceptance → `ACCEPTANCE_PASS` → 待 Product Owner 人工验收
+- 首轮结论：Acceptance Agent 独立完成身份、包/封存、内容来源、owner/IDOR、migration、原子发布、
+  fail-closed、Design Fidelity、failure matrix、artifact 与资源生命周期；真实方舟 chat 因账号欠费
+  403，真实双 runtime 与六格为 `NOT_RUN`，总体诚实标记 `ACCEPTANCE_BLOCKED`。Product Owner 批准
+  本地替代 Provider 只用于机制/UI取证，不作为真实模型通过依据。
+- 定向解阻：额度恢复后，Product Owner 只授权同一独立 Agent 在同一 `review@c8a63e0`、同一 EXE
+  `AAB555D3…69C367` 上续验 G/H，不重跑其他已通过项、不重建或修改候选。真实方舟 fresh/migrated
+  主链均 `SUCCEEDED`；六格18/18、首 Fact 最大9.03s、四格降幅58.12%～64.73%、246 chat +18
+  embedding、全部 attempt=1、无样本丢弃。
+- 成本边界：续验总请求上界≤346、已记录与保守估计 token≤约193,400，低于本轮350请求/250,000
+  token硬上限。首次六格误漏 `--out`，在完成cold/short后中止且未形成可用逐样本证据；相关请求已
+  计入上界，补做轮未替换任何失败或慢样本。Provider request ID、embedding token与冻结EXE内部
+  attempt未完整落账，登记为后续工作流可观测性问题，不触发当前产品重复付费验收。
+- 结论：A～J合并无 FAIL/NOT_RUN/BLOCKED，独立结论为 `ACCEPTANCE_PASS`。候选只允许进入Product
+  Owner人工验收，不等于人工通过或可发布；固定 `review` 保持不动。
+
+## VH-042 真实模型 Gate 重复执行成本事件
+
+- 日期：2026-09-26～2026-09-27
+- 事件：方舟控制台显示单日超过4000次调用、约267万token。P0只读审查未发现SDK重试风暴、成功后
+  继续调用或后台残留，主要来源是同一版本多轮全量真实模型Gate；六格为主要成本项。
+- 演进路径：2026-09-22 Design Fidelity返工首次出现“新包即要求完整重跑六格”的过度失效先例；
+  2026-09-25 RESULT §R3-12把任一受控测试/验证脚本变化统一归入路径B，正式形成“新SRC→重build→
+  新包SHA→全部包绑定证据失效→重跑真实模型”的循环；其后manifest、Git身份、seal/checksum等离线
+  验证工具返工也触发了付费Gate。
+- 治理定性：一次性真实六格本身属于已批准最终候选门禁；事故来自Documentation Agent通过RESULT
+  扩展强制重跑合同、Development Agent未拒绝非PLAN要求、成本Architecture Challenge未触发，以及
+  缺少跨Agent调用账本、预算和熔断。该事项是工作流治理事故，不反向认定为产品重试缺陷。
+- 当前边界：本条只保存案例事实，不在HISTORY建立新执行规则。新的工作流必须把该案例作为变更—证据
+  失效矩阵、付费Gate授权、预算熔断、原始telemetry复用和Provider账本的输入；治理语义仍只能在
+  `HUMAN_AI_WORKFLOW.md` 由规则责任角色形成，不能再次通过RESULT/HISTORY临时增加开发合同。
