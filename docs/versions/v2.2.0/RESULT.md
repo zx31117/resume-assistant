@@ -47,6 +47,24 @@
 > - **当前门禁**：§R3-28 已继续判定 `DOC_RETURNED`；该对象及其 manifest/checksum 作为失败
 >   证据保留，不得进入独立验收或发布。
 
+> **§28.7 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-29）**：
+>
+> - **返工 SRC**：`bbe3532`（完整 SHA 由 `git log` 解析）；唯一 parent 为上一轮 docs-only 对象
+>   `5c52445`，相对其只修改/新增 7 个离线工具与矩阵脚本（`scripts/h8_r3_seal.py`、
+>   `scripts/h8_r3_manifest.py`、`scripts/h8_r3_gate_fixtures.py`、`scripts/h8_r3_run_gates.py`、
+>   `scripts/h8_r3_run_gates_negtest.py`、`scripts/h8_r3_seal_manifest_negtest.py`、
+>   `scripts/h8_r3_seal_scan_negtest.py`），**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**；
+> - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与
+>   中央 manifest 的 `identity.handoff` 记录，不在本文件自引用；
+> - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
+>   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
+>   `index-BMdbu97O.js`；
+> - **中央封存入口**：`<acceptance-staging>/bbe3532/` 与 `<acceptance-staging>/bbe3532-evidence/`；
+>   本节点后的 RESULT-only 收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的
+>   `rc`（见 §29.6）；
+> - **当前门禁**：仍为 `DOC_RETURNED` 待复核；本批不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，
+>   不移动 `review`，旧 `69a65f3*` 封存保留为失败追溯。
+
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
 > - **SRC 候选校验和（SRC SHA）**：`741b7abac1a4c2ca11ae440b89c0bfcdcaa2e203`（唯一 parent
@@ -5091,3 +5109,88 @@ Python 路径写死；`h8_r3_seal.py` 的脱敏列表还显式写入同一用户
 判定失败；但当前 seal 仍会对含未脱敏路径的证据给出 `ok=true`，manifest 也会忽略本轮新增
 矩阵的失败语义，因而尚不具备可交给独立 Acceptance 的 fail-closed 证据入口。下一轮只允许执行
 §28.7 的一次性离线收口；不得再次运行付费 Gate。
+
+## R3-29. §28.7 离线最小返工交付（seal/manifest 语义闭环，2026-09-27）
+
+顶部交付对象块见 §28.7；本轮 SRC 为 `bbe3532c1b1f799670fab1fda4e7b9e134358d10`。本文件只陈述
+可独立复核的离线事实，**不宣告任何验收结论**；`DOC_RETURNED` 是否解除由 Documentation Agent 集中核对。
+
+### 29.1 六项阻断的修复对照
+
+1. **证据含本机绝对路径而 seal 仍 `ok=true`（假绿）**
+   - 直接根因：`TEXT_EXT` 扩展名白名单不含 `.diff`，`source.diff` 被按二进制原样复制；且替换后
+     未对剩余盘符/UNC 本地路径复扫。
+   - 修复：文本判定改为**二进制嗅探**（前 8192 B 无 `\x00` 且严格 UTF-8 解码成功即按文本脱敏），
+     不再依赖扩展名；新增脱敏后 **fail-closed 复扫** `_rescan_local_paths`（盘符绝对路径 / UNC /
+     类 Unix 用户目录 / 动态现场字面量 / 凭据与 PII），任一命中即 `STAGE_REPORT.ok=false`；
+     `seal` 封存前强制校验 `STAGE_REPORT.ok is True`，并在 `SEAL_REPORT.evidence` 写入
+     `stage_report_ok`。
+   - 结果：新 staging `source.diff` 已按文本脱敏；`counts.binary_files=0`、`path_rescan_hits=0`。
+2. **`.diff` 未纳入脱敏 + 脱敏后无绝对路径复扫**：与第 1 项同源，已由二进制嗅探 + `_rescan_local_paths`
+   一并修复。
+3. **`--extra-forbidden` 只写报告、未参与实际扫描（fail-open）**
+   - 修复：`_scan_forbidden(text, where, problems, forbidden)` 改为使用**实际传入的 forbidden 列表**；
+     `--extra-forbidden` 按逗号拆分后并入该列表，并原样写入 `STAGE_REPORT.forbidden_substrings_checked`。
+   - 证据：`seal_scan_negtest.json` 的 `X1`（命中额外禁止项 ⇒ 子进程 rc=1）与 `X2`（未命中 ⇒ rc=0）。
+4. **runner 负向矩阵未进入 manifest 判定**
+   - 修复：manifest 新增 **`aux_matrix` 独立辅助判定段**（明确**不**写入 `_GATE_CONTRACTS`，
+     不伪造成第 18 个原始 Gate）：校验证据文件 hash、`runner_sha256`（与现场 `h8_r3_run_gates.py`
+     实际 SHA 比较）、`case_count`、17 个必需 case ID、逐 case（含 `subcases`）真实整数退出码、
+     `all_ok=true` 且 `failures=[]`；结果并入 `verdicts.aux_matrix_ok`，参与 `final_verdict`，
+     任一缺失/不一致即 `final_verdict=false` 且 manifest 非零退出。
+   - 证据：`run_gates_negtest.json` 新增 `N09`–`N15` 七例反向（矩阵缺失 / JSON 截断 / runner SHA
+     不符 / 少 case / 退出码逃逸 / `all_ok=false` / `failures` 非空），全部 `rc != 0`、
+     `final_verdict=false` 且 problems 指向「负向矩阵」。
+5. **N05 两个子例未持久化真实退出码**
+   - 修复：`N05_empty_only` 改为逐子例持久化 `subcases=[{input, exit_code, gates_run_written}, …]`
+     （空串与纯逗号两次真实子进程退出码 + 「未写 `gates_run.json`」），case 顶层 `exit_code`
+     取子例最大值，供后续角色逐例机械复核。
+6. **活动验证脚本仍含用户特定固定路径/用户名**
+   - 修复：`h8_r3_run_gates.py`、`h8_r3_seal_manifest_negtest.py` 的解释器改用 `sys.executable`；
+     `h8_r3_seal.py` 脱敏列表删除用户名字面量，改为**动态现场根**（`__file__` 解析的工作区/
+     仓库父目录、`Path.home()`、`tempfile.gettempdir()`）+ 通用路径词法规则。
+   - 证据：本轮允许修改的全部 7 个 tracked 脚本对 `31117`、`Python31x`、`D:/demo`、
+     `C:/Users/31117`、`AppData/Local/Programs` 零命中。
+
+### 29.2 离线矩阵结果（本轮全部重跑；离线、无模型、无付费 Gate）
+
+- `run_gates_negtest.json`：schema `resume-assistant/r3-run-gates-negtest` v1，**17 例**，`failures=[]`，
+  `all_ok=true`，进程 rc=0（含 `P00`/`P01` 正向对照与 `N01`–`N15` 反向）；
+- `seal_scan_negtest.json`：schema `resume-assistant/r3-seal-scan-negtest` v1，**14 例**，`all_ok=true`
+  （A 端到端 `S1`–`S6` / `X1`–`X2` + B 复扫单元 `B1`–`B6`）；
+- `gate_verdict_negtest.json`：**20 例**，`positive_ok=true`，`all_ok=true`（含 `N16`–`N20`）；
+- `seal_manifest_negtest.json`：**9 例**，`all_ok=true`。
+
+### 29.3 脱敏 staging 与独立零命中复扫
+
+- `STAGE_REPORT.json`：`counts={text_files:50, binary_files:0, forbidden_hits:0, path_rescan_hits:0}`；
+  `redaction_map={<current-workspace>:148, <home>:333, <local-path>:1, <unc-path>:194}`（合计 676）；
+  `local_path_rescan_zero_hit=true`；`ok=true`；staging 目录共 **51** 个文件；
+- **独立复扫**（不复用 seal 自身扫描器）对 51 个 staged 文件检查用户名字面量 / 工作区（反斜杠与
+  正斜杠）/ 类 Unix 用户目录 / Windows 用户目录 / 任意盘符绝对路径 / UNC / `C:\Users`，全部 **0 命中**
+  （`ZERO_HIT_OK`）。唯一残留的解释器引用已是替换后的 `<home>/…/python.exe` 占位形态，不含用户名，
+  符合 §28.7-2 的动态现场根 + 通用词法脱敏要求；
+- 上一轮 `§28.2` 指出的两处残留（`source.diff` 用户目录解释器路径、`attempt2/run.log` system-data
+  绝对路径）在新 staging 中已不可检出。
+
+### 29.4 包身份（未重 build / 未重打包）
+
+与上一轮逐字节相同：4045 files / 170,399,477 B；EXE 16,855,308 B，SHA-256
+`0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle `index-BMdbu97O.js`。
+
+### 29.5 交付链与治理说明
+
+- **SRC** `bbe3532…`：唯一 parent 为上轮 docs-only `5c52445`，仅修改/新增 7 个离线工具与矩阵
+  （`+749/-43`），无产品源码/前端/后端/依赖/配置/bundle/EXE 变化；
+- **HANDOFF**：本文件（`RESULT.md`）唯一修改的 RESULT-only commit，唯一 parent 为 SRC；
+- **收口 commit**：RESULT-only，记录 §29.6 的封存后数值（避免自引用，先例 §17.2/§27.6-4）；
+- runner 矩阵以 manifest**独立辅助判定段**消费，不注册为第 18 个原始 Gate；
+- `gates_run.json._meta.src=ff2a8e2` 保留原 17 门的真实运行身份，未伪造改写；
+- 旧 `69a65f3*` 中央封存保留为失败追溯，未覆盖删除；`review` 仍为 `c8a63e0…`，未移动；
+- 本轮未运行六格 / content E2E / mainchain E2E / Design Fidelity，未调用真实模型。
+
+### 29.6 封存后数值（由收口 commit 记录）
+
+- 中央入口：`<acceptance-staging>/bbe3532/`、`<acceptance-staging>/bbe3532-evidence/`；
+- manifest SHA-256 / checksum 条数 / 中央副本 `manifest verify` 与 `verify-checksums` 的 `rc`：
+  **待 RESULT-only 收口 commit 填入**。
