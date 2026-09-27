@@ -5424,6 +5424,24 @@ N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终
 
 ### 31.8 封存后数值（由收口 commit 记录）
 
-（本节由 RESULT-only 收口 commit 填入：新 SRC 的中央入口、`manifest.json` 字节 SHA-256、
-`CHECKSUMS.sha256` 条数与中央二次 `verify` / `verify-checksums` / 独立零命中复扫结果、
-`verdicts` 全绿清单与 `aux_matrix` / `aux_seal_matrix` 现场 SHA 对比。）
+- 中央入口：`<acceptance-staging>/1392dfb/`（包 **4045** files）与
+  `<acceptance-staging>/1392dfb-evidence/`（证据 **53** files + `CHECKSUMS.sha256`，共 54 项文件）；
+- `gate_manifest.json` 字节 SHA-256：`2255f643c9115e67046b93fe533bae5ccf2863f86937508d04021875d6809cda`
+  （35,557 B；staged 与中央副本**逐字节一致**）；
+- `CHECKSUMS.sha256`：**53** 条，中央副本 `verify-checksums` → `listed=53 / actual=53`、`ok=true`、`rc=0`；
+- 中央副本 **二次 `manifest verify`**：`final_verdict=true`、`problems=[]`、`rc=0`（HEAD 仍为 HANDOFF）；
+- 中央副本**独立零命中复扫**：对 53 个证据文件（排除 `CHECKSUMS.sha256` 自身）先掩蔽公开 HTTP(S) URL，
+  再检查动态现场字面量 / 盘符绝对路径 / UNC / 类 Unix 用户目录 / 凭据与 PII，全部 **0 命中**
+  （`ZERO_HIT_OK`）。复扫中唯一表观命中是 `gate_manifest.json` 内 JSON 转义的**相对**路径
+  `dist\\ResumeAssistant`（非本机绝对路径），加路径 token 边界环视后不构成命中；此文件由 manifest build
+  在 stage 之后生成，故不在 `STAGE_REPORT` 的复扫范围内，特此显式披露；
+- `verdicts` 全绿（10 项）：`plan_blob_ok` / `git_identity_ok` / `package_ok` / `gates_ok` /
+  `negative_selftest_ok` / `identity_matrix_ok` / **`aux_matrix_ok`** / **`aux_seal_matrix_ok`** /
+  `gates_meta_ok` / `cleanup_ok` 均为 `true`；
+- `aux_matrix` 现场 SHA 对比：`runner_sha256_recorded == runner_sha256_live ==
+  39c0f0b21176ae756958634414da3654a4a5b3c04046a1b4693fa5342e802c81`；`case_ids` 23 个、
+  `missing_case_ids=[]`、`duplicate_case_ids=[]`、`extra_case_ids=[]`、`bad_polarity=[]`、
+  `n05_problems=[]`、`failures=[]`；
+- `aux_seal_matrix` 现场 SHA 对比：`script_sha256_recorded == script_sha256_live ==
+  9788e66742936fe89dc2f6de990beb0d4583606ae6ef4b654cfacd35d61fb840`；`case_ids` 14 个、
+  `case_id_set_exact=true`、`missing/duplicate/extra=[]`、`bad_results=[]`、`failures=[]`。
