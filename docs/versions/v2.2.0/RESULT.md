@@ -2,12 +2,13 @@
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
 > 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
-> 当前阶段：§R3-27 已证明 runner 的 `--only` 记录与汇总主缺陷已离线修复，中央包身份、
-> manifest 哈希与 51/51 checksum 也一致；但 Documentation Agent 集中复核发现，中央证据仍
-> 留有用户/机器本地绝对路径，seal 对 `.diff`、`--extra-forbidden` 与脱敏后残留扫描存在
-> fail-open；新增 runner 负向矩阵又未进入 manifest 语义判定（见 §R3-28）。本轮仍不判定产品包
-> 失败，也不允许重 build、重打包或重跑任何付费 Gate；仅允许将剩余工具/证据闭环一次性离线
-> 收口。`DOC_RETURNED` 解除前不得启动独立验收或发布
+> 当前阶段：§R3-29 已修复证据脱敏、额外禁止项扫描、活动脚本固定路径与 runner 矩阵入
+> manifest 等上一轮缺口；中央包、52/52 checksum、脱敏后零路径命中及四套离线矩阵的当前字节
+> 均已独立复核成立。但 Documentation Agent 继续做反向篡改后确认，manifest 只检查 runner
+> 矩阵退出码“是整数”，没有检查正负用例应有的退出码极性，也没有强制 N05 子例结构；seal 在
+> `STAGE_REPORT.json` 缺失时仍会封存为 `ok=true`，新 seal 扫描矩阵也未进入最终辅助判定（见
+> §R3-30）。本轮仍不判定产品包失败；只允许一次离线工具/证据收口，不得重 build、重打包或重跑
+> 任何付费 Gate。`DOC_RETURNED` 解除前不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -62,8 +63,9 @@
 > - **中央封存入口**：`<acceptance-staging>/bbe3532/` 与 `<acceptance-staging>/bbe3532-evidence/`；
 >   本节点后的 RESULT-only 收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的
 >   `rc`（见 §29.6）；
-> - **当前门禁**：仍为 `DOC_RETURNED` 待复核；本批不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，
->   不移动 `review`，旧 `69a65f3*` 封存保留为失败追溯。
+> - **当前门禁**：§R3-30 已继续判定 `DOC_RETURNED`；该对象的包与脱敏结果不判失败，但其
+>   manifest/seal 仍存在可复现的 fail-open，不能进入独立验收或发布。旧 `69a65f3*` 封存继续
+>   保留为失败追溯。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5204,3 +5206,99 @@ Python 路径写死；`h8_r3_seal.py` 的脱敏列表还显式写入同一用户
   `negative_selftest_ok` / `identity_matrix_ok` / **`aux_matrix_ok`** / `gates_meta_ok` / `cleanup_ok`
   均为 `true`；`aux_matrix.ok=true`、`runner_sha256_recorded == runner_sha256_live`、
   `missing_case_ids=[]`、`bad_exit_codes=[]`、`failures=[]`。
+
+## R3-30. Documentation Gate：`DOC_RETURNED`（辅助矩阵与 seal 前置条件仍可假绿，2026-09-27）
+
+### 30.1 本轮集中复核中已确认成立的部分
+
+- Git 链成立：SRC `bbe3532c1b1f799670fab1fda4e7b9e134358d10` 唯一 parent 为
+  `5c524450af7155bc2d00778ed851c8c2c55ccde2`，只修改/新增 7 个离线工具脚本；HANDOFF
+  `bca3d4ce423fc5323eb59d66e7f38881db7f9576` 与收口 `9f39666cf1b5c7a3b4465396ec91b8d09ca5984e`
+  均为 RESULT-only；PLAN blob 保持 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；
+- 包身份独立复算为 4045 files / 170,399,477 B，EXE 16,855,308 B，SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`，bundle
+  `index-BMdbu97O.js`，与上一轮逐字节一致；
+- 中央 `manifest.json` SHA-256 独立复算为
+  `16AC8243F1804FDD263C6C6DBDC69C9F9FB28231D7E58E6473903EFE76DDBBB2`；checksum 52/52，
+  无缺失、额外或 hash 不一致；当前字节的 manifest verify 与 checksum verify 均 `rc=0`；
+- 7 个活动脚本中的用户特定固定路径已消除；中央 52 个证据文件独立复扫为零真实本机绝对路径命中；
+  `.diff` 文本识别、`--extra-forbidden` 实际扫描和脱敏后路径复扫已落地；
+- Documentation Agent 在一次性隔离目录独立重跑 `run_gates_negtest` 17 例、`seal_scan_negtest`
+  14 例、`gate_verdict_negtest` 20 例和 `seal_manifest_negtest` 9 例，四个进程均 `rc=0`、
+  `all_ok=true`、`failures=[]`。这些成立项无需再次修改或运行付费 Gate。
+
+### 30.2 阻断一：manifest 未校验 runner 矩阵的退出码语义
+
+`h8_r3_manifest.py::_aux_matrix_check()` 当前只断言 case/subcase 的 `exit_code` 是整数，没有断言
+正向 case 必须为 0、负向 case 必须非 0。Documentation Agent 使用项目自带 fixture 构造语义错误但
+结构合法的矩阵，得到以下可复现结果：
+
+| 反向篡改 | manifest build 实测 | 错误结果 |
+|---|---|---|
+| `N01_single_failure.exit_code = 0`，其余汇总仍为 `ok/all_ok=true` | `rc=0`、`final_verdict=true`、`problems=[]` | 负向用例逃逸仍通过 |
+| 删除 `N05_empty_only.subcases` | `rc=0`、`final_verdict=true`、`problems=[]` | 必需逐子例证据缺失仍通过 |
+| 将 N05 任一 subcase 的 `exit_code` 改为 0 | `rc=0`、`final_verdict=true`、`problems=[]` | 空选择逃逸仍通过 |
+
+因此 §29.1 所称“逐 case（含 subcases）真实整数退出码”只证明字段类型，不证明 fail-closed 语义；
+`aux_matrix_ok=true` 仍可能是假绿。
+
+### 30.3 阻断二：seal 没有强制要求 `STAGE_REPORT.ok is True`
+
+`h8_r3_seal.py::_seal()` 只在 `STAGE_REPORT.json` **存在时**解析并检查 `ok`；文件缺失时
+`stage_ok` 保持 `None`，流程继续复制和写 `SEAL_REPORT.json`。Documentation Agent 在隔离 fixture 中
+删除该文件后直接执行 seal，实测 `rc=0`、`SEAL_REPORT.ok=true`、
+`SEAL_REPORT.evidence.stage_report_ok=null`。这与 §29.1 的“封存前强制校验
+`STAGE_REPORT.ok is True`”直接矛盾。
+
+同一生命周期还有一个静态 fail-open：`stage` 对既有 staged 目录调用 `_rmtree_force(staged)` 后忽略
+返回结果，随即在原路径继续生成。若清理失败，旧文件可残留并绕过本次 `_desensitize_tree()`；该路径
+必须在本轮一并闭环，不能留到下一次再退回。
+
+### 30.4 阻断三：seal 扫描矩阵没有进入最终辅助判定
+
+`seal_scan_negtest.json` 当前只受 checksum 覆盖；`h8_r3_manifest.py` 没有读取该文件，也不校验
+seal 脚本 SHA、14 个必需 case、逐例/逐子例退出码、`all_ok` 或 `failures`。因此把扫描矩阵改成
+缺 case、错误退出码或 `all_ok=false` 后，只要重算 checksum，manifest 仍可能
+`final_verdict=true`。checksum 只能证明“当前字节没变”，不能证明这份矩阵表达的 seal 语义成立。
+
+这不是新增第 18 个产品 Gate；与 runner 矩阵相同，它应作为第二个**离线辅助判定段**参与 manifest
+最终判定，保证本轮用于解除 `DOC_RETURNED` 的两套新增工具证据都不能静默失效。
+
+### 30.5 唯一允许的下一轮收口（一次性完成，不再扩大）
+
+本轮只允许修改离线 Gate/封存工具、其 fixture/负向矩阵和 RESULT；产品源码、前端、后端、依赖、
+配置、bundle、EXE 与原 17 门证据均不得变化。必须一次完成：
+
+1. **runner 辅助矩阵语义**：manifest 对 case ID 做唯一且精确集合校验；`P00`/`P01` 必须
+   `exit_code == 0`，`N01`～`N15` 必须 `exit_code != 0`；`N05` 必须精确包含空串与纯逗号两个
+   subcase，每项都要求真实整数非零退出码且 `gates_run_written=false`。build 与 verify 均独立复验，
+   不得只信 build 时的汇总字段；
+2. **runner 反向矩阵补齐**：至少覆盖负向 case 退出码被改为 0、N05 subcases 缺失、N05 任一
+   subcase 退出码为 0、`gates_run_written=true`、重复/额外 case ID；每例必须使 manifest
+   `final_verdict=false` 且进程非零退出；
+3. **seal 强制前置条件**：`STAGE_REPORT.json` 缺失、不可解析、顶层非对象或 `ok is not True`
+   均须在任何中央复制/报告写入前 fail-closed；已有 staged 目录必须确认删除成功且为空，否则
+   `stage` 非零退出，禁止在残留目录上继续；补齐对应的正反向离线用例和“失败时未生成封存”的断言；
+4. **seal 扫描矩阵绑定**：manifest 新增第二个离线辅助段，校验 `seal_scan_negtest.json` 文件 hash、
+   `h8_r3_seal.py` 现场 SHA、schema/version、14 个唯一且精确 case ID、逐 case/subcase 的预期
+   退出码/结果、`all_ok=true`、`failures=[]`；任一缺失、篡改、逃逸或脚本 SHA 不一致必须同时压低
+   build/verify 的最终 verdict；不得注册为原始产品 Gate；
+5. **只重做受影响证据链**：独立重跑两套辅助矩阵及相关 manifest/seal 离线负向矩阵，使用现有
+   17 门原始证据重新 stage → manifest build/verify → seal → 中央 manifest/checksum verify，形成
+   新 SRC、RESULT-only HANDOFF、必要的 RESULT-only 封存后收口与新的中央目录；旧 `bbe3532*`、
+   `69a65f3*` 保留为失败追溯；
+6. **明确禁止**：不重 build/打包，不运行 precheck、failure matrix、content/mainchain E2E、
+   Design Fidelity、六格或任何真实模型/付费 Gate；不移动 `review`；顶部继续保持“待验收”，不写
+   `DOC_ALIGNED` / `ACCEPTANCE_PASS`。若实现发现必须改变产品/包或原 17 门输入，先停止并交回
+   Documentation Agent，不得自行扩大重跑。
+
+下一次交付必须在 RESULT 内逐项报告上述三个原始反例及新增反例的实际进程退出码、最终 verdict、
+是否写出目标目录/报告，并给出新辅助段的现场脚本 SHA 对比与中央二次 verify。满足此清单后，
+Documentation Gate 只复核这里列出的离线闭环，不再另加同类检查项。
+
+### 30.6 结论
+
+**Documentation Gate：`DOC_RETURNED`。** 当前产品包、已脱敏中央字节以及正常执行时的四套离线矩阵
+均未判失败；退回原因仅是三条已实测/静态确认的工具 fail-open：runner 矩阵不校验退出码极性与
+N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终判定，另需同时闭环 staged 旧目录
+清理失败路径。下一轮严格限于 §30.5 的离线收口，不得借此重跑任何付费 Gate。

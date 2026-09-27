@@ -842,3 +842,21 @@
 - 后续边界：只允许移除活动脚本的用户特定路径、修 seal/manifest、补离线反向矩阵并用
   现有原始证据重新 stage/manifest/seal。产品源码和包不改，不 build/打包，不运行任何付费
   Gate，不覆盖/删除旧失败封存，`review` 继续保持 `c8a63e0`。
+
+## VH-046 §R3-29 离线返工因辅助矩阵与 seal 前置条件仍可假绿继续退回
+
+- 日期：2026-09-27
+- 阶段：V2.2.0 Revision 3 离线工具/证据收口 → Documentation Gate `DOC_RETURNED`
+- 对象：返工 SRC `bbe3532c1b1f799670fab1fda4e7b9e134358d10`；HANDOFF `bca3d4ce…`；
+  RESULT-only 收口 `9f39666…`；中央包 EXE SHA-256 `07991886…AA4264`。
+- 已通过复核：Git 链、PLAN blob、包身份、manifest SHA、52/52 checksum、中央证据本机路径零命中、
+  7 个活动脚本固定路径清理、四套离线矩阵正常执行结果均成立。产品包与脱敏修复不判失败。
+- 阻断一：manifest 只检查 runner 矩阵退出码是整数，未检查正向为 0/负向非 0；将 N01 退出码改为
+  0、删除 N05 subcases 或将 N05 子例退出码改为 0，均仍得到 `final_verdict=true`、`rc=0`。
+- 阻断二：seal 仅在 `STAGE_REPORT.json` 存在时检查 `ok`；文件缺失时仍可 `rc=0` 并写出
+  `SEAL_REPORT.ok=true`、`stage_report_ok=null`。stage 对既有目录清理失败的返回值也未处理。
+- 阻断三：`seal_scan_negtest.json` 只受 checksum 覆盖，未进入 manifest 辅助语义判定；矩阵失败在
+  重算 checksum 后仍可能被 manifest 接受。
+- 后续边界：只允许按 RESULT §R3-30 修正上述离线 fail-open、补精确反向用例并重做受影响的
+  stage/manifest/seal 派生证据。不得修改产品或包，不得重跑原 17 门、真实模型或任何付费 Gate，
+  `review` 继续保持 `c8a63e0`。
