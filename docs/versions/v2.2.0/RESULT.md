@@ -1,10 +1,12 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正 / Product Owner 人工验收不通过 / `DOC_RETURNED`**
-> 当前阶段：`review@c8a63e0` 的独立 `ACCEPTANCE_PASS` 已被同一精确包上的 Product Owner 真实交互
-> 反证覆盖：P4 简历预览不可交互，非工作台顶栏动作与 `DS-003` 不一致且会静默清空当前 Task；根因
-> 已由独立源码验收确认（见 §R3-24）。固定 `review` 保持原对象用于追溯；新候选重新验收前不得发布
+> 当前状态：**待验收**（§R3-24 四类返工已一次性收口，见 §R3-25；本节不写 `DOC_ALIGNED` /
+> `ACCEPTANCE_PASS` / 人工通过 / 可发布）
+> 当前阶段：固定 `review@c8a63e0` 保持原对象用于追溯（未移动）；其独立 `ACCEPTANCE_PASS` 已被同一
+> 精确包上的 Product Owner 真实交互反证覆盖：P4 简历预览不可交互，非工作台顶栏动作与 `DS-003`
+> 不一致且会静默清空当前 Task；根因已由独立源码验收确认（见 §R3-24）。新候选 `ff2a8e2` 重新验收前
+> 不得发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -4602,3 +4604,168 @@ launcher 的单实例端口，为避免重定向到真实数据，没有启动�
 当前 `review@c8a63e0` 与 EXE `AAB555D3…69C367` 不可发布。返工只需恢复已批准 PLAN Revision 3 与
 `DS-003`，但必须同时关闭交互实现、路由语义、重复旧路径和行为型 Gate 漏检，不能只给现有热点补一条
 callback 或只让右上角发生跳转。
+
+***
+
+## R3-25. §R3-24 四类返工一次性收口（新 SRC `ff2a8e2` / 新包 `07991886…AA4264`，2026-09-27）
+
+> **状态**：`待验收`。Development Agent 以 §R3-24 的 `DOC_RETURNED` docs-only 对象（`6c20fcf`）为唯一
+> 基线，在同一 PLAN Revision 3 与 `DS-003` 下一次性关闭四类返工（P4 三类交互闭环 / 路由感知顶栏 /
+> 同根重复路径退出 / Gate 漏检修复），形成新 clean SRC、离线正反向自测、按已冻结包身份的全量 Gate
+> 重跑，并留档全部失败尝试。本节为开发侧自述与证据入口；不改 PLAN、不改 HISTORY、不移动 `review`、
+> 不启动独立验收，不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS` / 人工通过 / 可发布。
+
+### 25.1 身份链
+
+| 项 | 值 |
+|---|---|
+| 返工基线（`DOC_RETURNED` 对象） | `6c20fcf53f767d7fed96d7e0c11ecf662b891ce0`（docs-only 退回对象，含 RESULT §R3-24 与 HISTORY VH-043；唯一 parent `86c4cbc`） |
+| 新 SRC | `ff2a8e243455b74d1838454b136154026c07cb47`；唯一 parent `3415ae35…`；分支 `version/v2.2.0` |
+| SRC tree SHA | `ab2d9b17fc12a2109665f4f3d71cdd5ebbf3698a` |
+| 产品返工提交 | `3415ae35e00fd69e8139d6d3301a4e00bb7c78b0`（唯一 parent = 基线 `6c20fcf`） |
+| 产品 diff（`6c20fcf`→`3415ae3`） | 32 files；+5002 / −2145（前端/后端 26 files +3027/−2144；Gate 工具 6 files +1975/−1） |
+| Gate 工具修复提交 | `ff2a8e243455b74d1838454b136154026c07cb47`（唯一 parent = `3415ae3`；1 file +104/−4） |
+| 完整 diff | `validation-artifacts/h8/r3docreturned-final/source.diff`（`6c20fcf`→`ff2a8e2`，360,539 B） |
+| PLAN blob | `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`（未改） |
+| 失效旧对象（只供追溯） | `review@c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`、产品 SRC `741b7aba…`、HANDOFF `7b40ebcb…`、包 `AAB555D3…69C367` 及其 `ACCEPTANCE_PASS` |
+| 新包身份 | onedir `dist/ResumeAssistant/`：**4045 files / 170,399,477 B**；EXE **16,855,308 B**；EXE SHA-256 **`0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`**；bundle `index-BMdbu97O.js` / `index-ClGzbCyT.css` |
+
+> Gate 工具修复提交只改 `scripts/h8_p4_interact.py`；`scripts/` 不入包（`packaging/resume_assistant.spec`
+> 的 datas 仅含 `frontend/dist`、`backend/templates`、`backend/config`），故 EXE SHA 与全部已绿 Gate
+> 证据继续有效。
+
+### 25.2 四类返工映射（§24.4）
+
+| §24.4 类别 | 实现落点 | 证据 |
+|---|---|---|
+| 1 P4 / success 交互闭环 | 后端 `backend/services/pdf_anchors.py`（fact / section / skills 三类锚点，含 skills 页 bbox 并集）、`backend/api/schemas.py`、`backend/services/document_assembler.py`；前端 `PdfPreview.tsx` 改为纯受控选择组件、`WorkbenchPage.tsx` 持有唯一 `useState<PdfAnchor>`、`StepDownload.tsx` 提升并传递选择、`StepSuccessAside.tsx` 消费选中身份展示 Fact 理由/原文或段落详情；`styles/workbench.css` 选中态 | §25.3；`docreturned_ui_summary.json`（u2/u3/u4/u6/u7）；`design_fidelity.log`；`real_model_e2e.json` `verdict.checks.ui.P4.interact.*` |
+| 2 路由感知顶栏 | `WorkbenchShell.tsx` 路由条件（draft→`开始新任务`、running→`取消生成`、非工作台→`← 返回工作台`）、复用 `BrandLink.tsx` 统一导航语义；`PrivacyPage.tsx` 文案修正 | §25.4；`docreturned_ui_summary.json`（u1/u5）；`design_fidelity.log`（brand-keyboard ×4 路由） |
+| 3 同根重复路径退出 | 删除 `components/layout/AppShell.tsx`、`components/ResultPaperPreview.tsx`、`pages/GeneratePage.tsx`、`pages/WelcomeGate.tsx` | §25.5；`docreturned_ui_summary.json`（u0.retired-files-gone / 单一定义者与消费者） |
+| 4 Gate 漏检修复 | `scripts/h8_p4_interact.py`（P4 真实交互取证，权威 `artifacts.pdf_anchors` 驱动）、`scripts/h8_r3_docreturned_ui.py`（u0–u7 离线真实鼠标/键盘门）、`frontend/tests/pdfPreview.test.tsx`（16）+ `frontend/tests/workbenchShell.test.tsx`（9） | §25.3 / §25.5 / §25.6；`frontend_test.log`（25 tests / 2 files） |
+
+### 25.3 P4 / success 三类目标真实交互（真实鼠标 / Enter / Space）
+
+`design_fidelity`（run4 现场，真实方舟单次生成 + 有头浏览器）：
+
+| 类别 | 权威锚点 | mouse | Enter | Space | 再激活取消 | 右侧详情 |
+|---|---|---|---|---|---|---|
+| fact | 声明 | ✅ 选中 `aria-pressed=true` + `.selected` | ✅ | ✅ | ✅ 三类方式均取消 | `Fact 详情`（真实理由 65 字符 + 原文 37 字符） |
+| section（整段 experience） | 声明 | ✅ | ✅ | ✅ | ✅ | `段落详情`（标题「示例科技有限公司」+ 3 条成员事实） |
+| skills | **未声明** | — | — | — | — | **诚实退出**：命中层 0 热点、0 幽灵（`P4.interact.skills.absent`） |
+
+- `P4.interact.anchor-identity`：权威锚点 4 项 ↔ 命中层 4 项**双向一一对应**（无缺失、无幽灵）；
+- `P4.interact.exclusive`：fact→section 后仅 1 个选中、右侧为段落详情；
+- `P4.interact.align-after-scroll`：滚动后热区仍精确命中 `pt=(871,567)`；
+- 7 档视口（1920×1080 / 1440×900 / 1280×800 / 1024×768 / 720×450 / 390×844 / 320×568）`shell=1 topbar=1 panel=1 rail=1`、无溢出；
+- Design Fidelity 汇总 **PASS=139 / FAIL=0 / cleanup_ok=True / exit 0**。
+
+`docreturned_ui`（离线确定性 fake provider，真实鼠标/键盘；skills 组在该种子数据下**真实存在**）：
+
+- `u2.skills-select` 真实鼠标 `pt=(517,576)` → `rows=1 title='技能专长'`；`u2.skills-keyboard-toggle` Enter 取消；
+- `u2.hotspot-kinds` `fact=9 section=3 skills=1`；`u2.fact-geometry-distinct` 9 条事实热区坐标互不相同；
+- `u2.mouse-fact-toggle-off` / `u2.keyboard-enter-select` / `u2.keyboard-space-toggle-off` / `u2.focus-visible`（`outline=solid 2px`）/ `u2.canvas-click-clears` / `u2.no-console-errors` 全部通过；
+- `u3.geometry@1920x1080|1686x1076|1440x900` 全部 13 热点在页内、等比缩放稳定、`u3.after-scroll` 仍命中；
+- 汇总 **72 PASS / 0 FAIL / runtime_removed=true / exit 0**。
+
+主链/最终包（`real_model_e2e`，run2 现场）：`verdict.checks` 41 项全 true，含 `ui.P4.interact.anchor-identity`
+/ `fact.*` / `section.*` / `skills.absent` / `exclusive` / `align-after-scroll`，`failures=[]`、`exit_code=0`。
+
+前端组件级正反向（`frontend_test`）：`pdfPreview.test.tsx` 16 + `workbenchShell.test.tsx` 9 = **25 passed**，
+覆盖空 anchor、错 artifact/revision、单 fact、整段、skills、重复点击取消、键盘触发与事件单飞。
+
+### 25.4 非工作台路由 / Task 保留矩阵
+
+`docreturned_ui` u5（每路由：顶栏动作 → 真实返回 → 同一 Task 逐项核对）：
+
+| 路由 | 顶栏动作 | 返回方式 | 返回后 route | 同一 Task 快照 | 模型调用 | POST 写操作 |
+|---|---|---|---|---|---|---|
+| `/experiences` | `← 返回工作台`（不提供「开始新任务」） | mouse | `/` | **字节完全一致** | provider 计数不变（`jd=1,fact=9,reason=9,emb=11,chat=19`） | 0（`creates=0 generates=0`） |
+| `/records` | 同上 | Enter | `/` | 字节完全一致 | 不变 | 0 |
+| `/privacy` | 同上 | Space | `/` | 字节完全一致 | 不变 | 0 |
+
+- `task_id` 三路由均恒为 `4d85b23c-…2f51`；`u5.baseline` `creates=0 generates=0`；
+- 工作台侧 `u1.topbar.draft` → `action=new-task '＋ 开始新任务'`、`u1.topbar.running` → `action=cancel '取消生成'`；
+- 「不调用 `startNewTask`、不清空 Task、不触发模型」由「Task 快照字节一致 + provider 计数不变 + POST 0」三者共同给出。
+
+### 25.5 重复旧路径退出与诚实退出
+
+- `u0.retired-files-gone`：`AppShell.tsx` / `ResultPaperPreview.tsx` / `GeneratePage.tsx` / `WelcomeGate.tsx` 四文件均已删除；`u0.no-appshell` / `u0.no-resultpaper` 源码零出现；
+- `u0.pdfpreview-single-definer` 唯一实现 `PdfPreview.tsx`、`u0.pdfpreview-single-importer` 唯一引用者 `StepDownload.tsx`、`u0.pdfpreview-no-local-selection`（纯受控）、`u0.selection-single-owner`（唯一 `useState<PdfAnchor>` 在 `WorkbenchPage.tsx`）、`u0.selkey-single-consumer`（唯一外部消费者 `StepSuccessAside.tsx`）、`u0.shell-single` / `u0.brandlink-single`；
+- 诚实退出（`u4`）：改写快照为 `empty` / `mismatch` 后 `hotTotal=0 ghost=0`，PDF `ready` 与双下载仍在、无 console 异常；恢复真实 anchors 后热点回归 `n=13`。
+
+### 25.6 全量 Gate（17 门，全部真实退出码 0）
+
+> `gates_run.json`：`all_exit_zero=true`、`final_verdict=true`、`problems=[]`；`_meta.src=ff2a8e2…`、
+> `package_exe_sha256=07991886…aa4264`。全部为真实退出码，无 `FAIL` / `NOT_RUN` / 人工解释通过。
+
+| # | Gate | rc | 现场耗时 | 本次现场 | 证据 |
+|---|---|---|---|---|---|
+| 1 | precheck（compile + 全回归 + 前端 build + Hooks + runtime 哨兵） | 0 | 126.66s | 复用（run1） | `precheck.log` |
+| 2 | 前端组件级正反向（vitest） | 0 | 2.85s | 复用 | `frontend_test.log`（25 tests） |
+| 3 | package audit | 0 | 47.69s | 复用 | `package_audit.json`（4045 files / 170,399,477 B） |
+| 4 | PYZ / 反伪造 | 0 | 0.23s | 复用 | `pyz_check.json`（all_ok） |
+| 5 | Word/PDF failure matrix | 0 | 31.99s | 复用 | `failure_matrix.json` |
+| 6 | 三身份内容级真实模型 E2E | 0 | 109.24s | 复用（run1） | `content_real_model.json` |
+| 7 | 主链 UI 真实模型 E2E（含 P4 交互） | 0 | 226.53s | **run2** | `real_model_e2e.json`（41 checks 全 true） |
+| 8 | Design Fidelity 全状态（含 P4 交互 / 键盘 / 回看态 / 7 视口） | 0 | 277.46s | **run4** | `design_fidelity.json`（139/0） |
+| 9 | 六格真实模型性能 | 0 | 1145.39s | 复用（run1） | `six_grid_aggregate.json`（18/18） |
+| 10 | 六格聚合器负向自测 | 0 | 1.04s | 复用 | `six_grid_negative_selftest.json`（14/14） |
+| 11 | Git 身份正反向矩阵 | 0 | 15.92s | 复用 | `git_identity_matrix.json`（25） |
+| 12 | Artifact 授权矩阵 | 0 | 3.71s | 复用（run1） | `artifact_auth_matrix.json`（21/21） |
+| 13 | 原子发布矩阵 | 0 | 1.88s | 复用 | `atomic_publish_matrix.json`（19） |
+| 14 | Gate verdict 负向矩阵 | 0 | 11.53s | 复用 | `gate_verdict_negtest.json`（1 正向 + 20 负向） |
+| 15 | 封存 / manifest 负向矩阵 | 0 | 4.8s | 复用 | `seal_manifest_negtest.json`（9） |
+| 16 | DOC_RETURNED anchor 离线正反向 | 0 | 0.58s | 复用 | `docreturned_anchor.log`（FAIL=0） |
+| 17 | DOC_RETURNED 离线真实交互门 | 0 | 118.38s | 复用（run1） | `docreturned_ui_summary.json`（72/0） |
+
+**cleanup**：`gates_run.json.cleanup` 全部成立 —— `winword_leaked=[]`、`content_runtime_deleted=true`、
+`e2e_runtime_deleted=true`、`fidelity_runtime_removed=true`、`failure_matrix_cleanup_ok=true`、
+`artifact_auth_runtime_deleted=true`、`atomic_publish_runtime_removed=true`、`gate_verdict_runtime_removed=true`、
+`docreturned_ui_runtime_removed=true`。
+
+六格（复用 run1 现场）：首 Fact 中位 **7.1s** / 最大 **7.6s** ≤15s；18/18 `SUCCEEDED`；四格降幅
+66.5% / 58.4% / 63.7% / 60.9%（均 ≥25%）；`retry_ledger_any_discard=false`（12 条 ledger 全部
+`attempt=1`、`discarded_valid_rows=false`）、`fail_messages=[]`。
+
+### 25.7 证据失效 / 复用表
+
+| 证据 | 判定 | 依据 |
+|---|---|---|
+| run1 `mainchain_e2e` rc=1、`design_fidelity` rc=1（`skills.present`） | **失效**，留档 `attempt1/` | 旧 Gate 语义（三类必须齐备）与 §24.4-1 诚实退出冲突 |
+| run2 `design_fidelity` rc=1（PASS=118 / FAIL=21，`shell=0` 级联、`clicked=missing`、空页截图） | **失效**，留档 `attempt2/` | 渲染器崩溃 / 环境抖动；同一 bundle 在 run1 / run4 与离线门均通过 |
+| run3 `design_fidelity` rc=1（PASS=69 / FAIL=1，`_p4_terminal=FAILED`） | **失效**，留档 `attempt3/` | 上游真实生成瞬时未到 `SUCCEEDED`（与 §R3-21 记录同类） |
+| 其余 15 门（含 six_grid / docreturned_ui / artifact_auth_matrix / content_e2e） | **复用** | 同一 EXE SHA-256 + prior `exit_code=0` + 证据在场；`scripts/` 不入包 |
+| `mainchain_e2e`（run2 现场） | 新证据 | 修正后 Gate 语义下 41 checks 全 true |
+| `design_fidelity`（run4 现场） | 新证据 | 修正后 Gate 语义下 139/0 |
+
+### 25.8 付费 Gate 授权与实际账本
+
+- **授权**：Product Owner 批准「修 Gate 后定向重跑这两门」（§24.5 冻结点之后的定向复跑）；未授权
+  全量重跑，未用后续样本替换；失败样本一律留档，不覆盖、不丢弃。
+- **实际真实方舟调用（本候选，EXE `07991886…aa4264`）**：
+  - `six_grid`：1 次运行、18 样本（12 条 ledger 全 `attempt=1`，无丢弃）；Embedding 0/1 契约成立；
+  - `content_e2e`：1 次运行；窗口内 `chat_completions=9`、`embeddings=10`；三身份内容断言全 true、`runtime_deleted=true`；
+  - `mainchain_e2e`：1 次运行（run2）；`provider_calls_happened=true`，含 P4 走后端的真实生成任务一次；
+  - `design_fidelity`：**4 次真实生成任务**（run1 旧语义失败 / run2 渲染器崩溃 / run3 上游 `FAILED` / run4 通过），每次 1 个真实任务；
+  - `docreturned_ui` / `frontend_test` / 各负向矩阵与离线门：本地 stub / fake provider，**0 真实模型调用**。
+
+### 25.9 执行偏差登记（如实上报）
+
+1. **审批包「design_fidelity 0 模型调用」表述有误**：`h8_design_fidelity.py` 的成功实例使用真实方舟生成
+   1 个任务（`_boot_app(...)` 未覆盖 `ARK_BASE_URL`）；离线 0 调用的是 `docreturned_ui`。实际调用见 §25.8。
+2. **Gate runner `--only` 缺陷（只登记不修）**：`h8_r3_run_gates.py` 在 `--only` 下会把非零退出记录从
+   `gates_run.json` 剔除，导致顶层 `all_exit_zero` 假绿；权威判定在 `h8_r3_manifest.py` 逐 Gate 复核
+   （partial run 无法通过 manifest）。本轮唯一权威 `gates_run.json` 由**不带 `--only`** 的完整运行产出。
+3. **PLAN §V220-R3-G07（line 141）文字未同步**：该条写「WorkbenchShell 与 AppShell 的完整品牌区域」，
+   而 §24.4-3 要求退出同根重复实现，`AppShell.tsx` 已删除；交付为**单一** `WorkbenchShell` + `BrandLink`
+   导航语义。功能不变量（点击 / 键盘 / 可见焦点 / `aria-label` / 不建任务 / 不清 Task / 不新增模型调用）
+   已由 §25.4 证据覆盖；本条为 PLAN 文字与交付不一致，未改 PLAN。
+4. **`design_fidelity` 三次非产品原因失败**：见 §25.7；同一包身份未变、未用样本替换，失败现场全部留档。
+
+### 25.10 收口状态
+
+- 顶部保持「待验收」；本节不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS` / 人工通过 / 可发布；不改 PLAN /
+  HISTORY；`review` 保持 `c8a63e0`，未移动；
+- 新 SRC `ff2a8e2` 之上的 HANDOFF 为**仅改本文件**的单 parent commit（`docs/versions/v2.2.0/RESULT.md`），
+  身份由 HANDOFF 自身记录，不在本节自引用；
+- 开发交付后由 Documentation Agent 一次集中审查，之后再安排未参与修复的独立 Acceptance Agent。
