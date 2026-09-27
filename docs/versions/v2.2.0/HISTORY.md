@@ -784,3 +784,22 @@
 - 当前边界：本条只保存案例事实，不在HISTORY建立新执行规则。新的工作流必须把该案例作为变更—证据
   失效矩阵、付费Gate授权、预算熔断、原始telemetry复用和Provider账本的输入；治理语义仍只能在
   `HUMAN_AI_WORKFLOW.md` 由规则责任角色形成，不能再次通过RESULT/HISTORY临时增加开发合同。
+
+## VH-043 Product Owner 因 P4 交互与非工作台顶栏再次打回 V2.2.0
+
+- 日期：2026-09-27
+- 阶段：V2.2.0 Product Owner 人工验收 → `DOC_RETURNED`
+- 打回对象：`review@c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`；产品 SRC `741b7aba…`；
+  HANDOFF `7b40ebcb…`；精确包 EXE SHA-256 `AAB555D3…69C367`。
+- 人工反证：P4 / 成功态简历预览点击具体经历无反应；非工作台页面右上角「开始新任务」无可见反应。
+  独立源码审查进一步确认后者已静默清空当前 Task，只因没有导航而表现为“无反应”。
+- 根因：P4 的现有 PDF 热点没有传入选择 callback / selected state，且正式产品整体缺失 `DS-003` 的
+  fact / section / skills 选择模型和详情消费者；`WorkbenchShell` 不感知 route，在全部页面复用工作台
+  主动作，缺失 `DS-003` 的非工作台返回动作。Privacy 文案、重复壳与未使用预览组件暴露同根漂移。
+- Gate 漏检：Design Fidelity 只检查 PDF ready、canvas 和下载布局；真实主链只检查 anchor 绑定数量，
+  浏览器矩阵没有进入 P4 点击或遍历非工作台顶栏，仓库没有前端组件测试。状态/元素存在再次被误当成
+  用户行为成立。
+- 合同判定：两项均由已批准 PLAN Revision 3 与 `DS-003` 覆盖，不改变范围、技术路线、Design
+  Baseline 或强制验收合同，不新建 PLAN Revision。RESULT §R3-24 集中记录完整返工与复验矩阵。
+- 状态影响：§R3-23 `ACCEPTANCE_PASS` 只保留为历史技术验收事实，不再授权发布。开发必须从本次
+  docs-only 退回对象形成新候选；真实付费 Gate 在最终包与预算获 Product Owner 明确授权前不得启动。

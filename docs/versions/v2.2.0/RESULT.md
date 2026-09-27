@@ -1,10 +1,10 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**PLAN Revision 3 / 独立验收 `ACCEPTANCE_PASS` / 待 Product Owner 人工验收**
-> 当前阶段：`review@c8a63e0` 的完整独立验收先因方舟 403 阻断，额度恢复后在同一候选上仅续验真实
-> Provider 双 runtime 主链与六格性能；A～J 合并无 FAIL / NOT_RUN / BLOCKED（见 §R3-23）
-> 固定 `review` 继续指向 §R3-22 的 docs-only 集成对象；人工验收通过前不得发布
+> 当前状态：**需修正 / Product Owner 人工验收不通过 / `DOC_RETURNED`**
+> 当前阶段：`review@c8a63e0` 的独立 `ACCEPTANCE_PASS` 已被同一精确包上的 Product Owner 真实交互
+> 反证覆盖：P4 简历预览不可交互，非工作台顶栏动作与 `DS-003` 不一致且会静默清空当前 Task；根因
+> 已由独立源码验收确认（见 §R3-24）。固定 `review` 保持原对象用于追溯；新候选重新验收前不得发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -15,7 +15,7 @@
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
 
-> **本轮交付对象（独立验收已通过；待 Product Owner 人工验收）**：
+> **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
 > - **SRC 候选校验和（SRC SHA）**：`741b7abac1a4c2ca11ae440b89c0bfcdcaa2e203`（唯一 parent
 >   `9869dc6a2119a6cde80dd14620d7e0d31a0109b3`；tree `5ae052a1751dbad147f90317c549bdbacca68dd6`）
@@ -37,8 +37,9 @@
 >   在场；中央 manifest verify 与 33/33 checksum verify 均为 rc 0
 >
 > - **当前门禁**：独立验收对象为 docs-only 集成 commit
->   `c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`，结论为 `ACCEPTANCE_PASS`；该结论允许进入 Product
->   Owner 人工验收，但不等于人工通过或可发布。
+>   `c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`，其 `ACCEPTANCE_PASS` 只保留为当时已执行技术门禁的
+>   历史事实；Product Owner 人工验收不通过使该对象、包及其发布授权失效。当前结论为
+>   `DOC_RETURNED`，不得进入发布收口。
 
 > **本文件由 Development Agent 在候选冻结前写实施、自测与偏差。** Revision 2 完成全部开发 Gate 前
 > 顶部始终为"待验收"，标记 `REV2_DEV_VERIFYING` → 完成后 `REV2_DEV_VERIFIED` = **开发侧
@@ -4487,3 +4488,117 @@ completion≤16k 全成立，实际全部 attempt=1；retry ledger 无丢弃、�
 本结论绑定 `review@c8a63e0` 与 EXE `AAB555D3…69C367`。它表示当前固定候选可以进入 Product Owner
 人工验收；不表示人工通过、文档发布收口完成或可以发布。人工验收必须使用同一精确包；发生任何产品
 源码、测试、依赖、配置、构建、模型合同或入包文件变化时，本结论按工作流重新评估，不得静默继承。
+
+## R3-24. Product Owner 人工验收打回：P4 预览交互与非工作台顶栏（2026-09-27）
+
+### 24.1 决定、对象与状态影响
+
+- Product Owner 使用与 §R3-23 相同的精确包人工验收后明确判定不通过：
+  1. P4 / 成功态简历预览中点击具体经历无反应，没有选中反馈、Fact 详情或段落详情；
+  2. 在「我的经历 / 我的简历 / 个人与隐私」等非工作台页面点击右上角「＋ 开始新任务」无可见反应。
+- 打回对象保持为 `review@c8a63e0e7853ffceb3bd9eebf9e5b94af541d767`、产品 SRC `741b7aba…`、
+  HANDOFF `7b40ebcb…` 与 EXE `AAB555D3…69C367`。冻结包、中央证据和 `review` 本轮均未修改。
+- §R3-23 的 `ACCEPTANCE_PASS` 只保留为当时技术验收事实。Product Owner 的真实交互反证优先，当前
+  候选与包不可发布，不进入 CURRENT_STATE、索引、根 README、远端 `main` 或正式 tag 收口。
+
+### 24.2 独立源码根因结论
+
+独立源码验收 Agent 未参与实现、自测或修复；在 review 外使用冻结包内同一前端 bundle 与本地 stub
+API 复现，未运行真实方舟、未访问真实 runtime、未修改候选。因本机已有真实 runtime 实例占用 packaged
+launcher 的单实例端口，为避免重定向到真实数据，没有启动完整 onedir GUI；两项缺陷均已在冻结前端
+产物稳定复现，并由静态源码链确认：
+
+1. **P4 预览不可交互 = 已有接线错误 + 交互模块缺失**
+   - `StepDownload` 调用 `PdfPreview` 时没有传入 `selectedAnchor` / `onSelectAnchor`，现有 bullet 级热点
+     点击永远 no-op，`aria-pressed` 永远不会进入选中态；
+   - 正式产品只实现 bullet 级 `.pdf-hit`，没有 `DS-003` 的 fact / section / skills 三类可交互热区、
+     `data-fact` / `data-section`、受控选中态与右侧 Fact / 段落详情消费者；
+   - 后端现有 `pdf_anchors` 只覆盖部分 bullet，整段经历和技能级锚点/映射未形成，因此不能只补一个
+     callback 后宣称完成。
+2. **非工作台顶栏 = 路由条件缺失导致错误动作**
+   - `WorkbenchShell` 在所有路由无条件显示工作台主动作；非工作台点击调用 `startNewTask()`，该方法
+     清空本地 Task 状态但不导航，所以页面看似无反应，返回工作台后原 P4 Task 已丢失；
+   - 正式 bundle 没有对应 `DS-003` 的 route 条件和 `top-back`。现有 `BrandLink` 已具备返回 `/`、保留
+     Task、click / Enter / Space / focus-visible 语义，缺陷不来自底层路由能力缺失；
+   - `PrivacyPage` 又把全局「开始新任务」写入说明文案，与 `DS-003` 的非工作台「返回当前生成任务」
+     语义共同漂移。
+
+### 24.3 合同判定
+
+- `DS-003` 已明确 P4 点击事实、整段经历和技能查看详情；PLAN §5.4 要求 workbench 全状态及
+  experiences / records / privacy 与 `DS-003` 对照，并验证 PDF viewer、品牌/返回路由和当前 Task
+  保留。因此两项均为**现有合同实现缺陷**，不是新增产品能力。
+- 非工作台不存在已批准的跨页「开始新任务」合同。正确目标是恢复 `DS-003`：工作台保留取消/开始新
+  任务主动作；非工作台显示「返回工作台 / 返回当前生成任务」，返回时不创建新 Task、不清空当前
+  Task、不触发模型调用。
+- 产品范围、技术路线、Design Baseline 和强制验收合同未变化，继续执行同一 PLAN Revision 3，
+  **不形成 PLAN Revision 4**。
+
+### 24.4 本轮一次性返工范围
+
+本节只把 PLAN / `DS-003` 已有合同映射为完整问题类别，不建立第二份执行合同。Development Agent 必须
+从本 `DOC_RETURNED` 对象开工，在一次候选中同时关闭以下范围：
+
+1. **P4 / success 交互闭环**
+   - 以当前 Task 的权威 `fact_refs`、ResumeDocument 和同一最终 PDF artifact 为依据，建立 fact、整段
+     experience / project 与 skills 三类交互目标；不得用固定样张坐标、标题猜测或第二份 HTML 真源
+     冒充正式 PDF 映射；
+   - `PdfPreview` 成为受控选择组件，`StepDownload` 提升并管理选择状态，`StepSuccessAside` 展示与所选
+     对象一致的事实来源、选择理由或段落详情；再次点击可取消；
+   - mouse、Enter、Space、focus-visible、`aria-pressed`、selected 视觉反馈全部成立；PDF 缩放、滚动、
+     多视口下热区与正文保持对齐；
+   - anchor 缺失、artifact/revision 错配或不可定位时必须诚实退出对应交互，不显示可点击但无响应的
+     幽灵热区，也不得影响 PDF 查看和双下载。
+2. **路由感知的顶栏语义**
+   - 工作台路由维持既有 running→取消、其他状态→「开始新任务」；开始新任务继续执行确认、单次动作
+     和既有清理语义；
+   - experiences / records / privacy（以及实际仍可达的同壳非工作台路由）显示「返回工作台 / 返回当前
+     生成任务」，复用统一导航语义；返回后 route 正确、当前 Task / 输入 / phase / artifact 保持，不
+     创建新 Task、不产生模型请求；
+   - 修正 Privacy 文案，不再把只属于工作台的「开始新任务」描述成所有页面恒有的全局动作。
+3. **同根重复路径退出**
+   - 核对未被路由引用的 `AppShell`、另行维护可选中 props 的 `ResultPaperPreview` 以及当前生效的
+     `WorkbenchShell` / `PdfPreview`。删除、收束或明确隔离失效实现，使导航和 P4 选择各只有一个正式
+     活动入口；仅让新路径通过而保留可被重新接入的旧重复实现，不算完成替换。
+4. **Gate 漏检修复**
+   - Design Fidelity 必须真实点击 fact / section / skills，分别验证 mouse、Enter、Space 后的 selected
+     状态和右侧详情，不再只检查 `.pdf-preview[data-state=ready]`、canvas 数量或下载区固位；
+   - 主链/最终包浏览器验证必须进入 P4 并验证可交互结果；anchor 数量、artifact ID 绑定或 PDF ready
+     不能替代交互结果；
+   - 路由测试必须遍历 experiences / records / privacy，验证显示的是返回动作、点击后 route 变为工作台
+     且同一 Task 保留；反向证明不会调用 `startNewTask`、不会清空 Task、不会触发模型；
+   - 增加前端组件级正反向测试，覆盖空 anchor、错 artifact/revision、单 fact、整段、skills、重复点击
+     取消、键盘触发和事件单飞；不能继续以零前端测试交付。
+
+### 24.5 复验、成本与停止点
+
+- 修复会改变前端/可能的 anchor 后处理、测试、bundle 和最终包，因此旧 candidate、旧 package、旧 UI
+  与整体 `ACCEPTANCE_PASS` 均不得继承；须形成新 SRC、重 build / 重打包、RESULT-only HANDOFF、
+  Documentation Gate 和独立验收。
+- 开发迭代和上述交互/路由 Gate 一律先使用隔离 runtime、本地 stub / 替代 Provider 与既有脱敏 artifact；
+  不得为调 UI、补测试或确认路由反复调用真实 ARK。
+- 在任何真实模型或其他付费 Gate 开始前，Development Agent 必须先冻结最终源码与包，提交受影响证据
+  清单、不得继承的证据、拟复用的未受影响证据、精确运行次数、最大 HTTP 调用数、最大 token 和熔断
+  条件，等待 Product Owner 显式授权。未取得授权不得调用；获批后只能在最终候选上按批准预算执行，
+  失败不得自行全量重跑或用后续样本替换。
+- 该停止点不豁免 PLAN 的最终验收合同，也不在 RESULT 临时增加付费 Gate；它只阻止在最终候选和预算
+  尚未确定时再次发生重复计费。证据能否复用由变更—证据依赖关系和最终 Documentation / Acceptance
+  判定决定，不能仅因 EXE hash 变化一律清空，也不能因后端模型调用代码未改就自行继承整体 PASS。
+
+### 24.6 重新交付要求
+
+- Development Agent 的新 SRC 必须以包含本节与 VH-043 的最新 docs-only 退回对象为唯一基线；不得
+  重构父链、代签 HISTORY 或从更早产品提交另起；
+- RESULT 交付一次性记录：完整 diff、上述四类修复映射、真实点击结果、路由/Task 保留矩阵、重复旧
+  路径退出证明、离线 Gate、包身份、cleanup、证据失效/复用表、付费 Gate 授权与实际账本；顶部只能
+  写「待验收」，不得写 `DOC_ALIGNED`、`ACCEPTANCE_PASS`、人工通过或可发布；
+- 不修改或清理 Product Owner 真实 runtime，不删除当前或历史中央封存，不移动 `review`。开发交付后
+  由 Documentation Agent 一次集中审查，之后再安排未参与修复的独立 Acceptance Agent。
+
+### 24.7 当前结论
+
+**Documentation Gate：`DOC_RETURNED`。**
+
+当前 `review@c8a63e0` 与 EXE `AAB555D3…69C367` 不可发布。返工只需恢复已批准 PLAN Revision 3 与
+`DS-003`，但必须同时关闭交互实现、路由语义、重复旧路径和行为型 Gate 漏检，不能只给现有热点补一条
+callback 或只让右上角发生跳转。
