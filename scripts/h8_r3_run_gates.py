@@ -8,6 +8,15 @@
 - 汇总 cleanup 判定（只包含成立项；任一失败项以空列表/False 呈现，供 manifest 逐 Gate 核验）；
 - 重算 `all_exit_zero` 与 `final_verdict`（不自我宣称通过；manifest 会再逐 Gate 交叉复核）。
 
+fail-closed 纪律（§R3-26 §26.5-1，修正旧版 `--only` fail-open）：
+- **所有已选择且已执行的 Gate，无论成败都写入 `gates_run.json`**；失败记录绝不被剔除；
+- 任一已执行 Gate 非零退出、或证据缺失，都会使 runner 非零退出、`all_exit_zero=false`、
+  `final_verdict=false`；
+- `--only` 运行属 **partial run**：显式写 `partial=true` 与 `unexecuted_gates=[...]`，顶层
+  `all_exit_zero` / `final_verdict` 一律 false，绝不生成可被当作完整候选 PASS 的摘要；
+- **未知 Gate 名称、空 `--only`（空串/纯逗号）一律 fail-closed**：不执行任何 Gate、不写
+  `gates_run.json`、非零退出，避免覆盖既有权威证据或产生假绿。
+
 用法：
   python scripts/h8_r3_run_gates.py --exe dist/ResumeAssistant/ResumeAssistant.exe \\
       --evidence-dir <final-evidence-dir> [--only precheck,package_audit,...]
@@ -171,7 +180,7 @@ def main() -> int:
     ap.add_argument("--exe", required=True)
     ap.add_argument("--evidence-dir", required=True)
     ap.add_argument("--src", default="")
-    ap.add_argument("--only", default="")
+    ap.add_argument("--only", default=None)
     args = ap.parse_args()
 
     exe = Path(args.exe).resolve()
@@ -183,13 +192,36 @@ def main() -> int:
     # 误解析到 backend/ 下，导致证据落错位置（cwd 与 --evidence-dir 不一致）。
     ev = Path(args.evidence_dir).resolve()
     ev.mkdir(parents=True, exist_ok=True)
-    only = {s.strip() for s in (args.only or "").split(",") if s.strip()}
 
-    specs = gate_specs(str(exe), ev)
-    if only:
-        specs = [s for s in specs if s["name"] in only]
+    all_specs = gate_specs(str(exe), ev)
+    all_names = [s["name"] for s in all_specs]
 
-    # ── 增量合并：同一证据目录下、同一包身份已记录且证据在场的 Gate 不再重跑 ──
+    # ── 选择集解析（fail-closed）─────────────────────────────────────────────
+    # `--only` 未提供（None）＝完整运行。若显式提供，则必须是已知 Gate 的**非空**子集：
+    #   * 空字符串 / 全是逗号 / 仅空白  -> 空选择，fail-closed；
+    #   * 含未知 Gate 名称              -> fail-closed；
+    # 两种非法输入都**不执行任何 Gate、不写 run 记录**，避免覆盖既有权威证据或生成假 PASS。
+    if args.only is None:
+        selected = set(all_names)
+    else:
+        only_set = {s.strip() for s in args.only.split(",") if s.strip()}
+        if not only_set:
+            print(f"[runner] FAIL-CLOSED: --only 为空选择: {args.only!r}")
+            print("[runner] 未执行任何 Gate，未写入 gates_run.json，退出码非零。")
+            return 2
+        unknown = sorted(only_set - set(all_names))
+        if unknown:
+            print(f"[runner] FAIL-CLOSED: --only 含未知 Gate: {unknown}")
+            print("[runner] 未执行任何 Gate，未写入 gates_run.json，退出码非零。")
+            return 2
+        selected = only_set
+
+    specs = [s for s in all_specs if s["name"] in selected]
+    unexecuted = [n for n in all_names if n not in selected]
+    partial = bool(unexecuted)
+
+    # ── 增量复用：同一证据目录下、同一包身份、**真实 exit 0 且证据在场**的已选 Gate 不再重跑 ──
+    # 失败记录一律不携带、必须重跑；未被选择的 Gate 不再并入 records（只列入 unexecuted）。
     existing: dict[str, dict] = {}
     existing_meta = ev / "gates_run.json"
     if existing_meta.is_file():
@@ -202,20 +234,16 @@ def main() -> int:
                 if isinstance(rec, dict) and rec.get("gate"):
                     existing[str(rec["gate"])] = rec
 
-    records = [existing[n] for n in [s["name"] for s in specs]
-               if n in existing and existing[n].get("exit_code") == 0
-               and (ev / existing[n]["evidence"]).is_file()]
-    for name in list(existing):
-        if name not in {s["name"] for s in specs} \
-                and existing[name].get("exit_code") == 0 \
-                and (ev / existing[name]["evidence"]).is_file():
-            records.append(existing[name])
-
+    records: list[dict] = []
     started_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     for spec in specs:
         name = spec["name"]
-        if name in existing and existing[name].get("exit_code") == 0 \
-                and (ev / spec["target"]).is_file():
+        prior = existing.get(name)
+        if prior and prior.get("exit_code") == 0 \
+                and (ev / str(prior.get("evidence") or "")).is_file():
+            rec = dict(prior)
+            rec["reused_from_prior_run"] = True
+            records.append(rec)
             print(f"[runner] {name}: reuse (same package, prior exit 0, evidence present)",
                   flush=True)
             continue
@@ -250,6 +278,22 @@ def main() -> int:
         print(f"[runner] {name}: rc={rc} runtime={dt:.1f}s evidence={'OK' if present else 'MISSING'}",
               flush=True)
 
+    # ── 汇总（fail-closed）──────────────────────────────────────────────────
+    # 逐 Gate 真实退出码 + 证据在场 + 运行完整性三者都必须成立才可能为真。
+    # partial run 一律 all_exit_zero=false / final_verdict=false，并显式列出未执行 Gate。
+    missing_evidence = [r["gate"] for r in records
+                        if not (ev / str(r.get("evidence") or "")).is_file()]
+    failed = [r["gate"] for r in records if r["exit_code"] != 0]
+    complete = not unexecuted
+    executed_all_exit_zero = bool(records) and not failed and not missing_evidence
+    all_exit_zero = complete and executed_all_exit_zero
+
+    problems: list[str] = []
+    problems += [f"{g}: 退出码非 0" for g in failed]
+    problems += [f"{g}: 证据缺失" for g in missing_evidence]
+    if partial:
+        problems.append(f"partial run：未执行 Gate={unexecuted}")
+
     cleanup = _collect_cleanup(ev)
     gates_meta = {
         "_meta": {
@@ -259,21 +303,27 @@ def main() -> int:
             "package_exe_sha256": exe_sha,
             "round_start_local": started_ts,
             "collected_at_local": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "only": sorted(selected) if args.only is not None else None,
         },
         "package": {
             "exe_sha256": exe_sha,
             "exe_bytes": exe.stat().st_size,
         },
         "gates": records,
-        "all_exit_zero": bool(records) and all(r["exit_code"] == 0 for r in records),
+        "partial": partial,
+        "unexecuted_gates": unexecuted,
+        "executed_all_exit_zero": executed_all_exit_zero,
+        "all_exit_zero": all_exit_zero,
         "cleanup": cleanup,
-        "problems": [r["gate"] for r in records if r["exit_code"] != 0],
-        "final_verdict": bool(records) and all(r["exit_code"] == 0 for r in records),
+        "problems": problems,
+        "final_verdict": all_exit_zero,
     }
     (ev / "gates_run.json").write_text(json.dumps(gates_meta, ensure_ascii=False, indent=2),
                                        encoding="utf-8")
-    print(f"[runner] wrote {ev / 'gates_run.json'} all_exit_zero={gates_meta['all_exit_zero']}")
-    return 0 if gates_meta["all_exit_zero"] else 1
+    print(f"[runner] wrote {ev / 'gates_run.json'} partial={partial} "
+          f"all_exit_zero={all_exit_zero} final_verdict={all_exit_zero} "
+          f"gates={len(records)} unexecuted={len(unexecuted)}")
+    return 0 if all_exit_zero else 1
 
 
 if __name__ == "__main__":
