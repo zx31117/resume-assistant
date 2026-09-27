@@ -1,11 +1,13 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
-> 当前阶段：§R3-24 四类产品返工已由 Development 交付新 SRC `ff2a8e2` / HANDOFF `5e4a8cf` / 包
-> `07991886…AA4264`，但集中文档审查发现 Gate runner 可在 `--only` 下隐藏失败，以及权威证据仍位于
-> 可覆盖且未脱敏的 ignored 目录（见 §R3-26）。固定 `review@c8a63e0` 保持原对象；纠正并重新交付前
-> 不得启动独立验收或发布
+> 当前状态：**待验收**
+> 当前阶段：§R3-26 `DOC_RETURNED` 的两项阻断（Gate runner 在 `--only` 下 fail-open、权威证据位于
+> 可覆盖且未脱敏的 ignored 目录）已按 §26.5 完成一次**离线最小返工**：runner 改为 fail-closed 并由
+> 离线正反向矩阵逐例验证；既有原始证据已脱敏、重算哈希、中央封存并在中央副本二次 verify（见
+> §R3-27）。本轮未修改产品源码/前端/后端/依赖/bundle/EXE，未重 build、未重打包、未重跑任何付费
+> Gate，也未移动 `review`。本 RESULT 不写 `DOC_ALIGNED` 或任何验收通过；`DOC_RETURNED` 是否解除由
+> Documentation Agent 集中复核最终中央字节后判定，解除前不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -27,6 +29,21 @@
 >   `index-BMdbu97O.js`；
 > - **当前门禁**：`DOC_RETURNED`。产品包本轮不判定失败，但 Gate 工具和证据封存不满足进入独立验收
 >   的可信交接条件；不得以 §R3-25 的 17 门自报 PASS 绕过 §R3-26。
+
+> **§26.5 离线最小返工交付对象（待 Documentation Gate 复核，见 §R3-27）**：
+>
+> - **返工 SRC**：`69a65f3f11edbec3f302935323c658cebfc147e6`；唯一 parent 为本轮退回对象
+>   `07d6b89`，相对其只修改 `scripts/h8_r3_run_gates.py` 并新增
+>   `scripts/h8_r3_run_gates_negtest.py`（仅 Gate 工具与离线矩阵，**无产品源码/前端/后端/依赖/bundle
+>   变化**）；
+> - **返工 HANDOFF**：本轮 RESULT-only 收口 commit，唯一 parent 为返工 SRC；其身份由 `git log` 与
+>   中央 manifest 的 `identity.handoff` 记录，不在本文件自引用；
+> - **精确包（未重 build）**：与本轮退回对象逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
+>   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
+>   `index-BMdbu97O.js`；
+> - **中央封存入口**：见 §R3-27；manifest SHA、checksum 数量等封存后数值由紧随的 RESULT-only
+>   收口 commit 记录（原因见 §27.6）；
+> - **当前门禁**：`DOC_RETURNED` 未解除；本轮不得进入独立验收或发布。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -4869,3 +4886,104 @@ Development 在 §25.9 明确披露：`scripts/h8_r3_run_gates.py --only ...` �
 本次不是再次打回 P4 产品实现，而是阻止一个已知可假绿的 Gate runner 和可覆盖、未脱敏证据进入独立
 验收。开发按 §26.5 完成一次离线纠正后重新交付；Documentation Agent 再集中核对最终中央字节和
 fail-closed 结果，符合后才移动 `review` 并安排独立 Acceptance。
+
+## R3-27. §26.5 离线最小返工交付（Gate fail-closed 与证据封存，2026-09-27）
+
+### 27.1 返工范围与纪律
+
+本轮严格按 §26.5 只做三件事：修 Gate runner、加离线正反向矩阵、脱敏并中央封存既有证据。**未重
+build、未重打包、未重跑真实模型/六格/content E2E/mainchain E2E/Design Fidelity**；未修改产品源码、
+前端、后端、依赖、配置、bundle 或当前 EXE；未移动 `review`（仍 `c8a63e0`、detached、clean）；未修改
+PLAN/HISTORY；未删除任何既有中央封存或 `_docreview-5e4a8cf-*` 原始追溯快照（§26.5-6）。
+
+- **返工 SRC**：`69a65f3f11edbec3f302935323c658cebfc147e6`（唯一 parent `07d6b89`）；diff 仅
+  `scripts/h8_r3_run_gates.py`（+94/-22）与新增 `scripts/h8_r3_run_gates_negtest.py`（+437）；
+- **包身份**：与 §R3-26 退回对象逐字节相同（27.4 复核），故本轮 manifest 复用同一 EXE 与 bundle。
+
+### 27.2 阻断一修复：runner fail-closed（§26.5-1）
+
+`scripts/h8_r3_run_gates.py` 语义修正，全部写入 `gates_run.json` 的 `_meta` 与顶层字段：
+
+1. **已选择且已执行的 Gate 无论成败一律写入**：不再把非零退出记录从结果中剔除；
+2. **任一非零退出** ⇒ runner 退出码非零、`all_exit_zero=false`、`final_verdict=false`；
+3. **`--only` 默认值改为 `None`**，区分「未提供」与「显式空」；显式空选择、含未知 Gate、任一已执行
+   Gate 证据缺失 ⇒ fail-closed：打印原因、**不写** `gates_run.json`、退出码 `2`，绝不生成可被误读为
+   PASS 的汇总；
+4. **partial run 显式标记**：`partial=true`、`unexecuted_gates=[...]`；新增
+   `executed_all_exit_zero` 区分「partial 但已执行全绿」；`all_exit_zero` 仅在 **complete**（无未执行
+   Gate）且全部已执行 Gate 退出码为 0 时为 true；复用上一轮 pass 的记录显式标注
+   `reused_from_prior_run=true`，失败记录绝不携带。
+
+### 27.3 新增离线正反向矩阵（§26.5-2）
+
+`scripts/h8_r3_run_gates_negtest.py`（437 行，纯离线，不调用真实模型）：在一次性临时目录构造迷你
+仓库，**逐字节复制真实 runner** 并以真实子进程启动，逐例断言进程退出码、逐 Gate 记录、汇总字段与
+manifest 判定一致。
+
+| 用例 | 场景 | 断言 |
+| --- | --- | --- |
+| P00_complete_positive | 17 门完整全绿（正向控制） | rc=0、`all_exit_zero=true`、`partial=false`、17 条记录 |
+| N01_single_failure | 单门非零退出 | rc≠0、失败记录**保留**、`all_exit_zero=false` |
+| N02_mixed | 成功/失败混合 | rc≠0、成败记录均在、汇总 false |
+| N03_all_failure | 全部失败 | rc≠0、记录数不减、`final_verdict=false` |
+| N04_unknown_gate | `--only` 含未知 Gate | rc≠0、**不写** `gates_run.json` |
+| N05_empty_only | `--only ""` 显式空选择 | rc≠0、**不写** `gates_run.json` |
+| N06_missing_evidence | 已执行 Gate 证据缺失 | rc≠0、`all_exit_zero=false` |
+| N07_partial_all_pass | `--only` 子集且已执行全绿 | rc=0 但 `partial=true`、`all_exit_zero=false` |
+| N08_partial_to_manifest | partial 结果送 manifest | manifest rc≠0、`final_verdict=false` |
+| P01_manifest_positive | 完整 17 门正向后送 manifest | manifest rc=0、`final_verdict=true` |
+
+实测结果：`cases=10 failures=[] all_ok=True`（运行耗时约 5.6 s），输出
+`run_gates_negtest.json`，已纳入下方中央封存证据并由 `CHECKSUMS.sha256` 覆盖。
+
+### 27.4 阻断二修复：脱敏、重算哈希、中央封存、二次 verify（§26.5-3）
+
+按 §R3-20/§26.5-3 既有两段式顺序执行（数值为现场实测）：
+
+1. **stage 脱敏 + 重算**：`h8_r3_seal.py stage --evidence-dir r3docreturned-final --staged-dir
+   r3final26-staged`，`rc=0`、`problems=[]`；文本证据共 480 处替换（当前工作区绝对路径 148 处、
+   家目录 332 处）；`gates_run.json` 内 17 条 `evidence_sha256` 全部按脱敏后字节重算；原始 48 files /
+   907,900 B → 脱敏后 50 files / 919,985 B（新增离线矩阵输出 `run_gates_negtest.json` 与
+   `STAGE_REPORT.json`）；
+2. **三个失败 attempt 全量纳入**：`attempt1/`（6 files）、`attempt2/`（4 files）、`attempt3/`
+   （4 files）逐字节脱敏复制，不挑选「最后一次 PASS」；上级 `attempt1/gates_run.json` 等同名文件按
+   相对路径保留，不与根级混淆；
+3. **build/verify manifest**：以新 SRC/HANDOFF 与同一 EXE 重新生成 `manifest.json`（Git 身份锚点
+   现场解析 + 逐 Gate 证据 hash/verdict/后置条件交叉核验 + `all_exit_zero` 重算比对）；
+4. **seal + 中央副本二次 verify**：写 `SEAL_REPORT.json` 与 `CHECKSUMS.sha256`，随后在中央副本再次
+   `manifest verify` 与 `verify-checksums`。
+
+### 27.5 中央封存入口与封存后数值
+
+> 下列 `manifest.json` SHA-256、`CHECKSUMS.sha256` 条目数与中央副本二次 verify 结果在**封存完成后**
+> 写入本小节（由紧随的 RESULT-only 收口 commit 填写；原因见 §27.6）。
+
+- **包（中央）**：`<acceptance-staging>/69a65f3/`（4045 files / 170,399,477 B；EXE 16,855,308 B）；
+- **证据（中央）**：`<acceptance-staging>/69a65f3-evidence/`；
+- **manifest SHA-256**：`<SEAL_FILL_MANIFEST_SHA>`；
+- **checksum 条目数**：`<SEAL_FILL_CHECKSUM_COUNT>`；
+- **中央副本二次 verify**：`<SEAL_FILL_VERIFY_RESULT>`。
+
+### 27.6 治理偏差与如实披露
+
+1. **付费调用偏差照旧成立**（承接 §26.4-2/§26.4-3）：`design_fidelity` 实际发生 4 次真实生成任务，
+   含 1 次终态 `FAILED` 后再次运行。Development 无法提供与 §25.8 所称授权严格匹配的原始审批事件，
+   故按 §26.4-3 **如实登记为治理偏差**，不补写、不倒推授权；该失败终态的归因仍由独立 Acceptance
+   判定，本轮不重跑、不覆盖。
+2. **`gates_run.json` 的 `_meta.src` 仍为 `ff2a8e2`**：权威 17 门运行发生在该 SRC 上；返工 SRC
+   `69a65f3` 只修改 Gate 工具脚本，按 §26.5-5 不得重跑任何 Gate，故不存在绑定 `69a65f3` 的新
+   `gates_run`。这是如实披露而非替代：封存 manifest 以 `identity.src/handoff` 锚定 Git 现场，并以
+   逐 Gate 证据 SHA-256 绑定实际字节；工具修正的正确性由 §27.3 的离线矩阵独立证明。
+3. **离线矩阵不注册为 runner 第 18 门**：注册意味着要么重跑付费 Gate、要么伪造 `gates_run` 记录，均
+   违反 §26.5-5。矩阵作为独立证据 JSON 进入封存目录并由 `CHECKSUMS.sha256` 覆盖。
+4. **自引用顺序偏差（如实登记）**：manifest 的硬约束要求「构建/校验现场 HEAD == HANDOFF」，而
+   §26.5-4 要求 RESULT 记录 manifest SHA。二者不可在同一 commit 内同时成立（RESULT 内容参与
+   commit/tree 哈希）。故沿用 §16.8/§17.2 既有先例：HANDOFF 先记录除封存后数值外的全部内容，
+   manifest 与封存在 `HEAD == HANDOFF` 的 clean 现场构建/校验，封存后数值由**紧随的 RESULT-only
+   收口 commit** 记录。收口 commit 是 docs-only 后续动作，不改变已封存的包与证据字节。
+
+### 27.7 结论
+
+**本轮不宣告任何验收通过。** §R3-26 的两项阻断均已按 §26.5 完成一次离线最小返工并留有可独立复核的
+字节证据；产品源码、包与 EXE 未做任何改动。`DOC_RETURNED` 是否解除，由 Documentation Agent 集中
+核对最终中央字节、runner fail-closed 矩阵与封存 checksum 后判定；解除前不得进入独立验收或发布。
