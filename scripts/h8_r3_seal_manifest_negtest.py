@@ -8,6 +8,12 @@
   3. manifest 记录 stale hash → verify 非零退出；
   4. checksum 缺失 / 额外未登记文件 / hash 不一致 → verify-checksums 非零退出；
   5. verify 有问题却输出 `final_verdict=True` 摘要 → 必须输出 false 摘要（输出一致性）。
+  6. §R3-30 §30.5-3：`STAGE_REPORT.json` 缺失 / 不可解析 / 顶层非对象 / `ok` 非 true
+     ⇒ `seal` 必须在任何中央复制或报告写入前 fail-closed，且不得生成封存目录；
+     已有 staged 目录清理失败（句柄占用）⇒ `stage` 非零退出且不写 STAGE_REPORT。
+  7. §R3-30 §30.5-4：`seal_scan_negtest.json` 语义失败（缺失 / 截断 / 缺 case / 多 case /
+     `all_ok=false` / 现场脚本 SHA 不符）⇒ 重新 stage + build 必须非零退出，verify 亦
+     `final_verdict=False`（重算 checksum 不得洗白）。
 
 纪律：不硬编码预期退出码，一律读取子进程真实返回；只用一次性临时目录 + 临时 Git repo，
 不触碰真实 runtime / 仓库。
@@ -17,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -228,12 +235,136 @@ def main() -> int:
         if not n5_ok:
             problems.append("N5 checksum-mismatch 未 fail-closed")
 
+        # ── §R3-30 §30.5-3：seal 强制前置条件（STAGE_REPORT）与 staged 清理 fail-closed ──
+        # 正向对照：合法 staged ⇒ rc==0，且确实生成中央包目录 / 证据目录 / SEAL_REPORT
+        # （stage_report_ok=true）。
+        central_sp = root / "sp"
+        central_sp.mkdir()
+        sp0 = subprocess.run([PY, str(SEAL), "seal", "--pkg-dir", str(pkg),
+                              "--staged-dir", str(staged), "--staging-root", str(central_sp),
+                              "--src", "sp0good"], capture_output=True, text=True, env=_env())
+        sp0_pkg = central_sp / "sp0good"
+        sp0_ev = central_sp / "sp0good-evidence"
+        sp0_srep = None
+        if (sp0_ev / "SEAL_REPORT.json").is_file():
+            try:
+                sp0_srep = json.loads((sp0_ev / "SEAL_REPORT.json").read_text(encoding="utf-8-sig"))
+            except Exception:  # noqa: BLE001
+                sp0_srep = None
+        sp0_ok = (sp0.returncode == 0 and sp0_pkg.is_dir() and sp0_ev.is_dir()
+                  and isinstance(sp0_srep, dict) and sp0_srep.get("ok") is True
+                  and (sp0_srep.get("evidence") or {}).get("stage_report_ok") is True)
+        cases.append({"id": "SP0_seal_positive", "ok": sp0_ok,
+                      "exit_code": sp0.returncode, "sealed_dir_generated": sp0_pkg.is_dir()})
+        if not sp0_ok:
+            problems.append(f"SP0 seal 正向未通过 rc={sp0.returncode} "
+                            f"out_tail={(sp0.stderr or '')[-300:]}")
+
+        # 反向：STAGE_REPORT.json 缺失 / 不可解析 / 顶层非对象 / ok 非 true ⇒ 必须在**任何**
+        # 中央复制或报告写入之前 fail-closed，且**不得生成**目标包目录与证据目录。
+        def _precondition_case(case_id: str, mutate) -> None:
+            var = root / f"pre_{case_id}"
+            shutil.copytree(staged, var)
+            mutate(var / "STAGE_REPORT.json")
+            croot = root / f"preout_{case_id}"
+            croot.mkdir()
+            pr = subprocess.run([PY, str(SEAL), "seal", "--pkg-dir", str(pkg),
+                                 "--staged-dir", str(var), "--staging-root", str(croot),
+                                 "--src", "preout"], capture_output=True, text=True, env=_env())
+            leaked = (croot / "preout").exists() or (croot / "preout-evidence").exists()
+            ok = pr.returncode != 0 and not leaked
+            cases.append({"id": case_id, "ok": ok, "exit_code": pr.returncode,
+                          "sealed_dir_generated": leaked})
+            if not ok:
+                problems.append(f"{case_id} 未 fail-closed rc={pr.returncode} "
+                                f"sealed_dir_generated={leaked} "
+                                f"out_tail={(pr.stderr or '')[-200:]}")
+
+        _precondition_case("STG1_stage_report_missing", lambda f: f.unlink())
+        _precondition_case("STG2_stage_report_unparseable",
+                           lambda f: f.write_text("{not json", encoding="utf-8"))
+        _precondition_case("STG3_stage_report_non_object",
+                           lambda f: f.write_text("[]", encoding="utf-8"))
+        _precondition_case("STG4_stage_report_ok_false",
+                           lambda f: f.write_text(json.dumps({"ok": False}), encoding="utf-8"))
+        _precondition_case("STG5_stage_report_ok_not_true",
+                           lambda f: f.write_text(json.dumps({"ok": "true"}), encoding="utf-8"))
+
+        # 反向：staged 旧目录清理失败（被打开的文件句柄占用，Windows 下无法删除）⇒ `stage`
+        # 必须非零退出，且不得写出 STAGE_REPORT.json（禁止在残留目录上继续）。
+        stgdir = root / "stg_cleanup_fail"
+        stgdir.mkdir()
+        holder = open(stgdir / "OLD_MARKER.txt", "wb")
+        holder.write(b"old")
+        holder.flush()
+        try:
+            p6 = subprocess.run([PY, str(SEAL), "stage", "--evidence-dir", str(raw),
+                                 "--staged-dir", str(stgdir)], capture_output=True,
+                                text=True, env=_env())
+        finally:
+            holder.close()
+        stg_report_written = (stgdir / "STAGE_REPORT.json").exists()
+        stg6_ok = p6.returncode != 0 and not stg_report_written
+        cases.append({"id": "STG6_stage_cleanup_fail_closed", "ok": stg6_ok,
+                      "exit_code": p6.returncode, "stage_report_written": stg_report_written})
+        if not stg6_ok:
+            problems.append(f"STG6 staged 清理失败未 fail-closed rc={p6.returncode} "
+                            f"stage_report_written={stg_report_written}")
+
+        # ── §R3-30 §30.5-4：seal 扫描矩阵必须进入 manifest 语义判定 ──
+        # 反向：`seal_scan_negtest.json` 语义失败（缺失 / 截断 / 缺 case / 多 case /
+        # all_ok=false / 现场脚本 SHA 不符）时，**重新 stage + build（hash 自洽、checksum
+        # 已重算）** 仍必须 build 非零退出、verify 非零退出且 `final_verdict=False`
+        # —— 即「重算 checksum 不能把失败矩阵洗成绿色」。
+        base_sea = fx.seal_scan_payload()
+
+        def _seal_scan_case(case_id: str, kind: str) -> None:
+            raw2 = root / f"as_{case_id}"
+            st2 = root / f"as_{case_id}-staged"
+            sea = json.loads(json.dumps(base_sea))
+            if kind == "drop_case":
+                sea["cases"] = [c for c in sea["cases"] if c["id"] != "B1_drive_path_hit"]
+                sea["case_count"] = len(sea["cases"])
+            elif kind == "extra_case":
+                sea["cases"].append({"id": "ZZ_unknown_seal_case", "ok": True})
+                sea["case_count"] = len(sea["cases"])
+            elif kind == "all_ok_false":
+                sea["all_ok"] = False
+            elif kind == "sha_mismatch":
+                sea["seal_script_sha256"] = "0" * 64
+            runs2 = fx.write_valid_evidence(raw2, exe_sha, mutate={"seal_scan": sea})
+            (raw2 / "gates_run.json").write_text(
+                json.dumps(runs2, ensure_ascii=False, indent=2), encoding="utf-8")
+            if kind == "missing":
+                (raw2 / "seal_scan_negtest.json").unlink()
+            elif kind == "truncated":
+                f = raw2 / "seal_scan_negtest.json"
+                f.write_text(f.read_text(encoding="utf-8")[:40], encoding="utf-8")
+            s_rc = subprocess.run([PY, str(SEAL), "stage", "--evidence-dir", str(raw2),
+                                   "--staged-dir", str(st2)], capture_output=True,
+                                  text=True, env=_env()).returncode
+            brc = _manifest_build(st2, root / "repo", pkg, exe_sha, src, handoff)
+            vrc2, vout2 = _manifest_verify(st2, root / "repo", src, handoff)
+            ok = (brc != 0 and vrc2 != 0
+                  and "final_verdict=False" in vout2 and "final_verdict=True" not in vout2)
+            cases.append({"id": case_id, "ok": ok, "stage_rc": s_rc,
+                          "build_rc": brc, "verify_rc": vrc2})
+            if not ok:
+                problems.append(f"{case_id} 未 fail-closed stage_rc={s_rc} build_rc={brc} "
+                                f"verify_rc={vrc2} out_tail={vout2[-200:]}")
+
+        _seal_scan_case("AS1_seal_scan_missing", "missing")
+        _seal_scan_case("AS2_seal_scan_truncated", "truncated")
+        _seal_scan_case("AS3_seal_scan_case_missing", "drop_case")
+        _seal_scan_case("AS4_seal_scan_extra_case", "extra_case")
+        _seal_scan_case("AS5_seal_scan_all_ok_false", "all_ok_false")
+        _seal_scan_case("AS6_seal_scan_sha_mismatch", "sha_mismatch")
+
     except Exception as e:  # noqa: BLE001
         import traceback
         problems.append(f"exception:{type(e).__name__}:{e}")
         traceback.print_exc()
     finally:
-        import shutil
         shutil.rmtree(root, ignore_errors=True)
 
     all_ok = all(c["ok"] for c in cases) and not problems

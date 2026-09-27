@@ -315,9 +315,17 @@ def _stage(args) -> int:
         if s:
             forbidden.append(s.lower())
 
+    # §R3-30 §30.5-3：旧 staged 目录必须确认删除成功且为空，否则 fail-closed 退出，
+    # 禁止在残留目录上继续（否则旧文件可绕过本次 `_desensitize_tree()` 而未被扫描）。
     if staged.exists():
-        _rmtree_force(staged)
+        if not _rmtree_force(staged) or staged.exists():
+            print(f"[seal:stage] FAIL-CLOSED: 旧 staged 目录清理失败: {staged}")
+            return 1
     staged.mkdir(parents=True, exist_ok=True)
+    leftover = [p for p in staged.rglob("*")]
+    if leftover:
+        print(f"[seal:stage] FAIL-CLOSED: staged 目录非空（{len(leftover)} 项残留）")
+        return 1
 
     redactions = _dynamic_redactions() + GENERIC_REDACTIONS
     redact_map: dict[str, int] = {}
@@ -369,18 +377,26 @@ def _seal(args) -> int:
         print(f"[seal] staging 证据目录不存在: {staged}")
         return 2
 
-    # §R3-28 §28.7-5：封存前必须确认 staging 自身已 fail-closed（无未解决 problems）。
-    stage_ok = None
+    # §R3-28 §28.7-5 / §R3-30 §30.5-3：封存前必须确认 staging 自身已 fail-closed。
+    # STAGE_REPORT.json **缺失 / 不可解析 / 顶层非对象 / ok 非 true** 一律在**任何**中央
+    # 复制或报告写入之前 fail-closed（旧实现仅在文件存在时才检查，缺失时 stage_ok=None
+    # 仍继续封存，属 fail-open）。
     srep = staged / "STAGE_REPORT.json"
-    if srep.is_file():
-        try:
-            stage_ok = json.loads(srep.read_text(encoding="utf-8-sig")).get("ok")
-        except Exception:  # noqa: BLE001
-            print("[seal] FAIL-CLOSED: STAGE_REPORT.json 不可解析")
-            return 2
-        if stage_ok is not True:
-            print("[seal] FAIL-CLOSED: staging STAGE_REPORT.ok 非 true，拒绝封存")
-            return 1
+    if not srep.is_file():
+        print("[seal] FAIL-CLOSED: 缺少 staging STAGE_REPORT.json，拒绝封存")
+        return 2
+    try:
+        stage_report = json.loads(srep.read_text(encoding="utf-8-sig"))
+    except Exception:  # noqa: BLE001
+        print("[seal] FAIL-CLOSED: STAGE_REPORT.json 不可解析")
+        return 2
+    if not isinstance(stage_report, dict):
+        print("[seal] FAIL-CLOSED: STAGE_REPORT.json 顶层不是 JSON 对象")
+        return 2
+    stage_ok = stage_report.get("ok")
+    if stage_ok is not True:
+        print("[seal] FAIL-CLOSED: staging STAGE_REPORT.ok 非 true，拒绝封存")
+        return 1
 
     out_pkg = root / args.src
     out_ev = root / f"{args.src}-evidence"
@@ -389,7 +405,10 @@ def _seal(args) -> int:
             if not args.force:
                 print(f"[seal] 目标已存在（拒绝覆盖）：{d}")
                 return 3
-            _rmtree_force(d)
+            # §R3-30 §30.5-3：清理失败必须 fail-closed，禁止在半清理的目录上继续复制。
+            if not _rmtree_force(d) or d.exists():
+                print(f"[seal] FAIL-CLOSED: 旧目标目录清理失败: {d}")
+                return 1
 
     # 1) 包：逐字节复制（不改内容，保持可校验一致性）
     shutil.copytree(pkg, out_pkg)

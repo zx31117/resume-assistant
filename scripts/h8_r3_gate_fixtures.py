@@ -65,26 +65,54 @@ def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-# ── §R3-28 §28.7-3：runner 负向矩阵（manifest 独立辅助判定段）的“全通过”夹具 ──
+# ── §R3-28 §28.7-3 / §R3-30 §30.5-1：runner 负向矩阵（辅助判定段一）的“全通过”夹具 ──
 AUX_MATRIX_FILE = "run_gates_negtest.json"
 AUX_SCHEMA = "resume-assistant/r3-run-gates-negtest"
-AUX_CASE_IDS = [
-    "P00_complete_positive", "N01_single_failure", "N02_mixed", "N03_all_failure",
-    "N04_unknown_gate", "N05_empty_only", "N06_missing_evidence",
-    "N07_partial_all_pass", "N08_partial_to_manifest", "P01_manifest_positive",
-    # 必须与 h8_r3_manifest.py `_AUX_REQUIRED_CASE_IDS` 完全一致。
-    "N09_aux_missing", "N10_aux_truncated", "N11_aux_runner_sha_mismatch",
-    "N12_aux_missing_case", "N13_aux_exit_code_escape", "N14_aux_all_ok_false",
-    "N15_aux_failures_nonempty",
+AUX_POSITIVE_CASE_IDS = ["P00_complete_positive", "P01_manifest_positive"]
+AUX_NEGATIVE_CASE_IDS = [
+    "N01_single_failure", "N02_mixed", "N03_all_failure", "N04_unknown_gate",
+    "N05_empty_only", "N06_missing_evidence", "N07_partial_all_pass",
+    "N08_partial_to_manifest", "N09_aux_missing", "N10_aux_truncated",
+    "N11_aux_runner_sha_mismatch", "N12_aux_missing_case",
+    "N13_aux_exit_code_escape", "N14_aux_all_ok_false", "N15_aux_failures_nonempty",
+    "N16_aux_negative_exit_zero", "N17_aux_n05_subcases_missing",
+    "N18_aux_n05_subcase_exit_zero", "N19_aux_n05_gates_run_written",
+    "N20_aux_duplicate_case_id", "N21_aux_extra_case_id",
 ]
+# 必须与 h8_r3_manifest.py `_AUX_REQUIRED_CASE_IDS` 完全一致。
+AUX_CASE_IDS = AUX_POSITIVE_CASE_IDS + AUX_NEGATIVE_CASE_IDS
 _RUNNER_PATH = Path(__file__).resolve().parent / "h8_r3_run_gates.py"
+
+# ── §R3-30 §30.5-4：seal 脱敏/复扫矩阵（辅助判定段二）的“全通过”夹具 ────────────
+SEAL_SCAN_FILE = "seal_scan_negtest.json"
+SEAL_SCAN_SCHEMA = "resume-assistant/r3-seal-scan-negtest"
+SEAL_SCAN_PART_A = [
+    ("S1_live_root_forward_slash", 0), ("S2_live_root_json_doubled", 0),
+    ("S3_system_data_abs_path", 0), ("S4_unc_path", 0), ("S5_long_context", 0),
+    ("S6_public_url_preserved", 0), ("X1_extra_forbidden_hit", 1),
+    ("X2_extra_forbidden_absent", 0),
+]
+SEAL_SCAN_PART_B = [
+    ("B1_drive_path_hit", True), ("B2_unc_hit", True), ("B3_unix_home_hit", True),
+    ("B4_placeholders_clean", False), ("B5_plain_clean", False),
+]
+SEAL_SCAN_CASE_IDS = ([c for c, _ in SEAL_SCAN_PART_A]
+                      + [c for c, _ in SEAL_SCAN_PART_B]
+                      + ["B6_url_masked_roundtrip"])
+_SEAL_PATH = Path(__file__).resolve().parent / "h8_r3_seal.py"
 
 
 def aux_matrix_payload() -> dict:
-    """与 manifest 辅助判定段逐项对齐的 runner 矩阵夹具（N05 携带真实子例退出码）。"""
+    """与辅助判定段（一）逐项对齐的 runner 矩阵夹具。
+
+    退出码**极性**必须成立（§R3-30 §30.5-1）：正向 `P00`/`P01` 真实 0 退出，
+    负向 `N*` 真实非 0 退出；`N05` 携带两个原始输入的真实非零退出码与
+    「未写 gates_run.json」。
+    """
     cases: list[dict] = []
     for cid in AUX_CASE_IDS:
-        rec = {"id": cid, "case": cid, "exit_code": 1, "ok": True}
+        positive = cid in AUX_POSITIVE_CASE_IDS
+        rec = {"id": cid, "case": cid, "exit_code": 0 if positive else 2, "ok": True}
         if cid == "N05_empty_only":
             rec["subcases"] = [
                 {"input": "", "exit_code": 2, "gates_run_written": False},
@@ -98,6 +126,31 @@ def aux_matrix_payload() -> dict:
         "runner_sha256": sha256_file(_RUNNER_PATH) if _RUNNER_PATH.is_file() else None,
         "cases": cases, "case_count": len(cases),
         "failures": [], "all_ok": True,
+    }
+
+
+def seal_scan_payload() -> dict:
+    """与辅助判定段（二）逐项对齐的 seal 扫描矩阵夹具（14 个精确 case ID）。"""
+    cases: list[dict] = []
+    for cid, rc in SEAL_SCAN_PART_A:
+        cases.append({"id": cid, "case": cid, "part": "A", "stage_rc": rc,
+                      "expected_rc": rc, "rescan_zero_hit": True,
+                      "text_files": 1, "forbidden_hits": 0,
+                      "problems": [], "detail": "", "ok": True})
+    for cid, expect_hit in SEAL_SCAN_PART_B:
+        cases.append({"id": cid, "case": cid, "part": "B", "expect_hit": expect_hit,
+                      "hits": 2 if expect_hit else 0, "problems": [],
+                      "detail": "", "ok": True})
+    cases.append({"id": "B6_url_masked_roundtrip", "case": "URL 掩蔽零误报且可逆",
+                  "part": "B", "masked_hits": 0, "roundtrip_ok": True,
+                  "problems": [], "detail": "", "ok": True})
+    return {
+        "schema": SEAL_SCAN_SCHEMA, "version": 1,
+        "generator": "scripts/h8_r3_seal_scan_negtest.py",
+        "seal_script": _SEAL_PATH.name,
+        "seal_script_sha256": sha256_file(_SEAL_PATH) if _SEAL_PATH.is_file() else None,
+        "case_count": len(cases),
+        "cases": cases, "failures": [], "all_ok": True,
     }
 
 
@@ -250,10 +303,16 @@ def write_valid_evidence(ev_dir: Path, exe_sha: str,
             text = text[: max(4, len(text) // 3)]
         (ev_dir / fname).write_text(text, encoding="utf-8")
 
-    # runner 负向矩阵（manifest 独立辅助判定段）的“全通过”夹具。
+    # runner 负向矩阵（辅助判定段一）的“全通过”夹具。
     aux = mutate["aux_matrix"] if mutate.get("aux_matrix") is not None else aux_matrix_payload()
     (ev_dir / AUX_MATRIX_FILE).write_text(
         json.dumps(aux, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # seal 脱敏/复扫矩阵（辅助判定段二）的“全通过”夹具（§R3-30 §30.5-4）。
+    sea = (mutate["seal_scan"] if mutate.get("seal_scan") is not None
+           else seal_scan_payload())
+    (ev_dir / SEAL_SCAN_FILE).write_text(
+        json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8")
 
     ended = time.strftime("%Y-%m-%dT%H:%M:%S")
     started = ended

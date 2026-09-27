@@ -478,6 +478,57 @@ def run_matrix(root: Path) -> dict:
              {"aux_matrix": _aux_variant(failures=["P00_complete_positive"])},
              detail="矩阵 failures 非空时必须 fail-closed")
 
+    # ── §R3-30 §30.2/§30.5-2：只校验「退出码是整数」不够，必须校验极性、N05 子例、
+    #    case ID 唯一且精确集合，否则负向用例逃逸仍会被判绿。 ──
+
+    # N16：负向用例退出码被改为 0（结构合法、语义错误）
+    n16 = _aux_variant()
+    for c in n16["cases"]:
+        if c["id"] == "N01_single_failure":
+            c["exit_code"] = 0
+    aux_case("N16_aux_negative_exit_zero", "负向用例退出码改为 0", {"aux_matrix": n16},
+             detail="负向用例退出码为 0 时必须 fail-closed（不得只校验整数类型）")
+
+    # N17：N05 逐子例证据被删除
+    n17 = _aux_variant()
+    for c in n17["cases"]:
+        if c["id"] == "N05_empty_only":
+            c.pop("subcases", None)
+    aux_case("N17_aux_n05_subcases_missing", "N05 子例缺失", {"aux_matrix": n17},
+             detail="N05 缺少 subcases 时必须 fail-closed")
+
+    # N18：N05 任一子例退出码被改为 0
+    n18 = _aux_variant()
+    for c in n18["cases"]:
+        if c["id"] == "N05_empty_only":
+            c["subcases"][0]["exit_code"] = 0
+    aux_case("N18_aux_n05_subcase_exit_zero", "N05 子例退出码为 0", {"aux_matrix": n18},
+             detail="N05 任一子例退出码为 0 时必须 fail-closed")
+
+    # N19：N05 子例被写成「已写 gates_run.json」
+    n19 = _aux_variant()
+    for c in n19["cases"]:
+        if c["id"] == "N05_empty_only":
+            c["subcases"][0]["gates_run_written"] = True
+    aux_case("N19_aux_n05_gates_run_written", "N05 子例写了 gates_run.json",
+             {"aux_matrix": n19},
+             detail="N05 子例 gates_run_written 非 false 时必须 fail-closed")
+
+    # N20：重复 case ID
+    n20 = _aux_variant()
+    n20["cases"].append(dict(n20["cases"][0]))
+    n20["case_count"] = len(n20["cases"])
+    aux_case("N20_aux_duplicate_case_id", "重复 case ID", {"aux_matrix": n20},
+             detail="case ID 非唯一时必须 fail-closed")
+
+    # N21：额外/未知 case ID
+    n21 = _aux_variant()
+    n21["cases"].append({"id": "N99_aux_unknown_case", "case": "unknown",
+                         "exit_code": 1, "ok": True})
+    n21["case_count"] = len(n21["cases"])
+    aux_case("N21_aux_extra_case_id", "额外/未知 case ID", {"aux_matrix": n21},
+             detail="出现额外/未知 case ID 时必须 fail-closed")
+
     failures = [c["id"] for c in cases if not c["ok"]]
     return {
         "schema": "resume-assistant/r3-run-gates-negtest",

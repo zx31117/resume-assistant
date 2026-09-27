@@ -205,23 +205,51 @@ _REQUIRED_GATES = list(_GATE_CONTRACTS.keys())
 _IDENTITY_MATRIX_FILE = "git_identity_matrix.json"
 _IDENTITY_MATRIX_MIN_CASES = 15
 
-# ── §R3-28 §28.7-3：runner 负向矩阵的**独立辅助判定段** ───────────────────────────
+# ── §R3-28 §28.7-3 / §R3-30 §30.5-1：runner 负向矩阵的**离线辅助判定段（一）** ──────
 # 它**不是**第 18 个原始 Gate（不写入 `_GATE_CONTRACTS`），但必须进入 manifest 的独立
-# 辅助判定：文件 hash、runner SHA、必需 case ID、逐子进程真实退出码、关键汇总字段、
+# 辅助判定：文件 hash、runner SHA、必需 case ID（**唯一且精确集合**）、退出码**极性**
+# （正向必须 0、负向必须非 0）、`N05` 逐子例真实退出码与「未写 gates_run.json」、
 # `all_ok=true` 且 `failures=[]`。任一缺失/不一致 ⇒ `final_verdict=false` 且非零退出。
+#
+# §R3-30 §30.2：只校验「退出码是整数」不足以 fail-closed——负向用例被改成 0、N05 子例
+# 被删除或被改成 0，都必须在 build 与 verify 两处独立失败。
 _AUX_MATRIX_FILE = "run_gates_negtest.json"
 _AUX_SCHEMA = "resume-assistant/r3-run-gates-negtest"
 _AUX_VERSION = 1
-_AUX_REQUIRED_CASE_IDS = [
-    "P00_complete_positive", "N01_single_failure", "N02_mixed", "N03_all_failure",
-    "N04_unknown_gate", "N05_empty_only", "N06_missing_evidence",
-    "N07_partial_all_pass", "N08_partial_to_manifest", "P01_manifest_positive",
-    # §R3-28 §28.7-4：矩阵被 manifest 消费时的反向用例也必须全部在场。
-    "N09_aux_missing", "N10_aux_truncated", "N11_aux_runner_sha_mismatch",
-    "N12_aux_missing_case", "N13_aux_exit_code_escape", "N14_aux_all_ok_false",
-    "N15_aux_failures_nonempty",
+_AUX_POSITIVE_CASE_IDS = ["P00_complete_positive", "P01_manifest_positive"]
+_AUX_NEGATIVE_CASE_IDS = [
+    "N01_single_failure", "N02_mixed", "N03_all_failure", "N04_unknown_gate",
+    "N05_empty_only", "N06_missing_evidence", "N07_partial_all_pass",
+    "N08_partial_to_manifest", "N09_aux_missing", "N10_aux_truncated",
+    "N11_aux_runner_sha_mismatch", "N12_aux_missing_case",
+    "N13_aux_exit_code_escape", "N14_aux_all_ok_false", "N15_aux_failures_nonempty",
+    # §R3-30 §30.5-2：负向用例退出码被改为 0 / N05 子例缺失或被改 0 /
+    # `gates_run_written=true` / 重复与额外 case ID 的离线反例也必须全部在场。
+    "N16_aux_negative_exit_zero", "N17_aux_n05_subcases_missing",
+    "N18_aux_n05_subcase_exit_zero", "N19_aux_n05_gates_run_written",
+    "N20_aux_duplicate_case_id", "N21_aux_extra_case_id",
 ]
+_AUX_REQUIRED_CASE_IDS = _AUX_POSITIVE_CASE_IDS + _AUX_NEGATIVE_CASE_IDS
+_AUX_N05_ID = "N05_empty_only"
+# §R3-30 §30.5-1：N05 必须精确包含「空串」与「纯逗号」两个原始输入子例。
+_AUX_N05_REQUIRED_INPUTS = ["", " , ,"]
 _RUNNER_PATH = Path(__file__).resolve().parent / "h8_r3_run_gates.py"
+
+# ── §R3-30 §30.5-4：seal 脱敏/复扫矩阵的**离线辅助判定段（二）** ──────────────────
+# 与 runner 矩阵同理，它也不是原始产品 Gate；checksum 只能证明「字节没变」，
+# 不能证明这份矩阵表达的 seal 语义成立，因此必须进入 manifest 最终判定。
+_AUX_SEAL_FILE = "seal_scan_negtest.json"
+_AUX_SEAL_SCHEMA = "resume-assistant/r3-seal-scan-negtest"
+_AUX_SEAL_VERSION = 1
+_AUX_SEAL_REQUIRED_CASE_IDS = [
+    "S1_live_root_forward_slash", "S2_live_root_json_doubled",
+    "S3_system_data_abs_path", "S4_unc_path", "S5_long_context",
+    "S6_public_url_preserved", "X1_extra_forbidden_hit",
+    "X2_extra_forbidden_absent",
+    "B1_drive_path_hit", "B2_unc_hit", "B3_unix_home_hit",
+    "B4_placeholders_clean", "B5_plain_clean", "B6_url_masked_roundtrip",
+]
+_AUX_SEAL_SCRIPT_PATH = Path(__file__).resolve().parent / "h8_r3_seal.py"
 
 
 def sha256_file(p: Path) -> str:
@@ -957,21 +985,57 @@ def _aux_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
     cases = data.get("cases") or []
     case_ids = [c.get("id") for c in cases if isinstance(c, dict)]
     missing = [c for c in _AUX_REQUIRED_CASE_IDS if c not in case_ids]
+    duplicate_ids = sorted({i for i in case_ids
+                            if isinstance(i, str) and case_ids.count(i) > 1})
+    extra_ids = sorted({i for i in case_ids
+                        if isinstance(i, str) and i not in _AUX_REQUIRED_CASE_IDS})
     runner_live = sha256_file(_RUNNER_PATH) if _RUNNER_PATH.is_file() else None
 
     bad_exit: list[str] = []
     not_ok: list[str] = []
+    bad_polarity: list[str] = []
+    n05_problems: list[str] = []
     for c in cases:
         if not isinstance(c, dict):
             problems.append("runner 负向矩阵存在非对象用例")
             continue
+        cid = c.get("id")
         if not isinstance(c.get("exit_code"), int):
-            bad_exit.append(str(c.get("id")))
-        for sub in (c.get("subcases") or []):
-            if not isinstance(sub, dict) or not isinstance(sub.get("exit_code"), int):
-                bad_exit.append(f"{c.get('id')}#subcase")
+            bad_exit.append(str(cid))
+        # §R3-30 §30.5-1：正向用例必须真实 0 退出，负向用例必须真实非 0 退出。
+        if isinstance(cid, str) and isinstance(c.get("exit_code"), int):
+            if cid in _AUX_POSITIVE_CASE_IDS and c.get("exit_code") != 0:
+                bad_polarity.append(f"{cid}=正向应为0实际{c.get('exit_code')}")
+            if cid in _AUX_NEGATIVE_CASE_IDS and c.get("exit_code") == 0:
+                bad_polarity.append(f"{cid}=负向应为非0实际0")
+        # §R3-30 §30.5-1：N05 必须精确包含两个原始输入子例，且各子例为真实非零退出
+        # 且明确记录「未写 gates_run.json」。
+        if cid == _AUX_N05_ID:
+            subs = c.get("subcases")
+            if not isinstance(subs, list):
+                n05_problems.append("N05 缺少 subcases 列表")
+            else:
+                got = [s.get("input") for s in subs if isinstance(s, dict)]
+                if sorted(map(repr, got)) != sorted(map(repr, _AUX_N05_REQUIRED_INPUTS)):
+                    n05_problems.append(
+                        f"N05 subcases 输入集合必须为 {_AUX_N05_REQUIRED_INPUTS}")
+                for s in subs:
+                    if not isinstance(s, dict):
+                        n05_problems.append("N05 subcase 非对象")
+                        continue
+                    sc = s.get("exit_code")
+                    if not isinstance(sc, int) or sc == 0:
+                        n05_problems.append(
+                            f"N05 subcase({s.get('input')!r}) 退出码必须为真实非零整数")
+                    if s.get("gates_run_written") is not False:
+                        n05_problems.append(
+                            f"N05 subcase({s.get('input')!r}) 必须记录 gates_run_written=false")
+        else:
+            for sub in (c.get("subcases") or []):
+                if not isinstance(sub, dict) or not isinstance(sub.get("exit_code"), int):
+                    bad_exit.append(f"{cid}#subcase")
         if c.get("ok") is not True:
-            not_ok.append(str(c.get("id")))
+            not_ok.append(str(cid))
 
     rec = {
         "present": True, "sha256": file_sha, "bytes": p.stat().st_size,
@@ -981,8 +1045,11 @@ def _aux_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
         "runner_sha256_live": runner_live,
         "case_count_recorded": data.get("case_count"), "case_count_actual": len(cases),
         "case_ids": case_ids, "missing_case_ids": missing,
+        "duplicate_case_ids": duplicate_ids, "extra_case_ids": extra_ids,
+        "case_id_set_exact": not missing and not duplicate_ids and not extra_ids,
         "all_ok": data.get("all_ok"), "failures": data.get("failures"),
         "bad_exit_codes": bad_exit, "not_ok_cases": not_ok,
+        "bad_polarity": bad_polarity, "n05_problems": n05_problems,
     }
 
     if data.get("schema") != _AUX_SCHEMA:
@@ -997,16 +1064,125 @@ def _aux_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
         problems.append("runner 负向矩阵无用例")
     if missing:
         problems.append(f"runner 负向矩阵缺少必需 case ID: {missing}")
+    if duplicate_ids:
+        problems.append(f"runner 负向矩阵存在重复 case ID: {duplicate_ids}")
+    if extra_ids:
+        problems.append(f"runner 负向矩阵存在额外/未知 case ID: {extra_ids}")
     if data.get("case_count") != len(cases):
         problems.append("runner 负向矩阵 case_count 与实际用例数不一致")
     if bad_exit:
         problems.append(f"runner 负向矩阵存在非整数真实退出码: {bad_exit}")
+    if bad_polarity:
+        problems.append(f"runner 负向矩阵退出码极性错误: {bad_polarity}")
+    if n05_problems:
+        problems.append(f"runner 负向矩阵 N05 子例证据不满足要求: {n05_problems}")
     if not_ok:
         problems.append(f"runner 负向矩阵存在未通过用例: {not_ok}")
     if data.get("all_ok") is not True:
         problems.append("runner 负向矩阵 all_ok 非 true")
     if data.get("failures") != []:
         problems.append(f"runner 负向矩阵 failures 非空: {data.get('failures')}")
+
+    rec["ok"] = not problems
+    return rec, problems
+
+
+def _aux_seal_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
+    """离线辅助判定段（二）：逐项机械校验 seal 脱敏/复扫矩阵（`seal_scan_negtest.json`）。
+
+    §R3-30 §30.5-4：校验文件 hash、现场 `h8_r3_seal.py` SHA、schema/version、
+    14 个唯一且精确 case ID、逐 case（含子例）预期退出码/结果、`all_ok=true`、
+    `failures=[]`。任一缺失/篡改/逃逸/脚本 SHA 不一致都必须压低最终 verdict。
+    """
+    problems: list[str] = []
+    p = ev_dir / _AUX_SEAL_FILE
+    if not p.exists():
+        return {"present": False}, [f"缺 seal 扫描矩阵证据: {_AUX_SEAL_FILE}"]
+    file_sha = sha256_file(p)
+    try:
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
+    except Exception as e:  # noqa: BLE001
+        return ({"present": True, "sha256": file_sha, "ok": False},
+                [f"seal 扫描矩阵 JSON 不可解析（截断/损坏）: {type(e).__name__}"])
+    if not isinstance(data, dict):
+        return ({"present": True, "sha256": file_sha, "ok": False},
+                ["seal 扫描矩阵顶层不是 JSON 对象"])
+
+    cases = data.get("cases") or []
+    case_ids = [c.get("id") for c in cases if isinstance(c, dict)]
+    missing = [c for c in _AUX_SEAL_REQUIRED_CASE_IDS if c not in case_ids]
+    duplicate_ids = sorted({i for i in case_ids
+                            if isinstance(i, str) and case_ids.count(i) > 1})
+    extra_ids = sorted({i for i in case_ids
+                        if isinstance(i, str) and i not in _AUX_SEAL_REQUIRED_CASE_IDS})
+    script_live = (sha256_file(_AUX_SEAL_SCRIPT_PATH)
+                   if _AUX_SEAL_SCRIPT_PATH.is_file() else None)
+
+    bad_result: list[str] = []
+    not_ok: list[str] = []
+    for c in cases:
+        if not isinstance(c, dict):
+            problems.append("seal 扫描矩阵存在非对象用例")
+            continue
+        cid = str(c.get("id"))
+        if cid == "B6_url_masked_roundtrip":
+            if c.get("masked_hits") != 0 or c.get("roundtrip_ok") is not True:
+                bad_result.append(f"{cid}(掩蔽后仍命中或还原不可逆)")
+        elif cid.startswith("B"):
+            if not isinstance(c.get("hits"), int):
+                bad_result.append(f"{cid}(hits 非整数)")
+            elif bool(c.get("expect_hit")) != (c.get("hits") > 0):
+                bad_result.append(f"{cid}(hits 与 expect_hit 不符)")
+        else:  # Part A：真实 stage 子进程退出码必须等于预期
+            if not isinstance(c.get("stage_rc"), int) or \
+                    not isinstance(c.get("expected_rc"), int):
+                bad_result.append(f"{cid}(stage_rc/expected_rc 非整数)")
+            elif c.get("stage_rc") != c.get("expected_rc"):
+                bad_result.append(f"{cid}(stage_rc={c.get('stage_rc')}"
+                                  f"≠expected_rc={c.get('expected_rc')})")
+        if c.get("ok") is not True:
+            not_ok.append(cid)
+
+    rec = {
+        "present": True, "sha256": file_sha, "bytes": p.stat().st_size,
+        "schema": data.get("schema"), "version": data.get("version"),
+        "generator": data.get("generator"),
+        "script_sha256_recorded": data.get("seal_script_sha256"),
+        "script_sha256_live": script_live,
+        "case_count_recorded": data.get("case_count"), "case_count_actual": len(cases),
+        "case_ids": case_ids, "missing_case_ids": missing,
+        "duplicate_case_ids": duplicate_ids, "extra_case_ids": extra_ids,
+        "case_id_set_exact": not missing and not duplicate_ids and not extra_ids,
+        "all_ok": data.get("all_ok"), "failures": data.get("failures"),
+        "bad_results": bad_result, "not_ok_cases": not_ok,
+    }
+
+    if data.get("schema") != _AUX_SEAL_SCHEMA:
+        problems.append(f"seal 扫描矩阵 schema 非 {_AUX_SEAL_SCHEMA}")
+    if data.get("version") != _AUX_SEAL_VERSION:
+        problems.append(f"seal 扫描矩阵 version 非 {_AUX_SEAL_VERSION}")
+    if not script_live:
+        problems.append("现场 scripts/h8_r3_seal.py 缺失，无法比对 seal 脚本 SHA")
+    elif data.get("seal_script_sha256") != script_live:
+        problems.append("seal 扫描矩阵记录的 seal 脚本 SHA 与现场不一致")
+    if not cases:
+        problems.append("seal 扫描矩阵无用例")
+    if missing:
+        problems.append(f"seal 扫描矩阵缺少必需 case ID: {missing}")
+    if duplicate_ids:
+        problems.append(f"seal 扫描矩阵存在重复 case ID: {duplicate_ids}")
+    if extra_ids:
+        problems.append(f"seal 扫描矩阵存在额外/未知 case ID: {extra_ids}")
+    if data.get("case_count") != len(cases):
+        problems.append("seal 扫描矩阵 case_count 与实际用例数不一致")
+    if bad_result:
+        problems.append(f"seal 扫描矩阵退出码/结果不符: {bad_result}")
+    if not_ok:
+        problems.append(f"seal 扫描矩阵存在未通过用例: {not_ok}")
+    if data.get("all_ok") is not True:
+        problems.append("seal 扫描矩阵 all_ok 非 true")
+    if data.get("failures") != []:
+        problems.append(f"seal 扫描矩阵 failures 非空: {data.get('failures')}")
 
     rec["ok"] = not problems
     return rec, problems
@@ -1148,6 +1324,8 @@ def _build(args) -> int:
     problems.extend(idm_problems)
     aux_rec, aux_problems = _aux_matrix_check(ev_dir)
     problems.extend(aux_problems)
+    aux_seal_rec, aux_seal_problems = _aux_seal_matrix_check(ev_dir)
+    problems.extend(aux_seal_problems)
 
     cleanup = (gate_runs or {}).get("cleanup") if isinstance(gate_runs, dict) else None
     cleanup_ok = None
@@ -1173,6 +1351,7 @@ def _build(args) -> int:
         "negative_selftest": neg_rec,
         "identity_matrix": idm_rec,
         "aux_matrix": aux_rec,
+        "aux_seal_matrix": aux_seal_rec,
         "gate_runs": gate_runs,
         "cleanup": cleanup,
         "verdicts": {
@@ -1193,6 +1372,7 @@ def _build(args) -> int:
             "negative_selftest_ok": bool(neg_rec.get("ok")),
             "identity_matrix_ok": bool(idm_rec.get("ok")),
             "aux_matrix_ok": bool(aux_rec.get("ok")),
+            "aux_seal_matrix_ok": bool(aux_seal_rec.get("ok")),
             "gates_meta_ok": bool(meta_rec.get("recomputed_gates_ok")),
             "cleanup_ok": cleanup_ok,
         },
@@ -1359,6 +1539,7 @@ def _verify(args) -> int:
             ("negative_selftest", "six_grid_negative_selftest.json", "negative_selftest"),
             ("identity_matrix", _IDENTITY_MATRIX_FILE, "identity_matrix"),
             ("aux_matrix", _AUX_MATRIX_FILE, "aux_matrix"),
+            ("aux_seal_matrix", _AUX_SEAL_FILE, "aux_seal_matrix"),
         ):
             rec = m.get(key) or {}
             if rec.get("present"):
@@ -1371,7 +1552,8 @@ def _verify(args) -> int:
     # F) 顶层判定一致性。
     v = m.get("verdicts") or {}
     for k in ("git_identity_ok", "package_ok", "gates_ok", "negative_selftest_ok",
-              "identity_matrix_ok", "aux_matrix_ok", "gates_meta_ok"):
+              "identity_matrix_ok", "aux_matrix_ok", "aux_seal_matrix_ok",
+              "gates_meta_ok"):
         if v.get(k) is not True:
             problems.append(f"verdicts.{k} 非 true")
 
@@ -1386,8 +1568,18 @@ def _verify(args) -> int:
             problems.append("aux_matrix failures 非空")
         if aux.get("missing_case_ids"):
             problems.append(f"aux_matrix 缺少必需 case ID: {aux.get('missing_case_ids')}")
+        if aux.get("duplicate_case_ids"):
+            problems.append(f"aux_matrix 存在重复 case ID: {aux.get('duplicate_case_ids')}")
+        if aux.get("extra_case_ids"):
+            problems.append(f"aux_matrix 存在额外/未知 case ID: {aux.get('extra_case_ids')}")
+        if aux.get("case_id_set_exact") is not True:
+            problems.append("aux_matrix case ID 非唯一且精确集合")
         if aux.get("bad_exit_codes"):
             problems.append("aux_matrix 存在非整数真实退出码")
+        if aux.get("bad_polarity"):
+            problems.append(f"aux_matrix 退出码极性错误: {aux.get('bad_polarity')}")
+        if aux.get("n05_problems"):
+            problems.append(f"aux_matrix N05 子例证据不满足要求: {aux.get('n05_problems')}")
         if aux.get("not_ok_cases"):
             problems.append("aux_matrix 存在未通过用例")
         if aux.get("case_count_recorded") != aux.get("case_count_actual"):
@@ -1398,6 +1590,37 @@ def _verify(args) -> int:
             problems.append("aux_matrix runner SHA 记录与现场不一致")
         if live_now != aux.get("runner_sha256_live"):
             problems.append("aux_matrix runner SHA 现场值已变化")
+
+    # H) seal 扫描矩阵辅助判定段的独立复核（不依赖 build 时的结论）。
+    auxs = m.get("aux_seal_matrix") or {}
+    if auxs.get("present") is not True:
+        problems.append("manifest 缺少 seal 扫描矩阵辅助判定段")
+    else:
+        if auxs.get("all_ok") is not True:
+            problems.append("aux_seal_matrix all_ok 非 true")
+        if auxs.get("failures") != []:
+            problems.append("aux_seal_matrix failures 非空")
+        if auxs.get("missing_case_ids"):
+            problems.append(f"aux_seal_matrix 缺少必需 case ID: {auxs.get('missing_case_ids')}")
+        if auxs.get("duplicate_case_ids"):
+            problems.append(f"aux_seal_matrix 存在重复 case ID: {auxs.get('duplicate_case_ids')}")
+        if auxs.get("extra_case_ids"):
+            problems.append(f"aux_seal_matrix 存在额外/未知 case ID: {auxs.get('extra_case_ids')}")
+        if auxs.get("case_id_set_exact") is not True:
+            problems.append("aux_seal_matrix case ID 非唯一且精确集合")
+        if auxs.get("bad_results"):
+            problems.append(f"aux_seal_matrix 退出码/结果不符: {auxs.get('bad_results')}")
+        if auxs.get("not_ok_cases"):
+            problems.append("aux_seal_matrix 存在未通过用例")
+        if auxs.get("case_count_recorded") != auxs.get("case_count_actual"):
+            problems.append("aux_seal_matrix case_count 与实际用例数不一致")
+        seal_live_now = (sha256_file(_AUX_SEAL_SCRIPT_PATH)
+                         if _AUX_SEAL_SCRIPT_PATH.is_file() else None)
+        if not auxs.get("script_sha256_live") or \
+                auxs.get("script_sha256_recorded") != auxs.get("script_sha256_live"):
+            problems.append("aux_seal_matrix seal 脚本 SHA 记录与现场不一致")
+        if seal_live_now != auxs.get("script_sha256_live"):
+            problems.append("aux_seal_matrix seal 脚本 SHA 现场值已变化")
     if v.get("cleanup_ok") is not True:
         problems.append("verdicts.cleanup_ok 非 true")
     meta = m.get("gates_meta") or {}
