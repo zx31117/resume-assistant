@@ -803,3 +803,23 @@
   Baseline 或强制验收合同，不新建 PLAN Revision。RESULT §R3-24 集中记录完整返工与复验矩阵。
 - 状态影响：§R3-23 `ACCEPTANCE_PASS` 只保留为历史技术验收事实，不再授权发布。开发必须从本次
   docs-only 退回对象形成新候选；真实付费 Gate 在最终包与预算获 Product Owner 明确授权前不得启动。
+
+## VH-044 P4 返工交付因 Gate fail-open 与证据未封存被退回
+
+- 日期：2026-09-27
+- 阶段：V2.2.0 Revision 3 返工交付 → Documentation Gate `DOC_RETURNED`
+- 交付对象：SRC `ff2a8e243455b74d1838454b136154026c07cb47`；HANDOFF
+  `5e4a8cf14233d1471132353ca5a51aab72d6e249`；精确包 EXE SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`。
+- 已确认范围：开发已在 RESULT 映射 P4 三类交互、非工作台返回保留 Task、重复旧路径退出和行为型
+  Gate；PLAN blob、Git 父链、RESULT-only HANDOFF、包字节身份和 review 未移动均成立。
+- 阻断一：Gate runner 的 `--only` 路径会丢弃非零退出行并使顶层 `all_exit_zero` 假绿。完整 manifest
+  对缺门拒绝不能替代上游 runner fail-closed；该路径必须离线修复并补正反向矩阵。
+- 阻断二：48 份原始证据仍在 ignored 可覆盖目录，18 个文件含 147 处本机绝对路径，未形成脱敏中央
+  seal/checksum。Documentation Agent 已复制同字节包与原始证据到 `_docreview-5e4a8cf-*` 只读追溯
+  快照；该快照不是 Acceptance 权威入口。
+- 文档判定：PLAN 第 141 行的 `AppShell` 是已退出旧实现名；删除死组件并由单一活动壳保持品牌导航
+  不变量，不要求 PLAN Revision 或恢复旧代码。
+- 成本偏差：审批包曾错误声明 Design Fidelity 为 0 模型调用，实际发生 4 次真实生成并含一次 terminal
+  `FAILED`。全部 attempt 与授权事件须保留，之后禁止新增付费调用；本轮只允许工具、脱敏、manifest、
+  seal 和 RESULT 的离线纠正，不重 build/打包或重跑任何真实模型 Gate。

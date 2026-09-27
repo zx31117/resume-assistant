@@ -1,12 +1,11 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**（§R3-24 四类返工已一次性收口，见 §R3-25；本节不写 `DOC_ALIGNED` /
-> `ACCEPTANCE_PASS` / 人工通过 / 可发布）
-> 当前阶段：固定 `review@c8a63e0` 保持原对象用于追溯（未移动）；其独立 `ACCEPTANCE_PASS` 已被同一
-> 精确包上的 Product Owner 真实交互反证覆盖：P4 简历预览不可交互，非工作台顶栏动作与 `DS-003`
-> 不一致且会静默清空当前 Task；根因已由独立源码验收确认（见 §R3-24）。新候选 `ff2a8e2` 重新验收前
-> 不得发布
+> 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
+> 当前阶段：§R3-24 四类产品返工已由 Development 交付新 SRC `ff2a8e2` / HANDOFF `5e4a8cf` / 包
+> `07991886…AA4264`，但集中文档审查发现 Gate runner 可在 `--only` 下隐藏失败，以及权威证据仍位于
+> 可覆盖且未脱敏的 ignored 目录（见 §R3-26）。固定 `review@c8a63e0` 保持原对象；纠正并重新交付前
+> 不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -16,6 +15,18 @@
 > `bfcab15c172804fc32b9a11761be7da5077eba20`（历史事实）。本批不沿用旧 H6/H2 包装结论。
 > 发布语义：H2/H6 的既有独立通过是历史事实，但已被 Product Owner 对真实成品的内容来源反证覆盖；
 > 绑定旧源码与旧包的结论不再授权人工续验或发布。
+
+> **本轮 Documentation Gate 退回对象**：
+>
+> - **开发 SRC**：`ff2a8e243455b74d1838454b136154026c07cb47`；完整产品/测试变化以 docs-only
+>   退回对象 `6c20fcf` 为祖先；
+> - **开发 HANDOFF**：`5e4a8cf14233d1471132353ca5a51aab72d6e249`；唯一 parent 为 SRC，相对
+>   SRC 只修改本 RESULT；
+> - **精确包**：4045 files / 170,399,477 B；EXE 16,855,308 B；SHA-256
+>   `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
+>   `index-BMdbu97O.js`；
+> - **当前门禁**：`DOC_RETURNED`。产品包本轮不判定失败，但 Gate 工具和证据封存不满足进入独立验收
+>   的可信交接条件；不得以 §R3-25 的 17 门自报 PASS 绕过 §R3-26。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -4769,3 +4780,92 @@ callback 或只让右上角发生跳转。
 - 新 SRC `ff2a8e2` 之上的 HANDOFF 为**仅改本文件**的单 parent commit（`docs/versions/v2.2.0/RESULT.md`），
   身份由 HANDOFF 自身记录，不在本节自引用；
 - 开发交付后由 Documentation Agent 一次集中审查，之后再安排未参与修复的独立 Acceptance Agent。
+
+## R3-26. Documentation Gate：`DOC_RETURNED`（Gate fail-open 与证据封存，2026-09-27）
+
+### 26.1 已通过的机械与语义前置
+
+- 接收时 `<current-workspace>` HEAD 为 HANDOFF `5e4a8cf14233d1471132353ca5a51aab72d6e249`，分支
+  `version/v2.2.0`、tracked/index clean；其唯一 parent 为 SRC
+  `ff2a8e243455b74d1838454b136154026c07cb47`，`SRC..HANDOFF` 只修改本 RESULT；
+- SRC 的产品返工提交 `3415ae35…` 以 §R3-24 docs-only 退回对象 `6c20fcf` 为唯一 parent，后续
+  `ff2a8e2` 只修正 `scripts/h8_p4_interact.py`；PLAN blob 仍为
+  `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；
+- Documentation Agent 独立复算当前 dist 为 4045 files / 170,399,477 B、EXE 16,855,308 B、SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`，与 RESULT、manifest
+  和 package audit 声明一致；`review` 仍为 `c8a63e0`、detached、clean；
+- §R3-25 已逐项声明 P4 fact/section/skills 交互、非工作台返回并保留 Task、重复旧路径退出、行为型
+  Gate 与组件测试。该映射具备进入独立源码真实性检查的语义基础；本节不继承其开发 PASS。
+
+### 26.2 阻断一：Gate runner 在 `--only` 下 fail-open
+
+Development 在 §25.9 明确披露：`scripts/h8_r3_run_gates.py --only ...` 会把所选 Gate 中的非零退出记录
+从 `gates_run.json` 剔除，导致顶层 `all_exit_zero` 可在真实失败后仍显示 true。最终 manifest 会因缺门
+拒绝 partial run，只能说明本轮完整 manifest 没有被这一条路径放行，不能使 runner 自身的错误 verdict
+成为可接受偏差：
+
+- runner 是受控 Gate 证据生产者，必须如实保留每个已执行 Gate 的真实退出码；
+- 下游 manifest 兜底不能替代上游 fail-closed，也不能接受同一证据文件内部“实际失败但汇总为绿”；
+- `--only` 正是定向返工和节省付费调用会使用的路径，保留该缺陷会让下一轮再次出现“局部门禁假绿”。
+
+因此该项是进入 Acceptance 前的强制阻断，不得以本轮完整运行通过降级为观察项。
+
+### 26.3 阻断二：权威证据未冻结、未脱敏
+
+- 开发声明的权威目录 `validation-artifacts/h8/r3docreturned-final/` 被 Git ignore，接收时为 48 files /
+  907,900 B，后续重跑可以原地覆盖；中央 `<acceptance-staging>` 中不存在绑定 `ff2a8e2` 的正式包与
+  证据目录；
+- Documentation Agent 扫描发现 18 个证据文件含当前机器绝对路径，共 147 处；当前
+  `manifest.json` SHA-256 为 `2AF0E419…D84760`，其 hash 绑定的是未脱敏字节，不能直接作为公开或
+  最终中央封存；
+- 为防现场丢失，Documentation Agent 已只读复制当前原始字节到
+  `<acceptance-staging>/_docreview-5e4a8cf-package` 与
+  `<acceptance-staging>/_docreview-5e4a8cf-evidence-raw`。复核仍为 4045 files / 170,399,477 B、EXE
+  `07991886…AA4264`，原始证据 48 files / 907,900 B、manifest SHA `2AF0E419…D84760`。这些路径是
+  **未脱敏追溯快照，不是 Acceptance 权威入口**，不得删除或冒充最终 seal。
+
+进入 Acceptance 前必须按“先 stage 脱敏并重算 evidence hash → 再 build/verify manifest → 再 seal →
+中央副本二次 manifest/checksum verify”的既有顺序形成不可覆盖的最终入口，并把 `attempt1/2/3` 全部
+纳入 checksum；不能只复制最后一次 PASS 文件。
+
+### 26.4 已集中处置的非阻断项与治理偏差
+
+1. **PLAN 第 141 行的 `AppShell` 名称不构成产品返工阻断。** 该行冻结的是品牌区返回工作台、不建新
+   Task、不清 Task、不新增模型调用的用户结果；§R3-24 又要求退出同根重复路径。删除未被路由使用的
+   `AppShell`、由单一 `WorkbenchShell + BrandLink` 承担同一不变量，是旧实现退出而非缩减功能，不改
+   PLAN，不要求恢复死组件。
+2. **付费调用声明存在执行偏差。** 开发承认审批包把 `design_fidelity` 误写为 0 模型调用，实际发生
+   4 次真实生成任务，且包含一次终态 `FAILED` 后再次运行。该事实必须连同全部 attempt、实际调用账本
+   和原审批事件一起封存；不得再称四次均为“非产品原因”，其中 terminal `FAILED` 由 Acceptance 独立
+   判定。自本 Gate 起禁止任何新增真实模型调用，本轮工具纠正与封存只允许离线执行。
+3. 如果无法提供与 §25.8 所称授权相匹配的原始审批事件，必须把超出知情预算的调用如实登记为治理
+   偏差；不得补写或倒推授权。该偏差不要求重新付费取证，也不能通过再跑一次覆盖。
+
+### 26.5 唯一允许的返工与复验范围
+
+本轮继续同一 PLAN Revision 3，只修 Gate 工具、证据封存和 RESULT，不得修改产品源码、前端、后端、
+依赖、配置、bundle 或当前 EXE：
+
+1. 修正 `h8_r3_run_gates.py`：所有已选择且已执行的 Gate 无论成败都必须写入结果；任一非零退出使
+   runner 非零退出、`all_exit_zero=false`、`final_verdict=false`；partial run 必须显式标记 partial / 未
+   执行 Gate，绝不能生成完整候选 PASS；未知 Gate、空选择和证据缺失均 fail-closed；
+2. 新增离线正反向矩阵，至少覆盖：单个失败、成功/失败混合、全部失败、未知 Gate、空 `--only`、partial
+   结果送 manifest、完整 17 门正向控制；逐例断言进程退出码、逐 Gate 记录、汇总字段和 manifest 判定
+   一致；
+3. 对当前原始证据 stage 脱敏，重算 `gates_run` 中受影响的 evidence hash，使用新 SRC/HANDOFF 与同一
+   EXE 重新 build/verify manifest；seal 后在中央副本再次 verify manifest 与 checksum，明确包含三个
+   失败 attempt；
+4. 形成新 SRC 与 RESULT-only HANDOFF。RESULT 顶部保持「待验收」，更新最终中央入口、文件数/字节、
+   manifest SHA、checksum 数量、runner 负向矩阵与治理偏差；不得写 `DOC_ALIGNED` 或任何验收通过；
+5. **不得重 build、不得重打包、不得重跑真实模型、六格、content E2E、mainchain E2E 或 Design
+   Fidelity。** 现有包和产品 Gate 仅作为待 Acceptance 独立判断的候选证据保留，工具修正不能借机
+   产生新的付费结果；
+6. 不移动 `review`，不修改 PLAN/HISTORY，不删除任何现有中央封存或本节创建的原始追溯快照。
+
+### 26.6 结论
+
+**Documentation Gate：`DOC_RETURNED`。**
+
+本次不是再次打回 P4 产品实现，而是阻止一个已知可假绿的 Gate runner 和可覆盖、未脱敏证据进入独立
+验收。开发按 §26.5 完成一次离线纠正后重新交付；Documentation Agent 再集中核对最终中央字节和
+fail-closed 结果，符合后才移动 `review` 并安排独立 Acceptance。
