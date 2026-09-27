@@ -41,8 +41,9 @@
 > - **精确包（未重 build）**：与本轮退回对象逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
 >   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
 >   `index-BMdbu97O.js`；
-> - **中央封存入口**：见 §R3-27；manifest SHA、checksum 数量等封存后数值由紧随的 RESULT-only
->   收口 commit 记录（原因见 §27.6）；
+> - **中央封存入口**：`<acceptance-staging>/69a65f3/` 与 `<acceptance-staging>/69a65f3-evidence/`；
+>   manifest SHA-256 `caa3512cd7174c590c167cea891a67e997959a07e50e6cfd6507bf8e0258a7e6`、checksum
+>   51 条、中央副本 `manifest verify` 与 `verify-checksums` 均 `rc=0`（见 §27.5）；
 > - **当前门禁**：`DOC_RETURNED` 未解除；本轮不得进入独立验收或发布。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
@@ -4955,14 +4956,23 @@ manifest 判定一致。
 
 ### 27.5 中央封存入口与封存后数值
 
-> 下列 `manifest.json` SHA-256、`CHECKSUMS.sha256` 条目数与中央副本二次 verify 结果在**封存完成后**
-> 写入本小节（由紧随的 RESULT-only 收口 commit 填写；原因见 §27.6）。
+封存现场（`h8_r3_seal.py seal` `rc=0`，`problems=[]`，封存时间 `2026-09-27T21:48:55`）：
 
-- **包（中央）**：`<acceptance-staging>/69a65f3/`（4045 files / 170,399,477 B；EXE 16,855,308 B）；
-- **证据（中央）**：`<acceptance-staging>/69a65f3-evidence/`；
-- **manifest SHA-256**：`<SEAL_FILL_MANIFEST_SHA>`；
-- **checksum 条目数**：`<SEAL_FILL_CHECKSUM_COUNT>`；
-- **中央副本二次 verify**：`<SEAL_FILL_VERIFY_RESULT>`。
+- **包（中央）**：`<acceptance-staging>/69a65f3/`——现场复核 4045 files / 170,399,477 B；EXE
+  16,855,308 B；SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`（与退回对象逐字节相同）；
+- **证据（中央）**：`<acceptance-staging>/69a65f3-evidence/`；`SEAL_REPORT.json` 记录
+  `gates_recorded` 17 门、`gates_all_exit_zero=true`、`ok=true`；
+- **manifest SHA-256**：`caa3512cd7174c590c167cea891a67e997959a07e50e6cfd6507bf8e0258a7e6`；
+- **checksum 条目数**：**51**（`CHECKSUMS.sha256` 覆盖证据目录全部 51 个文件，仅排除自身；证据目录
+  现场共 52 files）；
+- **中央副本二次 verify**：`h8_r3_manifest.py verify`（中央 `manifest.json` + 现场 Git 锚点）`rc=0`、
+  `final_verdict=true`、`problems=0`；`h8_r3_seal.py verify-checksums` `rc=0`、`listed=51`、
+  `actual=51`、`ok=true`。
+
+> 上述数值由紧随的 RESULT-only 收口 commit 记录（原因见 §27.6-4）：manifest 与封存是在
+> `HEAD == HANDOFF ccd336c` 的 clean 现场构建与校验的，收口 commit 只追加本小节数值，不改变已封存
+> 的包与证据字节。
 
 ### 27.6 治理偏差与如实披露
 
