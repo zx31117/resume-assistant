@@ -24,7 +24,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-PY = "C:/Users/31117/AppData/Local/Programs/Python/Python310/python.exe"
+# §R3-28 §28.7-1：解释器一律用环境无关解析（禁用用户名/用户目录/项目绝对路径字面量）。
+PY = sys.executable
 
 MANIFEST = HERE / "h8_r3_manifest.py"
 SEAL = HERE / "h8_r3_seal.py"

@@ -28,6 +28,16 @@ from datetime import datetime
 from pathlib import Path
 
 
+# 现场根路径（**动态**解析，禁止写入用户名/用户目录/项目绝对路径字面量）。
+HERE = Path(__file__).resolve().parent
+LIVE_ROOT = HERE.parent
+LIVE_REPO_PARENT = LIVE_ROOT.parent
+try:
+    HOME = Path.home()
+except Exception:  # noqa: BLE001
+    HOME = None
+
+
 def _rmtree_force(path, attempts: int = 8) -> bool:
     """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。"""
     import inspect as _inspect
@@ -55,20 +65,77 @@ def _rmtree_force(path, attempts: int = 8) -> bool:
     return not os.path.exists(path)
 
 
-# 文本类扩展名（需要脱敏/扫描）；其余按二进制逐字节复制。
-TEXT_EXT = {".json", ".log", ".txt", ".md", ".sha256", ".csv", ".jsonl", ".html", ".xml", ".yaml", ".yml"}
+# §R3-28 §28.7-2：文本判定改为**二进制嗅探**（前 8KB 无 NUL 且可 UTF-8 解码），
+# 从而天然覆盖 `.diff` 等无扩展名白名单的文本类证据（旧版按扩展名白名单会把 `.diff`
+# 当二进制原样复制，导致本机绝对路径直接进入封存）。
+_SNIFF_BYTES = 8192
 
-# 占位符映射（顺序敏感：先长后短，避免子串误替换）。
-DEFAULT_REDACTIONS: list[tuple[str, str]] = [
-    (r"D:[\\/]+demo[\\/]+resume-assistant[\\/]+current", "<current-workspace>"),
-    (r"D:[\\/]+demo[\\/]+resume-assistant[\\/]+review", "<canonical-repo>"),
-    (r"D:[\\/]+demo[\\/]+resume-assistant", "<repo-parent>"),
-    (r"C:[\\/]+Users[\\/]+31117", "<home>"),
-    (r"C:[\\/]+Users[\\/]+[A-Za-z0-9_.\-]+", "<home>"),
+
+def _looks_text(head: bytes) -> bool:
+    """前 8KB 无 NUL 且可严格 UTF-8 解码（增量解码，容忍末尾被截断的多字节序列）。"""
+    if b"\x00" in head:
+        return False
+    import codecs
+    dec = codecs.getincrementaldecoder("utf-8")()
+    try:
+        dec.decode(head)
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def _path_regex(p: Path) -> str:
+    """把绝对路径编译为**分隔符不敏感**的正则（`\\` 与 `/` 均可，大小写不敏感）。"""
+    parts = [x for x in re.split(r"[\\/]+", str(p)) if x]
+    return r"[\\/]+".join(re.escape(x) for x in parts)
+
+
+def _dynamic_redactions() -> list[tuple[str, str]]:
+    """由**动态现场根**生成脱敏规则（最长优先，避免父目录先吃掉子目录前缀）。"""
+    roots: list[tuple[Path, str]] = [
+        (LIVE_ROOT, "<current-workspace>"),
+        (LIVE_REPO_PARENT, "<repo-parent>"),
+    ]
+    if HOME is not None:
+        roots.append((HOME, "<home>"))
+    out: list[tuple[str, str]] = []
+    for p, rep in sorted(roots, key=lambda t: len(str(t[0])), reverse=True):
+        if str(p):
+            out.append((_path_regex(p), rep))
+    return out
+
+
+# 通用路径词法（在动态现场根之后应用）：盘符路径 / UNC（含 JSON 双反斜杠）/ 类 Unix 用户目录。
+GENERIC_REDACTIONS: list[tuple[str, str]] = [
+    (r"[A-Za-z]:[\\/]+[^\s\"'<>|*?\r\n]+", "<local-path>"),
+    (r"\\{2,}[A-Za-z0-9_.\-]+(?:[\\/]+[^\s\"'<>|*?\r\n]*)?", "<unc-path>"),
+    (r"/(?:home|Users)/[^\s\"'<>|*?]+", "<home>"),
     (r"%TEMP%", "<temp>"),
-    (r"[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s\"']+[\\/]+AppData[\\/]+Local[\\/]+Temp[\\/]+[^\\/\s\"']*", "<temp>"),
-    (r"[A-Za-z]:[\\/]+[^\\/\s\"']*[\\/]+Temp[\\/]+[^\\/\s\"']*", "<temp>"),
 ]
+
+# 公开 HTTP(S) URL：先掩蔽、脱敏后复扫、最后还原——**不得**被误报为 UNC/本地路径。
+_URL_RE = re.compile(r"https?://[^\s\"'<>\\]+")
+
+# 脱敏后 fail-closed 复扫的本地路径词法。
+_LOCAL_PATH_RESCAN: list[tuple[str, str]] = [
+    (r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]+[^\s\"'<>|*?\r\n]+", "盘符绝对路径"),
+    (r"\\{2,}[A-Za-z0-9_.\-]+(?:[\\/]+[^\s\"'<>|*?\r\n]*)", "UNC/双反斜杠路径"),
+    (r"/(?:home|Users)/[^\s\"'<>|*?]+", "类 Unix 用户目录"),
+]
+
+
+def _live_literals() -> list[str]:
+    """现场绝对路径字面量（工作区 / 仓库父目录 / 家目录 / 临时目录），复扫零命中依据。"""
+    import tempfile
+    lits: list[str] = []
+    for p in (LIVE_ROOT, LIVE_REPO_PARENT, HOME):
+        if p is not None and str(p):
+            lits.append(str(p))
+    try:
+        lits.append(tempfile.gettempdir())
+    except Exception:  # noqa: BLE001
+        pass
+    return [x for x in lits if x]
 
 # 禁止出现的旧对象 SHA / 旧 bundle（仅供追溯，不得进入新封存证据）。
 FORBIDDEN_SUBSTRINGS = [
@@ -105,26 +172,76 @@ def sha256_file(p: Path) -> str:
 
 def _redact(text: str, redactions: list[tuple[str, str]], mapping: dict[str, int]) -> str:
     for pat, rep in redactions:
-        text, n = re.subn(pat, rep, text)
+        text, n = re.subn(pat, rep, text, flags=re.IGNORECASE)
         if n:
             mapping[rep] = mapping.get(rep, 0) + n
     return text
 
 
-def _scan_forbidden(text: str, where: str, problems: list[str]) -> None:
+def _mask_urls(text: str, store: dict[str, str]) -> str:
+    """把公开 HTTP(S) URL 掩蔽为不可命中路径词法的占位符（脱敏后还原）。"""
+    def _repl(m: re.Match) -> str:
+        token = f"\x00URL{len(store)}\x00"
+        store[token] = m.group(0)
+        return token
+    return _URL_RE.sub(_repl, text)
+
+
+def _restore_urls(text: str, store: dict[str, str]) -> str:
+    for token, url in store.items():
+        text = text.replace(token, url)
+    return text
+
+
+def _scan_forbidden(text: str, where: str, problems: list[str],
+                    forbidden: list[str]) -> int:
+    """按**实际传入**的 forbidden 列表 + PII 形态扫描（返回命中数）。
+
+    §R3-28 §28.7-2：旧版忽略传入列表、只遍历全局常量，导致 `--extra-forbidden`
+    只写进报告、实际未参与扫描（fail-open）。本版以参数为准。
+    """
+    hits = 0
     low = text.lower()
-    for s in FORBIDDEN_SUBSTRINGS:
-        if s in low:
+    for s in forbidden:
+        if s and s in low:
             problems.append(f"{where}: 命中禁止子串 {s[:16]}…")
+            hits += 1
     for pat, label in PII_PATTERNS:
         if re.search(pat, text):
             problems.append(f"{where}: 命中疑似 {label}")
+            hits += 1
+    return hits
+
+
+def _rescan_local_paths(text: str, where: str, problems: list[str]) -> int:
+    """脱敏后的 fail-closed 复扫：盘符/UNC/用户目录/现场字面量/PII 任一命中即计入。
+
+    传入口为**已掩蔽 URL** 的文本，因此公开 HTTP(S) URL 不会误报为本地路径。
+    """
+    hits = 0
+    for pat, label in _LOCAL_PATH_RESCAN:
+        n = len(re.findall(pat, text))
+        if n:
+            problems.append(f"{where}: 脱敏后仍残留{label}（{n} 处）")
+            hits += n
+    low = text.lower()
+    for lit in _live_literals():
+        if lit.lower() in low:
+            problems.append(f"{where}: 脱敏后仍残留现场绝对路径字面量")
+            hits += 1
+    for pat, label in PII_PATTERNS:
+        if re.search(pat, text):
+            problems.append(f"{where}: 脱敏后仍命中疑似 {label}")
+            hits += 1
+    return hits
 
 
 def _desensitize_tree(src: Path, dst: Path, forbidden: list[str],
-                      redact_map: dict[str, int]) -> list[str]:
-    """把 src 目录脱敏复制到 dst。返回 problems。"""
-    problems: list[str] = []
+                      redactions: list[tuple[str, str]],
+                      redact_map: dict[str, int], problems: list[str]) -> dict:
+    """把 src 目录脱敏复制到 dst（文本按二进制嗅探判定）。返回统计。"""
+    stats = {"text_files": 0, "binary_files": 0,
+             "forbidden_hits": 0, "path_rescan_hits": 0}
     dst.mkdir(parents=True, exist_ok=True)
     for src_f in sorted(src.rglob("*")):
         if not src_f.is_file():
@@ -132,18 +249,31 @@ def _desensitize_tree(src: Path, dst: Path, forbidden: list[str],
         rel = src_f.relative_to(src)
         out_f = dst / rel
         out_f.parent.mkdir(parents=True, exist_ok=True)
-        if src_f.suffix.lower() in TEXT_EXT:
-            try:
-                raw = src_f.read_text(encoding="utf-8", errors="replace")
-            except Exception as e:  # noqa: BLE001
-                problems.append(f"{rel}: 读取失败 {e!r}")
-                continue
-            _scan_forbidden(raw, str(rel), problems)
-            clean = _redact(raw, DEFAULT_REDACTIONS, redact_map)
-            out_f.write_text(clean, encoding="utf-8")
-        else:
-            shutil.copy2(src_f, out_f)
-    return problems
+        try:
+            data = src_f.read_bytes()
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"{rel}: 读取失败 {type(e).__name__}")
+            continue
+        if not _looks_text(data[:_SNIFF_BYTES]):
+            stats["binary_files"] += 1
+            out_f.write_bytes(data)
+            continue
+        try:
+            raw = data.decode("utf-8")
+        except UnicodeDecodeError:
+            problems.append(f"{rel}: 文本嗅探通过但整体非 UTF-8（fail-closed）")
+            out_f.write_bytes(data)
+            continue
+        stats["text_files"] += 1
+        store: dict[str, str] = {}
+        masked = _mask_urls(raw, store)
+        clean = _redact(masked, redactions, redact_map)
+        stats["forbidden_hits"] += _scan_forbidden(clean, str(rel), problems, forbidden)
+        stats["path_rescan_hits"] += _rescan_local_paths(clean, str(rel), problems)
+        # 写回必须禁用换行翻译，避免 Windows CRLF 翻译改变字节。
+        with open(out_f, "w", encoding="utf-8", newline="") as fh:
+            fh.write(_restore_urls(clean, store))
+    return stats
 
 
 def _recompute_gates_hashes(staged: Path) -> dict:
@@ -167,7 +297,8 @@ def _recompute_gates_hashes(staged: Path) -> dict:
         if p.is_file():
             rec["evidence_sha256"] = sha256_file(p)
             rec["evidence_bytes"] = p.stat().st_size
-    gm.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    with open(gm, "w", encoding="utf-8", newline="") as fh:
+        fh.write(json.dumps(meta, ensure_ascii=False, indent=2))
     return meta
 
 
@@ -188,8 +319,10 @@ def _stage(args) -> int:
         _rmtree_force(staged)
     staged.mkdir(parents=True, exist_ok=True)
 
+    redactions = _dynamic_redactions() + GENERIC_REDACTIONS
     redact_map: dict[str, int] = {}
-    problems = _desensitize_tree(ev, staged, forbidden, redact_map)
+    problems: list[str] = []
+    stats = _desensitize_tree(ev, staged, forbidden, redactions, redact_map, problems)
 
     # 重算 gates_run.json evidence_sha256（脱敏后字节）
     meta = _recompute_gates_hashes(staged)
@@ -199,14 +332,19 @@ def _stage(args) -> int:
         "staged_at_local": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "source_evidence_dir": ev.name,
         "staged_evidence_dir": staged.name,
+        "text_detection": f"binary-sniff({_SNIFF_BYTES}B, no-NUL + strict utf-8)",
+        "redaction_placeholders": sorted({rep for _, rep in redactions}),
         "redaction_map": {k: v for k, v in sorted(redact_map.items())},
         "forbidden_substrings_checked": forbidden,
+        "counts": stats,
+        "local_path_rescan_fail_closed": True,
+        "local_path_rescan_zero_hit": stats["path_rescan_hits"] == 0,
         "gates_recorded": [g.get("gate") for g in (meta.get("gates") or [])],
         "problems": problems,
         "ok": not problems,
     }
-    (staged / "STAGE_REPORT.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    with open(staged / "STAGE_REPORT.json", "w", encoding="utf-8", newline="") as fh:
+        fh.write(json.dumps(report, ensure_ascii=False, indent=2))
 
     if problems:
         print("[seal:stage] FAIL-CLOSED：")
@@ -214,8 +352,9 @@ def _stage(args) -> int:
             print("  -", p)
         return 1
     n = len([p for p in staged.rglob("*") if p.is_file()])
-    print(f"[seal:stage] OK staged={staged} files={n} "
-          f"redactions={sum(redact_map.values())}")
+    print(f"[seal:stage] OK staged={staged} files={n} text={stats['text_files']} "
+          f"binary={stats['binary_files']} redactions={sum(redact_map.values())} "
+          f"path_rescan_hits={stats['path_rescan_hits']}")
     return 0
 
 
@@ -229,6 +368,19 @@ def _seal(args) -> int:
     if not staged.is_dir():
         print(f"[seal] staging 证据目录不存在: {staged}")
         return 2
+
+    # §R3-28 §28.7-5：封存前必须确认 staging 自身已 fail-closed（无未解决 problems）。
+    stage_ok = None
+    srep = staged / "STAGE_REPORT.json"
+    if srep.is_file():
+        try:
+            stage_ok = json.loads(srep.read_text(encoding="utf-8-sig")).get("ok")
+        except Exception:  # noqa: BLE001
+            print("[seal] FAIL-CLOSED: STAGE_REPORT.json 不可解析")
+            return 2
+        if stage_ok is not True:
+            print("[seal] FAIL-CLOSED: staging STAGE_REPORT.ok 非 true，拒绝封存")
+            return 1
 
     out_pkg = root / args.src
     out_ev = root / f"{args.src}-evidence"
@@ -272,6 +424,7 @@ def _seal(args) -> int:
             "archive_dir": out_ev.name,
             "files": len(ev_files_before) + 1,  # + SEAL_REPORT.json 自身
             "checksums_file": "CHECKSUMS.sha256",
+            "stage_report_ok": stage_ok,
         },
         "gates_recorded": [g.get("gate") for g in (gates_meta.get("gates") or [])],
         "gates_all_exit_zero": gates_meta.get("all_exit_zero"),

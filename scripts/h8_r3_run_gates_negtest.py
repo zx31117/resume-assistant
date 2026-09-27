@@ -19,6 +19,15 @@
   N08_partial_to_manifest 把 N07 的 partial `gates_run.json` 送 manifest → manifest 必须拒绝
   P01_manifest_positive   与 runner 合同一致的全通过夹具送 manifest → 必须接受
 
+§R3-28 §28.7-4：runner 负向矩阵被 manifest 消费时的反向用例（每例必须非零退出 + final_verdict=false）：
+  N09_aux_missing          矩阵证据缺失
+  N10_aux_truncated        矩阵 JSON 截断/损坏
+  N11_aux_runner_sha_mismatch  矩阵记录 runner_sha256 与现场 runner 不符
+  N12_aux_missing_case     矩阵缺少必需 case ID
+  N13_aux_exit_code_escape 矩阵中任一 case 真实退出码逃逸（非整数）
+  N14_aux_all_ok_false     矩阵 all_ok 非 true
+  N15_aux_failures_nonempty 矩阵 failures 非空
+
 退出码 0 = 全部用例成立；非 0 = 存在逃逸（并写明 failures）。
 """
 from __future__ import annotations
@@ -318,18 +327,25 @@ def run_matrix(root: Path) -> dict:
                 detail="未知 Gate 必须 fail-closed：不执行、不写 gates_run.json")
     cases.append(n04)
 
-    # N05：空 --only（空串 / 纯逗号）
-    n05_ok, n05_detail = True, []
+    # N05：空 --only（空串 / 纯逗号）——**逐子例持久化真实退出码**与「未写 gates_run.json」
+    # （§R3-28 §28.7-4：旧版只留 `exit_code=null`，封存字节不足以让后续角色逐例机械复核）。
+    n05_ok, n05_detail, n05_subs = True, [], []
     for raw in ("", " , ,"):
         ev = root / f"ev_n05_{abs(hash(raw)) % 1000}"
         run = _run_runner(mini, only=raw, ev_dir=ev, rc={})
+        n05_subs.append({"input": raw, "exit_code": run["rc"],
+                         "gates_run_written": run["meta_written"]})
         if run["rc"] == 0 or run["meta_written"]:
             n05_ok = False
             n05_detail.append(f"--only={raw!r} 未 fail-closed（rc={run['rc']}, "
                               f"written={run['meta_written']}）")
-    cases.append({"id": "N05_empty_only", "case": "空 --only", "exit_code": None,
+    n05_exits = [s["exit_code"] for s in n05_subs if isinstance(s["exit_code"], int)]
+    cases.append({"id": "N05_empty_only", "case": "空 --only",
+                  "exit_code": max(n05_exits) if n05_exits else None,
+                  "subcases": n05_subs,
                   "summary": {}, "records": {}, "problems": n05_detail,
-                  "detail": "空串 / 纯逗号都必须 fail-closed，且不写 gates_run.json",
+                  "detail": "空串 / 纯逗号都必须 fail-closed、不写 gates_run.json，"
+                            "并逐子例记录真实退出码",
                   "ok": n05_ok})
 
     # N06：证据缺失（exit 0 但证据不在场）
@@ -390,6 +406,77 @@ def run_matrix(root: Path) -> dict:
            "detail": "完整且逐 Gate 合同成立的证据集必须被 manifest 接受",
            "ok": (run_m["rc"] == 0) and (payload.get("final_verdict") is True)}
     cases.append(p01)
+
+    # ── §R3-28 §28.7-4：runner 负向矩阵被 manifest 消费时的反向用例（N09–N15）──
+    # 每一例都必须让 manifest 非零退出、final_verdict=false，且 problems 明确指出矩阵问题。
+    def aux_case(cid: str, name: str, mutate: dict | None, *, after=None,
+                 detail: str = "") -> None:
+        ev_aux = fixture.evidence(cid, mutate)
+        if after is not None:
+            after(ev_aux)
+        run_a = _manifest("build", fixture.argv(ev_aux, root / f"fx_{cid}" / "out.json"))
+        payload_a = run_a["payload"] or {}
+        probs = payload_a.get("problems") or []
+        hit = any("负向矩阵" in p for p in probs)
+        problems = list(probs[:8])
+        if not hit:
+            problems.append("manifest problems 未指出 runner 负向矩阵")
+        cases.append({"id": cid, "case": name, "exit_code": run_a["rc"],
+                      "final_verdict": payload_a.get("final_verdict"),
+                      "problems": problems, "summary": {}, "records": {},
+                      "detail": detail,
+                      "ok": (run_a["rc"] != 0)
+                            and (payload_a.get("final_verdict") is False) and hit})
+
+    base_aux = FX.aux_matrix_payload()
+
+    def _aux_variant(**over) -> dict:
+        a = json.loads(json.dumps(base_aux))
+        a.update(over)
+        return a
+
+    # N09：矩阵证据缺失
+    aux_case("N09_aux_missing", "负向矩阵证据缺失", None,
+             after=lambda ev_d: (ev_d / FX.AUX_MATRIX_FILE).unlink(),
+             detail=f"{FX.AUX_MATRIX_FILE} 缺失时 manifest 必须 fail-closed")
+
+    # N10：矩阵 JSON 截断/损坏
+    def _truncate(ev_d: Path) -> None:
+        fp = ev_d / FX.AUX_MATRIX_FILE
+        fp.write_text(fp.read_text(encoding="utf-8")[:40], encoding="utf-8")
+
+    aux_case("N10_aux_truncated", "负向矩阵 JSON 截断", None, after=_truncate,
+             detail="JSON 截断/损坏时 manifest 必须 fail-closed")
+
+    # N11：runner SHA 记录与现场不符
+    aux_case("N11_aux_runner_sha_mismatch", "runner SHA 不符",
+             {"aux_matrix": _aux_variant(runner_sha256="0" * 64)},
+             detail="记录的 runner_sha256 与现场不一致时必须 fail-closed")
+
+    # N12：缺少必需 case ID（case_count 同步修正，隔离出「少 case」单一故障）
+    n12 = _aux_variant()
+    n12["cases"] = [c for c in n12["cases"] if c["id"] != "P01_manifest_positive"]
+    n12["case_count"] = len(n12["cases"])
+    aux_case("N12_aux_missing_case", "缺少必需 case ID", {"aux_matrix": n12},
+             detail="缺少必需 case ID 时必须 fail-closed")
+
+    # N13：某一用例真实退出码逃逸（非整数）
+    n13 = _aux_variant()
+    for c in n13["cases"]:
+        if c["id"] == "N01_single_failure":
+            c["exit_code"] = None
+    aux_case("N13_aux_exit_code_escape", "退出码逃逸（非整数）", {"aux_matrix": n13},
+             detail="任一用例退出码非真实整数时必须 fail-closed")
+
+    # N14：all_ok 被置 false
+    aux_case("N14_aux_all_ok_false", "all_ok=false",
+             {"aux_matrix": _aux_variant(all_ok=False)},
+             detail="矩阵 all_ok 非 true 时必须 fail-closed")
+
+    # N15：failures 非空
+    aux_case("N15_aux_failures_nonempty", "failures 非空",
+             {"aux_matrix": _aux_variant(failures=["P00_complete_positive"])},
+             detail="矩阵 failures 非空时必须 fail-closed")
 
     failures = [c["id"] for c in cases if not c["ok"]]
     return {

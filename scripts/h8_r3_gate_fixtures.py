@@ -65,6 +65,42 @@ def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+# ── §R3-28 §28.7-3：runner 负向矩阵（manifest 独立辅助判定段）的“全通过”夹具 ──
+AUX_MATRIX_FILE = "run_gates_negtest.json"
+AUX_SCHEMA = "resume-assistant/r3-run-gates-negtest"
+AUX_CASE_IDS = [
+    "P00_complete_positive", "N01_single_failure", "N02_mixed", "N03_all_failure",
+    "N04_unknown_gate", "N05_empty_only", "N06_missing_evidence",
+    "N07_partial_all_pass", "N08_partial_to_manifest", "P01_manifest_positive",
+    # 必须与 h8_r3_manifest.py `_AUX_REQUIRED_CASE_IDS` 完全一致。
+    "N09_aux_missing", "N10_aux_truncated", "N11_aux_runner_sha_mismatch",
+    "N12_aux_missing_case", "N13_aux_exit_code_escape", "N14_aux_all_ok_false",
+    "N15_aux_failures_nonempty",
+]
+_RUNNER_PATH = Path(__file__).resolve().parent / "h8_r3_run_gates.py"
+
+
+def aux_matrix_payload() -> dict:
+    """与 manifest 辅助判定段逐项对齐的 runner 矩阵夹具（N05 携带真实子例退出码）。"""
+    cases: list[dict] = []
+    for cid in AUX_CASE_IDS:
+        rec = {"id": cid, "case": cid, "exit_code": 1, "ok": True}
+        if cid == "N05_empty_only":
+            rec["subcases"] = [
+                {"input": "", "exit_code": 2, "gates_run_written": False},
+                {"input": " , ,", "exit_code": 2, "gates_run_written": False},
+            ]
+        cases.append(rec)
+    return {
+        "schema": AUX_SCHEMA, "version": 1,
+        "generator": "scripts/h8_r3_run_gates_negtest.py",
+        "runner": _RUNNER_PATH.name,
+        "runner_sha256": sha256_file(_RUNNER_PATH) if _RUNNER_PATH.is_file() else None,
+        "cases": cases, "case_count": len(cases),
+        "failures": [], "all_ok": True,
+    }
+
+
 def _sixgrid_samples() -> list[dict]:
     """合成 18 个通过全部六格后置条件的样本（含 total_s / telemetry）。"""
     _total = {"short": 19.0, "typical": 30.0, "long": 38.0}
@@ -213,6 +249,11 @@ def write_valid_evidence(ev_dir: Path, exe_sha: str,
         if g in (mutate.get("truncate") or []):
             text = text[: max(4, len(text) // 3)]
         (ev_dir / fname).write_text(text, encoding="utf-8")
+
+    # runner 负向矩阵（manifest 独立辅助判定段）的“全通过”夹具。
+    aux = mutate["aux_matrix"] if mutate.get("aux_matrix") is not None else aux_matrix_payload()
+    (ev_dir / AUX_MATRIX_FILE).write_text(
+        json.dumps(aux, ensure_ascii=False, indent=2), encoding="utf-8")
 
     ended = time.strftime("%Y-%m-%dT%H:%M:%S")
     started = ended

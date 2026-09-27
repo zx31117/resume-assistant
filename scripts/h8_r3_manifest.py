@@ -205,6 +205,24 @@ _REQUIRED_GATES = list(_GATE_CONTRACTS.keys())
 _IDENTITY_MATRIX_FILE = "git_identity_matrix.json"
 _IDENTITY_MATRIX_MIN_CASES = 15
 
+# ── §R3-28 §28.7-3：runner 负向矩阵的**独立辅助判定段** ───────────────────────────
+# 它**不是**第 18 个原始 Gate（不写入 `_GATE_CONTRACTS`），但必须进入 manifest 的独立
+# 辅助判定：文件 hash、runner SHA、必需 case ID、逐子进程真实退出码、关键汇总字段、
+# `all_ok=true` 且 `failures=[]`。任一缺失/不一致 ⇒ `final_verdict=false` 且非零退出。
+_AUX_MATRIX_FILE = "run_gates_negtest.json"
+_AUX_SCHEMA = "resume-assistant/r3-run-gates-negtest"
+_AUX_VERSION = 1
+_AUX_REQUIRED_CASE_IDS = [
+    "P00_complete_positive", "N01_single_failure", "N02_mixed", "N03_all_failure",
+    "N04_unknown_gate", "N05_empty_only", "N06_missing_evidence",
+    "N07_partial_all_pass", "N08_partial_to_manifest", "P01_manifest_positive",
+    # §R3-28 §28.7-4：矩阵被 manifest 消费时的反向用例也必须全部在场。
+    "N09_aux_missing", "N10_aux_truncated", "N11_aux_runner_sha_mismatch",
+    "N12_aux_missing_case", "N13_aux_exit_code_escape", "N14_aux_all_ok_false",
+    "N15_aux_failures_nonempty",
+]
+_RUNNER_PATH = Path(__file__).resolve().parent / "h8_r3_run_gates.py"
+
 
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
@@ -920,6 +938,80 @@ def _identity_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
     return rec, problems
 
 
+def _aux_matrix_check(ev_dir: Path) -> tuple[dict, list[str]]:
+    """独立辅助判定段：逐项机械校验 runner 负向矩阵（`run_gates_negtest.json`）。"""
+    problems: list[str] = []
+    p = ev_dir / _AUX_MATRIX_FILE
+    if not p.exists():
+        return {"present": False}, [f"缺 runner 负向矩阵证据: {_AUX_MATRIX_FILE}"]
+    file_sha = sha256_file(p)
+    try:
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
+    except Exception as e:  # noqa: BLE001
+        return ({"present": True, "sha256": file_sha, "ok": False},
+                [f"runner 负向矩阵 JSON 不可解析（截断/损坏）: {type(e).__name__}"])
+    if not isinstance(data, dict):
+        return ({"present": True, "sha256": file_sha, "ok": False},
+                ["runner 负向矩阵顶层不是 JSON 对象"])
+
+    cases = data.get("cases") or []
+    case_ids = [c.get("id") for c in cases if isinstance(c, dict)]
+    missing = [c for c in _AUX_REQUIRED_CASE_IDS if c not in case_ids]
+    runner_live = sha256_file(_RUNNER_PATH) if _RUNNER_PATH.is_file() else None
+
+    bad_exit: list[str] = []
+    not_ok: list[str] = []
+    for c in cases:
+        if not isinstance(c, dict):
+            problems.append("runner 负向矩阵存在非对象用例")
+            continue
+        if not isinstance(c.get("exit_code"), int):
+            bad_exit.append(str(c.get("id")))
+        for sub in (c.get("subcases") or []):
+            if not isinstance(sub, dict) or not isinstance(sub.get("exit_code"), int):
+                bad_exit.append(f"{c.get('id')}#subcase")
+        if c.get("ok") is not True:
+            not_ok.append(str(c.get("id")))
+
+    rec = {
+        "present": True, "sha256": file_sha, "bytes": p.stat().st_size,
+        "schema": data.get("schema"), "version": data.get("version"),
+        "generator": data.get("generator"), "runner": data.get("runner"),
+        "runner_sha256_recorded": data.get("runner_sha256"),
+        "runner_sha256_live": runner_live,
+        "case_count_recorded": data.get("case_count"), "case_count_actual": len(cases),
+        "case_ids": case_ids, "missing_case_ids": missing,
+        "all_ok": data.get("all_ok"), "failures": data.get("failures"),
+        "bad_exit_codes": bad_exit, "not_ok_cases": not_ok,
+    }
+
+    if data.get("schema") != _AUX_SCHEMA:
+        problems.append(f"runner 负向矩阵 schema 非 {_AUX_SCHEMA}")
+    if data.get("version") != _AUX_VERSION:
+        problems.append(f"runner 负向矩阵 version 非 {_AUX_VERSION}")
+    if not runner_live:
+        problems.append("现场 scripts/h8_r3_run_gates.py 缺失，无法比对 runner SHA")
+    elif data.get("runner_sha256") != runner_live:
+        problems.append("runner 负向矩阵记录的 runner_sha256 与现场 runner 不一致")
+    if not cases:
+        problems.append("runner 负向矩阵无用例")
+    if missing:
+        problems.append(f"runner 负向矩阵缺少必需 case ID: {missing}")
+    if data.get("case_count") != len(cases):
+        problems.append("runner 负向矩阵 case_count 与实际用例数不一致")
+    if bad_exit:
+        problems.append(f"runner 负向矩阵存在非整数真实退出码: {bad_exit}")
+    if not_ok:
+        problems.append(f"runner 负向矩阵存在未通过用例: {not_ok}")
+    if data.get("all_ok") is not True:
+        problems.append("runner 负向矩阵 all_ok 非 true")
+    if data.get("failures") != []:
+        problems.append(f"runner 负向矩阵 failures 非空: {data.get('failures')}")
+
+    rec["ok"] = not problems
+    return rec, problems
+
+
 def _package_identity(pkg_dir: Path) -> dict:
     exe = pkg_dir / "ResumeAssistant.exe"
     files = [p for p in pkg_dir.rglob("*") if p.is_file()]
@@ -1054,6 +1146,8 @@ def _build(args) -> int:
     problems.extend(neg_problems)
     idm_rec, idm_problems = _identity_matrix_check(ev_dir)
     problems.extend(idm_problems)
+    aux_rec, aux_problems = _aux_matrix_check(ev_dir)
+    problems.extend(aux_problems)
 
     cleanup = (gate_runs or {}).get("cleanup") if isinstance(gate_runs, dict) else None
     cleanup_ok = None
@@ -1078,6 +1172,7 @@ def _build(args) -> int:
         "gates_meta": meta_rec,
         "negative_selftest": neg_rec,
         "identity_matrix": idm_rec,
+        "aux_matrix": aux_rec,
         "gate_runs": gate_runs,
         "cleanup": cleanup,
         "verdicts": {
@@ -1097,6 +1192,7 @@ def _build(args) -> int:
             ) and len(gates) == len(_GATE_CONTRACTS),
             "negative_selftest_ok": bool(neg_rec.get("ok")),
             "identity_matrix_ok": bool(idm_rec.get("ok")),
+            "aux_matrix_ok": bool(aux_rec.get("ok")),
             "gates_meta_ok": bool(meta_rec.get("recomputed_gates_ok")),
             "cleanup_ok": cleanup_ok,
         },
@@ -1262,6 +1358,7 @@ def _verify(args) -> int:
         for seg, fname, key in (
             ("negative_selftest", "six_grid_negative_selftest.json", "negative_selftest"),
             ("identity_matrix", _IDENTITY_MATRIX_FILE, "identity_matrix"),
+            ("aux_matrix", _AUX_MATRIX_FILE, "aux_matrix"),
         ):
             rec = m.get(key) or {}
             if rec.get("present"):
@@ -1274,9 +1371,33 @@ def _verify(args) -> int:
     # F) 顶层判定一致性。
     v = m.get("verdicts") or {}
     for k in ("git_identity_ok", "package_ok", "gates_ok", "negative_selftest_ok",
-              "identity_matrix_ok", "gates_meta_ok"):
+              "identity_matrix_ok", "aux_matrix_ok", "gates_meta_ok"):
         if v.get(k) is not True:
             problems.append(f"verdicts.{k} 非 true")
+
+    # G) runner 负向矩阵辅助判定段的独立复核（不依赖 build 时的结论）。
+    aux = m.get("aux_matrix") or {}
+    if aux.get("present") is not True:
+        problems.append("manifest 缺少 runner 负向矩阵辅助判定段")
+    else:
+        if aux.get("all_ok") is not True:
+            problems.append("aux_matrix all_ok 非 true")
+        if aux.get("failures") != []:
+            problems.append("aux_matrix failures 非空")
+        if aux.get("missing_case_ids"):
+            problems.append(f"aux_matrix 缺少必需 case ID: {aux.get('missing_case_ids')}")
+        if aux.get("bad_exit_codes"):
+            problems.append("aux_matrix 存在非整数真实退出码")
+        if aux.get("not_ok_cases"):
+            problems.append("aux_matrix 存在未通过用例")
+        if aux.get("case_count_recorded") != aux.get("case_count_actual"):
+            problems.append("aux_matrix case_count 与实际用例数不一致")
+        live_now = sha256_file(_RUNNER_PATH) if _RUNNER_PATH.is_file() else None
+        if not aux.get("runner_sha256_live") or \
+                aux.get("runner_sha256_recorded") != aux.get("runner_sha256_live"):
+            problems.append("aux_matrix runner SHA 记录与现场不一致")
+        if live_now != aux.get("runner_sha256_live"):
+            problems.append("aux_matrix runner SHA 现场值已变化")
     if v.get("cleanup_ok") is not True:
         problems.append("verdicts.cleanup_ok 非 true")
     meta = m.get("gates_meta") or {}

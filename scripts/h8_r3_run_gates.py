@@ -39,7 +39,8 @@ BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 VA = ROOT / "validation-artifacts" / "h8"
 
-PY = "C:/Users/31117/AppData/Local/Programs/Python/Python310/python.exe"
+# §R3-28 §28.7-1：解释器一律用环境无关解析（禁用用户名/用户目录/项目绝对路径字面量）。
+PY = sys.executable
 
 PLAN_BLOB = "7d8a249a5ec3e607855f20d794bb7ed9cda351ee"
 
