@@ -9,7 +9,7 @@ import StepCheckout from './StepCheckout'
 import StepDownload from './StepDownload'
 import StepIdentityAside from './StepIdentityAside'
 import StepSuccessAside from './StepSuccessAside'
-import type { TaskStatus } from '../../api/types'
+import type { PdfAnchor, TaskStatus } from '../../api/types'
 
 /**
  * V2.2.0 T02/T03/T04/T06：工作台主体 —— 三栏 work-grid。
@@ -17,6 +17,10 @@ import type { TaskStatus } from '../../api/types'
  * 冻结 DS-003：工作台首页不在 work-grid 前渲染额外 hero（接下来直接是三栏网格）。
  * T04：历史回看 —— 点击已 done 步骤可回看其权威快照结果，不回暂停后台生成。
  * T06：P4 成功后主面板以真实 PDF viewer 为主视觉；下载在右侧说明卡固位。
+ *
+ * V2.2.0 DOC_RETURNED 返工：P4 选择状态**提升**到本组件（主面板与说明卡的最近公共祖先），
+ * 由 StepDownload 转交 PdfPreview、StepSuccessAside 消费同一对象；主面板与说明卡因此始终
+ * 一致，且 PdfPreview 成为纯受控组件（DS-003 语义）。切换任务时清空选择。
  */
 
 /** 由 status + snapshotPhase 推导“当前实时步骤”(0 基)。RUNNING→快照阶段；SUCCEEDED→第 4 步；其余→第 1 步。 */
@@ -34,12 +38,19 @@ function liveStep(status: TaskStatus | null, phase: string): number {
 }
 
 export default function WorkbenchPage() {
-  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError, generatePending, continueScope, generate } =
+  const { status, input, saving, dirty, saveError, loadState, retryLoad, snapshotPhase, stepStates, generateError, terminalError, generatePending, continueScope, generate, taskId } =
     useWorkbenchTask()
   const current = liveStep(status, snapshotPhase)
   const [selected, setSelected] = useState(current)
   const [reviewStep, setReviewStep] = useState<number | null>(null)
   const [step1Error, setStep1Error] = useState<string | null>(null)
+  // V2.2.0 DOC_RETURNED 返工：P4 受控选择（提升后的唯一真源）。
+  const [p4Selection, setP4Selection] = useState<PdfAnchor | null>(null)
+
+  // 切换任务（含 startNewTask / 续试）时清空 P4 选择，避免跨任务残留旧锚点。
+  useEffect(() => {
+    setP4Selection(null)
+  }, [taskId])
 
   // 未在回看时：主面板自动跟随实时步骤（生成推进时自动前进/追平）
   useEffect(() => {
@@ -169,7 +180,9 @@ export default function WorkbenchPage() {
     if (activeIdx === 2) return <StepMatch />
     if (activeIdx === 3) {
       // T06：P4 成功后切换到真实 PDF 成品视图；运行/回看期间保留 P3 过程预览
-      if (status === 'SUCCEEDED') return <StepDownload />
+      if (status === 'SUCCEEDED') {
+        return <StepDownload selection={p4Selection} onSelect={setP4Selection} />
+      }
       return <StepCheckout />
     }
     return (
@@ -202,7 +215,7 @@ export default function WorkbenchPage() {
 
   /** 右栏说明卡：随步骤 / 阶段切换（冻结 inputAside / successAside / 通用任务说明）。 */
   function asideContent(): React.ReactNode {
-    if (status === 'SUCCEEDED' && activeIdx === 3) return <StepSuccessAside />
+    if (status === 'SUCCEEDED' && activeIdx === 3) return <StepSuccessAside selection={p4Selection} />
     if (activeIdx === 0) return <StepIdentityAside />
     return (
       <>

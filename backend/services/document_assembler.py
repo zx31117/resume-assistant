@@ -462,6 +462,53 @@ def build_resume_document(
 
 # ── P4 assembler：真实 DOCX/PDF 链接入 ───────────────────────────── #
 
+def _period_label(role: str, start: str, end: str) -> str:
+    """`role · start - end`（缺项留空，不补造）。"""
+    period = f"{start} - {end}" if (start or end) else ""
+    return " · ".join([x for x in (role, period) if x])
+
+
+def _preview_sections(resume_doc: ResumeDocument) -> list[dict]:
+    """P4「段落详情」的权威投影：条目 heading / subhead（均取自最终 ResumeDocument）。
+
+    仅供 DS-003 section 选中态展示；不含任何猜测字段；无 experience_id 的条目不登记。
+    """
+    out: list[dict] = []
+    for w in resume_doc.work:
+        out.append({"experience_id": w.experience_id, "kind": "work",
+                    "heading": w.company, "subhead": _period_label(w.role, w.start_time, w.end_time)})
+    for pr in resume_doc.projects:
+        out.append({"experience_id": pr.experience_id, "kind": "project",
+                    "heading": pr.name, "subhead": _period_label(pr.role, pr.start_time, pr.end_time)})
+    for edu in resume_doc.education:
+        out.append({"experience_id": edu.experience_id, "kind": "education",
+                    "heading": edu.school, "subhead": _period_label(edu.major, edu.start_time, edu.end_time)})
+    return [o for o in out if o.get("experience_id")]
+
+
+def _preview_skills(resume_doc: ResumeDocument) -> list[dict]:
+    """P4「技能专长」的权威投影（category/items 取自最终 ResumeDocument）。"""
+    return [{"category": g.category, "items": list(g.items), "fact_refs": list(g.fact_refs)}
+            for g in resume_doc.skills]
+
+
+def _fact_source_texts(db, resume_doc: ResumeDocument) -> dict[str, str]:
+    """按权威 fact_refs 从 Fact 表读取原文（只读投影，供「事实来源」展示）。
+
+    仅返回真实存在且非空的原文；缺失的 fact_id 不出现（前端据此说明"未包含原文"）。
+    """
+    refs: list[str] = []
+    for item in [*resume_doc.education, *resume_doc.work, *resume_doc.projects, *resume_doc.skills]:
+        for r in (getattr(item, "fact_refs", None) or []):
+            if r and r not in refs:
+                refs.append(r)
+    if not refs:
+        return {}
+    from database.models import Fact
+    rows = db.query(Fact).filter(Fact.fact_id.in_(refs)).all()
+    return {f.fact_id: (f.text or "").strip() for f in rows if (f.text or "").strip()}
+
+
 def assemble_and_render(
     db,
     summary,
@@ -612,27 +659,35 @@ def assemble_and_render(
             assert_publishable(problems)
 
         # 6) PreviewAnchor：从 Word 转换后的确切 PDF 文本层重建（T06 anchor/依据定位）。
-        #    绑定本 revision artifact 身份 op_slug；无法可靠定位的行记 unavailable（不高亮，诚实降级）。
+        #    V2.2.0 DOC_RETURNED：三类可选中目标（fact / section / skills）。
+        #    单条事实锚点绑定本次生成的 fact_id + 真实 fact_refs；整段经历/项目与技能专长
+        #    锚点取该条目**已真实定位**正文行的并集——不使用固定样张坐标，不做标题猜测。
+        #    行定位失败 → unavailable（不高亮、不产生幽灵热区，诚实降级）。
         pdf_anchors: list[dict] = []
         if pdf_bytes:
             try:
                 from services import pdf_anchors as _pa
-                rows: list[dict] = []
-                for edu_ in resume_doc.education:
-                    if getattr(edu_, "description", None):
-                        rows.append({"text": edu_.description,
-                                     "content_item_id": edu_.experience_id or None,
-                                     "bullet_index": 0})
-                for w_ in resume_doc.work:
-                    for bi, bl in enumerate(w_.bullets):
-                        rows.append({"text": bl,
-                                     "content_item_id": w_.experience_id or None,
-                                     "bullet_index": bi})
-                for pr_ in resume_doc.projects:
-                    for bi, bl in enumerate(pr_.bullets):
-                        rows.append({"text": bl,
-                                     "content_item_id": pr_.experience_id or None,
-                                     "bullet_index": bi})
+                # 逐 bullet 的依据与事实身份：来自本次生成结果（summary.experiences），
+                # 与 assemble_resume_document 的 bullets 顺序一一对应（空 bullet 跳过）。
+                refs_by_bullet: dict[tuple[str, int], list[str]] = {}
+                fact_ids_by_bullet: dict[tuple[str, int], str] = {}
+                for _exp in (getattr(summary, "experiences", None) or []):
+                    _eid = normalize_text(getattr(_exp, "experience_id", "") or "")
+                    _bi = 0
+                    for _f in (getattr(_exp, "facts", None) or []):
+                        _bullet = compose_fact_bullet(getattr(_f, "headline", ""),
+                                                      getattr(_f, "body", ""))
+                        if not _bullet:
+                            continue
+                        refs_by_bullet[(_eid, _bi)] = [
+                            r for r in (getattr(_f, "fact_refs", None) or []) if r]
+                        _fid = getattr(_f, "fact_id", "") or ""
+                        if _fid:
+                            fact_ids_by_bullet[(_eid, _bi)] = _fid
+                        _bi += 1
+                rows = _pa.build_rows_from_resume_doc(
+                    resume_doc, refs_by_bullet=refs_by_bullet,
+                    fact_ids_by_bullet=fact_ids_by_bullet)
                 _anchors, _unavail = _pa.build_anchors_from_word_pdf(
                     pdf_bytes, rows, artifact_id=op_slug)
                 pdf_anchors = [dict(a) for a in _anchors]
@@ -646,6 +701,16 @@ def assemble_and_render(
 
         docx_sha = artifact_store.sha256_file(docx_staged)
         pdf_sha = artifact_store.sha256_file(pdf_staged) if pdf_staged else ""
+        # 7) P4 右侧详情（Fact/段落/技能）的权威投影：全部来自同一个最终 ResumeDocument
+        #    与权威 fact_refs（Fact 表只读）。任何失败都降级为空投影（右侧不显示详情，
+        #    绝不编造），不影响 DOCX/PDF/anchor 主链。
+        try:
+            preview_sections = _preview_sections(resume_doc)
+            preview_skills = _preview_skills(resume_doc)
+            fact_sources = _fact_source_texts(db, resume_doc)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("P4 preview projection failed（详情降级为空）: %s", e)
+            preview_sections, preview_skills, fact_sources = [], [], {}
         artifacts = {
             # 最终发布名（提升后相对 output 目录的语义标签；staging 阶段尚未存在）
             "docx_path": f"output/{docx_name}",
@@ -664,6 +729,9 @@ def assemble_and_render(
             "pdf_sha256": pdf_sha,
             "pdf_size_bytes": os.path.getsize(pdf_staged) if pdf_staged else 0,
             "pdf_anchors": pdf_anchors,
+            "preview_sections": preview_sections,
+            "preview_skills": preview_skills,
+            "fact_sources": fact_sources,
             "warnings": list(warnings),
             "validate": {"ok": True, "problems": []},
         }

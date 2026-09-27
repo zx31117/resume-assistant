@@ -31,6 +31,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from h8_p4_interact import run as p4_interact  # noqa: E402
+
 
 def _rmtree_force(path, attempts: int = 8) -> bool:
     """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。
@@ -852,6 +855,24 @@ def _ui_generate(base: str, port: int, proxy_out: Path, base_total: int) -> dict
             "note": "同源断言：viewer 渲染态 ready + ≥1 页 canvas；再以 uiHash16 vs 下载 PDF sha 对齐",
         }
         step("ui_pdf_viewer", viewer_ready=viewer_ok, pages=viewer_pages)
+
+        # PLAN §R3-24 §24.4-4：anchor 数量 / artifact_id 绑定 / PDF ready **不能**替代交互结果。
+        # 进入 P4 后必须真实激活 fact / section / skills × mouse / Enter / Space，断言
+        # aria-pressed、`.selected`、右侧详情实际变化与再次激活取消（与 Design Fidelity
+        # 共用 scripts/h8_p4_interact.py 同一实现，避免两处断言语义分叉）。
+        def _p4_ok(label: str, extra: str = "") -> None:
+            VD.require(f"ui.{label}", True)
+            step(f"ui.{label}", detail=extra)
+
+        def _p4_bad(label: str, why: str) -> None:
+            VD.require(f"ui.{label}", False, why=why)
+
+        try:
+            p4_interact(_bx, ok=_p4_ok, bad=_p4_bad, log=log,
+                        evidence=EVIDENCE.setdefault("ui_p4_interactions", {}),
+                        tag="P4.interact")
+        except BaseException as _e:  # noqa: BLE001
+            VD.fail("ui.P4.interact.exception", detail=repr(_e)[:200])
 
         # 页面内取证：
         # 1) 读两个 `<a data-role=download-*>` 的 href，并**在页面内**同步取回字节长与

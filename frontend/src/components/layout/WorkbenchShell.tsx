@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import BrandLink from './BrandLink'
 import { useWorkbenchTask } from '../../pages/workbench/WorkbenchTaskContext'
 import type { TaskStatus } from '../../api/types'
 
 /**
  * V2.2.0 T02：工作台顶栏壳（DS-003 顶栏 + 头像菜单）。
- * 顶栏 3 列：左 = 头像按钮/菜单，中 = 品牌，右 = 状态 + 开始新任务/取消生成。
+ * 顶栏 3 列：左 = 头像按钮/菜单，中 = 品牌，右 = 状态 + 主动作。
+ *
+ * V2.2.0 DOC_RETURNED 返工（DS-003 路由感知语义）：
+ * - 仅工作台路由 `/` 显示主动作按钮：RUNNING → 「取消生成」，其他状态 → 「＋ 开始新任务」；
+ * - experiences / records / privacy 等实际可达的同壳非工作台路由：隐藏「开始新任务」，
+ *   改为「← 返回工作台」（复用 BrandLink 的 click / Enter / Space / focus-visible 与单飞语义），
+ *   返回只做路由跳转 → 保留同一 Task / 输入 / phase / artifact，**不调用 startNewTask、不建
+ *   新 Task、不触发任何模型请求**；
+ * - 头像菜单中的「← 返回当前生成任务」同样只跳转。
  */
 function statusText(status: TaskStatus | null, phase: string, saving: boolean, dirty: boolean, loadState: string, loadError: string | null): string {
   if (loadState === 'loading') return '正在读取任务…'
@@ -46,10 +54,14 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function WorkbenchShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { status, snapshotPhase, saving, dirty, loadState, loadError, cancel, startNewTask, generatePending } = useWorkbenchTask()
   const [menuOpen, setMenuOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const avatarBtnRef = useRef<HTMLButtonElement>(null)
+
+  // DS-003：主动作（取消/开始新任务）只属于工作台路由；非工作台路由显示「返回工作台」。
+  const onWorkbench = location.pathname === '/'
 
   // 点击外部 / Escape 关闭菜单（T09：关闭后焦点归还触发按钮，便于键盘继续操作）
   useEffect(() => {
@@ -144,15 +156,31 @@ export default function WorkbenchShell({ children }: { children: React.ReactNode
           <span className="wb-top-status" aria-live="polite">
             {statusLabel}
           </span>
-          {/* 无任务时开始新任务；运行中显示取消生成 */}
-          <button
-            type="button"
-            className={running ? 'wb-btn wb-btn--ghost wb-btn--sm' : 'wb-btn wb-btn--primary wb-btn--sm'}
-            onClick={() => void onPrimaryAction()}
-            disabled={generatePending}
-          >
-            {running ? '取消生成' : '＋ 开始新任务'}
-          </button>
+          {onWorkbench ? (
+            <>
+              {/* 工作台：无任务/草稿 → 开始新任务；运行中 → 取消生成 */}
+              <button
+                type="button"
+                className={running ? 'wb-btn wb-btn--ghost wb-btn--sm' : 'wb-btn wb-btn--primary wb-btn--sm'}
+                data-action={running ? 'cancel' : 'new-task'}
+                onClick={() => void onPrimaryAction()}
+                disabled={generatePending}
+              >
+                {running ? '取消生成' : '＋ 开始新任务'}
+              </button>
+            </>
+          ) : (
+            /* 非工作台（我的经历 / 我的简历 / 个人与隐私等同壳页面）：
+               不提供「开始新任务」（避免误清空当前 Task）；只提供返回工作台，
+               返回仅做路由跳转，当前 Task / 输入 / phase / artifact 原样保留。 */
+            <BrandLink
+              className="wb-btn wb-btn--ghost wb-btn--sm wb-top-back"
+              label="返回工作台"
+              dataRole="top-back"
+            >
+              ← 返回工作台
+            </BrandLink>
+          )}
         </div>
       </header>
 

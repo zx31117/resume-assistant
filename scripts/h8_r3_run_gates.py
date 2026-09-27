@@ -27,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 BACKEND = ROOT / "backend"
+FRONTEND = ROOT / "frontend"
 VA = ROOT / "validation-artifacts" / "h8"
 
 PY = "C:/Users/31117/AppData/Local/Programs/Python/Python310/python.exe"
@@ -58,6 +59,11 @@ def gate_specs(exe: str, ev: Path) -> list[dict]:
     return [
         dict(name="precheck", cwd=ROOT, argv=[PY, "scripts/precheck.py"],
              target="precheck.log", src=None, cleanup=False),
+        # V2.2.0 DOC_RETURNED：前端组件级正反向测试（空 anchor / 错 artifact / 单 fact /
+        # section / skills / 重复点击取消 / 键盘 / 事件单飞）。离线，无浏览器、无模型。
+        dict(name="frontend_test", cwd=FRONTEND,
+             argv=["node", "node_modules/vitest/vitest.mjs", "run"],
+             target="frontend_test.log", src=None, cleanup=False),
         dict(name="package_audit", cwd=ROOT,
              argv=[PY, "scripts/h8_package_audit.py", "--dir", "dist/ResumeAssistant",
                    "--json", str(ev / "package_audit.json")],
@@ -110,6 +116,16 @@ def gate_specs(exe: str, ev: Path) -> list[dict]:
              argv=[PY, "scripts/h8_r3_seal_manifest_negtest.py",
                    "--out", str(ev / "seal_manifest_negtest.json")],
              target="seal_manifest_negtest.json", src=None, cleanup=False),
+        # V2.2.0 DOC_RETURNED：P4 anchor 三类目标离线正反向门（无浏览器、无模型）。
+        dict(name="docreturned_anchor", cwd=BACKEND,
+             argv=[PY, "_v220_docreturned_anchor.py"],
+             target="docreturned_anchor.log", src=None, cleanup=False),
+        # V2.2.0 DOC_RETURNED：P4 真实交互离线门（源码后端 + frontend/dist + fake Provider
+        # + 隔离 runtime + 真实鼠标/键盘）。使用固定端口 8013/8795，必须与其它浏览器门串行。
+        dict(name="docreturned_ui", cwd=ROOT,
+             argv=[PY, "scripts/h8_r3_docreturned_ui.py"],
+             target="docreturned_ui_summary.json",
+             src=VA / "docreturned_ui" / "docreturned_ui_summary.json", cleanup=True),
     ]
 
 
@@ -128,6 +144,7 @@ def _collect_cleanup(ev: Path) -> dict:
     auth = _load_json(ev / "artifact_auth_matrix.json")
     atomic = _load_json(ev / "atomic_publish_matrix.json")
     verdict = _load_json(ev / "gate_verdict_negtest.json")
+    dui = _load_json(ev / "docreturned_ui_summary.json")
 
     winword = []
     for d in (e2e, fm):
@@ -145,6 +162,7 @@ def _collect_cleanup(ev: Path) -> dict:
     put("artifact_auth_runtime_deleted", auth.get("runtime_deleted"))
     put("atomic_publish_runtime_removed", (atomic.get("cleanup") or {}).get("runtime_removed"))
     put("gate_verdict_runtime_removed", (verdict.get("cleanup") or {}).get("runtime_removed"))
+    put("docreturned_ui_runtime_removed", (dui.get("cleanup") or {}).get("runtime_removed"))
     return cleanup
 
 

@@ -32,6 +32,9 @@ import tempfile
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from h8_p4_interact import run as p4_interact  # noqa: E402
+
 
 def _rmtree_force(path, attempts: int = 8) -> bool:
     """删除目录树，兼容**只读文件**（产品迁移备份 `*.db.bak` 被 `os.chmod(bak, 0o444)`）。
@@ -388,6 +391,22 @@ def _wait_pdf_ready(base: str, timeout_s: float = 90.0) -> dict:
     return {}
 
 
+# ── P4 真实交互取证（PLAN §R3-24：Design Fidelity 不得以 canvas ready / anchor 数量
+#    / artifact_id 绑定代替交互通过）──────────────────────────────────────────── #
+# 断言实现集中在 scripts/h8_p4_interact.py，与主链/最终包 E2E 共用同一份，避免语义分叉。
+# 断言名前缀 P4.interact.*；`evidence` 写入 EVIDENCE["workbench"]。
+def _p4_interactions(base: str, vp_dir: Path) -> None:
+    """PLAN §R3-24：P4 真实交互断言 —— fact / section / skills × mouse / Enter / Space。
+
+    * 每类目标分别用真实鼠标与键盘 Enter/Space 激活，断言 aria-pressed=true、`.selected`、
+      右侧详情**实际变化且与所选对象一致**，再以同一方式再次激活取消选择；
+    * 互斥（fact→section 只应一个选中）与滚动后热区仍精确命中（热区与正文对齐）；
+    * 不以 canvas ready / anchor 数量 / artifact_id 绑定代替交互通过。
+    """
+    p4_interact(bx, ok=ok, bad=bad, log=log, evidence=EVIDENCE["workbench"],
+                tag="P4.interact")
+
+
 def _review_phase(base: str, idx: int, key: str, vp_dir: Path, viewport: tuple[int, int]) -> dict:
     """reviewStep 回看第 idx 个已 done 步骤（P1/P2/P3），截图+probe；不做任何新生成请求。
 
@@ -612,6 +631,16 @@ def workbench_full_states(base: str, exe, runtime) -> None:
     else:
         bad("wb.P4 download area pinned",
             f"pdfCanvas={rec0.get('pdfCanvas')} dlBar={rec0.get('dlBar')} dlLinks={rec0.get('dlLinks')}")
+    # P4 真实交互（PLAN §R3-24）：fact / section / skills × mouse / Enter / Space。
+    # 在 1920x1080 已就绪成功态上执行；结束后选择已取消，不污染后续 7 视口截图。
+    try:
+        _p4_interactions(base, vp_dir)
+    except BaseException as _e:  # noqa: BLE001 —— 交互取证异常不得吞掉其余保真断言
+        import traceback as _tb
+        _tb.print_exc()
+        EVIDENCE["workbench"]["_p4_interactions_exception"] = repr(_e)
+        bad("P4.interact.exception", repr(_e))
+
     for (vw, vh) in VIEWPORTS:
         _capture_state(base, "P4", vp_dir, vp_dir / f"P4_{vw}x{vh}.png", viewport=(vw, vh))
 

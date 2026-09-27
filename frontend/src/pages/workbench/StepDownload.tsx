@@ -13,8 +13,13 @@ import { useWorkbenchTask } from './WorkbenchTaskContext'
  *   running/其他终态仍由 WorkbenchPage 继续展示 StepCheckout 过程预览（诚实，不抢先）。
  * - PDF.js viewer 与「下载 PDF」读取同一 artifact（同一 task-scoped 权威路由），字节一致；
  * - anchor/依据：数据唯一真源 = P4 快照 artifacts.pdf_anchors（由后端从确切 PDF 文本层重建，
- *   绑定 pdf_artifact_id）。无 anchors / 与 artifact 身份错配 → PdfPreview 内建 fail closed，不渲染命中层；
+ *   绑定 pdf_artifact_id）。无 anchors / 与 artifact 身份错配 / anchor 缺身份键 →
+ *   PdfPreview 内建 fail closed，不渲染热点（诚实关闭交互，不显示幽灵热区）；
  * - PDF 缺失（生成失败）时如实展示占位，Word 下载仍由 successAside 提供，绝不在 PDF 上伪造可用链接。
+ *
+ * V2.2.0 DOC_RETURNED 返工：选择状态为**受控**——由 WorkbenchPage（主面板与说明卡的
+ * 最近公共祖先）持有并下发，本组件只负责把它转交给 PdfPreview；右侧 StepSuccessAside 消费
+ * 同一个选择对象。PdfPreview 不再是自持状态的独立交互实现。
  */
 
 interface ArtifactsView {
@@ -25,7 +30,14 @@ interface ArtifactsView {
   docx_path?: string
 }
 
-export default function StepDownload() {
+export interface StepDownloadProps {
+  /** 受控选中锚点（null = 未选择）。 */
+  selection: PdfAnchor | null
+  /** 受控选择回调（null = 取消选择）。 */
+  onSelect: (anchor: PdfAnchor | null) => void
+}
+
+export default function StepDownload({ selection, onSelect }: StepDownloadProps) {
   const { taskId, status, snapshotPayload, publishedPdfPath } = useWorkbenchTask()
 
   const artifacts = useMemo<ArtifactsView>(() => {
@@ -58,10 +70,16 @@ export default function StepDownload() {
   return (
     <div className="wb-download">
       <div className="wb-download__caption">
-        PDF 内容与「下载 PDF」文件一致；Word 是唯一排版真源。
+        PDF 内容与「下载 PDF」文件一致；Word 是唯一排版真源。点击事实、整段经历或技能专长可查看详情。
       </div>
       <div className="wb-download__preview">
-        <PdfPreview url={pdfUrl} artifactId={artifactId} anchors={anchors} />
+        <PdfPreview
+          url={pdfUrl}
+          artifactId={artifactId}
+          anchors={anchors}
+          selectedAnchor={selection}
+          onSelectAnchor={onSelect}
+        />
       </div>
     </div>
   )

@@ -899,6 +899,133 @@
   background: var(--wb-success-wash);
   color: var(--success);
 }
+.wb-badge--neutral {
+  background: var(--subtle);
+  color: var(--ink);
+}
+
+/* ============================================================
+   V2.2.0 DOC_RETURNED 返工：P4 选择详情（DS-003 successAside 语义）
+   - .wb-top-back：非工作台路由的「← 返回工作台」，复用 .wb-btn 视觉；
+   - .detail-stream / .reason-box / .source-box：单条 Fact 详情（表述 · 选择理由 · 原始事实）；
+   - .section-detail / .section-detail-row / .section-fact：整段经历·项目与技能专长详情。
+   全部只读展示，不改变主面板 PDF 几何。
+   ============================================================ */
+
+.wb-top-back {
+  text-decoration: none;
+}
+
+.detail-stream h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.detail-stream > p {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.reason-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--subtle);
+}
+.reason-box strong {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-weight: 600;
+}
+.reason-box span {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.source-box {
+  margin-top: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+.source-box summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.source-box blockquote {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.section-detail h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.field-help {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.section-detail-row {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+.section-detail-row strong {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+.section-detail-row p {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  word-break: break-word;
+}
+.section-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+}
+.section-fact strong {
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+.section-fact span {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  word-break: break-word;
+}
+.section-fact--static {
+  cursor: default;
+}
+.section-detail__empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 /* —— P4 成功右卡下载区（冻结 success-downloads，固位面板底部）—— */
 .wb-panel__foot.wb-success-downloads {

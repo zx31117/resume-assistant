@@ -1322,6 +1322,46 @@ select.input {
   outline: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
+/* —— V2.2.0 DOC_RETURNED 返工：DS-003 三类热点语义 ——
+   .pdf-fact-layer  = 命中层（真实坐标绝对定位，非样张百分比）；
+   .pdf-fact-hotspot / .pdf-section-hotspot = 单条 fact / 整段经历·技能；
+   .selected        = DS-003 受控选中态（与 aria-pressed="true" 同步）。 */
+.pdf-fact-layer {
+  /* 层本身不拦截指针，仅其内热点可点（保持 canvas 可滚动/可选） */
+  pointer-events: none;
+}
+
+.pdf-fact-hotspot,
+.pdf-section-hotspot {
+  /* 基础几何/可点样式复用 .pdf-hit，此处仅声明语义分组与层级 */
+  pointer-events: auto;
+}
+
+.pdf-section-hotspot {
+  /* 整段热点为成员行的并集，位于 fact 热点之下 */
+  z-index: 1;
+}
+
+.pdf-fact-hotspot {
+  z-index: 2;
+}
+
+.pdf-hit.selected {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 0;
+}
+
+.pdf-fact-hotspot.selected {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent);
+}
+
+.pdf-section-hotspot.selected {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
 /* ============================================================
    V2.1.0 T12-R10：结果预览（按 pm_template v1.2 忠实视觉）
    - 唯一外层容器（卡片）= 唯一边框/圆角/阴影来源；

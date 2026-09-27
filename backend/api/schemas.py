@@ -414,6 +414,15 @@ class PreviewAnchor(BaseModel):
     - bullet_index：该内容条目内的视觉 bullet 行序（0 起）。
     - fact_refs：该 bullet 的真实 fact 引用（来自 builder bullet_fact_refs，
       无映射不编造 → 空列表）。
+
+    V2.2.0 DOC_RETURNED 返工：新增 kind / fact_id，区分 DS-003 的三类可选中目标。
+    - kind='fact'：单条事实（一行 bullet 正文，需 fact_refs 非空）；
+    - kind='section'：整段经历/项目（该条目已定位正文行的并集，content_item_id 为
+      experience_id）；
+    - kind='skills'：技能专长整段（已定位技能行的并集，content_item_id='skills'）。
+    历史（V2.1.0）锚点无 kind 字段，缺省按 'fact' 解释，向后兼容。
+    - fact_id：该 bullet 对应的本次生成事实身份（来自生成结果 fact_id）；无对应
+      事实（如教育整段描述）时为 None。前端据此与快照 facts 精确对齐，不做位置猜测。
     """
 
     artifact_id: str = ""
@@ -426,6 +435,8 @@ class PreviewAnchor(BaseModel):
     bullet_index: Optional[int] = None
     text: str = ""
     fact_refs: List[str] = []
+    kind: str = "fact"
+    fact_id: Optional[str] = None
 
 
 class ResumeDocxGenerateResponse(BaseModel):

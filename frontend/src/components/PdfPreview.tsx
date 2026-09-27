@@ -19,7 +19,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
  *   换算到屏幕 CSS px（y 翻转为自顶向下），放透明可点元素；纯绝对定位不改 canvas 几何；
  * - 任何失败都不得回退 HTML 近似预览：loading / 失败 / 非 PDF 都停在固定尺寸状态，
  *   提供「重试 / 返回修改输入」入口。
- * - 键盘可达：命中元素为真实 <button>（role 语义天然满足 + aria-label=bullet 文本）。
+ * - 键盘可达：命中元素为真实 <button>（role 语义天然满足 + aria-label）；
+ * - V2.2.0 DOC_RETURNED 返工（受控多类选择，DS-003 语义）：
+ *     热点分三类 —— `pdf-fact-hotspot`（单条 fact，data-fact）/ `pdf-section-hotspot`
+ *     （整段经历·项目，data-section）/ `pdf-section-hotspot`（技能专长，data-section="skills"）；
+ *     选中态叠加 `selected` + aria-pressed；选择状态由父组件持有（受控），再次点击取消；
+ *     anchor 缺身份键（无 fact_id / 无 content_item_id）或未提供 onSelectAnchor 时不渲染热点，
+ *     诚实关闭对应交互（不显示可点击却无响应的幽灵热区），PDF 查看不受影响。
  */
 
 export interface PdfPreviewProps {
@@ -30,9 +36,27 @@ export interface PdfPreviewProps {
   anchors?: PdfAnchor[] | null
   /** 当前选中锚点（父组件持有，用于命中层高亮 / aria-pressed）。 */
   selectedAnchor?: PdfAnchor | null
+  /** 受控选择回调。未提供 → 不渲染任何热点（禁止无响应幽灵热区）。 */
   onSelectAnchor?: (anchor: PdfAnchor | null) => void
   onRetry?: () => void
   onBackToEdit?: () => void
+}
+
+/**
+ * V2.2.0 DOC_RETURNED 返工：P4 受控选择的**唯一**身份键（DS-003 语义）。
+ *  - kind='fact'   → `fact:<fact_id>`；缺 fact_id 时返回 null（无法对齐 Fact 详情 → 不可选）；
+ *  - kind='section'→ `section:<content_item_id>`；缺条目 id 时返回 null；
+ *  - kind='skills' → `skills`；仍需 content_item_id 作为命中层的整段身份（真实链恒为 'skills'），
+ *    缺失时返回 null（不可选，避免出现无身份的幽灵热区）；
+ *  - 其他/缺失 kind 且无 fact_id → null（历史锚点不可选，诚实退出，不产生幽灵热区）。
+ * 选择状态由父组件以该键表达，PdfPreview 与 StepSuccessAside 共用同一键，保证两侧一致。
+ */
+export function anchorSelectionKey(a: PdfAnchor): string | null {
+  const kind = a.kind ?? 'fact'
+  if (kind === 'fact') return a.fact_id ? `fact:${a.fact_id}` : null
+  if (kind === 'section') return a.content_item_id ? `section:${a.content_item_id}` : null
+  if (kind === 'skills') return a.content_item_id ? 'skills' : null
+  return null
 }
 
 interface PageMeta {
@@ -48,6 +72,9 @@ interface HitRect {
   width: number
   height: number
   anchor: PdfAnchor
+  /** DS-003 选择身份键（fact:<id> / section:<id> / skills）；非空才渲染热点。 */
+  selKey: string
+  hitKind: 'fact' | 'section' | 'skills'
 }
 
 interface PageView {
@@ -116,7 +143,7 @@ export default function PdfPreview({
     return inflight
   }, [])
 
-  const selectedKey = selectedAnchor ? pdfAnchorKey(selectedAnchor) : null
+  const selectedKey = selectedAnchor ? anchorSelectionKey(selectedAnchor) : null
 
   /* ── 只保留与当前 artifact 匹配的锚点（不匹配 → fail closed，不渲染命中层） ── */
   const usableAnchors = useMemo(() => {
@@ -125,8 +152,10 @@ export default function PdfPreview({
       // 响应未给 artifact_id（旧后端）：无法核对身份，宁可不叠加命中层也不猜测。
       return []
     }
-    return list.filter((a) => a.artifact_id === artifactId)
-  }, [anchors, artifactId])
+    // 无受控回调 → 热点必然无响应；禁止渲染可点击但无反应的幽灵热区。
+    if (!onSelectAnchor) return []
+    return list.filter((a) => a.artifact_id === artifactId && anchorSelectionKey(a) !== null)
+  }, [anchors, artifactId, onSelectAnchor])
 
   const resetDoc = useCallback(() => {
     const doc = docRef.current
@@ -251,8 +280,20 @@ export default function PdfPreview({
         const width = br[0] - tl[0]
         const height = br[1] - tl[1]
         if (![left, top, width, height].every((v) => Number.isFinite(v) && v >= 0)) continue
-        hits.push({ key: pdfAnchorKey(a), left, top, width, height, anchor: a })
+        hits.push({
+          key: pdfAnchorKey(a),
+          left,
+          top,
+          width,
+          height,
+          anchor: a,
+          selKey: anchorSelectionKey(a)!,
+          hitKind: (a.kind ?? 'fact') as 'fact' | 'section' | 'skills',
+        })
       }
+      // 整段（section/skills）先渲染、fact 后渲染：后者位于上层，保证行内点击命中 fact，
+      // 段落其余区域命中整段（与 DS-003 `[data-section]` / `[data-fact]` 层级一致）。
+      hits.sort((x, y) => (x.hitKind === 'fact' ? 1 : 0) - (y.hitKind === 'fact' ? 1 : 0))
       views.push({ pageNo: meta.pageNo, cssW: availW, cssH, hits })
     }
     setPages(views)
@@ -341,7 +382,7 @@ export default function PdfPreview({
 
   const handleHitClick = (e: ReactMouseEvent<HTMLButtonElement>, hit: HitRect) => {
     e.stopPropagation()
-    if (selectedKey === hit.key) {
+    if (selectedKey !== null && selectedKey === hit.selKey) {
       onSelectAnchor?.(null) // 再次点击取消选择
       return
     }
@@ -408,19 +449,40 @@ export default function PdfPreview({
               }}
               className="pdf-page__canvas"
               role="img"
-              aria-label={`PDF 第 ${pv.pageNo} 页`}
+              aria-label={
+                pv.hits.length > 0
+                  ? `简历 PDF 第 ${pv.pageNo} 页；可点击事实、整段经历和技能专长查看详情`
+                  : `简历 PDF 第 ${pv.pageNo} 页`
+              }
             />
-            <div className="pdf-page__overlay">
+            <div className="pdf-page__overlay pdf-fact-layer">
               {pv.hits.map((hit) => {
-                const active = selectedKey === hit.key
+                const active = selectedKey !== null && selectedKey === hit.selKey
+                // DS-003 语义：整段（section/skills）与单条 fact 使用各自的类名与 data 属性，
+                // 选中态类名为 `selected`；真实 <button> 天然支持 mouse / Enter / Space 与 focus-visible。
+                const dsClass =
+                  hit.hitKind === 'fact' ? 'pdf-fact-hotspot' : 'pdf-section-hotspot'
+                const dataAttrs =
+                  hit.hitKind === 'fact'
+                    ? { 'data-fact': hit.anchor.fact_id ?? '' }
+                    : { 'data-section': hit.anchor.content_item_id ?? '' }
                 return (
                   <button
                     key={hit.key}
                     type="button"
-                    className={'pdf-hit' + (active ? ' pdf-hit--selected' : '')}
+                    className={
+                      `pdf-hit ${dsClass}` +
+                      (active ? ' selected pdf-hit--selected' : '')
+                    }
+                    data-anchor-kind={hit.hitKind}
+                    {...dataAttrs}
                     style={{ left: hit.left, top: hit.top, width: hit.width, height: hit.height }}
                     aria-pressed={active}
-                    aria-label={hit.anchor.text || `第 ${hit.anchor.page_index + 1} 页内容行`}
+                    aria-label={
+                      hit.hitKind === 'fact'
+                        ? `查看事实：${hit.anchor.text}`
+                        : `查看整段${hit.anchor.text || '内容'}`
+                    }
                     title={hit.anchor.text}
                     onClick={(e) => handleHitClick(e, hit)}
                   />

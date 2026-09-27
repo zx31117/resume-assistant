@@ -719,7 +719,9 @@ def s7_full_operation(port: int, base: str, label: str, expect_pre: bool) -> Non
     # fill 只写 DOM value 不派发 input/change，React state 不会更新 → 必须用原生 value
     # setter + input/change 事件，并轮询 window.__h8fill 回读验证 React state 真拿到值
     # （对齐 h8_real_model_e2e 已验证的写入路径，否则点击被「请填写姓名」拦截）。
-    # 保留旧 GeneratePage 的「编辑→姓名」回退（部分环境 snapshot 无 id 时仍能命中）。
+    # 双选择器回退（#wb-name / placeholder）：部分环境 snapshot 无 id 时仍能命中。
+    # 注：旧 GeneratePage 已于 V2.2.0 DOC_RETURNED 返工删除（同根重复实现退出），
+    # 该回退仅针对 StepIdentity 的选择器差异，不涉及任何旧页面。
     bx(["eval",
         "(()=>{"
         "const setV=(el,v)=>{"

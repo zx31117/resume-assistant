@@ -137,13 +137,17 @@ export interface RenderStats {
 
 // ———— V2.1.0 R15a/R16：PDF artifact 元数据与逐 bullet 锚点 ————
 
+/** V2.2.0 DOC_RETURNED 返工：P4 可选中目标类别（DS-003：fact / 整段经历·项目 / 技能专长）。 */
+export type PdfAnchorKind = 'fact' | 'section' | 'skills'
+
 /** V2.1.0 R15a：PDF 版式中的可点内容行锚点（backend/api/schemas.py PreviewAnchor）。
  *  - 坐标一律 PDF 用户坐标 pt、y 自底部向上（A4 高 842）；x0<x1、y0<y1；
  *  - page_index 从 0 起（与 pdf.js pageIndex 一致）；pdf.js 渲染时经
  *    page.getViewport().convertToViewportPoint 换算为屏幕坐标（y 翻转为自顶向下）；
- *  - content_item_id：经历类条目为其 experience_id；技能组等无库 id 的内容行用
- *    定位 key（如 skills:0）；无对应条目时为 null；
- *  - fact_refs：该 bullet 的真实 fact 引用（无映射不编造 → 空列表）。 */
+ *  - content_item_id：经历类条目为其 experience_id；技能整段为 'skills'；无对应条目时为 null；
+ *  - fact_refs：该锚点的真实 fact 引用（无映射不编造 → 空列表）；
+ *  - kind：可选中目标类别；历史锚点缺省按 'fact' 解释；
+ *  - fact_id：kind='fact' 时对应本次生成 fact_id，用于与右侧 Fact 详情精确对齐；无则不可选。 */
 export interface PdfAnchor {
   artifact_id: string
   page_index: number
@@ -155,6 +159,8 @@ export interface PdfAnchor {
   bullet_index?: number | null
   text: string
   fact_refs?: string[]
+  kind?: PdfAnchorKind
+  fact_id?: string | null
 }
 
 // ———— V2.1.0 T6：内容预览 + 逐 bullet 事实依据 ————

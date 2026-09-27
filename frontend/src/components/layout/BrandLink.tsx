@@ -18,11 +18,14 @@ export default function BrandLink({
   className,
   label,
   children,
+  dataRole = 'brand-home',
 }: {
   to?: string
   className: string
   label: string
   children: React.ReactNode
+  /** 测试/门禁可识别的角色标记（默认 brand-home；顶栏返回动作使用 top-back）。 */
+  dataRole?: string
 }) {
   const navigate = useNavigate()
   const firedRef = useRef(0)
@@ -46,7 +49,7 @@ export default function BrandLink({
       role="link"
       aria-label={label}
       tabIndex={0}
-      data-role="brand-home"
+      data-role={dataRole}
       onClick={activate}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar' || e.key === 'Space') {
