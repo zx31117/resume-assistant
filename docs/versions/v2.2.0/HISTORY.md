@@ -823,3 +823,22 @@
 - 成本偏差：审批包曾错误声明 Design Fidelity 为 0 模型调用，实际发生 4 次真实生成并含一次 terminal
   `FAILED`。全部 attempt 与授权事件须保留，之后禁止新增付费调用；本轮只允许工具、脱敏、manifest、
   seal 和 RESULT 的离线纠正，不重 build/打包或重跑任何真实模型 Gate。
+
+## VH-045 §R3-27 离线返工因 seal/manifest 语义未闭环继续退回
+
+- 日期：2026-09-27
+- 阶段：V2.2.0 Revision 3 离线工具/证据收口 → Documentation Gate `DOC_RETURNED`
+- 对象：返工 SRC `69a65f3f11edbec3f302935323c658cebfc147e6`；HANDOFF `ccd336c7…`；RESULT-only
+  收口 `2be50a1…`；中央包 EXE SHA-256 `07991886…AA4264`。
+- 已通过复核：Git 父链/变更范围/PLAN blob 成立；runner 已保留失败记录并在独立离线重放中
+  10/10 成立；包身份、manifest SHA 与 51/51 checksum 一致。
+- 阻断一：中央 `source.diff` 与一份失败 attempt 日志各残留一处本机绝对路径；seal 未将
+  `.diff` 当作文本，也没有脱敏后本地路径复扫，仍错误输出 `ok=true`。
+- 阻断二：seal 虽把 `--extra-forbidden` 写入报告，实际扫描函数未使用该传入列表；活动
+  runner/seal 验证脚本还含用户特定的固定解释器/用户名字面量。
+- 阻断三：新 `run_gates_negtest.json` 只受 checksum 覆盖，未进入 manifest 语义；即使矩阵
+  `all_ok=false`，只要文件/checksum 自洽，manifest 仍可 `final_verdict=true`。`N05` 两子例的真实
+  退出码也未持久化。
+- 后续边界：只允许移除活动脚本的用户特定路径、修 seal/manifest、补离线反向矩阵并用
+  现有原始证据重新 stage/manifest/seal。产品源码和包不改，不 build/打包，不运行任何付费
+  Gate，不覆盖/删除旧失败封存，`review` 继续保持 `c8a63e0`。

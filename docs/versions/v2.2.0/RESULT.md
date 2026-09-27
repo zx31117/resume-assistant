@@ -1,13 +1,13 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待验收**
-> 当前阶段：§R3-26 `DOC_RETURNED` 的两项阻断（Gate runner 在 `--only` 下 fail-open、权威证据位于
-> 可覆盖且未脱敏的 ignored 目录）已按 §26.5 完成一次**离线最小返工**：runner 改为 fail-closed 并由
-> 离线正反向矩阵逐例验证；既有原始证据已脱敏、重算哈希、中央封存并在中央副本二次 verify（见
-> §R3-27）。本轮未修改产品源码/前端/后端/依赖/bundle/EXE，未重 build、未重打包、未重跑任何付费
-> Gate，也未移动 `review`。本 RESULT 不写 `DOC_ALIGNED` 或任何验收通过；`DOC_RETURNED` 是否解除由
-> Documentation Agent 集中复核最终中央字节后判定，解除前不得启动独立验收或发布
+> 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
+> 当前阶段：§R3-27 已证明 runner 的 `--only` 记录与汇总主缺陷已离线修复，中央包身份、
+> manifest 哈希与 51/51 checksum 也一致；但 Documentation Agent 集中复核发现，中央证据仍
+> 留有用户/机器本地绝对路径，seal 对 `.diff`、`--extra-forbidden` 与脱敏后残留扫描存在
+> fail-open；新增 runner 负向矩阵又未进入 manifest 语义判定（见 §R3-28）。本轮仍不判定产品包
+> 失败，也不允许重 build、重打包或重跑任何付费 Gate；仅允许将剩余工具/证据闭环一次性离线
+> 收口。`DOC_RETURNED` 解除前不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -44,7 +44,8 @@
 > - **中央封存入口**：`<acceptance-staging>/69a65f3/` 与 `<acceptance-staging>/69a65f3-evidence/`；
 >   manifest SHA-256 `caa3512cd7174c590c167cea891a67e997959a07e50e6cfd6507bf8e0258a7e6`、checksum
 >   51 条、中央副本 `manifest verify` 与 `verify-checksums` 均 `rc=0`（见 §27.5）；
-> - **当前门禁**：`DOC_RETURNED` 未解除；本轮不得进入独立验收或发布。
+> - **当前门禁**：§R3-28 已继续判定 `DOC_RETURNED`；该对象及其 manifest/checksum 作为失败
+>   证据保留，不得进入独立验收或发布。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -4997,3 +4998,96 @@ manifest 判定一致。
 **本轮不宣告任何验收通过。** §R3-26 的两项阻断均已按 §26.5 完成一次离线最小返工并留有可独立复核的
 字节证据；产品源码、包与 EXE 未做任何改动。`DOC_RETURNED` 是否解除，由 Documentation Agent 集中
 核对最终中央字节、runner fail-closed 矩阵与封存 checksum 后判定；解除前不得进入独立验收或发布。
+
+## R3-28. Documentation Gate：`DOC_RETURNED`（seal/manifest 语义未闭环，2026-09-27）
+
+### 28.1 已独立确认的成立项
+
+- Git 父链成立：`69a65f3` 唯一 parent 为 `07d6b89`，仅修改 runner 并新增离线矩阵；
+  `ccd336c` 与紧随的 `2be50a1` 均为 RESULT-only；PLAN blob 仍为 `7d8a249a…`；
+- runner 主修复成立：静态审查确认失败 Gate 不再被剔除，partial/未执行集合、空选择和
+  未知 Gate 有明确非绿语义；Documentation Agent 在一次性临时目录独立重放新矩阵，
+  `cases=10` / `failures=[]` / `all_ok=true` / 进程 `rc=0`；
+- 中央包身份独立复算为 4045 files / 170,399,477 B，EXE 16,855,308 B，SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；
+- 中央 `manifest.json` 字节 SHA-256 为 `CAA3512CD7174C590C167CEA891A67E997959A07E50E6CFD6507BF8E0258A7E6`；
+  现有字节上 manifest verify `rc=0`，checksum 独立逐项复算 51/51，无缺失、额外或 hash 不一致。
+
+上述只证明「当前封存字节与其自述 hash 一致」，不能覆盖下述语义与脱敏缺口。
+
+### 28.2 阻断一：中央证据仍含未脱敏本地绝对路径
+
+Documentation Agent 对中央 52 个证据文件独立扫描，发现两处真实 Windows 绝对路径残留：
+
+1. `source.diff` 仍含用户目录下的固定 Python 解释器路径（对外记录为
+   `<home>/AppData/Local/Programs/Python/...`，不在本 RESULT 回显用户名）；
+2. `attempt2/run.log` 仍含本机 system-data 目录的绝对路径。
+
+直接根因是 `h8_r3_seal.py` 的 `TEXT_EXT` 不含 `.diff`，因此 `source.diff` 被按二进制原样
+复制；现有规则只替换已知 workspace/home/temp 前缀，脱敏后又没有对剩余盘符/UNC 本地路径
+做 fail-closed 复扫。`STAGE_REPORT.ok=true` 和 `SEAL_REPORT.ok=true` 因此是不完整扫描下的假绿。
+
+### 28.3 阻断二：`--extra-forbidden` 只记录、未实际参与扫描
+
+`stage` 会把 `--extra-forbidden` 追加到局部 `forbidden` 并写入 `STAGE_REPORT.json`，但
+`_desensitize_tree()` 调用的 `_scan_forbidden()` 仍只遍历全局 `FORBIDDEN_SUBSTRINGS`，传入的
+`forbidden` 列表从未被使用。因此报告可以声称「已检查额外禁止项」，实际字节却未检查，属另一条
+fail-open。
+
+### 28.4 阻断三：runner 负向矩阵未进入 manifest 最终判定
+
+`run_gates_negtest.json` 虽被 `CHECKSUMS.sha256` 覆盖，但 `h8_r3_manifest.py` 既不读取该文件，也不校验
+其 runner SHA、必需 case 集合、逐例退出码、`all_ok` 或 `failures`，它也未进入 `verdicts` /
+`final_verdict`。这意味着一份 `all_ok=false` 但 checksum 与现场字节自洽的矩阵，仍可得到
+manifest `final_verdict=true`。「不注册为第 18 门」可以成立，但不等于它可以不进入 manifest 的
+独立辅助判定段。
+
+另有一项证据完整性缺口：`N05_empty_only` 实际测了空字符串与纯逗号两个子例，但持久化记录只有
+`exit_code=null`，没有两次真实子进程退出码。代码当前确实断言了「非 0」，但封存字节不足以让后续角色逐例
+机械复核。
+
+### 28.5 阻断四：活动验证脚本仍含用户特定固定路径
+
+全量 tracked 扫描确认，活动 `h8_r3_run_gates.py` 与 `h8_r3_seal_manifest_negtest.py` 仍把某一用户目录下的
+Python 路径写死；`h8_r3_seal.py` 的脱敏列表还显式写入同一用户名。这与 §R2-24 已冻结的「公开
+验证脚本不含用户特定固定路径」不一致，也是 `source.diff` 再次泄漏用户路径的源头。
+
+### 28.6 不构成本次阻断的已披露项
+
+- `gates_run.json._meta.src=ff2a8e2` 是原 17 门的真实运行身份；本轮被禁止重跑付费 Gate，
+  因此该字段保留旧 SRC 是如实记录，不得伪造改写；
+- manifest 在 `HEAD == ccd336c` 上构建，随后由 RESULT-only `2be50a1` 记录封存后数值，
+  符合已有避免自引用的收口先例，不要求倒改 manifest 的 HANDOFF 身份；
+- Design Fidelity 的四次付费调用与一次 terminal `FAILED` 已保留为治理偏差，本轮不通过补跑
+  覆盖，其产品归因留给 Acceptance 判定。
+
+### 28.7 唯一允许的下一轮收口
+
+本次仍不修改产品源码、前端、后端、依赖、配置、bundle 或 EXE，不重 build/打包，不调用真实模型，
+不重跑六格、content/mainchain E2E 或 Design Fidelity。一次性完成以下全部内容：
+
+1. 活动验证脚本改用 `sys.executable` 或等价的环境无关解释器解析；删除活动脚本中的用户名、
+   用户目录和项目绝对路径字面量，对本轮允许修改的全部 tracked 文件做零命中扫描；
+2. 修正 seal：`.diff` 必须按文本脱敏；`_scan_forbidden` 必须使用实际传入的 forbidden 列表；
+   以动态现场根路径和通用路径词法脱敏，并在替换后对盘符、UNC、用户目录、工作区、
+   临时目录、凭据与 PII 再做 fail-closed 复扫；公开 HTTP(S) URL 不得误报为本地路径；
+3. 将 runner 矩阵作为 manifest 的**独立辅助判定段**，不伪造为第 18 个原始 Gate；manifest
+   必须校验文件 hash、runner SHA、必需 case ID、每个子进程真实退出码、关键汇总字段、
+   `all_ok=true` 且 `failures=[]`，任一缺失/不一致必须使 `final_verdict=false` 并非零退出；
+4. 矩阵将 `N05` 两个原始输入分别持久化真实退出码和「未写 `gates_run.json`」结果；补离线反向
+   用例：矩阵缺失/JSON 截断/runner SHA 不符/少 case/任一退出码逃逸/`all_ok=false`/
+   `failures` 非空，以及 `.diff` 正斜杠用户路径、JSON 双反斜杠、system-data 绝对路径、UNC、
+   长上下文与 HTTP(S) URL 反例；
+5. 仅重跑上述离线矩阵与脱敏/manifest/seal 工具；使用现有原始证据重新 stage，必须在新封存上
+   扫描出本机用户/工作区/其他本地绝对路径零命中，然后重算证据 hash、build/verify manifest、
+   seal，并在中央副本二次 manifest/checksum verify；旧 `69a65f3*` 目录保留为失败追溯，不覆盖；
+6. 形成新 SRC、RESULT-only HANDOFF 与必要的 RESULT-only 封存后收口 commit。顶部保持「待验收」，
+   完整记录新中央入口、字节身份、manifest/checksum、脱敏零命中和全部离线矩阵；
+   不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`，不移动 `review`。
+
+### 28.8 结论
+
+**Documentation Gate：`DOC_RETURNED`。** runner 的原始 `--only` 失败记录丢失问题已修复，产品包字节本轮不被
+判定失败；但当前 seal 仍会对含未脱敏路径的证据给出 `ok=true`，manifest 也会忽略本轮新增
+矩阵的失败语义，因而尚不具备可交给独立 Acceptance 的 fail-closed 证据入口。下一轮只允许执行
+§28.7 的一次性离线收口；不得再次运行付费 Gate。
