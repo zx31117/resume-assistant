@@ -48,24 +48,23 @@
 > - **当前门禁**：§R3-28 已继续判定 `DOC_RETURNED`；该对象及其 manifest/checksum 作为失败
 >   证据保留，不得进入独立验收或发布。
 
-> **§28.7 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-29）**：
+> **§30.5 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-31）**：
 >
-> - **返工 SRC**：`bbe3532`（完整 SHA 由 `git log` 解析）；唯一 parent 为上一轮 docs-only 对象
->   `5c52445`，相对其只修改/新增 7 个离线工具与矩阵脚本（`scripts/h8_r3_seal.py`、
->   `scripts/h8_r3_manifest.py`、`scripts/h8_r3_gate_fixtures.py`、`scripts/h8_r3_run_gates.py`、
->   `scripts/h8_r3_run_gates_negtest.py`、`scripts/h8_r3_seal_manifest_negtest.py`、
->   `scripts/h8_r3_seal_scan_negtest.py`），**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**；
+> - **返工 SRC**：`1392dfb`（完整 SHA 由 `git log` 解析）；唯一 parent 为本轮基线 docs-only 对象
+>   `d1708a8`，相对其只修改 5 个离线工具与矩阵脚本（`scripts/h8_r3_seal.py`、
+>   `scripts/h8_r3_manifest.py`、`scripts/h8_r3_gate_fixtures.py`、`scripts/h8_r3_run_gates_negtest.py`、
+>   `scripts/h8_r3_seal_manifest_negtest.py`），**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**；
 > - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与
 >   中央 manifest 的 `identity.handoff` 记录，不在本文件自引用；
 > - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
 >   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
 >   `index-BMdbu97O.js`；
-> - **中央封存入口**：`<acceptance-staging>/bbe3532/` 与 `<acceptance-staging>/bbe3532-evidence/`；
+> - **中央封存入口**：`<acceptance-staging>/1392dfb/` 与 `<acceptance-staging>/1392dfb-evidence/`；
 >   本节点后的 RESULT-only 收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的
->   `rc`（见 §29.6）；
-> - **当前门禁**：§R3-30 已继续判定 `DOC_RETURNED`；该对象的包与脱敏结果不判失败，但其
->   manifest/seal 仍存在可复现的 fail-open，不能进入独立验收或发布。旧 `69a65f3*` 封存继续
->   保留为失败追溯。
+>   `rc`（见 §31.8）；
+> - **当前门禁**：§R3-30 曾判定 `DOC_RETURNED`；本轮按 §30.5 完成离线收口（runner 矩阵退出码极性 /
+>   N05 子例语义、seal 前置 fail-closed、seal 扫描矩阵进入最终判定），顶部状态保持 `待验收`，
+>   未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。旧 `bbe3532*`、`69a65f3*` 封存继续保留为失败追溯。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5302,3 +5301,129 @@ Documentation Gate 只复核这里列出的离线闭环，不再另加同类检�
 均未判失败；退回原因仅是三条已实测/静态确认的工具 fail-open：runner 矩阵不校验退出码极性与
 N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终判定，另需同时闭环 staged 旧目录
 清理失败路径。下一轮严格限于 §30.5 的离线收口，不得借此重跑任何付费 Gate。
+
+## R3-31. §30.5 离线最小返工交付（辅助矩阵语义闭环 + seal 前置 fail-closed，2026-09-28）
+
+顶部交付对象块见 §28.7；本轮 SRC 为 `1392dfbd455eb960ccd2004796b3de947d175a5e`（唯一 parent 为本轮
+基线 `d1708a80a7c05d39ef190fd8d705dde8f3cf9b71`）。本文件只陈述**可独立复核的离线事实**，
+**不宣告任何验收结论**；`DOC_RETURNED` 是否解除由 Documentation Agent 集中核对。本轮未改产品、
+未重 build/打包、未运行原 17 门 / 六格 / Design Fidelity / content / mainchain E2E，未调用任何真实模型。
+
+### 31.1 §30.5 六项要求的落地对照
+
+1. **runner 辅助矩阵语义（§30.5-1）**：manifest 对 case ID 做**唯一且精确集合**校验
+   （`missing_case_ids` / `duplicate_case_ids` / `extra_case_ids` / `case_id_set_exact`）；
+   `P00`/`P01` 必须 `exit_code == 0`，`N01`～`N21` 必须 `exit_code != 0`（`bad_polarity` 逐项报告
+   极性错误）；`N05_empty_only` 必须**精确**包含空串与纯逗号两个 subcase
+   （`N05_REQUIRED_INPUTS=["", " , ,"]`），每项要求**真实整数非零**退出码且 `gates_run_written=false`。
+   `_build` 与 `_verify` 各自独立调用 `_aux_matrix_check()` 复核，`_verify` 不读 build 时的汇总字段。
+2. **runner 反向矩阵补齐（§30.5-2）**：`run_gates_negtest.json` 新增 `N16`–`N21` 六例，逐例断言
+   `rc != 0` + `final_verdict=false` + problems 指向「负向矩阵」。
+3. **seal 强制前置条件（§30.5-3）**：`_seal()` 在任何中央复制/报告写入**之前**校验
+   `STAGE_REPORT.json`：缺失（rc=2）、不可解析（rc=2）、顶层非对象（rc=2）、`ok is not True`（rc=1）；
+   旧目标目录清理失败 ⇒ rc=1；`_stage()` 对既有 staged 目录：清理失败或仍存在 ⇒ rc=1，
+   `mkdir` 后复查残留非空 ⇒ rc=1。
+4. **seal 扫描矩阵绑定（§30.5-4）**：manifest 新增第二个离线辅助段 `aux_seal_matrix`（**未**写入
+   `_GATE_CONTRACTS`，不注册为原始 Gate），校验 `seal_scan_negtest.json` 文件 hash、现场
+   `h8_r3_seal.py` SHA、schema/version、14 个唯一且精确 case ID、逐 case（Part A `stage_rc ==
+   expected_rc`、Part B `expect_hit` 与 `hits` 一致、`B6` 掩蔽零命中且可逆）、`all_ok=true`、
+   `failures=[]`；并入 `verdicts.aux_seal_matrix_ok` 与 `final_verdict`，build/verify 均独立复核。
+5. **只重做受影响证据链（§30.5-5）**：见 §31.4 / §31.6 / §31.7；旧 `bbe3532*`、`69a65f3*` 中央封存
+   保留为失败追溯，未覆盖删除。
+6. **明确禁止项（§30.5-6）**：本轮 diff 仅 5 个离线脚本；`gates_run.json._meta.src=ff2a8e2` 保留原
+   17 门真实运行身份；`review` 仍为 `c8a63e0…`，未移动；顶部继续保持“待验收”。
+
+### 31.2 三个原始反例的逐项实测（§30.2 / §30.3 / §30.4）
+
+全部经**真实子进程**读取进程退出码；“是否写出”指目标中央包目录 / 证据目录 / 报告是否被生成。
+
+| §30 退回原因（原始反例） | 现覆盖用例 | 进程 rc | 最终 verdict | 是否写出目标目录/报告 |
+|---|---|---|---|---|
+| ① `N01` 负向用例退出码改成 0，仍 `final_verdict=true`/rc=0 | `N16_aux_negative_exit_zero` | **1** | `final_verdict=false` | 未写出（manifest 非零退出） |
+| ① 删除 `N05` 子例仍通过 | `N17_aux_n05_subcases_missing` | **1** | `false` | 未写出 |
+| ① `N05` 子例退出码改成 0 仍通过 | `N18_aux_n05_subcase_exit_zero` | **1** | `false` | 未写出 |
+| ② 删除 `STAGE_REPORT.json` 后 seal 仍 rc=0 / `ok=true` / `stage_report_ok=null` | `STG1_stage_report_missing` | **2** | —— | **未生成**中央封存目录（`sealed_dir_generated=false`） |
+| ③ `seal_scan_negtest.json` 只进 checksum、未进最终判定（重算 checksum 可假绿） | `AS1`–`AS6`（见下） | build **1** / verify **1** | `final_verdict=false` | 未写出（verify 摘要明确 `final_verdict=False`） |
+
+### 31.3 新增反例清单（逐例真实退出码 / verdict / 是否写出）
+
+**runner 辅助矩阵（manifest `_aux_matrix_check`，`seal_manifest_negtest` 之外的第二组独立反向）**：
+
+| 用例 | 进程 rc | 最终 verdict | 是否写出 |
+|---|---|---|---|
+| `N16_aux_negative_exit_zero` 负向用例退出码改为 0 | 1 | `false` | 未写出 |
+| `N17_aux_n05_subcases_missing` N05 子例缺失 | 1 | `false` | 未写出 |
+| `N18_aux_n05_subcase_exit_zero` N05 任一子例退出码 0 | 1 | `false` | 未写出 |
+| `N19_aux_n05_gates_run_written` N05 子例 `gates_run_written=true` | 1 | `false` | 未写出 |
+| `N20_aux_duplicate_case_id` 重复 case ID | 1 | `false` | 未写出 |
+| `N21_aux_extra_case_id` 额外/未知 case ID | 1 | `false` | 未写出 |
+
+**seal 前置条件（`h8_r3_seal_manifest_negtest.py`）**：
+
+| 用例 | 进程 rc | 是否生成封存目录/报告 |
+|---|---|---|
+| `SP0_seal_positive` 合法 staged 正向对照 | 0 | 生成（`sealed_dir_generated=true`，`SEAL_REPORT.ok=true`、`stage_report_ok=true`） |
+| `STG1_stage_report_missing` 缺 `STAGE_REPORT.json` | 2 | 未生成 |
+| `STG2_stage_report_unparseable` 不可解析 | 2 | 未生成 |
+| `STG3_stage_report_non_object` 顶层非对象 | 2 | 未生成 |
+| `STG4_stage_report_ok_false` `ok=false` | 1 | 未生成 |
+| `STG5_stage_report_ok_not_true` `ok="true"`（非布尔 true） | 1 | 未生成 |
+| `STG6_stage_cleanup_fail_closed` staged 旧目录被句柄占用无法清理 | 1 | 未写 `STAGE_REPORT.json`（`stage_report_written=false`） |
+
+**seal 扫描矩阵进入 manifest 语义判定（AS 组：先重算 hash 自洽、再 build，证明“重算 checksum 不能洗白”）**：
+
+| 用例 | build rc | verify rc | verify 摘要 | 是否写出封存 |
+|---|---|---|---|---|
+| `AS1_seal_scan_missing` 证据缺失 | 1 | 1 | `final_verdict=False` | 未写出 |
+| `AS2_seal_scan_truncated` JSON 截断 | 1 | 1 | `final_verdict=False` | 未写出 |
+| `AS3_seal_scan_case_missing` 缺必需 case | 1 | 1 | `final_verdict=False` | 未写出 |
+| `AS4_seal_scan_extra_case` 额外 case | 1 | 1 | `final_verdict=False` | 未写出 |
+| `AS5_seal_scan_all_ok_false` `all_ok=false` | 1 | 1 | `final_verdict=False` | 未写出 |
+| `AS6_seal_scan_sha_mismatch` 现场脚本 SHA 不符 | 1 | 1 | `final_verdict=False` | 未写出 |
+
+### 31.4 离线矩阵结果（本轮全部重跑；离线、无模型、无付费 Gate）
+
+- `run_gates_negtest.json`：schema `resume-assistant/r3-run-gates-negtest` v1，**23 例**
+  （`P00`/`P01` + `N01`–`N21`），`all_ok=true`，`failures=[]`，进程 rc=0；
+  记录 `runner_sha256 = 39c0f0b21176ae756958634414da3654a4a5b3c04046a1b4693fa5342e802c81`，
+  与现场 `scripts/h8_r3_run_gates.py` **逐字节一致**；
+- `seal_scan_negtest.json`：schema `resume-assistant/r3-seal-scan-negtest` v1，**14 例**，`all_ok=true`，
+  记录 `seal_script_sha256 = 9788e66742936fe89dc2f6de990beb0d4583606ae6ef4b654cfacd35d61fb840`，
+  与现场 `scripts/h8_r3_seal.py` **逐字节一致**；
+- `gate_verdict_negtest.json`：**20 例**，`positive_ok=true`，`all_ok=true`；
+- `seal_manifest_negtest.json`：**22 例**（`S0`/`M0`/`V0` + `N1`–`N6` + `SP0` + `STG1`–`STG6` + `AS1`–`AS6`），
+  `all_ok=true`，`problems=[]`。
+
+### 31.5 脱敏 staging 与独立零命中复扫
+
+- `STAGE_REPORT.json`：`counts={text_files:50, binary_files:0, forbidden_hits:0, path_rescan_hits:0}`；
+  `redaction_map={<current-workspace>:148, <home>:333, <local-path>:1, <unc-path>:194}`（合计 676）；
+  `local_path_rescan_zero_hit=true`；`ok=true`；staging 目录共 **51** 个文件；
+- **独立复扫**（不复用 seal 自身扫描器）：对 51 个 staged 文件先掩蔽公开 HTTP(S) URL（避免 `http://`
+  被误判为盘符路径），再检查动态现场绝对路径字面量（工作区 / 仓库父目录 / 家目录 / 临时目录）/
+  盘符绝对路径（负向环视排除 URL）/ UNC / 类 Unix 用户目录 / 凭据与 PII 形态，全部 **0 命中**
+  （`ZERO_HIT_OK`）。
+
+### 31.6 包身份（未重 build / 未重打包）
+
+与上一轮逐字节相同：4045 files / 170,399,477 B；EXE 16,855,308 B，SHA-256
+`0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle `index-BMdbu97O.js`。
+
+### 31.7 交付链与治理说明
+
+- **SRC** `1392dfb…`：唯一 parent 为本轮基线 `d1708a8…`，仅修改 5 个离线工具与矩阵脚本
+  （`h8_r3_manifest.py` / `h8_r3_seal.py` / `h8_r3_gate_fixtures.py` / `h8_r3_run_gates_negtest.py` /
+  `h8_r3_seal_manifest_negtest.py`，`+525/-42`），无产品源码 / 前端 / 后端 / 依赖 / 配置 / bundle / EXE 变化；
+- **HANDOFF**：本文件（`RESULT.md`）唯一修改的 RESULT-only commit，唯一 parent 为 SRC；
+- **收口 commit**：RESULT-only，记录 §31.8 的封存后数值（避免自引用，先例 §17.2/§27.6-4/§29.5）；
+- 两套辅助矩阵均以 manifest **独立辅助判定段**（`aux_matrix` / `aux_seal_matrix`）消费，
+  不注册为第 18 个原始 Gate；
+- `gates_run.json._meta.src=ff2a8e2` 保留原 17 门的真实运行身份，未伪造改写；
+- 旧 `bbe3532*`、`69a65f3*` 中央封存保留为失败追溯，未覆盖删除；`review` 仍为 `c8a63e0…`，未移动；
+- 本轮未运行六格 / content E2E / mainchain E2E / Design Fidelity，未调用真实模型。
+
+### 31.8 封存后数值（由收口 commit 记录）
+
+（本节由 RESULT-only 收口 commit 填入：新 SRC 的中央入口、`manifest.json` 字节 SHA-256、
+`CHECKSUMS.sha256` 条数与中央二次 `verify` / `verify-checksums` / 独立零命中复扫结果、
+`verdicts` 全绿清单与 `aux_matrix` / `aux_seal_matrix` 现场 SHA 对比。）
