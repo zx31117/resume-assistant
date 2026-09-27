@@ -13,7 +13,11 @@
     与所选对象一致**（Fact 详情有真实理由/原文，段落详情有真实标题与成员事实/技能行）；
   * 同一方式再次激活 = 取消选择，右侧回到未选择摘要；
   * 两类目标互斥（任意时刻最多 1 个选中）；
-  * 滚动后热区仍精确命中（热区与正文对齐，非固定样张坐标）。
+  * 滚动后热区仍精确命中（热区与正文对齐，非固定样张坐标）；
+  * 命中层身份与权威 `artifacts.pdf_anchors` **双向一一对应**：权威声明的每类锚点必须渲染出可点
+    目标并完成上述全链路；权威未声明的类别必须 0 个热点（诚实退出，不产生可点但无响应的幽灵热区）。
+    因此某类（如 skills）在该次任务数据下不存在时，按权威锚点判为「诚实退出」而非设计保真失败；
+    「权威已声明却渲染不出」「权威未声明却出现可点目标」才是 FAIL。
 
 接入方约定：`bx(args, timeout=30) -> str` 为 agent-browser 调用（两脚本签名一致）。
 """
@@ -50,6 +54,35 @@ ASIDE_JS = (
     "skillRows:document.querySelectorAll('.wb-panel--aside .section-detail-row').length,"
     "secFacts:document.querySelectorAll('.wb-panel--aside .section-fact').length,"
     "empty:document.querySelectorAll('.wb-panel--aside .section-detail__empty').length})")
+
+# 权威 task 快照探针：P4 三类目标是否**应**可点，由后端 artifacts.pdf_anchors 决定（唯一真源）。
+# 页面内同步读同源 `GET /api/task/{lastTaskId}`，只把锚点身份计数/明细带回（不传整段 JSON）。
+# 仅统计**已渲染页**（page_index < `.pdf-page` 数量）的锚点，兼容 viewer 懒渲染：未渲染页的锚点
+# 本就不在命中层，不应被误判为「权威已声明却渲染不出」。
+AUTHORITY_JS = (
+    "(function(){var o={ok:false,tid:'',why:'',total:0,rendered_pages:0,"
+    "kinds:{fact:0,section:0,skills:0},keys:{fact:[],section:[],skills:[]},"
+    "preview:{sections:0,skills:0}};"
+    "try{"
+    "var tid=sessionStorage.getItem('resume_assistant.lastTaskId')||'';o.tid=tid;"
+    "o.rendered_pages=document.querySelectorAll('.pdf-page').length;"
+    "if(!tid){o.why='no lastTaskId';return JSON.stringify(o);}"
+    "var x=new XMLHttpRequest();x.open('GET','/api/task/'+tid,false);x.send();"
+    "o.ok=(x.status===200);"
+    "if(!o.ok){o.why='http '+x.status;return JSON.stringify(o);}"
+    "var j=JSON.parse(x.responseText);"
+    "var p=(j.snapshot&&j.snapshot.payload)||{};var arts=p.artifacts||{};"
+    "var a=arts.pdf_anchors||[];o.total=a.length;var rp=o.rendered_pages;"
+    "for(var i=0;i<a.length;i++){var k=a[i].kind||'fact';"
+    "if(rp>0&&(a[i].page_index||0)>=rp)continue;"
+    "if(k==='fact'){if(a[i].fact_id){o.kinds.fact++;o.keys.fact.push(String(a[i].fact_id));}}"
+    "else if(k==='section'){if(a[i].content_item_id){o.kinds.section++;"
+    "o.keys.section.push(String(a[i].content_item_id));}}"
+    "else if(k==='skills'){if(a[i].content_item_id){o.kinds.skills++;o.keys.skills.push('skills');}}}"
+    "var ps=arts.preview_sections;o.preview.sections=(ps&&typeof ps.length==='number')?ps.length:0;"
+    "var pk=arts.preview_skills;o.preview.skills=(pk&&typeof pk.length==='number')?pk.length:0;"
+    "}catch(e){o.why=String(e);}"
+    "return JSON.stringify(o);})()")
 
 # StepSuccessAside 诚实留白文案：命中这些值 = 没有真实数据可展示（不得据此判 PASS）。
 REASON_FALLBACK = "本次未记录该条事实的选择理由。"
@@ -88,6 +121,40 @@ def layout(bx) -> list:
 def aside(bx) -> dict:
     v = ev(bx, ASIDE_JS)
     return v if isinstance(v, dict) else {}
+
+
+def authority(bx) -> dict:
+    """读当前 Task 的权威锚点集（`artifacts.pdf_anchors`）—— 「该类**应**可点」的唯一真源。"""
+    v = ev(bx, AUTHORITY_JS)
+    return v if isinstance(v, dict) else {"ok": False, "why": "probe failed"}
+
+
+def hit_identity(h: dict) -> str | None:
+    """命中层热点的身份键，语义与前端 `pdfAnchorKey` 一致（缺身份 → None，前端同样不渲染）。"""
+    kind = h.get("kind")
+    ident = h.get("id") or ""
+    if kind == "fact":
+        return f"fact:{ident}" if ident else None
+    if kind == "section":
+        return f"section:{ident}" if ident else None
+    if kind == "skills":
+        return "skills"
+    return None
+
+
+def authority_keys(auth: dict) -> set:
+    """权威锚点身份集合（与 `hit_identity` 同构，供双向比对）。"""
+    keys = auth.get("keys") or {}
+    out = set()
+    for f in keys.get("fact") or []:
+        if f:
+            out.add(f"fact:{f}")
+    for s in keys.get("section") or []:
+        if s:
+            out.add(f"section:{s}")
+    if int((auth.get("kinds") or {}).get("skills") or 0) > 0:
+        out.add("skills")
+    return out
 
 
 def hit_of(lay: list, kind: str, ident: str = "") -> dict | None:
@@ -193,8 +260,11 @@ def detail_ok(kind: str, st: dict) -> tuple[bool, str]:
 
 def run(bx, *, ok, bad, log, evidence: dict, tag: str = "P4.interact",
         kinds: tuple[str, ...] = ("fact", "section", "skills")) -> None:
-    """执行 P4 三类目标的真实交互断言，并写入 `evidence["_p4_hits"]` / `["_p4_interactions_done"]`。
+    """执行 P4 三类目标的真实交互断言，并写入 `evidence["_p4_hits"]` / `["_p4_authority"]` /
+    `["_p4_interactions_done"]`。
 
+    每类是否**应**可点由当前 Task 的权威 `artifacts.pdf_anchors` 决定（见模块说明），
+    不使用任何固定坐标或第二份 HTML 真源。
     `ok(label, extra)` / `bad(label, why)` 为接入方的判定回调；`tag` 为断言名前缀，
     使 Design Fidelity（P4.interact.*）与主链（ui.P4.interact.*）在证据中可区分。
     """
@@ -208,12 +278,42 @@ def run(bx, *, ok, bad, log, evidence: dict, tag: str = "P4.interact",
         "total": len(hits), "fact": fact and fact.get("id"),
         "section": sect and sect.get("id"), "skills": bool(skills),
         "aside_unselected": aside(bx).get("title")}
+    auth = authority(bx)
+    evidence["_p4_authority"] = auth
+
+    # ① 「该类是否应可点」的判据必须来自**权威锚点集**（§R3-24 §24.4-1：anchor 缺失 / 不可定位 →
+    #    诚实退出对应交互）。因此「无 skill 组可点」本身不是设计保真失败（技能区本就只在有 Fact
+    #    依据时出现）；反之「权威已声明却渲染不出」或「权威未声明却出现可点目标」都必须 FAIL。
+    #    双向比对命中层身份 ↔ artifacts.pdf_anchors，只覆盖**已渲染页**。
+    if not auth.get("ok"):
+        bad(f"{tag}.authority", f"无法读取权威 task 快照（{auth.get('why')}）→ 锚点身份不可判定")
+    auth_keys = authority_keys(auth) if auth.get("ok") else set()
+    dom_keys = {k for k in (hit_identity(h) for h in hits) if k}
+    if auth.get("ok"):
+        missing = sorted(auth_keys - dom_keys)
+        ghost = sorted(dom_keys - auth_keys)
+        if not missing and not ghost:
+            ok(f"{tag}.anchor-identity",
+               f"权威锚点 {len(auth_keys)} 项 ↔ 命中层 {len(dom_keys)} 项一一对应（无缺失、无幽灵）")
+        else:
+            bad(f"{tag}.anchor-identity", f"权威声明却无热区={missing} 幽灵热区={ghost}")
+    if not hits:
+        bad(f"{tag}.at-least-one-class", "命中层无任何可点目标，无从验证真实交互")
 
     for kind, h in (("fact", fact), ("section", sect), ("skills", skills)):
         if kind not in kinds:
             continue
+        declared = int((auth.get("kinds") or {}).get(kind) or 0)
         if not h:
-            bad(f"{tag}.{kind}.present", "PDF 命中层无该类可点目标（诚实降级不覆盖设计保真）")
+            if declared:
+                bad(f"{tag}.{kind}.present",
+                    f"权威快照声明 {declared} 个 {kind} 锚点，命中层却无可点目标（渲染与锚点不一致）")
+            else:
+                ok(f"{tag}.{kind}.absent",
+                   f"权威快照未声明 {kind} 锚点 → 诚实退出（命中层 0 个，无幽灵热区）")
+            continue
+        if auth.get("ok") and not declared:
+            bad(f"{tag}.{kind}.ghost", f"权威快照未声明 {kind} 锚点，命中层却出现可点目标（幽灵热区）")
             continue
         ident = h.get("id") or ""
         ok(f"{tag}.{kind}.present",
@@ -270,7 +370,7 @@ def run(bx, *, ok, bad, log, evidence: dict, tag: str = "P4.interact",
         time.sleep(0.5)
 
     # 滚动后热区仍与正文对齐（命中点最上层元素就是该热点）
-    if fact and "fact" in kinds:
+    if fact:
         bx(["eval", "(function(){var s=document.querySelector('.pdf-preview__pages');"
                     "if(s)s.scrollTop=Math.min(120,s.scrollHeight);return 'ok';})()"], timeout=20)
         time.sleep(0.6)
