@@ -130,9 +130,14 @@ def main() -> int:
     meta["problems"] = problems
     meta["final_verdict"] = executed_all_exit_zero
     _m = meta.setdefault("_meta", {})
+    # 累积披露：分批刷新时保留此前已刷新的 Gate，避免 `_meta.refresh.gates` 与实际被刷新记录的
+    # 时间戳不一致（后续单独调用不得覆盖先前批次的披露）。
+    _prev = _m.get("refresh") or {}
+    _prev_gates = [g for g in (_prev.get("gates") or []) if isinstance(g, str)]
+    _all_gates = _prev_gates + [g for g in selected if g not in _prev_gates]
     _m["refresh"] = {
         "generator": "scripts/h8_r3_refresh_gate_evidence.py",
-        "gates": selected,
+        "gates": _all_gates,
         "at_local": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "note": "以 runner 同一捕获路径重跑上述 Gate，使 .log/.json/记录同版本；其余记录未改。",
     }

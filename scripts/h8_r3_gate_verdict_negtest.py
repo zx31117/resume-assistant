@@ -545,6 +545,11 @@ def run_matrix(root: Path) -> dict:
         }],
     })
 
+    # T17：docreturned_ui 证据内包身份（exe.sha256）与目标 EXE 不一致 ⇒ 必须 fail-closed。
+    #      这是新增 `exe_sha_path="exe.sha256"` 绑定的精确反例：其余断言全部通过，仅包身份错配。
+    case_bv("T17_ui_exe_sha_mismatch", "ui summary 包身份与目标 EXE 不一致",
+            {"payload": {"docreturned_ui": FX.ui_summary_payload("f" * 64)}})
+
     failures = [f"{c['id']}:{c['case']}:{c['mode']}" for c in cases if not c["ok"]]
     return {
         "_meta": {

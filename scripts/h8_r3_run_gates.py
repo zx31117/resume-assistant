@@ -130,10 +130,11 @@ def gate_specs(exe: str, ev: Path) -> list[dict]:
         dict(name="docreturned_anchor", cwd=BACKEND,
              argv=[PY, "_v220_docreturned_anchor.py"],
              target="docreturned_anchor.log", src=None, cleanup=False),
-        # V2.2.0 DOC_RETURNED：P4 真实交互离线门（源码后端 + frontend/dist + fake Provider
-        # + 隔离 runtime + 真实鼠标/键盘）。使用固定端口 8013/8795，必须与其它浏览器门串行。
+        # V2.2.0 DOC_RETURNED：P4 真实交互离线门（**冻结包**后端 + fake Provider
+        # + 隔离 runtime + 真实鼠标/键盘）。绑定 `--exe` 使交互复验对象与交付物一致；
+        # 使用固定端口 8013/8795，必须与其它浏览器门串行。
         dict(name="docreturned_ui", cwd=ROOT,
-             argv=[PY, "scripts/h8_r3_docreturned_ui.py"],
+             argv=[PY, "scripts/h8_r3_docreturned_ui.py", "--exe", exe_abs],
              target="docreturned_ui_summary.json",
              src=VA / "docreturned_ui" / "docreturned_ui_summary.json", cleanup=True),
     ]

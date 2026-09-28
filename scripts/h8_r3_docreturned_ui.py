@@ -17,17 +17,22 @@
   [U7] 单 fact：provider 只产出一条事实时恰好一个事实热区，且仍可点/可取消。
 
 隔离与成本边界：
-  - 真实后端（源码 uvicorn）+ 本地 fake Provider（仅本脚本内，替换 ARK_BASE_URL）；
+  - 真实后端（默认源码 uvicorn；`--exe` 时改为**冻结包 ResumeAssistant.exe**）+ 本地
+    fake Provider（仅本脚本内，替换 ARK_BASE_URL）；
   - 独立 RESUME_DATA_DIR（系统临时目录），运行结束删除；
   - 全脱敏 fixture，无 Key、无外呼、不读取/修改 Product Owner runtime；
   - 不运行六格、不调用真实模型主链（本门即离线替代）。
 
-用法：python scripts/h8_r3_docreturned_ui.py [--keep] [--skip-u7]
+用法：
+  python scripts/h8_r3_docreturned_ui.py [--exe <ResumeAssistant.exe>] [--keep] [--skip-u7]
+  `--exe` 提供时以**冻结包**启动被验证后端，并把该包 SHA-256 写入证据（绑定交付物）；
+  不提供时回退源码 uvicorn（兼容既有离线用法）。
 退出码：0=全部通过；1=存在 FAIL；2=环境/前置失败。
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -329,19 +334,38 @@ def port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def start_backend(runtime: Path, fp_port: int, port: int) -> subprocess.Popen:
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def start_backend(runtime: Path, fp_port: int, port: int,
+                  exe: Path | None = None) -> subprocess.Popen:
+    """启动被验证后端：`exe` 为冻结包时直接运行该二进制（cwd=包目录），否则跑源码 uvicorn。
+
+    两者共用同一隔离 env（RESUME_DATA_DIR / ARK_BASE_URL=fake / APP_HOST / APP_PORT），
+    保证交互断言所驱动的后端与交付物一致。
+    """
     env = dict(os.environ)
     env["RESUME_DATA_DIR"] = str(runtime)
     env["ARK_BASE_URL"] = f"http://127.0.0.1:{fp_port}/v1"
     env["ARK_API_KEY"] = "offline-gate-key"
     env["APP_HOST"] = "127.0.0.1"
     env["APP_PORT"] = str(port)
+    env["PYTHONUTF8"] = "1"
     env.pop("ARK_EMBEDDING_API_KEY", None)
     fh = open(runtime / "backend.log", "w", encoding="utf-8", errors="replace")
-    p = subprocess.Popen(
-        [PY, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", str(port),
-         "--log-level", "warning"],
-        cwd=str(BACKEND), env=env, stdout=fh, stderr=subprocess.STDOUT)
+    if exe is not None:
+        cmd = [str(exe)]
+        cwd = str(exe.parent)
+    else:
+        cmd = [PY, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", str(port),
+               "--log-level", "warning"]
+        cwd = str(BACKEND)
+    p = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=fh, stderr=subprocess.STDOUT)
     p._log_fh = fh  # type: ignore[attr-defined]
     return p
 
@@ -356,6 +380,13 @@ def kill_tree(p) -> None:
                 p.wait(timeout=15)
             except Exception:
                 p.kill()
+    except Exception:
+        pass
+    # 冻结包（onedir）可能派生辅助进程；`/T` 清整棵进程树，避免残留实例长期占用
+    # 全局单实例互斥，使后续 Gate 无法独占启动。
+    try:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
     except Exception:
         pass
     try:
@@ -1538,6 +1569,8 @@ def s_u0_static_retirement() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--exe", default="",
+                    help="冻结包 ResumeAssistant.exe；提供时以该包启动后端并绑定其 SHA-256")
     ap.add_argument("--keep", action="store_true", help="保留 runtime 与证据目录")
     ap.add_argument("--skip-u7", action="store_true")
     ap.add_argument("--only-u2", action="store_true", help="只跑 U1/U2（快速定位 P4 交互）")
@@ -1546,13 +1579,19 @@ def main() -> int:
     global DUMP_LAYOUT
     DUMP_LAYOUT = bool(args.dump_layout)
 
+    exe = Path(args.exe).resolve() if args.exe else None
+    if exe is not None and not exe.is_file():
+        bad("env-exe", f"冻结 EXE 不存在: {exe}")
+        return 2
+
     # U0 纯静态反向证明（不依赖浏览器/后端），先跑以便早期阻断重复实现回归。
     s_u0_static_retirement()
 
     if not resolve_browser():
         bad("env-browser", "agent-browser 不可用")
         return 2
-    if not DIST.is_dir():
+    # 冻结包自带并同源发布前端静态资源，无需仓库 frontend/dist；仅源码模式依赖它。
+    if exe is None and not DIST.is_dir():
         bad("env-dist", "frontend/dist 缺失（需先 npm run build）")
         return 2
     if port_in_use(APP_PORT):
@@ -1566,6 +1605,11 @@ def main() -> int:
     vp_dir = ROOT / "validation-artifacts" / "h8" / "docreturned_ui"
     vp_dir.mkdir(parents=True, exist_ok=True)
     EVIDENCE["runtime_dir"] = str(runtime)
+    # 证据绑定被验证后端：冻结包时记录其身份（path/sha256/size），供总 manifest 交叉核验。
+    if exe is not None:
+        EVIDENCE["exe"] = {"path": str(exe), "sha256": sha256_file(exe),
+                           "size": exe.stat().st_size}
+        log(f"[gate] 冻结包 exe={exe} sha256={EVIDENCE['exe']['sha256'][:16]}…")
     install_init_script(runtime)
     srv = None
     backend = None
@@ -1574,7 +1618,7 @@ def main() -> int:
         if not wait_port(FP_PORT, 20):
             bad("env-fp", "fake provider 未就绪")
             return 2
-        backend = start_backend(runtime, FP_PORT, APP_PORT)
+        backend = start_backend(runtime, FP_PORT, APP_PORT, exe=exe)
         if not wait_port(APP_PORT, 120):
             bad("env-backend", "后端未就绪")
             return 2

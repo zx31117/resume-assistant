@@ -141,15 +141,23 @@ def anchor_log_payload() -> str:
     return "\n".join(lines) + "\n"
 
 
-def ui_summary_payload() -> dict:
-    """与真实 `docreturned_ui_summary.json` 同构：72 个精确 label、全部 ok、pass=72。"""
-    return {
+def ui_summary_payload(exe_sha: str | None = None) -> dict:
+    """与真实 `docreturned_ui_summary.json` 同构：72 个精确 label、全部 ok、pass=72。
+
+    `exe_sha` 提供时附带冻结包身份（`exe.sha256`）——与该门合同的 `exe_sha_path` 对齐，
+    使正向夹具通过 manifest 的包身份交叉核验；负向用例可省略以构造身份缺失。
+    """
+    payload = {
         "assertions": [{"label": lbl, "ok": True, "extra": ""}
                        for lbl in UI_ASSERTION_LABELS],
         "pass": len(UI_ASSERTION_LABELS),
         "fails": [],
         "cleanup": {"runtime_removed": True},
     }
+    if exe_sha:
+        payload["exe"] = {"path": "pkg/ResumeAssistant.exe", "sha256": exe_sha,
+                          "size": 16833361}
+    return payload
 
 
 # ── §R3-28 §28.7-3 / §R3-30 §30.5-1：runner 负向矩阵（辅助判定段一）的“全通过”夹具 ──
@@ -363,7 +371,7 @@ def _valid_payloads(exe_sha: str) -> dict[str, object]:
         # §R3-32 §32.4-2：三项关键交互门的“全通过”夹具。
         "frontend_test": frontend_log_payload(),
         "docreturned_anchor": anchor_log_payload(),
-        "docreturned_ui": ui_summary_payload(),
+        "docreturned_ui": ui_summary_payload(exe_sha),
     }
 
 

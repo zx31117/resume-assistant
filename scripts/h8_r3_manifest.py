@@ -218,7 +218,7 @@ _GATE_CONTRACTS: dict[str, dict] = {
         "evidence": "docreturned_ui_summary.json",
         "kind": "json",
         "verdict": ("ui_summary", None),
-        "exe_sha_path": None,
+        "exe_sha_path": "exe.sha256",
         "postconditions": ["ui_required_interactions"],
         "cleanup_required": True,
     },
