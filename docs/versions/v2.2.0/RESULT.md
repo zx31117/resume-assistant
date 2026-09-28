@@ -50,21 +50,24 @@
 
 > **§30.5 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-31）**：
 >
-> - **返工 SRC**：`1392dfb`（完整 SHA 由 `git log` 解析）；唯一 parent 为本轮基线 docs-only 对象
->   `d1708a8`，相对其只修改 5 个离线工具与矩阵脚本（`scripts/h8_r3_seal.py`、
->   `scripts/h8_r3_manifest.py`、`scripts/h8_r3_gate_fixtures.py`、`scripts/h8_r3_run_gates_negtest.py`、
->   `scripts/h8_r3_seal_manifest_negtest.py`），**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**；
+> - **返工 SRC**：`ca6c8b4`（完整 SHA 由 `git log` 解析）。其历史为 `1392dfb`（只修改 5 个离线工具与
+>   矩阵脚本：`scripts/h8_r3_seal.py`、`scripts/h8_r3_manifest.py`、`scripts/h8_r3_gate_fixtures.py`、
+>   `scripts/h8_r3_run_gates_negtest.py`、`scripts/h8_r3_seal_manifest_negtest.py`；唯一 parent `d1708a8`）
+>   → `0b95252`（RESULT-only HANDOFF）→ `ca6c8b4`（RESULT-only 收口）；本节点相对 `ca6c8b4` 只修改本
+>   RESULT，**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**，也未再改任何脚本；
 > - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与
 >   中央 manifest 的 `identity.handoff` 记录，不在本文件自引用；
 > - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
 >   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
 >   `index-BMdbu97O.js`；
-> - **中央封存入口**：`<acceptance-staging>/1392dfb/` 与 `<acceptance-staging>/1392dfb-evidence/`；
+> - **中央封存入口**：`<acceptance-staging>/ca6c8b4/` 与 `<acceptance-staging>/ca6c8b4-evidence/`；
 >   本节点后的 RESULT-only 收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的
 >   `rc`（见 §31.8）；
 > - **当前门禁**：§R3-30 曾判定 `DOC_RETURNED`；本轮按 §30.5 完成离线收口（runner 矩阵退出码极性 /
->   N05 子例语义、seal 前置 fail-closed、seal 扫描矩阵进入最终判定），顶部状态保持 `待验收`，
->   未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。旧 `bbe3532*`、`69a65f3*` 封存继续保留为失败追溯。
+>   N05 子例语义、seal 前置 fail-closed、seal 扫描矩阵进入最终判定），并在同轮内修正封存证据中混入
+>   旧轮次孤儿 manifest 的问题——manifest 输出名恢复为既有约定的 `manifest.json`，封存内不再保留
+>   声明旧身份 `ff2a8e24/5e4a8cf1` 的副本（见 §31.9）。顶部状态保持 `待验收`，未写 `DOC_ALIGNED` /
+>   `ACCEPTANCE_PASS`。旧 `bbe3532*`、`69a65f3*`、`1392dfb*` 封存继续保留为失败追溯。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5304,10 +5307,12 @@ N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终
 
 ## R3-31. §30.5 离线最小返工交付（辅助矩阵语义闭环 + seal 前置 fail-closed，2026-09-28）
 
-顶部交付对象块见 §28.7；本轮 SRC 为 `1392dfbd455eb960ccd2004796b3de947d175a5e`（唯一 parent 为本轮
-基线 `d1708a80a7c05d39ef190fd8d705dde8f3cf9b71`）。本文件只陈述**可独立复核的离线事实**，
-**不宣告任何验收结论**；`DOC_RETURNED` 是否解除由 Documentation Agent 集中核对。本轮未改产品、
-未重 build/打包、未运行原 17 门 / 六格 / Design Fidelity / content / mainchain E2E，未调用任何真实模型。
+顶部交付对象块见 §28.7；本轮为**同一轮内派生证据再生成**，SRC 为 `ca6c8b4`（上一节点 RESULT-only
+收口 commit；其历史链为 `1392dfb`（5 个离线脚本，唯一 parent `d1708a8`）→ `0b95252`（RESULT-only
+HANDOFF）→ `ca6c8b4`）。本文件只陈述**可独立复核的离线事实**，**不宣告任何验收结论**；
+`DOC_RETURNED` 是否解除由 Documentation Agent 集中核对。本轮未改产品、未重 build/打包、未运行
+原 17 门 / 六格 / Design Fidelity / content / mainchain E2E，未调用任何真实模型，也未再修改任何
+脚本（现场脚本 SHA 与 §31.4 记录一致）。
 
 ### 31.1 §30.5 六项要求的落地对照
 
@@ -5411,11 +5416,18 @@ N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终
 
 ### 31.7 交付链与治理说明
 
-- **SRC** `1392dfb…`：唯一 parent 为本轮基线 `d1708a8…`，仅修改 5 个离线工具与矩阵脚本
-  （`h8_r3_manifest.py` / `h8_r3_seal.py` / `h8_r3_gate_fixtures.py` / `h8_r3_run_gates_negtest.py` /
-  `h8_r3_seal_manifest_negtest.py`，`+525/-42`），无产品源码 / 前端 / 后端 / 依赖 / 配置 / bundle / EXE 变化；
+- **SRC** `ca6c8b4`（本节点唯一 parent）：上一节点 RESULT-only 收口 commit；其历史链为
+  `1392dfb`（仅修改 5 个离线工具与矩阵脚本 `h8_r3_manifest.py` / `h8_r3_seal.py` /
+  `h8_r3_gate_fixtures.py` / `h8_r3_run_gates_negtest.py` / `h8_r3_seal_manifest_negtest.py`，
+  `+525/-42`，唯一 parent `d1708a8`）→ `0b95252`（RESULT-only HANDOFF）→ `ca6c8b4`（RESULT-only
+  收口）。本节点相对 SRC 只修改本 RESULT，**全程无产品源码 / 前端 / 后端 / 依赖 / 配置 /
+  bundle / EXE 变化**，也未再改动任何脚本；
 - **HANDOFF**：本文件（`RESULT.md`）唯一修改的 RESULT-only commit，唯一 parent 为 SRC；
-- **收口 commit**：RESULT-only，记录 §31.8 的封存后数值（避免自引用，先例 §17.2/§27.6-4/§29.5）；
+- **收口 commit**：RESULT-only，记录 §31.8 的封存后数值与 §31.9 的修正披露（避免自引用，
+  先例 §17.2/§27.6-4/§29.5）；
+- 本轮属**同一轮内派生证据再生成**：不改脚本、不重 build、不重跑门禁，只重做
+  `stage → manifest build/verify → seal → 中央二次 verify`；manifest 输出名恢复为既有约定的
+  `manifest.json`，封存内不再保留旧轮次孤儿 manifest（详见 §31.9）；
 - 两套辅助矩阵均以 manifest **独立辅助判定段**（`aux_matrix` / `aux_seal_matrix`）消费，
   不注册为第 18 个原始 Gate；
 - `gates_run.json._meta.src=ff2a8e2` 保留原 17 门的真实运行身份，未伪造改写；
@@ -5424,24 +5436,12 @@ N05 子例、seal 允许缺失 `STAGE_REPORT`、seal 扫描矩阵未进入最终
 
 ### 31.8 封存后数值（由收口 commit 记录）
 
-- 中央入口：`<acceptance-staging>/1392dfb/`（包 **4045** files）与
-  `<acceptance-staging>/1392dfb-evidence/`（证据 **53** files + `CHECKSUMS.sha256`，共 54 项文件）；
-- `gate_manifest.json` 字节 SHA-256：`2255f643c9115e67046b93fe533bae5ccf2863f86937508d04021875d6809cda`
-  （35,557 B；staged 与中央副本**逐字节一致**）；
-- `CHECKSUMS.sha256`：**53** 条，中央副本 `verify-checksums` → `listed=53 / actual=53`、`ok=true`、`rc=0`；
-- 中央副本 **二次 `manifest verify`**：`final_verdict=true`、`problems=[]`、`rc=0`（HEAD 仍为 HANDOFF）；
-- 中央副本**独立零命中复扫**：对 53 个证据文件（排除 `CHECKSUMS.sha256` 自身）先掩蔽公开 HTTP(S) URL，
-  再检查动态现场字面量 / 盘符绝对路径 / UNC / 类 Unix 用户目录 / 凭据与 PII，全部 **0 命中**
-  （`ZERO_HIT_OK`）。复扫中唯一表观命中是 `gate_manifest.json` 内 JSON 转义的**相对**路径
-  `dist\\ResumeAssistant`（非本机绝对路径），加路径 token 边界环视后不构成命中；此文件由 manifest build
-  在 stage 之后生成，故不在 `STAGE_REPORT` 的复扫范围内，特此显式披露；
-- `verdicts` 全绿（10 项）：`plan_blob_ok` / `git_identity_ok` / `package_ok` / `gates_ok` /
-  `negative_selftest_ok` / `identity_matrix_ok` / **`aux_matrix_ok`** / **`aux_seal_matrix_ok`** /
-  `gates_meta_ok` / `cleanup_ok` 均为 `true`；
-- `aux_matrix` 现场 SHA 对比：`runner_sha256_recorded == runner_sha256_live ==
-  39c0f0b21176ae756958634414da3654a4a5b3c04046a1b4693fa5342e802c81`；`case_ids` 23 个、
-  `missing_case_ids=[]`、`duplicate_case_ids=[]`、`extra_case_ids=[]`、`bad_polarity=[]`、
-  `n05_problems=[]`、`failures=[]`；
-- `aux_seal_matrix` 现场 SHA 对比：`script_sha256_recorded == script_sha256_live ==
-  9788e66742936fe89dc2f6de990beb0d4583606ae6ef4b654cfacd35d61fb840`；`case_ids` 14 个、
-  `case_id_set_exact=true`、`missing/duplicate/extra=[]`、`bad_results=[]`、`failures=[]`。
+本节点不写入封存后数值，以避免自引用：中央入口路径、`manifest.json` 字节 SHA-256、`CHECKSUMS.sha256`
+条数、中央副本二次 `manifest verify` / `verify-checksums` 的 `rc`，以及中央副本独立零命中复扫结果，
+**全部由本节点之后的 RESULT-only 收口 commit 写入**。
+
+### 31.9 同轮内派生证据再生成：孤儿 manifest 修正（由收口 commit 记录）
+
+见收口 commit。该节点记录：旧轮次孤儿 `manifest.json`（identity `ff2a8e24 → 5e4a8cf1`，生成于
+2026-09-27T12:02:55Z，无 `aux_matrix` / `aux_seal_matrix`，未被 17 门 `gates_run.json` 引用）进入
+上一版封存的原因与证据、修复后的封存文件集合与逐项复核结果。
