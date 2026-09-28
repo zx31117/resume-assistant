@@ -2,14 +2,14 @@
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
 > 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
-> 当前阶段：§R3-31 已完整闭合 §30.5 的 runner 矩阵极性/N05、seal 强制前置条件、staged 旧目录
-> 清理与 seal 扫描矩阵辅助判定；中央包、52/52 checksum、脱敏零命中、孤儿 manifest 清理和四套
-> 离线矩阵均已独立复核成立。但 Documentation Agent 对 runner 与 manifest 的完整 Gate 集合做机械
-> 对照后确认：runner 实际登记 17 门，而 manifest/fixture 只定义并逐证据解析 14 门，遗漏的正是
-> `frontend_test`、`docreturned_anchor`、`docreturned_ui` 三门。三份失败证据在同步其记录 hash 后，
-> manifest build 仍均为 `rc=0 / final_verdict=true`（见 §R3-32）。本轮仍不判定产品包或 §30.5
-> 实现失败；只允许补齐这三门的离线 manifest 合同与反向矩阵，不得重 build、重打包或重跑任何
-> 原始/付费 Gate。`DOC_RETURNED` 解除前不得启动独立验收或发布
+> 当前阶段：§R3-33 已按 §32.4 完成唯一允许的最终离线修复——把 runner 注册的 17 门中此前遗漏的
+> `frontend_test`、`docreturned_anchor`、`docreturned_ui` 纳入 manifest 逐 Gate 合同与 fixture，使
+> runner 注册集合、fixture 集合、manifest `_REQUIRED_GATES` 三者唯一且精确同为 17 门；`gates_run.json`
+> 出现缺失/重复/额外 Gate ID 时 build 与 verify 双侧 fail-closed；补齐三门语义合同（frontend 2 files/25
+> tests、anchor 29 PASS/0 FAIL/FAIL=0/A1～A7、ui 72 精确 label/pass=72/fails=[]/cleanup 及交互语义子集）
+> 与对应离线反向矩阵（T01～T16，含「篡改证据并同步重算记录 hash」）。新 manifest 的 `gates=17`、
+> `gates_meta.gate_count=17` 且集合完全一致（见 §R3-33）。不重 build、不重打包、不调用模型或付费 Gate；
+> `review` 仍为 `c8a63e0` 未移动，顶部继续「待验收」。`DOC_RETURNED` 解除前不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -70,6 +70,27 @@
 >   Gate 合同仍为 14 门而非 runner 的 17 门，故继续 `DOC_RETURNED`。旧 `bbe3532*`、`69a65f3*`、
 >   `1392dfb*`、`ca6c8b4*` 封存均保留为失败追溯；本批未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，
 >   未移动 `review`。
+
+> **§32.4 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-33）**：
+>
+> - **返工 SRC**：`93e88c2`（完整 SHA 由 `git log` 解析）。唯一 parent 为上一节点 `8ad6e77`，相对其只
+>   修改 4 个离线工具/矩阵脚本：`scripts/h8_r3_manifest.py`（三门逐门合同 + 语义 verdict + 后置条件 +
+>   Gate ID 精确集合 fail-closed）、`scripts/h8_r3_gate_fixtures.py`（GATE_ORDER/EVIDENCE/全通过夹具
+>   14→17）、`scripts/h8_r3_gate_verdict_negtest.py`（三门反向用例 T01～T16）、
+>   `scripts/h8_r3_run_gates_negtest.py`（P01 断言精确 17 门）；**无产品源码/前端/后端/依赖/配置/bundle/
+>   EXE 变化**，未重 build、未重打包；
+> - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与中央
+>   manifest 的 `identity.handoff` 记录，不在本文件自引用；
+> - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
+>   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
+>   `index-BMdbu97O.js`；
+> - **中央封存入口**：`<acceptance-staging>/93e88c2/` 与 `93e88c2-evidence/`；本节点后的 RESULT-only
+>   收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`（见 §33.6）；
+> - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`；这是该包
+>   原 17 门实际运行时的 SRC，本轮仅修离线工具并按证据血缘复用，未伪造改写；
+> - **当前门禁**：§R3-33 已完成 §32.4 的 17↔17 集合、三门语义合同与离线反向矩阵；但 `DOC_ALIGNED`
+>   是否形成、`review` 是否移动由 Documentation Agent 判定。旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、
+>   `ca6c8b4*` 封存均保留为失败追溯；本批未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，未移动 `review`。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5585,3 +5606,83 @@ P4 点击、非工作台返回与组件正反向行为；允许其证据失败�
 **Documentation Gate：`DOC_RETURNED`。** §30.5、当前产品包、中央脱敏与 checksum 均通过；唯一
 阻断是 manifest/fixture 漏掉 runner 17 门中的三项关键 UI 行为 Gate，并已用三次真实反向篡改证明可
 假绿。下一轮严格限于 §32.4 的离线补齐，不重跑任何原始或付费 Gate。
+
+## R3-33. §32.4 离线最小返工交付（17 门精确合同与三门反向矩阵，2026-09-28）
+
+### 33.1 范围与纪律
+
+严格限于 §32.4 六项。未修改产品源码 / 前端 / 后端 / 依赖 / 配置 / bundle / EXE，未执行构建、打包、
+六格、Design Fidelity、content/mainchain E2E、`docreturned_ui` 或任何模型/付费 Gate；未改动任何原 17
+门证据字节。只修改 4 个离线工具/矩阵脚本并重跑受影响的离线矩阵、重新生成派生封存。
+
+### 33.2 §32.4-1/2/3：17 门精确逐门合同
+
+1. `h8_r3_manifest.py::_GATE_CONTRACTS` 追加 `frontend_test` / `docreturned_anchor` / `docreturned_ui`
+   三条合同；`_REQUIRED_GATES = list(_GATE_CONTRACTS.keys())` 由 14 变为 17；
+2. `h8_r3_gate_fixtures.py::GATE_ORDER` 与 `EVIDENCE_BY_GATE` 同步 14→17，并新增三门「全通过」夹具
+   （`frontend_log_payload` 含真实 ANSI 色码、`anchor_log_payload`、`ui_summary_payload`）；
+3. 三门语义合同：
+   - `frontend_test`：剥离 ANSI 后确认 `Test Files 2 passed (2)`、`Tests 25 passed (25)`，且不得出现 `failed`；
+   - `docreturned_anchor`：`[PASS]` 恰 29 项、`[FAIL]` 0 项、终态 `FAIL=0`，且 `A1)`/`A2)`/`A2b)`/
+     `A3)`/`A4)`/`A5/A6)`/`A7)` 必需分组在场；
+   - `docreturned_ui`：assertion label 唯一且精确等于 72 项合同集合、逐项 `ok=true`、`pass=72`、`fails=[]`；
+     后置条件 `ui_required_interactions` 覆盖 P4 fact/section/skills 鼠标与键盘交互、empty/mismatch 诚实
+     退出、三条非工作台路由返回、Task 不变、零生成/零模型请求、单飞语义（29 项）；`cleanup_required=true`
+     使其 runtime 清理进入总 cleanup 判定；
+4. Gate ID 精确集合 fail-closed：`_gates_meta_consistency()` 记录并判 `duplicate_gates`/`extra_gates`/
+   `missing_gates`/`gate_name_set_exact`；`_verify()` D 段与末段复核 `gates` 集合、`gates_meta.gate_count`
+   与 `gate_name_set_exact`。
+
+### 33.3 §32.4-4：离线反向矩阵（三门）
+
+`h8_r3_gate_verdict_negtest.py` 新增 `T01～T16`，每例要求 build **与** verify 均非零退出、
+`final_verdict=false` 且 problems 定位具体 Gate：
+
+| 用例 | 注入事实 |
+|---|---|
+| T01 frontend_failed_exit0 | 摘要 failed 但 runner 记录 exit 0 |
+| T02 frontend_summary_missing | 只剩 RUN 行，未确认 2 files/25 tests |
+| T03 / T04 | frontend 证据截断 / 缺失 |
+| T05 anchor_fail_terminal | 出现 `[FAIL]` 且终态 `FAIL=1` |
+| T06 anchor_group_missing | 29 PASS 在场但缺 `A4)` 必需分组 |
+| T07 / T08 | anchor 证据缺失 / 截断 |
+| T09 ui_pass_zero | `pass=0`、`fails` 非空、首个 assertion `ok=false` |
+| T10 / T11 | ui 必需 label 缺失 / 额外 label |
+| T12 / T13 | ui 证据截断 / 缺失 |
+| T14 three_gates_hash_resynced | 三门证据全部失败，**并按现场同步重算** `evidence_sha256`/`evidence_bytes` |
+| T15 gate_id_duplicate | `gates_run` 出现重复 Gate ID |
+| T16 gate_id_extra | `gates_run` 出现合同外 Gate ID |
+
+Gate ID **缺失**由既有 `N08_partial_to_manifest`（缺门）与 `N16_gate_record_missing`（drop_gate）覆盖。
+`h8_r3_run_gates_negtest.py::P01_manifest_positive` 改为读取 build 产出的 manifest，机械断言 `gates`
+集合等于 runner 注册集合、数量为 17、`gates_meta.gate_count=17` 且 `gate_name_set_exact=true`。
+
+### 33.4 自测与集合一致性（现场实测）
+
+- 三定义集合枚举：`gate_specs()`=17、`_GATE_CONTRACTS`=17、`GATE_ORDER`=17，且 `_REQUIRED_GATES ==
+  GATE_ORDER` 逐项相同；72 项 ui label 在两文件逐字相同、29 项交互子集为合同集合子集；anchor 分组 PASS
+  合计 29；
+- 真实证据语义预检（fixture repo + 真实证据目录，不触碰 Git 现场）：`gates=17`、`gates_meta.gate_count=17`、
+  `gate_name_set_exact=true`；三门语义合同对真实 `frontend_test.log`/`docreturned_anchor.log`/
+  `docreturned_ui_summary.json` 全部通过（`runtime_dir` 绝对路径仅存于原始证据，stage 阶段脱敏）。
+
+### 33.5 离线矩阵重跑结果
+
+| 矩阵 | 用例数 | 结果 |
+|---|---:|---|
+| `h8_r3_gate_verdict_negtest.py` | 36 例（N01～N20、T01～T16）+ P00 正向对照 | `all_ok=true`、`failures=[]` |
+| `h8_r3_run_gates_negtest.py` | 23（P00、P01、N01～N21） | `all_ok=True`、`failures=[]` |
+| `h8_r3_seal_manifest_negtest.py` | 22 | `all_ok=true`、`problems=[]` |
+
+`seal_scan_negtest.json` 不重跑（`h8_r3_seal.py` 本轮未变）。
+
+### 33.6 派生封存
+
+本节点后的 RESULT-only 收口 commit 记录新中央封存入口 `<acceptance-staging>/93e88c2/` 与
+`93e88c2-evidence/` 的 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`。
+
+### 33.7 结论
+
+**本轮不宣告任何验收通过。** §32.4 六项已全部完成并留有可独立复核的字节证据；产品源码、包与 EXE 未做
+任何改动。`DOC_RETURNED` 是否解除、是否形成 `DOC_ALIGNED` 与移动 `review`，由 Documentation Agent 核对
+17↔17 集合、三门语义合同、对应离线反例与新派生封存后判定。
