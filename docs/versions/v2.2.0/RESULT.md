@@ -5436,12 +5436,58 @@ HANDOFF）→ `ca6c8b4`）。本文件只陈述**可独立复核的离线事实*
 
 ### 31.8 封存后数值（由收口 commit 记录）
 
-本节点不写入封存后数值，以避免自引用：中央入口路径、`manifest.json` 字节 SHA-256、`CHECKSUMS.sha256`
-条数、中央副本二次 `manifest verify` / `verify-checksums` 的 `rc`，以及中央副本独立零命中复扫结果，
-**全部由本节点之后的 RESULT-only 收口 commit 写入**。
+- 中央入口：`<acceptance-staging>/ca6c8b4/`（包 **4045** files / 170,399,477 B）与
+  `<acceptance-staging>/ca6c8b4-evidence/`（证据 **52** files + `CHECKSUMS.sha256`，共 53 项文件）；
+- `manifest.json` 字节 SHA-256：`9fe2086462b49df17eeb4b0b139e707ab6d0c2556ba86d0b78a1d8ddf9766dec`
+  （35,564 B）；`identity.src=ca6c8b4be26e97a28f6638cbb3be4661ea08b6ad`、
+  `identity.handoff=ea391e8e6adf11e1873c1e65512132db3629c5b8`；staged 与中央副本**逐字节一致**；
+- `CHECKSUMS.sha256`：**52** 条，中央副本 `verify-checksums` → `listed=52 / actual=52`、`ok=true`、`rc=0`；
+- 中央副本 **二次 `manifest verify`**：`final_verdict=true`、`problems=[]`、`rc=0`；
+- 中央副本**独立零命中复扫**：对 52 个证据文件（排除 `CHECKSUMS.sha256` 自身）先掩蔽公开 HTTP(S) URL，
+  再检查动态现场字面量 / 盘符绝对路径 / UNC / 类 Unix 用户目录 / 凭据与 PII，全部 **0 命中**
+  （`ZERO_HIT_OK`）。唯一表观项是 `manifest.json` 内 JSON 转义的**相对**路径 `dist\\ResumeAssistant`，
+  加路径 token 边界环视后不构成命中；该文件由 manifest build 在 stage 之后生成，不在 `STAGE_REPORT`
+  的复扫范围内，特此显式披露；
+- `STAGE_REPORT.json`：`counts={text_files:50, binary_files:0, forbidden_hits:0, path_rescan_hits:0}`；
+  `redaction_map={<current-workspace>:148, <home>:333, <local-path>:1, <unc-path>:194}`（合计 676）；
+  `ok=true`；staging 目录 51 个文件（含 build 后的 manifest.json）；`SEAL_REPORT.json` `ok=true`、
+  `stage_report_ok=true`、`problems=[]`；
+- `verdicts` 全绿（10 项）：`plan_blob_ok` / `git_identity_ok` / `package_ok` / `gates_ok` /
+  `negative_selftest_ok` / `identity_matrix_ok` / **`aux_matrix_ok`** / **`aux_seal_matrix_ok`** /
+  `gates_meta_ok` / `cleanup_ok` 均为 `true`；
+- `aux_matrix` 现场 SHA 对比：`runner_sha256_recorded == runner_sha256_live ==
+  39c0f0b21176ae756958634414da3654a4a5b3c04046a1b4693fa5342e802c81`；`case_ids` 23 个、
+  `case_id_set_exact=true`、`missing/duplicate/extra_case_ids=[]`、`bad_polarity=[]`、
+  `n05_problems=[]`、`failures=[]`；
+- `aux_seal_matrix` 现场 SHA 对比：`script_sha256_recorded == script_sha256_live ==
+  9788e66742936fe89dc2f6de990beb0d4583606ae6ef4b654cfacd35d61fb840`；`case_ids` 14 个、
+  `case_id_set_exact=true`、`missing/duplicate/extra_case_ids=[]`、`bad_results=[]`、`failures=[]`；
+- 旧 `1392dfb*` 中央封存**未改动**（`verify-checksums` 仍 `listed=53 / actual=53`、`ok=true`、`rc=0`），
+  与新 `ca6c8b4*` 并存，作为失败追溯保留。
 
-### 31.9 同轮内派生证据再生成：孤儿 manifest 修正（由收口 commit 记录）
+### 31.9 同轮内派生证据再生成：孤儿 manifest 修正
 
-见收口 commit。该节点记录：旧轮次孤儿 `manifest.json`（identity `ff2a8e24 → 5e4a8cf1`，生成于
-2026-09-27T12:02:55Z，无 `aux_matrix` / `aux_seal_matrix`，未被 17 门 `gates_run.json` 引用）进入
-上一版封存的原因与证据、修复后的封存文件集合与逐项复核结果。
+**缺陷**：上一版封存 `<acceptance-staging>/1392dfb-evidence/` 内同时存在两个 manifest 文件——
+`gate_manifest.json`（identity `1392dfb → 0b95252`，含 `aux_matrix` / `aux_seal_matrix`，被本轮
+verify 使用）与 `manifest.json`（identity `ff2a8e24 → 5e4a8cf1`，`_meta.generated_at_utc`
+2026-09-27T12:02:55Z，**不含**任何辅助段，且**未被** 17 门 `gates_run.json` 的 `evidence` 字段引用）。
+
+**成因（已定位）**：原始证据目录 `validation-artifacts/h8/r3docreturned-final/` 内本就有原始 17 门
+那一轮自己的 `manifest.json`（其未脱敏字节 SHA-256 `2AF0E419…D84760`，即 §26.3 被点名「hash 绑定
+未脱敏字节、不得作为最终中央封存」的对象）。此前各轮均以 `--out manifest.json` 构建最终 manifest，
+该构建会在 staged 目录内**原位覆盖**这份旧副本，故封存内始终只有一个语义正确的 manifest；本轮误用
+`--out gate_manifest.json`，旧副本被原样复制进封存并保留下来。
+
+**影响判定**：该孤儿文件未被任何 `gates` / `verdicts` 引用，checksum 与中央 verify 在当时均成立，
+因此§31.1–§31.7 所列结论不因它而改变；但其声明旧身份且缺少辅助段，导致封存内身份语义不一致，
+并与 §29 记录的 `manifest.json` 命名约定不符，故按缺陷处置而非观察项。
+
+**修复（本轮执行，未改脚本、未重 build、未重跑任何门禁/模型）**：
+1. manifest 输出名恢复为既有约定 `manifest.json`，在 staged 目录内原位覆盖旧副本；
+2. 重做 `stage`（51 files / text 50 / binary 0 / redactions 676 / `path_rescan_hits=0`）→
+   `manifest build`（rc=0）→ `verify`（rc=0，`final_verdict=true`）→ `seal`（rc=0）→
+   新中央目录 `<acceptance-staging>/ca6c8b4/` 与 `ca6c8b4-evidence/`；
+3. 修复后封存内**只有 1 个** manifest 文件（`manifest.json`，identity `ca6c8b4 → ea391e8`，
+   含两个辅助段）；全目录扫描确认再无可声明 identity 的非本轮 manifest；
+4. 证据文件数由 54 降至 53、`CHECKSUMS.sha256` 由 53 条降至 52 条（减少项即该孤儿副本）；
+5. 旧 `1392dfb*` 封存未覆盖、未删除，`verify-checksums` 仍 `rc=0`。
