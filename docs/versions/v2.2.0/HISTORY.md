@@ -880,3 +880,21 @@
 - 责任与边界：该 17↔14 集合缺口早于 §30.5，Documentation Agent 前轮集中审查未做注册集合机械
   对照，导致延后发现；不归咎于本轮 §30.5 返工。只允许按 RESULT §R3-32 补三门离线合同、fixture
   与反向矩阵并重做派生封存；产品和包不变，不重跑任何原始/付费 Gate，`review` 保持 `c8a63e0`。
+
+## VH-048 §R3-33 闭合 17 门合同缺口并通过 Documentation Gate
+
+- 日期：2026-09-28
+- 阶段：V2.2.0 Revision 3 最终离线工具/证据收口 → Documentation Gate `DOC_ALIGNED`
+- 对象：SRC `93e88c2c915a40e58d0f20c2d138264f093c2986`；HANDOFF `99a5f2b8953e875b743ca276f622b129ac2eedeb`；
+  RESULT-only 数值收口 `be7e2e37efa3bfa5fb76f92304bf854dee43f429`；精确包 EXE SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`。
+- 闭合内容：runner、manifest 合同与 fixture 三套 Gate ID 集合均唯一且精确为 17；补入
+  `frontend_test`、`docreturned_anchor`、`docreturned_ui` 的逐门证据、语义和 cleanup 合同；缺失、重复、
+  额外 Gate ID 在 build/verify 双侧 fail-closed；T01～T16 覆盖同步重算 hash 后的三门失败证据。
+- Documentation 独立复核：Gate verdict 36 个负向用例 + 正向对照、runner 23 例、seal/manifest 22 例
+  均全绿；中央 manifest verify `rc=0`、17 门、`final_verdict=true`；checksum 52/52；manifest SHA-256
+  `16DC74A1ED2061C2FDA17FB1490B9A3FBE0F68729AE9B39A0719F46AE2444DD3`。
+- 血缘结论：本轮只修改 4 个不入包的离线脚本，因此复用原 17 门产品 Gate，只重做受影响的矩阵、
+  manifest 与 seal 是正确边界；没有重 build、重打包、运行产品 Gate 或产生模型调用。
+- 门禁结论：`DOC_ALIGNED`。本文件所在 docs-only 对象成为 `review` 新目标，可进入全新独立 Acceptance；
+  这不等于 `ACCEPTANCE_PASS`、Product Owner 人工通过或发布授权。旧失败封存全部保留追溯。

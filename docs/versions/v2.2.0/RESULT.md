@@ -1,15 +1,17 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
+> 当前状态：**待独立验收 / Documentation Gate `DOC_ALIGNED`**
 > 当前阶段：§R3-33 已按 §32.4 完成唯一允许的最终离线修复——把 runner 注册的 17 门中此前遗漏的
 > `frontend_test`、`docreturned_anchor`、`docreturned_ui` 纳入 manifest 逐 Gate 合同与 fixture，使
 > runner 注册集合、fixture 集合、manifest `_REQUIRED_GATES` 三者唯一且精确同为 17 门；`gates_run.json`
 > 出现缺失/重复/额外 Gate ID 时 build 与 verify 双侧 fail-closed；补齐三门语义合同（frontend 2 files/25
 > tests、anchor 29 PASS/0 FAIL/FAIL=0/A1～A7、ui 72 精确 label/pass=72/fails=[]/cleanup 及交互语义子集）
 > 与对应离线反向矩阵（T01～T16，含「篡改证据并同步重算记录 hash」）。新 manifest 的 `gates=17`、
-> `gates_meta.gate_count=17` 且集合完全一致（见 §R3-33）。不重 build、不重打包、不调用模型或付费 Gate；
-> `review` 仍为 `c8a63e0` 未移动，顶部继续「待验收」。`DOC_RETURNED` 解除前不得启动独立验收或发布
+> `gates_meta.gate_count=17` 且集合完全一致。Documentation Agent 已按 §32.4 的固定审查面独立复核，
+> 判定 `DOC_ALIGNED`（见 §R3-34）；不重 build、不重打包、不调用模型或付费 Gate。本文件所在 docs-only
+> Documentation Gate 对象是 `review` 的唯一目标；该结论只授权进入新一轮独立验收，不代表
+> `ACCEPTANCE_PASS`、Product Owner 人工通过或发布授权。
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -71,7 +73,7 @@
 >   `1392dfb*`、`ca6c8b4*` 封存均保留为失败追溯；本批未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，
 >   未移动 `review`。
 
-> **§32.4 离线最小返工交付对象（状态：`待验收`，待 Documentation Gate 复核，见 §R3-33）**：
+> **§32.4 离线最小返工交付对象（状态：Documentation Gate `DOC_ALIGNED`，见 §R3-33/§R3-34）**：
 >
 > - **返工 SRC**：`93e88c2`（完整 SHA 由 `git log` 解析）。唯一 parent 为上一节点 `8ad6e77`，相对其只
 >   修改 4 个离线工具/矩阵脚本：`scripts/h8_r3_manifest.py`（三门逐门合同 + 语义 verdict + 后置条件 +
@@ -88,9 +90,9 @@
 >   收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`（见 §33.6）；
 > - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`；这是该包
 >   原 17 门实际运行时的 SRC，本轮仅修离线工具并按证据血缘复用，未伪造改写；
-> - **当前门禁**：§R3-33 已完成 §32.4 的 17↔17 集合、三门语义合同与离线反向矩阵；但 `DOC_ALIGNED`
->   是否形成、`review` 是否移动由 Documentation Agent 判定。旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、
->   `ca6c8b4*` 封存均保留为失败追溯；本批未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，未移动 `review`。
+> - **当前门禁**：Documentation Agent 已按 §32.4 固定范围独立复核 17↔17 集合、三门语义合同、离线
+>   反向矩阵与派生封存，结论为 `DOC_ALIGNED`。旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`
+>   封存均保留为失败追溯；本结论不写 `ACCEPTANCE_PASS`，不构成人工验收或发布授权。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5701,3 +5703,59 @@ Gate ID **缺失**由既有 `N08_partial_to_manifest`（缺门）与 `N16_gate_r
 **本轮不宣告任何验收通过。** §32.4 六项已全部完成并留有可独立复核的字节证据；产品源码、包与 EXE 未做
 任何改动。`DOC_RETURNED` 是否解除、是否形成 `DOC_ALIGNED` 与移动 `review`，由 Documentation Agent 核对
 17↔17 集合、三门语义合同、对应离线反例与新派生封存后判定。
+
+## R3-34. Documentation Gate：`DOC_ALIGNED`（17 门合同闭环，2026-09-28）
+
+### 34.1 固定对象与审查边界
+
+Documentation Agent 只执行 §32.4 预先承诺的最终检查，不重新打开 §30.5，不增加工具要求，不运行产品、
+构建、打包、原始 17 门、真实模型或付费 Gate：
+
+- SRC `93e88c2c915a40e58d0f20c2d138264f093c2986`，唯一 parent
+  `8ad6e77d2be7d44dccb03803e23913b93ae62634`；相对 parent 仅修改 4 个离线脚本，`+521/-5`；
+- HANDOFF `99a5f2b8953e875b743ca276f622b129ac2eedeb`，唯一 parent 为 SRC，差异仅本 RESULT；
+- RESULT-only 数值收口 `be7e2e37efa3bfa5fb76f92304bf854dee43f429`，唯一 parent 为 HANDOFF，差异仅本 RESULT；
+- 生效 PLAN blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`；
+- 精确包仍为 4045 files / 170,399,477 B，EXE 16,855,308 B，SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`，bundle
+  `index-BMdbu97O.js`，本轮没有产品或入包字节变化。
+
+### 34.2 17 门集合与三门语义合同独立复核
+
+运行时枚举结果为：runner `gate_specs()` 17 项、manifest `_GATE_CONTRACTS` 17 项、fixture
+`GATE_ORDER` 17 项，三者均无重复且集合精确相同；`_REQUIRED_GATES == GATE_ORDER`。runner 的显示顺序
+与 manifest/fixture 顺序不同不影响合同，因为 §32.4 要求的是唯一且精确的 Gate ID 集合，而非顺序。
+
+- `frontend_test`：合同确认 2 个 test files、25 tests 全通过并拒绝失败摘要；
+- `docreturned_anchor`：合同确认 29 PASS、0 FAIL、终态 `FAIL=0`，A1、A2、A2b、A3、A4、A5/A6、A7
+  必需分组齐全；
+- `docreturned_ui`：manifest 与 fixture 的 72 个 assertion label 逐项相同且唯一，29 项 P4/非工作台返回
+  交互子集完整包含于合同集合；逐项成功、`pass=72`、`fails=[]` 与 runtime cleanup 均进入总 verdict。
+
+### 34.3 独立离线反例与派生封存复核
+
+Documentation Agent 在中央封存外的一次性临时目录重新运行受影响的离线矩阵，未复用开发方退出码：
+
+| 检查 | 独立实测 |
+|---|---|
+| Gate verdict 矩阵 | 36 个负向用例 + P00 正向对照，`rc=0`、`all_ok=true`、`failures=[]`；T01～T16 均以非零内层退出和 `final_verdict=false` 拦截 |
+| Gate runner 矩阵 | 23 例，`rc=0`、`all_ok=true`、`failures=[]`；P01 明确断言完整 17 门 |
+| seal/manifest 矩阵 | 22 例，`rc=0`、`all_ok=true`、`problems=[]` |
+| 中央 manifest verify | `rc=0`、`final_verdict=true`、`problems=[]`、`gates=17`、`gates_meta.gate_count=17`、`gate_name_set_exact=true` |
+| 中央 checksum verify | `rc=0`、`listed=52`、`actual=52`、无缺失、无额外、无 hash 不一致 |
+
+中央 `manifest.json` 独立复算为 38,032 B，SHA-256
+`16DC74A1ED2061C2FDA17FB1490B9A3FBE0F68729AE9B39A0719F46AE2444DD3`；证据目录共 53 文件（含
+`CHECKSUMS.sha256`），只有一个权威 `manifest.json`。`SEAL_REPORT.ok=true`、`gates_recorded=17`、
+`gates_all_exit_zero=true`；`STAGE_REPORT.ok=true`、`path_rescan_hits=0`、`forbidden_hits=0`。
+
+### 34.4 证据血缘与门禁结论
+
+`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47` 保留的是当前精确包原 17 门
+真实运行身份。`8ad6e77 → 93e88c2` 只改变不入包的离线 manifest/fixture/矩阵脚本，因此只使其派生
+manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑产品、模型或付费 Gate，符合证据血缘规则。
+
+**Documentation Gate 结论：`DOC_ALIGNED`。** §R3-32 的唯一阻断已闭合，§32.4 六项全部通过，未发现
+新的范围内阻断。本文件所在 docs-only Documentation Gate 对象可作为 `review` 的新目标，并可交给
+未参与实现、自测、证据生成或本次文档判定的独立 Acceptance Agent。该结论不是 `ACCEPTANCE_PASS`，
+不授权 Product Owner 人工验收通过或发布；旧 `ca6c8b4*` 及更早失败封存继续仅作追溯。
