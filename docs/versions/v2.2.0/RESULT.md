@@ -5959,22 +5959,21 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 
 ### 36.5 派生封存
 
-本节数值由本节点后的 RESULT-only 收口 commit 记录，均为在 `HEAD==HANDOFF` 干净现场
-`stage → build → verify → seal → 中央二次 verify` 后的**实测值**（本 HANDOFF 节点先留位，与 §35.5
-同口径）：
+本节数值由本节点后的 RESULT-only 收口 commit 记录，均为在 `HEAD==HANDOFF(e4dc99c)` 干净现场
+`stage → build → verify → seal → 中央二次 verify` 后的**实测值**（与 §35.5 同口径）：
 
 | 项 | 实测值 |
 |---|---|
-| 新中央封存入口（包） | `（待收口 commit 回填）` |
-| 包 EXE | `（待收口 commit 回填）` |
-| 新中央封存入口（证据） | `（待收口 commit 回填）` |
-| manifest | `（待收口 commit 回填）` |
-| 中央二次 verify（manifest） | `（待收口 commit 回填）` |
-| 中央二次 verify-checksums | `（待收口 commit 回填）` |
-| `SEAL_REPORT.json` | `（待收口 commit 回填）` |
-| `STAGE_REPORT.json` | `（待收口 commit 回填）` |
-| 封存证据自洽复核 | `（待收口 commit 回填）` |
-| Git 身份 | `（待收口 commit 回填）` |
+| 新中央封存入口（包） | `<acceptance-staging>/5a1ac9c/`（4045 files / 170,399,477 B） |
+| 包 EXE | `ResumeAssistant.exe` 16,855,308 B / SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264` |
+| 新中央封存入口（证据） | `<acceptance-staging>/5a1ac9c-evidence/`（52 files，`CHECKSUMS.sha256` 52 条，仅 1 个 `manifest.json`） |
+| manifest | 38,378 B / SHA-256 `cfef733eee137264c68f0b6bb7fefda04533301677ae482c7aeef9e982a5010f`；`gates`=17、`gates_meta.gate_count`=17、`gate_name_set_exact`=true、`final_verdict`=true、`problems=[]` |
+| 中央二次 verify（manifest） | `rc=0`、`final_verdict=true`、`problems=[]` |
+| 中央二次 verify-checksums | `rc=0`、`listed=52`、`actual=52`、`ok=true` |
+| `SEAL_REPORT.json` | `ok=true`、`gates_recorded`=17、`gates_all_exit_zero=true`、`evidence.stage_report_ok=true`、封存时间 `2026-09-28T22:03:24` |
+| `STAGE_REPORT.json` | `ok=true`、`text_files`=50 / `binary_files`=0、`redaction_map` 合计 684 处、`forbidden_hits`=0、`path_rescan_hits`=0、`local_path_rescan_zero_hit=true`、`text_detection=binary-sniff(8192B, no-NUL + strict utf-8)` |
+| 封存证据自洽复核 | `.log`/`.json` 的 `cases` 逐门一致（37/22）；UI 门 `.log` 终态 `PASS=72 FAIL=0`、证据 `exe.sha256` 与目标 EXE 一致；`_meta.refresh.gates=['docreturned_ui','gate_verdict_negtest','seal_manifest_negtest']`（`2026-09-28T21:57:28`） |
+| Git 身份 | 现场 `HEAD`=`e4dc99cccde4d640ded3553f3db5283751362ad1`（HANDOFF），唯一 parent=`5a1ac9c9d0c8bb8d632b66e633118fd1b65a10ea`（SRC），SRC→HANDOFF 仅改 `docs/versions/v2.2.0/RESULT.md`，tracked tree 干净 |
 
 `review` 仍为 `9798c3e`，本轮未移动；旧 `d500dd7*`、`93e88c2*`、`ca6c8b4*` 及更早失败封存全部保留。
 
