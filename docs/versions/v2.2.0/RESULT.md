@@ -5678,8 +5678,23 @@ Gate ID **缺失**由既有 `N08_partial_to_manifest`（缺门）与 `N16_gate_r
 
 ### 33.6 派生封存
 
-本节点后的 RESULT-only 收口 commit 记录新中央封存入口 `<acceptance-staging>/93e88c2/` 与
-`93e88c2-evidence/` 的 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`。
+本节数值由本节点后的 RESULT-only 收口 commit 记录，均为在 `HEAD==HANDOFF(99a5f2b)` 干净现场
+`stage → build → verify → seal → 中央二次 verify` 后的**实测值**：
+
+| 项 | 实测值 |
+|---|---|
+| 新中央封存入口（包） | `<acceptance-staging>/93e88c2/`（4045 files / 170,399,477 B） |
+| 包 EXE | `ResumeAssistant.exe` 16,855,308 B / SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264` |
+| 新中央封存入口（证据） | `<acceptance-staging>/93e88c2-evidence/`（53 files，`CHECKSUMS.sha256` 52 条，仅 1 个 `manifest.json`，无孤儿） |
+| manifest SHA-256 | `16dc74a1ed2061c2fda17fb1490b9a3fbe0f68729ae9b39a0719f46ae2444dd3` |
+| manifest 门集合 | `gates`=17、`gates_meta.gate_count`=17、`gate_name_set_exact`=true、`final_verdict`=true、`problems=[]` |
+| 中央二次 verify（manifest） | `rc=0`、`final_verdict=true`、`problems=[]` |
+| 中央二次 verify-checksums | `rc=0`、`listed=52`、`actual=52`、`ok=true` |
+| `SEAL_REPORT.json` | `ok=true`、`gates_recorded`=17、`gates_all_exit_zero=true`、`evidence.stage_report_ok=true` |
+| `STAGE_REPORT.json` | `ok=true`、`text_files`=50 / `binary_files`=0、`redaction_map` 合计 676 处、`forbidden_hits`=0、`path_rescan_hits`=0、`local_path_rescan_zero_hit=true` |
+| Git 身份 | 现场 `HEAD`=`99a5f2b8953e875b743ca276f622b129ac2eedeb`（HANDOFF），唯一 parent=`93e88c2c915a40e58d0f20c2d138264f093c2986`（SRC），SRC→HANDOFF 仅改 `docs/versions/v2.2.0/RESULT.md`，tracked tree 干净 |
+
+旧 `ca6c8b4*` 及更早失败封存全部保留；`review` 仍为 `c8a63e0`，未移动。
 
 ### 33.7 结论
 
