@@ -5837,9 +5837,23 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 
 ### 35.5 派生封存
 
-（占位：由本节点后的 RESULT-only 数值收口 commit 记录——`<acceptance-staging>/d500dd7/` 与
-`d500dd7-evidence/` 的 manifest SHA-256、CHECKSUMS 条数、中央二次 verify 的 `rc` 与 `SEAL_REPORT`/
-`STAGE_REPORT` 实测值。）
+本节数值由本节点后的 RESULT-only 收口 commit 记录，均为在 `HEAD==HANDOFF(92fc012)` 干净现场
+`stage → build → verify → seal → 中央二次 verify` 后的**实测值**：
+
+| 项 | 实测值 |
+|---|---|
+| 新中央封存入口（包） | `<acceptance-staging>/d500dd7/`（4045 files / 170,399,477 B） |
+| 包 EXE | `ResumeAssistant.exe` 16,855,308 B / SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264` |
+| 新中央封存入口（证据） | `<acceptance-staging>/d500dd7-evidence/`（53 files，`CHECKSUMS.sha256` 52 条，仅 1 个 `manifest.json`） |
+| manifest | 38,262 B / SHA-256 `d7de096cd5099c4a450a6603f397903798daa8dcdca02b3ab2c7c4d53ac8b8e1`；`gates`=17、`gates_meta.gate_count`=17、`gate_name_set_exact`=true、`final_verdict`=true、`problems=[]` |
+| 中央二次 verify（manifest） | `rc=0`、`final_verdict=true`、`problems=[]` |
+| 中央二次 verify-checksums | `rc=0`、`listed=52`、`actual=52`、`ok=true` |
+| `SEAL_REPORT.json` | `ok=true`、`gates_recorded`=17、`gates_all_exit_zero=true`、`evidence.stage_report_ok=true`、封存时间 `2026-09-28T20:56:26` |
+| `STAGE_REPORT.json` | `ok=true`、`text_files`=50 / `binary_files`=0、`redaction_map` 合计 678 处、`forbidden_hits`=0、`path_rescan_hits`=0、`local_path_rescan_zero_hit=true` |
+| 封存证据自洽复核 | `.log`/`.json` 的 `cases` 逐门一致（36/22）；两门记录为真实重跑时间戳 `2026-09-28T20:47:42`/`20:48:07`；`_meta.refresh.gates=[gate_verdict_negtest,seal_manifest_negtest]` |
+| Git 身份 | 现场 `HEAD`=`92fc01253b5dc41048fccbae018cc37c7ae9a216`（HANDOFF），唯一 parent=`d500dd7db029878f60b7ff358e1084a4391765f4`（SRC），SRC→HANDOFF 仅改 `docs/versions/v2.2.0/RESULT.md`，tracked tree 干净 |
+
+`review` 仍为 `9798c3e`，本轮未移动；旧 `93e88c2*`、`ca6c8b4*` 及更早失败封存全部保留。
 
 ### 35.6 结论
 
