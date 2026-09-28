@@ -2,16 +2,16 @@
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
 > 当前状态：**需修正 / 独立验收 `ACCEPTANCE_FAIL` 后离线最小返工（待独立验收）**
-> 当前阶段：§R3-35。独立 Acceptance Agent 对 `review@9798c3e`（包 `93e88c2`）独立复核后判定
-> `ACCEPTANCE_FAIL`，唯一阻断为封存证据内部矛盾：`gate_verdict_negtest.log`（**20 例**）与
-> `seal_manifest_negtest.log`（**9 例**）同其封存 `.json`（**36/22 例**）及 `gates_run.json` 记录
-> hash 直接冲突，且该两门记录为 §32.4 事后重算回填、并非该次运行产物——根因是 §32.4 离线重跑矩阵时
-> 绕过了 `h8_r3_run_gates.py` 的 stdout 捕获路径，只重写了 `.json` 未刷新 `.log`。本轮按该报告的
-> 建议做**唯一允许的离线最小返工**：新增 `scripts/h8_r3_refresh_gate_evidence.py`，以 runner 同一
-> argv/cwd/target 重跑该两门**一次**，使 `.log`/`.json`/记录同版本并真实刷新时间戳/exit_code/hash，
-> 随后重新 stage→build/verify→seal→中央二次 verify，形成新 SRC、RESULT-only HANDOFF 与数值收口、
-> 新中央封存（见 §R3-35）。不改产品源码/前端/后端/依赖/配置/bundle/EXE，不重 build、不重打包、不调用
-> 模型或付费 Gate；`review` 不移动，顶部不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`。
+> 当前阶段：§R3-36。独立 Acceptance Agent 复核 §R3-35 交付对象（`review@9798c3e`，包 `93e88c2`）后报告
+> **发现 2**：`docreturned_ui` 门以**源码 uvicorn** 启动被测后端（该门脚本无 `--exe`，runner argv 亦不传
+> `--exe`），故其 P4 真实交互复验与被验证的**冻结包**脱钩；且 manifest 合同对该门 `exe_sha_path=None`，
+> 证据未绑定包身份也不会 fail-closed。本轮按该报告做**唯一允许的离线最小返工**：该门改为以冻结
+> `ResumeAssistant.exe` 启动后端并把 `exe.sha256` 写入证据、runner 传 `--exe`、manifest 合同绑定
+> `exe.sha256`、夹具补包身份并新增 T17 精确反例；随后仅刷新受影响门（`docreturned_ui`、
+> `gate_verdict_negtest`、`seal_manifest_negtest`）并重跑 `run_gates_negtest` 辅助矩阵，再
+> stage→build/verify→seal→中央二次 verify，形成新 SRC、RESULT-only HANDOFF 与数值收口、新中央封存
+> （见 §R3-36）。不改产品源码/前端/后端/依赖/配置/bundle/EXE，不重 build、不重打包、不调用模型或付费
+> Gate；不重跑原 17 门/六格/Design Fidelity；`review` 不移动，顶部不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`。
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -112,6 +112,29 @@
 > - **当前门禁**：独立验收 `ACCEPTANCE_FAIL` 的唯一阻断（封存证据 `.log`/`.json` 矛盾）已由本轮离线
 >   最小返工消除；旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*` 封存保留为追溯；
 >   `review` 不移动；本文件不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。
+
+> **§R3-36 离线最小返工交付对象（状态：`待独立验收`，见 §R3-36）**：
+>
+> - **返工 SRC**：`5a1ac9c`（完整 SHA 由 `git log` 解析）。唯一 parent 为上一节点 `24c4917`，相对其只
+>   修改 6 个离线工具/夹具脚本：`scripts/h8_r3_docreturned_ui.py`（新增 `--exe`，以冻结包启动后端并写入
+>   `exe{path,sha256,size}`；`kill_tree` 增 `taskkill /T`；`DIST` 检查仅源码模式）、
+>   `scripts/h8_r3_run_gates.py`（`docreturned_ui` argv 追加 `--exe`）、`scripts/h8_r3_manifest.py`
+>   （合同 `exe_sha_path` 由 `None` 改为 `exe.sha256`）、`scripts/h8_r3_gate_fixtures.py`
+>   （`ui_summary_payload(exe_sha)` 补包身份）、`scripts/h8_r3_gate_verdict_negtest.py`（新增 T17 包身份
+>   错配反例）、`scripts/h8_r3_refresh_gate_evidence.py`（`_meta.refresh.gates` 累积披露）；
+>   **无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**，未重 build、未重打包；
+> - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与中央 manifest
+>   的 `identity.handoff` 记录，不在本文件自引用；
+> - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；SHA-256
+>   `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle `index-BMdbu97O.js`；
+> - **中央封存入口**：`<acceptance-staging>/5a1ac9c/` 与 `5a1ac9c-evidence/`；本节点后的 RESULT-only 收口
+>   commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`（见 §36.5）；
+> - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`（该包原 17 门
+>   实际运行时的 SRC）；本轮仅刷新 3 门离线证据并按证据血缘复用，未伪造改写；
+> - **当前门禁**：独立验收报告「发现 2」（`docreturned_ui` 交互复验未绑定冻结包、manifest 未绑定该门包身份）
+>   已由本轮离线最小返工消除——该门在冻结 EXE 上实测 `PASS=72/FAIL=0`、证据 `exe.sha256` 与包一致、T17
+>   精确反例证明包身份错配 fail-closed；旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*`、
+>   `d500dd7*` 封存保留为追溯；`review` 不移动；本文件不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5860,3 +5883,105 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 **本轮不宣告任何验收通过。** 独立验收的唯一阻断（封存证据 `.log`/`.json` 矛盾）已按报告建议以离线
 最小返工消除；产品源码、包与 EXE 未做任何改动。是否形成 `DOC_ALIGNED`、是否移动 `review`、是否进入
 下一轮独立验收，由 Documentation Agent 与独立 Acceptance Agent 复核后判定。
+
+***
+
+## R3-36. §R3-35 独立验收「发现 2」离线最小返工（新 SRC `5a1ac9c`，2026-09-28）
+
+> **状态**：`待独立验收`。Development Agent 按独立 Acceptance Agent 复核 §R3-35 交付对象
+> （`review@9798c3e`）后报告的**发现 2**，在同一 PLAN Revision 3 与 `DS-003` 下做**唯一允许的离线
+> 最小返工**：让 `docreturned_ui` 门绑定冻结 EXE 做动态交互复验，并把包身份写入证据、写入 manifest
+> 合同、写入夹具与反向矩阵；随后仅刷新受影响门与辅助矩阵，再 `stage → build/verify → seal → 中央
+> 二次 verify`，形成新 SRC、RESULT-only HANDOFF 与数值收口、新中央封存。本节为开发侧自述与证据
+> 入口；不改 PLAN、不改 HISTORY、不移动 `review`、不启动独立验收，不写 `DOC_ALIGNED` /
+> `ACCEPTANCE_PASS` / 人工通过 / 可发布。
+
+### 36.1 发现 2 与成因
+
+独立验收报告指出：`docreturned_ui` 门自称在 P4 做真实鼠标/键盘交互复验，但该复验**跑在源码后端上**，
+与被验证的冻结包脱钩；且 manifest 合同对该门不绑定包身份，证据即使不含包身份也不会 fail-closed。
+逐项归因（均为离线工具/合同侧缺陷，**与产品源码和包无关**）：
+
+| 位置 | 返工前缺陷 | 后果 |
+|---|---|---|
+| `scripts/h8_r3_docreturned_ui.py` | 仅以源码（`uvicorn`）启动被测后端，脚本无 `--exe`，证据不含包身份 | 交互复验测的不是冻结包；无身份可核 |
+| `scripts/h8_r3_run_gates.py` | `docreturned_ui` 的 argv 里不含 `--exe` | 即使脚本支持，runner 也不会绑定包 |
+| `scripts/h8_r3_manifest.py` | 该门合同 `exe_sha_path=None` | manifest 不做该门包身份交叉核验，缺失/错配均不 fail-closed |
+| `scripts/h8_r3_gate_fixtures.py` | 该门「全通过」夹具不含包身份 | 正向夹具与真实证据不同构，反向矩阵无法覆盖身份错配 |
+| `scripts/h8_r3_gate_verdict_negtest.py` | 无该门包身份错配的精确反例 | 身份错配无证据证明会被拒 |
+
+### 36.2 唯一允许的返工范围
+
+本轮**只改 6 个离线工具/夹具脚本**（SRC `5a1ac9c`，唯一 parent `24c4917`，`6 files +81 / −18`）：
+
+- `scripts/h8_r3_docreturned_ui.py`：新增 `--exe`；给定 EXE 时直接以冻结包启动后端
+  （`cmd=[exe]`、`cwd=exe.parent`，隔离 env：`RESUME_DATA_DIR` / `ARK_BASE_URL=fake` /
+  `ARK_API_KEY=offline-gate-key` / `APP_HOST|APP_PORT` / `PYTHONUTF8`，并 `pop
+  ARK_EMBEDDING_API_KEY`），并把 `exe={path,sha256,size}` 写入证据；`kill_tree` 追加
+  `taskkill /F /T /PID` 以彻底回收包进程树；`DIST` 存在性检查只在源码模式生效；**无 `--exe` 时
+  保留源码 `uvicorn` 模式**（离线调试用，不参与门禁）；
+- `scripts/h8_r3_run_gates.py`：`docreturned_ui` 的 argv 追加 `--exe <abs>` ⇒ 门禁一律跑冻结包；
+- `scripts/h8_r3_manifest.py`：该门合同 `exe_sha_path` 由 `None` 改为 `"exe.sha256"` ⇒ 证据包身份
+  与目标 EXE 必须逐字节一致，否则 fail-closed；
+- `scripts/h8_r3_gate_fixtures.py`：`ui_summary_payload(exe_sha)` 补 `exe{path,sha256,size}`，与真实
+  证据同构；
+- `scripts/h8_r3_gate_verdict_negtest.py`：新增精确反例 `T17_ui_exe_sha_mismatch`；
+- `scripts/h8_r3_refresh_gate_evidence.py`：`_meta.refresh.gates` 改为**累积披露**（合并上一批，避免
+  后一次刷新覆盖前一次披露）。
+
+**无产品源码/前端/后端/依赖/配置/bundle/EXE 变化**；未重 build、未重打包；未调用模型或付费 Gate；
+未重跑原 17 门、六格、Design Fidelity（该三项按证据血缘复用）。
+
+### 36.3 修复实测（冻结 EXE 上的真实交互复验）
+
+`docreturned_ui` 门现以冻结包启动后端并真实执行 u0–u7 交互；本轮在冻结 EXE 上实测：
+
+| 项 | 实测值 |
+|---|---|
+| 证据内包身份 `exe` | `path=dist/ResumeAssistant/ResumeAssistant.exe`；`size=16,855,308`；`sha256=0799188676c3227e1ab1b5a9d245ef1b5a2d3f235874a8e1b44d6e328aaa4264`（与目标 EXE 一致） |
+| 断言 | `assertions=72`、`pass=72`、`fails=[]`（label 与 manifest `_UI_ASSERTION_LABELS` 精确一致） |
+| cleanup | `cleanup.runtime_removed=true` |
+| Gate 记录 | `exit_code=0`、`verdict=true`、`runtime_s=112.15`、`evidence_bytes=12,227`、运行窗口 `21:54:25→21:56:17` |
+| `.log` 终态 | `DOC_RETURNED 离线 UI 门：PASS=72 FAIL=0` |
+
+### 36.4 一致性自测（离线反向矩阵 + 受影响门刷新）
+
+仅刷新受影响门与辅助矩阵，全部 fail-closed，未触碰其余记录：
+
+| 证据 | 实测值 |
+|---|---|
+| `run_gates_negtest.json` | 23 例、`failures=[]`、`all_ok=true`；`gate_set.count=17`、`P01` 断言恰好 17 门；`runner_sha256=cbb206e2…`（与现场 runner 一致） |
+| `gate_verdict_negtest.json` | 37 例（含新增 T17）、`failures=[]`、`all_ok=true`；`.log` 末行 `cases=37` 与 `.json` 一致 |
+| T17 精确反例 | 证据内包身份 `ffffffff…` vs 目标 `add9aca698f970d8…` ⇒ `rc=1`、`final_verdict=false`，`problems` 含「证据内包身份 `ffffffff…` 与目标 `add9aca698f970d8…` 不一致」与「final_verdict=true 但逐 Gate 交叉核验未全部通过（矛盾）」 |
+| `seal_manifest_negtest.json` | 22 例、`problems=[]`、`all_ok=true`；`.log` 末行 `cases=22` 与 `.json` 一致 |
+| `gates_run.json` | 记录数 17、`all_exit_zero=true`、`final_verdict=true`、`problems=[]` |
+| `_meta.refresh` | `gates=['docreturned_ui','gate_verdict_negtest','seal_manifest_negtest']`、`at_local=2026-09-28T21:57:28`（累积披露；其余 15 条记录与 `_meta` 原有字段未改） |
+
+### 36.5 派生封存
+
+本节数值由本节点后的 RESULT-only 收口 commit 记录，均为在 `HEAD==HANDOFF` 干净现场
+`stage → build → verify → seal → 中央二次 verify` 后的**实测值**（本 HANDOFF 节点先留位，与 §35.5
+同口径）：
+
+| 项 | 实测值 |
+|---|---|
+| 新中央封存入口（包） | `（待收口 commit 回填）` |
+| 包 EXE | `（待收口 commit 回填）` |
+| 新中央封存入口（证据） | `（待收口 commit 回填）` |
+| manifest | `（待收口 commit 回填）` |
+| 中央二次 verify（manifest） | `（待收口 commit 回填）` |
+| 中央二次 verify-checksums | `（待收口 commit 回填）` |
+| `SEAL_REPORT.json` | `（待收口 commit 回填）` |
+| `STAGE_REPORT.json` | `（待收口 commit 回填）` |
+| 封存证据自洽复核 | `（待收口 commit 回填）` |
+| Git 身份 | `（待收口 commit 回填）` |
+
+`review` 仍为 `9798c3e`，本轮未移动；旧 `d500dd7*`、`93e88c2*`、`ca6c8b4*` 及更早失败封存全部保留。
+
+### 36.6 结论
+
+**本轮不宣告任何验收通过。** 独立验收报告「发现 2」（`docreturned_ui` 交互复验未绑定冻结包、manifest
+未绑定该门包身份）已按报告建议以离线最小返工消除：该门现以冻结包后端做真实交互，证据与合同均绑定
+`exe.sha256`，并由 T17 精确反例证明包身份错配 fail-closed。产品源码、包与 EXE 未做任何改动。是否形成
+`DOC_ALIGNED`、是否移动 `review`、是否进入下一轮独立验收，由 Documentation Agent 与独立 Acceptance
+Agent 复核后判定。
