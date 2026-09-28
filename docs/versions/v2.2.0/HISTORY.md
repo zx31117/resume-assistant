@@ -860,3 +860,23 @@
 - 后续边界：只允许按 RESULT §R3-30 修正上述离线 fail-open、补精确反向用例并重做受影响的
   stage/manifest/seal 派生证据。不得修改产品或包，不得重跑原 17 门、真实模型或任何付费 Gate，
   `review` 继续保持 `c8a63e0`。
+
+## VH-047 §R3-31 已闭合 §30.5，但 manifest 仅解析 14/17 门继续退回
+
+- 日期：2026-09-28
+- 阶段：V2.2.0 Revision 3 离线工具/证据收口 → Documentation Gate `DOC_RETURNED`
+- 对象：脚本变化节点 `1392dfbd455eb960ccd2004796b3de947d175a5e`；本次 SRC 锚点
+  `ca6c8b4be26e97a28f6638cbb3be4661ea08b6ad`；HANDOFF `ea391e8e…`；RESULT-only 收口
+  `5fde4ac…`；中央包 EXE SHA-256 `07991886…AA4264`。
+- 已通过复核：§30.5 的 runner 矩阵极性/N05、seal 强制前置条件、staged 清理和 seal 扫描辅助段
+  均闭合；四套离线矩阵独立重跑全绿；包身份、manifest SHA、52/52 checksum、脱敏零命中与孤儿
+  manifest 修正成立。交付方提出的 SRC 锚点、缺陷分级和旧 Gate SRC 复用口径均接受。
+- 唯一阻断：runner 注册 17 门，但 manifest `_GATE_CONTRACTS` 与 fixture `GATE_ORDER` 仅 14 门，
+  缺 `frontend_test`、`docreturned_anchor`、`docreturned_ui`。这三门只参与“退出码是否全 0”汇总，
+  没有被逐证据解析。
+- 反向证明：分别把前端测试改为 failed、anchor 改为 `FAIL=1`、UI summary 改为 `pass=0/fails非空/
+  assertion=false`，同步更新 runner 记录 hash 后，三次 manifest build 均仍 `rc=0`、
+  `final_verdict=true`、`problems=[]`。
+- 责任与边界：该 17↔14 集合缺口早于 §30.5，Documentation Agent 前轮集中审查未做注册集合机械
+  对照，导致延后发现；不归咎于本轮 §30.5 返工。只允许按 RESULT §R3-32 补三门离线合同、fixture
+  与反向矩阵并重做派生封存；产品和包不变，不重跑任何原始/付费 Gate，`review` 保持 `c8a63e0`。

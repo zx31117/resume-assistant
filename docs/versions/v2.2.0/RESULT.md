@@ -2,13 +2,14 @@
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
 > 当前状态：**需修正 / Documentation Gate `DOC_RETURNED`**
-> 当前阶段：§R3-29 已修复证据脱敏、额外禁止项扫描、活动脚本固定路径与 runner 矩阵入
-> manifest 等上一轮缺口；中央包、52/52 checksum、脱敏后零路径命中及四套离线矩阵的当前字节
-> 均已独立复核成立。但 Documentation Agent 继续做反向篡改后确认，manifest 只检查 runner
-> 矩阵退出码“是整数”，没有检查正负用例应有的退出码极性，也没有强制 N05 子例结构；seal 在
-> `STAGE_REPORT.json` 缺失时仍会封存为 `ok=true`，新 seal 扫描矩阵也未进入最终辅助判定（见
-> §R3-30）。本轮仍不判定产品包失败；只允许一次离线工具/证据收口，不得重 build、重打包或重跑
-> 任何付费 Gate。`DOC_RETURNED` 解除前不得启动独立验收或发布
+> 当前阶段：§R3-31 已完整闭合 §30.5 的 runner 矩阵极性/N05、seal 强制前置条件、staged 旧目录
+> 清理与 seal 扫描矩阵辅助判定；中央包、52/52 checksum、脱敏零命中、孤儿 manifest 清理和四套
+> 离线矩阵均已独立复核成立。但 Documentation Agent 对 runner 与 manifest 的完整 Gate 集合做机械
+> 对照后确认：runner 实际登记 17 门，而 manifest/fixture 只定义并逐证据解析 14 门，遗漏的正是
+> `frontend_test`、`docreturned_anchor`、`docreturned_ui` 三门。三份失败证据在同步其记录 hash 后，
+> manifest build 仍均为 `rc=0 / final_verdict=true`（见 §R3-32）。本轮仍不判定产品包或 §30.5
+> 实现失败；只允许补齐这三门的离线 manifest 合同与反向矩阵，不得重 build、重打包或重跑任何
+> 原始/付费 Gate。`DOC_RETURNED` 解除前不得启动独立验收或发布
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -63,11 +64,12 @@
 > - **中央封存入口**：`<acceptance-staging>/ca6c8b4/` 与 `<acceptance-staging>/ca6c8b4-evidence/`；
 >   本节点后的 RESULT-only 收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的
 >   `rc`（见 §31.8）；
-> - **当前门禁**：§R3-30 曾判定 `DOC_RETURNED`；本轮按 §30.5 完成离线收口（runner 矩阵退出码极性 /
->   N05 子例语义、seal 前置 fail-closed、seal 扫描矩阵进入最终判定），并在同轮内修正封存证据中混入
->   旧轮次孤儿 manifest 的问题——manifest 输出名恢复为既有约定的 `manifest.json`，封存内不再保留
->   声明旧身份 `ff2a8e24/5e4a8cf1` 的副本（见 §31.9）。顶部状态保持 `待验收`，未写 `DOC_ALIGNED` /
->   `ACCEPTANCE_PASS`。旧 `bbe3532*`、`69a65f3*`、`1392dfb*` 封存继续保留为失败追溯。
+> - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`；
+>   这是该包原 17 门实际运行时的 SRC，本轮仅修离线工具并按证据血缘复用，未伪造改写；
+> - **当前门禁**：§R3-31 已完成 §30.5 全部收口并修正孤儿 manifest，但 §R3-32 发现 manifest 的
+>   Gate 合同仍为 14 门而非 runner 的 17 门，故继续 `DOC_RETURNED`。旧 `bbe3532*`、`69a65f3*`、
+>   `1392dfb*`、`ca6c8b4*` 封存均保留为失败追溯；本批未写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`，
+>   未移动 `review`。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5491,3 +5493,95 @@ verify 使用）与 `manifest.json`（identity `ff2a8e24 → 5e4a8cf1`，`_meta.
    含两个辅助段）；全目录扫描确认再无可声明 identity 的非本轮 manifest；
 4. 证据文件数由 54 降至 53、`CHECKSUMS.sha256` 由 53 条降至 52 条（减少项即该孤儿副本）；
 5. 旧 `1392dfb*` 封存未覆盖、未删除，`verify-checksums` 仍 `rc=0`。
+
+## R3-32. Documentation Gate：`DOC_RETURNED`（17 门中 3 门未进入 manifest 逐门合同，2026-09-28）
+
+### 32.1 §30.5 与交付方三项待复核问题的结论
+
+Documentation Agent 已完成 §30.5 的全部限定复核，结论如下：
+
+1. **SRC 口径接受**：实际历史链为 `d1708a8 → 1392dfb`（5 个离线脚本）`→ 0b95252`
+   （RESULT-only HANDOFF）`→ ca6c8b4`（RESULT-only 收口/SRC 锚点）`→ ea391e8`（RESULT-only
+   HANDOFF）`→ 5fde4ac`（RESULT-only 收口）。`ca6c8b4` 作为本次 manifest 的完整源码状态锚点可接受；
+   `1392dfb` 仍是实际脚本变化节点，二者职责已在 §31.7 充分披露；
+2. **§31.9 分级接受**：旧封存同时存在新 `gate_manifest.json` 与旧身份 `manifest.json` 属真实证据
+   缺陷，不降级成观察项；同轮恢复约定输出名、重新生成派生证据并保留旧失败封存的处理正确；
+3. **旧 Gate SRC 复用接受**：`gates_run.json._meta.src=ff2a8e2…` 与原 17 门实际运行身份一致；本轮
+   变化仅在不入包的离线工具，按血缘只重做受影响派生证据，不重跑产品/模型 Gate 正确。该关系已在
+   顶部交付块显式写明；
+4. **§30.5 全部通过**：runner 辅助矩阵 23 例、seal 扫描矩阵 14 例、Gate verdict 20 例、
+   seal/manifest 22 例经独立重跑均 `rc=0 / all_ok=true / failures=[]`；N16～N21、STG1～STG6、
+   AS1～AS6 均按要求 fail-closed。中央 manifest/checksum verify 均 `rc=0`，包身份、脱敏结果与
+   52/52 checksum 成立。
+
+因此本次继续退回**不是**因为 §30.5 未完成，也不否定当前包或中央字节；原因仅为下述完整 Gate
+集合差异。该差异在 §R3-26～§R3-30 的 Documentation 集中审查中本应被一次发现但被遗漏，责任在
+Documentation Gate 审查面未将 runner 注册集合与 manifest 合同集合机械比较，不由本轮开发承担。
+
+### 32.2 唯一阻断：runner 17 门，manifest 与 fixture 仅 14 门
+
+对三个受控定义做运行时集合枚举，结果为：
+
+| 定义来源 | 数量 | 缺失情况 |
+|---|---:|---|
+| `h8_r3_run_gates.py::gate_specs()` | 17 | 完整运行集合 |
+| `h8_r3_manifest.py::_GATE_CONTRACTS` | 14 | 缺 `frontend_test` / `docreturned_anchor` / `docreturned_ui` |
+| `h8_r3_gate_fixtures.py::GATE_ORDER` | 14 | 同样缺上述三门 |
+
+`_gates_meta_consistency()` 会对 `gates_run.json` 全部记录重算退出码是否为 0，但只对
+`_GATE_CONTRACTS` 中 14 门调用 `_gate_evidence_checks()`。因此遗漏的三门只被当成“有一条 rc=0
+记录”，没有进入证据文件 hash、证据内部 verdict、必要后置条件与 cleanup 的逐门交叉核验。
+`P00_complete_positive` 只证明 runner 会写 17 条；`P01_manifest_positive` 使用 14 门 fixture，不能
+证明其描述所称的“完整 17 门送 manifest”。
+
+### 32.3 独立反向证明：三份关键失败证据均可被 manifest 接受
+
+Documentation Agent 在 review/中央封存外的一次性副本中分别篡改三份证据，并同步更新对应
+`gates_run.json.evidence_sha256/evidence_bytes`，随后以同一包和 `ca6c8b4 → ea391e8` Git 锚点执行
+manifest build。三例均未改其他证据：
+
+| 被篡改 Gate | 注入的失败事实 | manifest 实测 |
+|---|---|---|
+| `frontend_test` | 把 `2 files / 25 tests passed` 改为 failed | `rc=0`、`final_verdict=true`、`problems=[]` |
+| `docreturned_anchor` | 把终态改为 `FAIL=1` 并追加 `[FAIL]` | `rc=0`、`final_verdict=true`、`problems=[]` |
+| `docreturned_ui` | `pass=0`、`fails` 非空、首个 assertion `ok=false` | `rc=0`、`final_verdict=true`、`problems=[]` |
+
+每次输出都明确显示 `manifest_gates=14`、`gates_meta_count=17`。这三门恰好承载本轮人工打回的
+P4 点击、非工作台返回与组件正反向行为；允许其证据失败而总 manifest 继续为真，会再次把“记录存在”
+误当成“用户行为成立”，不能交给独立 Acceptance。
+
+### 32.4 唯一允许的最终离线修复
+
+不得修改产品源码、前端实现、后端实现、依赖、配置、bundle、EXE 或原 17 门证据，不得运行构建、
+打包、六格、Design Fidelity、content/mainchain E2E、`docreturned_ui` 或任何模型/付费 Gate。只完成：
+
+1. 将 `frontend_test`、`docreturned_anchor`、`docreturned_ui` 加入 manifest 的逐 Gate 合同与 fixture，
+   使 runner 注册集合、fixture 集合、manifest `_REQUIRED_GATES` 三者均为**唯一且精确的同一 17 门**；
+   `gates_run.json` 出现缺失、重复或额外 Gate ID 时必须 fail-closed；
+2. `frontend_test` 合同至少机械确认 2 个 test files、25 tests 全通过且无失败摘要；
+   `docreturned_anchor` 合同确认 29 项 PASS、0 FAIL、终态 `FAIL=0` 及 A1～A7 必需分组；
+   `docreturned_ui` 合同确认 72 个唯一且精确的 assertion label、逐项 `ok=true`、`pass=72`、
+   `fails=[]`、`cleanup.runtime_removed=true`，并至少覆盖 P4 fact/section/skills 鼠标与键盘交互、
+   empty/mismatch 诚实退出、三条非工作台路由返回、Task 不变、零生成/零模型请求和单飞语义；
+3. 对三门逐项复用通用合同：命令非空、真实 `exit_code==0`、证据存在且 hash 与 runner 记录一致、
+   runner 包 SHA 等于目标 EXE；`docreturned_ui` 的 cleanup 必须进入总 cleanup 判定；
+4. 补离线反向矩阵：三门分别覆盖证据失败但 runner 记录仍为 0、证据 hash 同步重算、证据缺失/截断、
+   必需 assertion/分组缺失、Gate ID 缺失/重复/额外；每例要求 manifest build/verify 非零、
+   `final_verdict=false` 且 problems 定位具体 Gate。P01 正向夹具必须真实构造并断言 17 门，而不是 14 门；
+5. 只重跑受影响的离线 manifest/runner/Gate-verdict/seal-manifest 负向矩阵，使用当前 17 门既有证据
+   重新 stage → manifest build/verify → seal → 中央二次 verify，形成新 SRC、唯一 RESULT-only
+   HANDOFF 与必要的 RESULT-only 数值收口；新 manifest 的 `gates` 必须为 17，`gates_meta.gate_count`
+   也必须为 17，集合完全一致；
+6. 旧 `ca6c8b4*` 与更早失败封存全部保留；`review` 不移动；顶部继续“待验收”，不写
+   `DOC_ALIGNED` / `ACCEPTANCE_PASS`。若发现需要改变产品、包或重新执行任何原始 Gate，立即停止并
+   交回 Documentation Agent，不得自行扩大。
+
+下一次 Documentation Gate **只检查 §32.4 的 17↔17 集合、三门语义合同、对应离线反例和新派生
+封存**；§30.5 已结项，不再重复检查或新增其他工具要求。满足后直接形成 `DOC_ALIGNED` 对象并移动
+`review`，不再进行同类退回。
+
+### 32.5 结论
+
+**Documentation Gate：`DOC_RETURNED`。** §30.5、当前产品包、中央脱敏与 checksum 均通过；唯一
+阻断是 manifest/fixture 漏掉 runner 17 门中的三项关键 UI 行为 Gate，并已用三次真实反向篡改证明可
+假绿。下一轮严格限于 §32.4 的离线补齐，不重跑任何原始或付费 Gate。
