@@ -1,17 +1,17 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**待独立验收 / Documentation Gate `DOC_ALIGNED`**
-> 当前阶段：§R3-33 已按 §32.4 完成唯一允许的最终离线修复——把 runner 注册的 17 门中此前遗漏的
-> `frontend_test`、`docreturned_anchor`、`docreturned_ui` 纳入 manifest 逐 Gate 合同与 fixture，使
-> runner 注册集合、fixture 集合、manifest `_REQUIRED_GATES` 三者唯一且精确同为 17 门；`gates_run.json`
-> 出现缺失/重复/额外 Gate ID 时 build 与 verify 双侧 fail-closed；补齐三门语义合同（frontend 2 files/25
-> tests、anchor 29 PASS/0 FAIL/FAIL=0/A1～A7、ui 72 精确 label/pass=72/fails=[]/cleanup 及交互语义子集）
-> 与对应离线反向矩阵（T01～T16，含「篡改证据并同步重算记录 hash」）。新 manifest 的 `gates=17`、
-> `gates_meta.gate_count=17` 且集合完全一致。Documentation Agent 已按 §32.4 的固定审查面独立复核，
-> 判定 `DOC_ALIGNED`（见 §R3-34）；不重 build、不重打包、不调用模型或付费 Gate。本文件所在 docs-only
-> Documentation Gate 对象是 `review` 的唯一目标；该结论只授权进入新一轮独立验收，不代表
-> `ACCEPTANCE_PASS`、Product Owner 人工通过或发布授权。
+> 当前状态：**需修正 / 独立验收 `ACCEPTANCE_FAIL` 后离线最小返工（待独立验收）**
+> 当前阶段：§R3-35。独立 Acceptance Agent 对 `review@9798c3e`（包 `93e88c2`）独立复核后判定
+> `ACCEPTANCE_FAIL`，唯一阻断为封存证据内部矛盾：`gate_verdict_negtest.log`（**20 例**）与
+> `seal_manifest_negtest.log`（**9 例**）同其封存 `.json`（**36/22 例**）及 `gates_run.json` 记录
+> hash 直接冲突，且该两门记录为 §32.4 事后重算回填、并非该次运行产物——根因是 §32.4 离线重跑矩阵时
+> 绕过了 `h8_r3_run_gates.py` 的 stdout 捕获路径，只重写了 `.json` 未刷新 `.log`。本轮按该报告的
+> 建议做**唯一允许的离线最小返工**：新增 `scripts/h8_r3_refresh_gate_evidence.py`，以 runner 同一
+> argv/cwd/target 重跑该两门**一次**，使 `.log`/`.json`/记录同版本并真实刷新时间戳/exit_code/hash，
+> 随后重新 stage→build/verify→seal→中央二次 verify，形成新 SRC、RESULT-only HANDOFF 与数值收口、
+> 新中央封存（见 §R3-35）。不改产品源码/前端/后端/依赖/配置/bundle/EXE，不重 build、不重打包、不调用
+> 模型或付费 Gate；`review` 不移动，顶部不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`。
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -93,6 +93,25 @@
 > - **当前门禁**：Documentation Agent 已按 §32.4 固定范围独立复核 17↔17 集合、三门语义合同、离线
 >   反向矩阵与派生封存，结论为 `DOC_ALIGNED`。旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`
 >   封存均保留为失败追溯；本结论不写 `ACCEPTANCE_PASS`，不构成人工验收或发布授权。
+
+> **§R3-35 离线最小返工交付对象（状态：`待独立验收`，见 §R3-35）**：
+>
+> - **返工 SRC**：`d500dd7`（完整 SHA 由 `git log` 解析）。唯一 parent 为独立验收对象
+>   `9798c3e`，相对其只新增 `scripts/h8_r3_refresh_gate_evidence.py`（按 runner 同一 argv/cwd/target
+>   重跑指定 Gate，使 `.log`+`.json`+`gates_run.json` 记录同版本；fail-closed）；**无产品源码/前端/
+>   后端/依赖/配置/bundle/EXE 变化**，未重 build、未重打包；
+> - **返工 HANDOFF**：本轮 RESULT-only HANDOFF，唯一 parent 为返工 SRC；其身份由 `git log` 与中央
+>   manifest 的 `identity.handoff` 记录，不在本文件自引用；
+> - **精确包（未重 build）**：与上一轮逐字节相同——4045 files / 170,399,477 B；EXE 16,855,308 B；
+>   SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle
+>   `index-BMdbu97O.js`；
+> - **中央封存入口**：`<acceptance-staging>/d500dd7/` 与 `d500dd7-evidence/`；本节点后的 RESULT-only
+>   收口 commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`（见 §35.5）；
+> - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`（该包原
+>   17 门实际运行时的 SRC）；本轮仅修离线工具并按证据血缘复用，未伪造改写；
+> - **当前门禁**：独立验收 `ACCEPTANCE_FAIL` 的唯一阻断（封存证据 `.log`/`.json` 矛盾）已由本轮离线
+>   最小返工消除；旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*` 封存保留为追溯；
+>   `review` 不移动；本文件不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5759,3 +5778,71 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 新的范围内阻断。本文件所在 docs-only Documentation Gate 对象可作为 `review` 的新目标，并可交给
 未参与实现、自测、证据生成或本次文档判定的独立 Acceptance Agent。该结论不是 `ACCEPTANCE_PASS`，
 不授权 Product Owner 人工验收通过或发布；旧 `ca6c8b4*` 及更早失败封存继续仅作追溯。
+
+## R3-35. 独立验收 `ACCEPTANCE_FAIL` 后离线最小返工（2026-09-28）
+
+### 35.1 触发与责任边界
+
+独立 Acceptance Agent 对 `review@9798c3e`（包 `93e88c2`）独立复核后判定 `ACCEPTANCE_FAIL`，唯一阻断
+为**封存证据内部矛盾**。该缺口属 Documentation Gate 上轮漏检的既有问题，**不是 §32.4 未按要求执行**：
+
+- 封存 `gate_verdict_negtest.log` 末行 `{"cases": 20, ...}`，同门封存 `gate_verdict_negtest.json`
+  为 **36** 例；
+- 封存 `seal_manifest_negtest.log` 末行 `{"cases": 9, ...}`，同门封存 `seal_manifest_negtest.json`
+  为 **22** 例；
+- 两门 `gates_run.json` 记录时间戳仍为原 17 门运行（`2026-09-27T18:07:39` / `18:07:50`）。
+
+根因：§32.4 离线重跑矩阵时**绕过了 `h8_r3_run_gates.py` 的 stdout 捕获路径**，只重写了 `.json`
+并事后重算回填了记录 `evidence_sha256`，`.log` 未刷新。
+
+报告同时确认：manifest 消费的是 `.json` 语义，两份 `.json` 真实且可独立复现，**未造成 gate 假绿**；
+缺陷在于封存证据自身不自洽、gate-run 记录非该次运行的产物。
+
+### 35.2 唯一允许的返工范围
+
+取报告建议的**重跑**一途，仅修离线证据一致性：
+
+1. 新增 `scripts/h8_r3_refresh_gate_evidence.py`：以 `h8_r3_run_gates.gate_specs()` 的**同一
+   argv/cwd/target** 重跑指定 Gate **一次**，把该次 stdout(+stderr) 写入 `<gate>.log`、由 Gate 自身经
+   `--out` 写入其 `.json`，并按 runner **完全相同**的字段重写该 Gate 记录（真实 command/exit_code/
+   timestamps/runtime/hash/bytes）；其它记录与 `_meta` 原有字段不动，**不设 `partial`**，另加
+   `_meta.refresh` 显式披露；`--gates` 为空/含未知 Gate 一律 fail-closed（不写任何文件、非零退出）。
+2. 以该工具重跑 `gate_verdict_negtest`、`seal_manifest_negtest` 各一次。
+3. 重新 stage→build/verify→seal→中央二次 verify，形成新 SRC、RESULT-only HANDOFF 与数值收口。
+
+**不做**：不改产品源码/前端/后端/依赖/配置/bundle/EXE；不重 build、不重打包；不调用任何真实模型或
+付费 Gate；不重跑原 17 门、六格、Design Fidelity；不移动 `review`；不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`。
+
+### 35.3 修复实测（修复前→修复后）
+
+| 项 | 修复前（封存 `93e88c2`） | 修复后（本节点，真实重跑一次） |
+|---|---|---|
+| `gate_verdict_negtest.log` | `cases=20` | `cases=36`（与 `.json` 同版本） |
+| `seal_manifest_negtest.log` | `cases=9` | `cases=22`（与 `.json` 同版本） |
+| `gate_verdict_negtest` 记录 | `2026-09-27T18:07:39`（原运行，hash 回填） | `2026-09-28T20:47:42→20:48:07`，runtime 24.56s，exit 0 |
+| `seal_manifest_negtest` 记录 | `2026-09-27T18:07:50`（原运行，hash 回填） | `2026-09-28T20:48:07→20:48:21`，runtime 14.4s，exit 0 |
+
+两门 `.json` 字节与上一轮封存**逐字节一致**（`gate_verdict_negtest.json` 21094 B /
+`sha256 19519cc486cc04aa3b7d2206de1d4e874ae7d772d17304d09712df8d95ffdbab`；
+`seal_manifest_negtest.json` 2777 B /
+`sha256 e325a0c58b3808660ee89c6fa241f9f27f2bd8de2b458fd3794119689fe12f20`），即本轮**未改变矩阵
+语义**，只补齐被遗漏的 runner 捕获日志与记录真实时间戳。
+
+### 35.4 一致性自测
+
+- 刷新后 `gates_run.json`：记录数 17、`all_exit_zero=true`、`final_verdict=true`、`problems=[]`；
+- `.log` 末行 `cases` 与同门 `.json` 的 `cases` 逐门一致（36/22）；
+- `_meta.refresh.gates=["gate_verdict_negtest","seal_manifest_negtest"]`、`_meta.refresh.at_local`
+  显式披露本次刷新，其余 15 条记录与 `_meta` 原有字段未改动。
+
+### 35.5 派生封存
+
+（占位：由本节点后的 RESULT-only 数值收口 commit 记录——`<acceptance-staging>/d500dd7/` 与
+`d500dd7-evidence/` 的 manifest SHA-256、CHECKSUMS 条数、中央二次 verify 的 `rc` 与 `SEAL_REPORT`/
+`STAGE_REPORT` 实测值。）
+
+### 35.6 结论
+
+**本轮不宣告任何验收通过。** 独立验收的唯一阻断（封存证据 `.log`/`.json` 矛盾）已按报告建议以离线
+最小返工消除；产品源码、包与 EXE 未做任何改动。是否形成 `DOC_ALIGNED`、是否移动 `review`、是否进入
+下一轮独立验收，由 Documentation Agent 与独立 Acceptance Agent 复核后判定。
