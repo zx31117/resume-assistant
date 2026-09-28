@@ -397,14 +397,51 @@ def run_matrix(root: Path) -> dict:
     fxroot.mkdir(parents=True, exist_ok=True)
     fixture = GV.Fixture(fxroot)
     ev_fx = fixture.evidence("p01")
-    run_m = _manifest("build", fixture.argv(ev_fx, root / "fx_p01" / "out.json"))
+    p01_out = root / "fx_p01" / "out.json"
+    run_m = _manifest("build", fixture.argv(ev_fx, p01_out))
     payload = run_m["payload"] or {}
-    p01 = {"id": "P01_manifest_positive", "case": "manifest 全通过正向对照",
+    # §R3-32 §32.4-4：正向夹具必须**真实构造并断言 17 门**（而非 14 门）——
+    # 直接读取 build 产出的 manifest，机械比对 gates 集合与 runner 注册集合逐项一致。
+    m_doc = None
+    try:
+        m_doc = json.loads(p01_out.read_text(encoding="utf-8-sig"))
+    except Exception:  # noqa: BLE001
+        m_doc = None
+    p01_problems: list[str] = list((payload.get("problems") or [])[:6])
+    p01_extra_ok = True
+    want = set(all_names)
+    if not isinstance(m_doc, dict):
+        p01_extra_ok = False
+        p01_problems.append("build 未产出可解析的 manifest")
+    else:
+        gates_sec = m_doc.get("gates") or {}
+        got = set(gates_sec) if isinstance(gates_sec, dict) else set()
+        if got != want:
+            p01_extra_ok = False
+            p01_problems.append(
+                f"manifest gates 集合 {sorted(got)} != runner 注册集合 {sorted(want)}")
+        if len(gates_sec) != len(all_names):
+            p01_extra_ok = False
+            p01_problems.append(
+                f"manifest gates 数量 {len(gates_sec)} != {len(all_names)}")
+        meta_sec = m_doc.get("gates_meta") or {}
+        if meta_sec.get("gate_count") != len(all_names):
+            p01_extra_ok = False
+            p01_problems.append(
+                f"manifest gates_meta.gate_count={meta_sec.get('gate_count')} "
+                f"!= {len(all_names)}")
+        if meta_sec.get("gate_name_set_exact") is not True:
+            p01_extra_ok = False
+            p01_problems.append("manifest gates_meta 未标记集合唯一且精确")
+    p01 = {"id": "P01_manifest_positive", "case": "manifest 全通过正向对照（精确 17 门）",
            "exit_code": run_m["rc"], "summary": {}, "records": {},
            "final_verdict": payload.get("final_verdict"),
-           "problems": (payload.get("problems") or [])[:6],
-           "detail": "完整且逐 Gate 合同成立的证据集必须被 manifest 接受",
-           "ok": (run_m["rc"] == 0) and (payload.get("final_verdict") is True)}
+           "manifest_gate_count": (len((m_doc or {}).get("gates") or {})
+                                   if isinstance(m_doc, dict) else None),
+           "problems": p01_problems,
+           "detail": "完整且逐 Gate 合同成立的证据集必须被 manifest 接受，且恰好 17 门",
+           "ok": (run_m["rc"] == 0) and (payload.get("final_verdict") is True)
+                 and p01_extra_ok}
     cases.append(p01)
 
     # ── §R3-28 §28.7-4：runner 负向矩阵被 manifest 消费时的反向用例（N09–N15）──

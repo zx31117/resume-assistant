@@ -30,6 +30,10 @@ GATE_ORDER = [
     "atomic_publish_matrix",
     "gate_verdict_negtest",
     "seal_manifest_negtest",
+    # §R3-32 §32.4-1：runner 注册并真实运行的另外三项关键交互门，必须与 manifest 合同一致。
+    "frontend_test",
+    "docreturned_anchor",
+    "docreturned_ui",
 ]
 
 EVIDENCE_BY_GATE = {
@@ -47,6 +51,9 @@ EVIDENCE_BY_GATE = {
     "atomic_publish_matrix": "atomic_publish_matrix.json",
     "gate_verdict_negtest": "gate_verdict_negtest.json",
     "seal_manifest_negtest": "seal_manifest_negtest.json",
+    "frontend_test": "frontend_test.log",
+    "docreturned_anchor": "docreturned_anchor.log",
+    "docreturned_ui": "docreturned_ui_summary.json",
 }
 
 AUTH_IDS = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "B5", "C1", "C2", "C3",
@@ -63,6 +70,86 @@ VERDICT_NEG_IDS = [
 
 def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+# ── §R3-32 §32.4-2：三项关键交互门的“全通过”夹具常量 ──────────────────────────
+# 必须与 `h8_r3_manifest.py` 的 `_UI_ASSERTION_LABELS` 完全一致（正向对照会立刻暴露分歧）。
+UI_ASSERTION_LABELS = [
+    "u0.retired-files-gone", "u0.no-appshell", "u0.no-resultpaper",
+    "u0.pdfpreview-single-definer", "u0.pdfpreview-single-importer",
+    "u0.selkey-single-consumer", "u0.hotspot-class-single-source",
+    "u0.section-class-single-source", "u0.data-fact-single-source",
+    "u0.data-section-single-source", "u0.selkey-single-definer",
+    "u0.selection-single-owner", "u0.selection-consumers",
+    "u0.pdfpreview-no-local-selection", "u0.shell-single", "u0.brandlink-single",
+    "u1.topbar.draft", "u1.topbar.running",
+    "u2.p4-reached", "u2.hotspot-kinds", "u2.fact-geometry-distinct",
+    "u2.mouse-fact-click", "u2.mouse-fact-select", "u2.fact-detail",
+    "u2.mouse-fact-toggle-off", "u2.keyboard-enter-select",
+    "u2.keyboard-space-toggle-off", "u2.focus-visible",
+    "u2.mouse-section-select", "u2.section-detail", "u2.mutual-exclusion",
+    "u2.skills-select", "u2.skills-keyboard-toggle", "u2.canvas-click-clears",
+    "u2.no-console-errors",
+    "u3.geometry@1920x1080", "u3.geometry@1686x1076", "u3.geometry@1440x900",
+    "u3.scale-proportional", "u3.after-scroll",
+    "u4.empty-no-hotspots", "u4.empty-no-console-errors",
+    "u4.mismatch-no-hotspots", "u4.mismatch-no-console-errors",
+    "u4.restore-hotspots",
+    "u5.baseline",
+    "u5./experiences.topbar", "u5./experiences.no-start-new-task",
+    "u5./experiences.returned", "u5./experiences.task-unchanged",
+    "u5./experiences.no-model-request", "u5./experiences.no-new-task-or-generate",
+    "u5./experiences.task-id-stable",
+    "u5./records.topbar", "u5./records.no-start-new-task", "u5./records.returned",
+    "u5./records.task-unchanged", "u5./records.no-model-request",
+    "u5./records.no-new-task-or-generate", "u5./records.task-id-stable",
+    "u5./privacy.topbar", "u5./privacy.no-start-new-task", "u5./privacy.returned",
+    "u5./privacy.task-unchanged", "u5./privacy.no-model-request",
+    "u5./privacy.no-new-task-or-generate", "u5./privacy.task-id-stable",
+    "u6.brandlink-single-flight", "u6.hotspot-dblclick-net-off",
+    "u7.single-fact-count", "u7.single-fact-select", "u7.single-fact-toggle-off",
+]
+
+# anchor 必需分组与 29 项 PASS 的分布（与真实 docreturned_anchor.log 同构）。
+ANCHOR_GROUPS = [("A1)", 6), ("A2)", 7), ("A2b)", 2), ("A3)", 4),
+                 ("A4)", 3), ("A5/A6)", 5), ("A7)", 2)]
+
+
+def frontend_log_payload() -> str:
+    """与真实 `frontend_test.log` 同构（含 ANSI 色码）：2 files / 25 tests 全通过。"""
+    return (
+        "\x1b[1m\x1b[7m\x1b[36m RUN \x1b[39m\x1b[27m\x1b[22m \x1b[36mv2.1.9 \x1b[39m\n\n"
+        " \x1b[32m✓\x1b[39m tests/workbenchShell.test.tsx \x1b[2m(\x1b[22m"
+        "\x1b[2m9 tests\x1b[22m\x1b[2m)\x1b[22m\n"
+        " \x1b[32m✓\x1b[39m tests/pdfPreview.test.tsx \x1b[2m(\x1b[22m"
+        "\x1b[2m16 tests\x1b[22m\x1b[2m)\x1b[22m\n\n"
+        "\x1b[2m Test Files \x1b[22m \x1b[1m\x1b[32m2 passed\x1b[39m\x1b[22m"
+        "\x1b[90m (2)\x1b[39m\x1b[90m\n"
+        "\x1b[2m      Tests \x1b[22m \x1b[1m\x1b[32m25 passed\x1b[39m\x1b[22m"
+        "\x1b[90m (25)\x1b[39m\x1b[90m\n"
+    )
+
+
+def anchor_log_payload() -> str:
+    """与真实 `docreturned_anchor.log` 同构：A1～A7 分组 + 29 项 PASS + 终态 FAIL=0。"""
+    lines: list[str] = []
+    for head, n in ANCHOR_GROUPS:
+        lines.append(f"=== {head} 分组 fixture ===")
+        for i in range(n):
+            lines.append(f"[PASS] {head}-{i} fixture 断言成立")
+    lines.append("V2.2.0 DOC_RETURNED anchor 离线门：FAIL=0")
+    return "\n".join(lines) + "\n"
+
+
+def ui_summary_payload() -> dict:
+    """与真实 `docreturned_ui_summary.json` 同构：72 个精确 label、全部 ok、pass=72。"""
+    return {
+        "assertions": [{"label": lbl, "ok": True, "extra": ""}
+                       for lbl in UI_ASSERTION_LABELS],
+        "pass": len(UI_ASSERTION_LABELS),
+        "fails": [],
+        "cleanup": {"runtime_removed": True},
+    }
 
 
 # ── §R3-28 §28.7-3 / §R3-30 §30.5-1：runner 负向矩阵（辅助判定段一）的“全通过”夹具 ──
@@ -273,6 +360,10 @@ def _valid_payloads(exe_sha: str) -> dict[str, object]:
                       for i in range(9)],
             "problems": [],
         },
+        # §R3-32 §32.4-2：三项关键交互门的“全通过”夹具。
+        "frontend_test": frontend_log_payload(),
+        "docreturned_anchor": anchor_log_payload(),
+        "docreturned_ui": ui_summary_payload(),
     }
 
 
@@ -339,6 +430,14 @@ def write_valid_evidence(ev_dir: Path, exe_sha: str,
             if gg == g:
                 rec["evidence_sha256"] = sh
         gates.append(rec)
+
+    # §R3-32 §32.4-1：Gate ID 集合必须唯一且精确——支持注入重复 / 额外记录（供反向用例）。
+    for g in (mutate.get("duplicate_gate") or []):
+        base = next((r for r in gates if r["gate"] == g), None)
+        if base is not None:
+            gates.append(dict(base))
+    for extra_rec in (mutate.get("extra_gate_records") or []):
+        gates.append(dict(extra_rec))
 
     runs = {
         "_meta": {"generator": "gate_fixtures", "plan_blob": "fixture",

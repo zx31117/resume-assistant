@@ -197,10 +197,111 @@ _GATE_CONTRACTS: dict[str, dict] = {
         "postconditions": ["seal_manifest_negtest_cases"],
         "cleanup_required": False,
     },
+    # ── §R3-32 §32.4：runner 注册并真实运行的 17 门中，此前漏入合同的三项关键交互门 ──
+    # 它们承载人工打回的 P4 点击、非工作台返回与组件正反向行为；证据失败必须使总 manifest
+    # fail-closed，不得只以「有一条 rc=0 记录」代替逐门语义核验。
+    "frontend_test": {
+        "evidence": "frontend_test.log",
+        "kind": "log",
+        "verdict": ("frontend_summary", None),
+        "postconditions": [],
+        "cleanup_required": False,
+    },
+    "docreturned_anchor": {
+        "evidence": "docreturned_anchor.log",
+        "kind": "log",
+        "verdict": ("anchor_summary", None),
+        "postconditions": [],
+        "cleanup_required": False,
+    },
+    "docreturned_ui": {
+        "evidence": "docreturned_ui_summary.json",
+        "kind": "json",
+        "verdict": ("ui_summary", None),
+        "exe_sha_path": None,
+        "postconditions": ["ui_required_interactions"],
+        "cleanup_required": True,
+    },
 }
 
 # 每次 build/verify 必须存在的 Gate（缺一即失败）。
 _REQUIRED_GATES = list(_GATE_CONTRACTS.keys())
+
+# ── §R3-32 §32.4-2：三项关键交互门的**精确语义常量** ──────────────────────────
+# frontend_test：至少 2 个 test files、25 tests 全通过、且不得出现失败摘要。
+_FRONTEND_TEST_FILE_COUNT = 2
+_FRONTEND_TEST_TOTAL = 25
+
+# docreturned_anchor：29 项 PASS、0 FAIL、终态 `FAIL=0`，且 A1～A7 必需分组在场。
+_ANCHOR_PASS_COUNT = 29
+_ANCHOR_REQUIRED_GROUPS = ["A1)", "A2)", "A2b)", "A3)", "A4)", "A5/A6)", "A7)"]
+
+# docreturned_ui：72 个**唯一且精确**的 assertion label、逐项 ok=true、pass=72、fails=[]。
+_UI_ASSERTION_LABELS = [
+    "u0.retired-files-gone", "u0.no-appshell", "u0.no-resultpaper",
+    "u0.pdfpreview-single-definer", "u0.pdfpreview-single-importer",
+    "u0.selkey-single-consumer", "u0.hotspot-class-single-source",
+    "u0.section-class-single-source", "u0.data-fact-single-source",
+    "u0.data-section-single-source", "u0.selkey-single-definer",
+    "u0.selection-single-owner", "u0.selection-consumers",
+    "u0.pdfpreview-no-local-selection", "u0.shell-single", "u0.brandlink-single",
+    "u1.topbar.draft", "u1.topbar.running",
+    "u2.p4-reached", "u2.hotspot-kinds", "u2.fact-geometry-distinct",
+    "u2.mouse-fact-click", "u2.mouse-fact-select", "u2.fact-detail",
+    "u2.mouse-fact-toggle-off", "u2.keyboard-enter-select",
+    "u2.keyboard-space-toggle-off", "u2.focus-visible",
+    "u2.mouse-section-select", "u2.section-detail", "u2.mutual-exclusion",
+    "u2.skills-select", "u2.skills-keyboard-toggle", "u2.canvas-click-clears",
+    "u2.no-console-errors",
+    "u3.geometry@1920x1080", "u3.geometry@1686x1076", "u3.geometry@1440x900",
+    "u3.scale-proportional", "u3.after-scroll",
+    "u4.empty-no-hotspots", "u4.empty-no-console-errors",
+    "u4.mismatch-no-hotspots", "u4.mismatch-no-console-errors",
+    "u4.restore-hotspots",
+    "u5.baseline",
+    "u5./experiences.topbar", "u5./experiences.no-start-new-task",
+    "u5./experiences.returned", "u5./experiences.task-unchanged",
+    "u5./experiences.no-model-request", "u5./experiences.no-new-task-or-generate",
+    "u5./experiences.task-id-stable",
+    "u5./records.topbar", "u5./records.no-start-new-task", "u5./records.returned",
+    "u5./records.task-unchanged", "u5./records.no-model-request",
+    "u5./records.no-new-task-or-generate", "u5./records.task-id-stable",
+    "u5./privacy.topbar", "u5./privacy.no-start-new-task", "u5./privacy.returned",
+    "u5./privacy.task-unchanged", "u5./privacy.no-model-request",
+    "u5./privacy.no-new-task-or-generate", "u5./privacy.task-id-stable",
+    "u6.brandlink-single-flight", "u6.hotspot-dblclick-net-off",
+    "u7.single-fact-count", "u7.single-fact-select", "u7.single-fact-toggle-off",
+]
+
+# §32.4-2：`docreturned_ui` 必须至少覆盖的交互语义（逐项须真实 ok=true）。
+_UI_REQUIRED_LABELS = [
+    # P4 fact / section / skills 真实鼠标与键盘交互
+    "u2.mouse-fact-click", "u2.mouse-fact-select", "u2.mouse-fact-toggle-off",
+    "u2.keyboard-enter-select", "u2.keyboard-space-toggle-off",
+    "u2.mouse-section-select", "u2.skills-select", "u2.skills-keyboard-toggle",
+    "u2.canvas-click-clears", "u2.mutual-exclusion",
+    # empty / mismatch 诚实退出（无幽灵热区、无异常）
+    "u4.empty-no-hotspots", "u4.empty-no-console-errors",
+    "u4.mismatch-no-hotspots", "u4.mismatch-no-console-errors",
+    "u4.restore-hotspots",
+    # 三条非工作台路由返回工作台，且 Task 不变、零生成 / 零模型请求
+    "u5./experiences.returned", "u5./records.returned", "u5./privacy.returned",
+    "u5./experiences.task-unchanged", "u5./records.task-unchanged",
+    "u5./privacy.task-unchanged",
+    "u5./experiences.no-model-request", "u5./records.no-model-request",
+    "u5./privacy.no-model-request",
+    "u5./experiences.no-new-task-or-generate", "u5./records.no-new-task-or-generate",
+    "u5./privacy.no-new-task-or-generate",
+    # 单飞语义
+    "u6.brandlink-single-flight", "u6.hotspot-dblclick-net-off",
+]
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _strip_ansi(text: str) -> str:
+    """剥离 ANSI 色码后按终端可见文本匹配（vitest 摘要带转义序列）。"""
+    return _ANSI_RE.sub("", text)
 
 _IDENTITY_MATRIX_FILE = "git_identity_matrix.json"
 _IDENTITY_MATRIX_MIN_CASES = 15
@@ -542,6 +643,85 @@ def _eval_verdict(spec, data, raw: str | None, problems: list[str], label: str) 
         return bool(positive_ok and all_cases_ok
                     and data.get("all_ok") is True
                     and len(ids) >= _IDENTITY_MATRIX_MIN_CASES)
+    # ── §R3-32 §32.4-2：三门关键交互门的语义 verdict ──
+    if kind == "frontend_summary":
+        if raw is None:
+            problems.append(f"{label}: 证据无文本内容")
+            return None
+        text = _strip_ansi(raw)
+        files = re.search(r"Test Files\s+(\d+) passed\s*\((\d+)\)", text)
+        tests = re.search(r"Tests\s+(\d+) passed\s*\((\d+)\)", text)
+        ok = True
+        if not files or files.group(1) != str(_FRONTEND_TEST_FILE_COUNT) \
+                or files.group(2) != str(_FRONTEND_TEST_FILE_COUNT):
+            problems.append(f"{label}: 未确认 {_FRONTEND_TEST_FILE_COUNT} 个 test files 全部通过")
+            ok = False
+        if not tests or tests.group(1) != str(_FRONTEND_TEST_TOTAL) \
+                or tests.group(2) != str(_FRONTEND_TEST_TOTAL):
+            problems.append(f"{label}: 未确认 {_FRONTEND_TEST_TOTAL} 个 tests 全部通过")
+            ok = False
+        if re.search(r"\bfailed\b", text, re.IGNORECASE):
+            problems.append(f"{label}: 摘要出现失败记录（failed）")
+            ok = False
+        return ok
+    if kind == "anchor_summary":
+        if raw is None:
+            problems.append(f"{label}: 证据无文本内容")
+            return None
+        text = _strip_ansi(raw)
+        n_pass = len(re.findall(r"\[PASS\]", text))
+        n_fail = len(re.findall(r"\[FAIL\]", text))
+        terminal = re.search(r"FAIL\s*=\s*(\d+)", text)
+        missing = [g for g in _ANCHOR_REQUIRED_GROUPS if g not in text]
+        ok = True
+        if n_pass != _ANCHOR_PASS_COUNT:
+            problems.append(f"{label}: PASS 项 {n_pass} != {_ANCHOR_PASS_COUNT}")
+            ok = False
+        if n_fail:
+            problems.append(f"{label}: 存在 {n_fail} 项 [FAIL]")
+            ok = False
+        if not terminal or terminal.group(1) != "0":
+            problems.append(f"{label}: 终态未确认 FAIL=0")
+            ok = False
+        if missing:
+            problems.append(f"{label}: 缺少 A1～A7 必需分组 {missing}")
+            ok = False
+        return ok
+    if kind == "ui_summary":
+        if not isinstance(data, dict):
+            problems.append(f"{label}: 证据不是 JSON 对象")
+            return None
+        assertions = data.get("assertions")
+        if not isinstance(assertions, list) or not assertions:
+            problems.append(f"{label}: 证据缺少 assertions")
+            return None
+        labels = [a.get("label") for a in assertions if isinstance(a, dict)]
+        have = set(labels)
+        want = set(_UI_ASSERTION_LABELS)
+        ok = True
+        if len(labels) != len(have):
+            problems.append(f"{label}: assertion label 存在重复")
+            ok = False
+        missing = sorted(want - have)
+        extra = sorted(have - want)
+        if missing:
+            problems.append(f"{label}: 缺少必需 assertion label {missing}")
+            ok = False
+        if extra:
+            problems.append(f"{label}: 存在额外/未知 assertion label {extra}")
+            ok = False
+        bad = sorted(str(a.get("label")) for a in assertions
+                     if isinstance(a, dict) and a.get("ok") is not True)
+        if bad:
+            problems.append(f"{label}: assertion 未通过 {bad}")
+            ok = False
+        if data.get("pass") != len(_UI_ASSERTION_LABELS):
+            problems.append(f"{label}: pass={data.get('pass')} != {len(_UI_ASSERTION_LABELS)}")
+            ok = False
+        if data.get("fails") != []:
+            problems.append(f"{label}: fails 非空 {data.get('fails')}")
+            ok = False
+        return ok
     problems.append(f"{label}: 未知 verdict 规格 {kind}")
     return None
 
@@ -736,6 +916,15 @@ def _eval_postcondition(name: str, data, raw: str | None, label: str) -> bool | 
         if not cases:
             return None
         return all(c.get("ok") is True for c in cases) and len(cases) >= 8
+    if name == "ui_required_interactions":
+        # §R3-32 §32.4-2：docreturned_ui 必须真实覆盖 P4 鼠标/键盘、empty/mismatch 诚实退出、
+        # 三条非工作台路由返回、Task 不变、零生成/零模型请求与单飞语义（逐项 ok=true）。
+        assertions = data.get("assertions")
+        if not isinstance(assertions, list) or not assertions:
+            return None
+        by_label = {a.get("label"): a.get("ok")
+                    for a in assertions if isinstance(a, dict)}
+        return all(by_label.get(lbl) is True for lbl in _UI_REQUIRED_LABELS)
     if name == "log_sentinel_unchanged":
         if raw is None:
             return None
@@ -1215,10 +1404,24 @@ def _gates_meta_consistency(gate_runs, gates: dict) -> tuple[dict, list[str]]:
     rec["present"] = True
     rec["gate_count"] = len(runs)
     rec["gate_names"] = sorted(by_name)
+    names_all = [str(g.get("gate")) for g in runs]
+    duplicate = sorted({n for n in names_all if names_all.count(n) > 1})
+    extra = sorted({n for n in names_all if n not in _REQUIRED_GATES})
     missing = [n for n in _REQUIRED_GATES if n not in by_name]
+    rec["duplicate_gates"] = duplicate
+    rec["extra_gates"] = extra
     rec["missing_gates"] = missing
+    # §R3-32 §32.4-1：runner 注册集合 / fixture 集合 / `_REQUIRED_GATES` 必须是**唯一且精确的
+    # 同一 17 门**；缺失、重复或额外 Gate ID 都必须 fail-closed。
+    rec["gate_name_set_exact"] = bool(
+        not missing and not duplicate and not extra
+        and len(names_all) == len(_REQUIRED_GATES))
     if missing:
         problems.append(f"gates-meta 缺少必需 Gate 记录: {missing}")
+    if duplicate:
+        problems.append(f"gates-meta 存在重复 Gate 记录: {duplicate}")
+    if extra:
+        problems.append(f"gates-meta 存在额外/未知 Gate 记录: {extra}")
 
     exits = [g.get("exit_code") for g in runs]
     rec["exit_codes"] = {str(g.get("gate")): g.get("exit_code") for g in runs}
@@ -1499,6 +1702,11 @@ def _verify(args) -> int:
     missing_gates = [n for n in _REQUIRED_GATES if n not in gates]
     if missing_gates:
         problems.append(f"gates 段缺少必需 Gate: {missing_gates}")
+    extra_gates = [n for n in gates if n not in _REQUIRED_GATES]
+    if extra_gates:
+        problems.append(f"gates 段存在额外/未知 Gate: {extra_gates}")
+    if len(gates) != len(_REQUIRED_GATES):
+        problems.append(f"gates 段数量 {len(gates)} != {len(_REQUIRED_GATES)}")
     for name, g in gates.items():
         if g.get("present") is not True:
             problems.append(f"{name}: 证据不存在")
@@ -1628,6 +1836,16 @@ def _verify(args) -> int:
         problems.append("逐 Gate 退出码重算结果非全 0")
     if meta.get("recomputed_gates_ok") is not True:
         problems.append("逐 Gate 交叉核验重算结论非通过")
+    if meta.get("gate_name_set_exact") is not True:
+        problems.append("gates_meta 记录集合非唯一且精确 17 门")
+    if meta.get("missing_gates"):
+        problems.append(f"gates_meta 缺少必需 Gate 记录: {meta.get('missing_gates')}")
+    if meta.get("duplicate_gates"):
+        problems.append(f"gates_meta 存在重复 Gate 记录: {meta.get('duplicate_gates')}")
+    if meta.get("extra_gates"):
+        problems.append(f"gates_meta 存在额外/未知 Gate 记录: {meta.get('extra_gates')}")
+    if meta.get("gate_count") != len(_REQUIRED_GATES):
+        problems.append(f"gates_meta.gate_count={meta.get('gate_count')} != {len(_REQUIRED_GATES)}")
 
     ok = not problems
     # §R3-20：控制台摘要必须使用**本次 verify 重新计算**的 verdict，不得打印存量 manifest 的

@@ -383,6 +383,168 @@ def run_matrix(root: Path) -> dict:
                       "mode": "verify", "exit_code": None, "final_verdict": None,
                       "problems_nonempty": False, "problems": [], "ok": False})
 
+    # ── §R3-32 §32.4-4：三项关键交互门（frontend_test / docreturned_anchor / docreturned_ui）
+    #    的离线反向矩阵。每例同时要求 build 与 verify 非零、final_verdict=false，
+    #    且 problems 定位到具体 Gate。证据 hash 由夹具按**现场重算**写入（等价于篡改后同步
+    #    更新证据 hash），以证明 manifest 不靠 hash 相等来判定语义。 ──
+    def case_bv(cid: str, name: str, mutate: dict) -> None:
+        ev = fx.evidence(cid, mutate)
+        out = fx.outdir / f"{cid}.json"
+        rb = _run("build", fx.argv(ev, out))
+        rv = _run("verify", ["--out", str(out), "--repo", str(fx.repo),
+                             "--expected-src", fx.src, "--expected-handoff", fx.handoff,
+                             "--evidence-dir", str(ev)])
+        rec = _rec(cid, name, "build+verify", rb)
+        v_payload = rv["payload"] or {}
+        v_ok = (rv["rc"] != 0) and (v_payload.get("final_verdict") is False)
+        rec["verify_rc"] = rv["rc"]
+        rec["verify_final_verdict"] = v_payload.get("final_verdict")
+        rec["ok"] = bool(rec["ok"] and v_ok)
+        if not v_ok:
+            rec["problems"] = (rec["problems"] or []) + [
+                f"verify 未 fail-closed rc={rv['rc']} "
+                f"final_verdict={v_payload.get('final_verdict')}"]
+        cases.append(rec)
+
+    # T01：frontend_test 摘要显示失败，但 gates_run 记录仍为 exit 0
+    case_bv("T01_frontend_failed_exit0", "frontend_test 证据失败但 runner 记录 0", {
+        "payload": {"frontend_test":
+                    " \x1b[32m×\x1b[39m tests/pdfPreview.test.tsx\n"
+                    "\x1b[2m Test Files \x1b[22m \x1b[1m\x1b[31m1 failed\x1b[39m"
+                    "\x1b[22m\x1b[90m (2)\x1b[39m\n"
+                    "\x1b[2m      Tests \x1b[22m \x1b[1m\x1b[31m3 failed\x1b[39m"
+                    "\x1b[22m\x1b[90m | 22 passed (25)\x1b[39m\n"},
+    })
+
+    # T02：frontend_test 摘要缺失（只剩 RUN 行），未确认 2 files / 25 tests
+    case_bv("T02_frontend_summary_missing", "frontend_test 摘要缺失", {
+        "payload": {"frontend_test": "\x1b[36m RUN \x1b[39m v2.1.9\n"},
+    })
+
+    # T03：frontend_test 证据被截断
+    case_bv("T03_frontend_evidence_truncated", "frontend_test 证据截断",
+            {"truncate": ["frontend_test"]})
+
+    # T04：frontend_test 证据缺失
+    case_bv("T04_frontend_evidence_missing", "frontend_test 证据缺失",
+            {"drop_payload": ["frontend_test"]})
+
+    # T05：docreturned_anchor 出现 [FAIL] 且终态 FAIL=1
+    case_bv("T05_anchor_fail_terminal", "anchor 出现 FAIL 且终态 FAIL=1", {
+        "payload": {"docreturned_anchor":
+                    FX.anchor_log_payload()
+                    .replace("[PASS] A7)-1 fixture 断言成立",
+                             "[FAIL] A7)-1 fixture 断言失败")
+                    .replace("FAIL=0", "FAIL=1")},
+    })
+
+    # T06：docreturned_anchor 缺少 A4 必需分组（29 项 PASS 仍在场，隔离分组检查）
+    case_bv("T06_anchor_group_missing", "anchor 缺少 A4 必需分组", {
+        "payload": {"docreturned_anchor": "\n".join(
+            [f"=== {h} 分组 fixture ===" for h, _ in
+             [("A1)", 6), ("A2)", 7), ("A2b)", 2), ("A3)", 4), ("A5/A6)", 8), ("A7)", 2)]]
+            + [f"[PASS] g{i} fixture 断言成立" for i in range(29)]
+            + ["V2.2.0 DOC_RETURNED anchor 离线门：FAIL=0"]) + "\n"},
+    })
+
+    # T07：docreturned_anchor 证据缺失
+    case_bv("T07_anchor_evidence_missing", "anchor 证据缺失",
+            {"drop_payload": ["docreturned_anchor"]})
+
+    # T08：docreturned_anchor 证据被截断
+    case_bv("T08_anchor_evidence_truncated", "anchor 证据截断",
+            {"truncate": ["docreturned_anchor"]})
+
+    # T09：docreturned_ui pass=0 / fails 非空 / 首个 assertion ok=false
+    t09_ui = FX.ui_summary_payload()
+    t09_ui["assertions"][0] = {"label": t09_ui["assertions"][0]["label"], "ok": False}
+    t09_ui["pass"] = 0
+    t09_ui["fails"] = [t09_ui["assertions"][0]["label"]]
+    case_bv("T09_ui_pass_zero", "ui summary pass=0 / 存在失败 assertion",
+            {"payload": {"docreturned_ui": t09_ui}})
+
+    # T10：docreturned_ui 缺少必需 assertion label（71 个）与 pass 不一致
+    t10_ui = FX.ui_summary_payload()
+    t10_ui["assertions"] = [a for a in t10_ui["assertions"]
+                            if a["label"] != "u2.mouse-fact-click"]
+    t10_ui["pass"] = len(t10_ui["assertions"])
+    case_bv("T10_ui_label_missing", "ui summary 缺少必需 assertion label",
+            {"payload": {"docreturned_ui": t10_ui}})
+
+    # T11：docreturned_ui 出现额外/未知 assertion label
+    t11_ui = FX.ui_summary_payload()
+    t11_ui["assertions"].append({"label": "u9.unknown-assertion", "ok": True})
+    t11_ui["pass"] = len(t11_ui["assertions"])
+    case_bv("T11_ui_label_extra", "ui summary 存在额外 assertion label",
+            {"payload": {"docreturned_ui": t11_ui}})
+
+    # T12：docreturned_ui 证据被截断（JSON 不可解析）
+    case_bv("T12_ui_evidence_truncated", "ui summary 证据截断",
+            {"truncate": ["docreturned_ui"]})
+
+    # T13：docreturned_ui 证据缺失
+    case_bv("T13_ui_evidence_missing", "ui summary 证据缺失",
+            {"drop_payload": ["docreturned_ui"]})
+
+    # T14：三门证据全部失败，且 gates_run 里的 evidence_sha256/evidence_bytes **同步重算**
+    #      —— 证明「篡改证据 + 更新记录 hash」不能把总 manifest 洗绿。
+    t14_ui = FX.ui_summary_payload()
+    t14_ui["pass"] = 0
+    t14_ui["fails"] = ["u2.mouse-fact-click"]
+    t14_ui["assertions"] = [dict(a, ok=False) for a in t14_ui["assertions"]]
+    ev14 = fx.evidence("T14_three_gates_hash_resynced", {
+        "payload": {
+            "frontend_test": " \x1b[31m×\x1b[39m tests/pdfPreview.test.tsx\n"
+                             "\x1b[2m Test Files \x1b[22m 2 failed (2)\n"
+                             "\x1b[2m      Tests \x1b[22m 25 failed (25)\n",
+            "docreturned_anchor": FX.anchor_log_payload().replace("FAIL=0", "FAIL=3"),
+            "docreturned_ui": t14_ui,
+        },
+    })
+    gm_path = ev14 / "gates_run.json"
+    gm14 = json.loads(gm_path.read_text(encoding="utf-8-sig"))
+    for g in gm14.get("gates") or []:
+        fname = g.get("evidence")
+        if not fname:
+            continue
+        fp = ev14 / fname
+        if fp.is_file():
+            g["evidence_sha256"] = FX.sha256_file(fp)
+            g["evidence_bytes"] = fp.stat().st_size
+    gm_path.write_text(json.dumps(gm14, ensure_ascii=False, indent=2), encoding="utf-8")
+    out14 = fx.outdir / "T14_three_gates_hash_resynced.json"
+    rb14 = _run("build", fx.argv(ev14, out14))
+    rv14 = _run("verify", ["--out", str(out14), "--repo", str(fx.repo),
+                           "--expected-src", fx.src, "--expected-handoff", fx.handoff,
+                           "--evidence-dir", str(ev14)])
+    rec14 = _rec("T14_three_gates_hash_resynced",
+                 "三门证据失败且记录 hash 同步重算", "build+verify", rb14)
+    vp14 = rv14["payload"] or {}
+    v14_ok = (rv14["rc"] != 0) and (vp14.get("final_verdict") is False)
+    rec14["verify_rc"] = rv14["rc"]
+    rec14["verify_final_verdict"] = vp14.get("final_verdict")
+    rec14["ok"] = bool(rec14["ok"] and v14_ok)
+    if not v14_ok:
+        rec14["problems"] = (rec14["problems"] or []) + [
+            f"verify 未 fail-closed rc={rv14['rc']} "
+            f"final_verdict={vp14.get('final_verdict')}"]
+    cases.append(rec14)
+
+    # T15：Gate ID 重复（同一 Gate 在 gates_run 中出现两次）⇒ 集合非唯一必须 fail-closed
+    case_bv("T15_gate_id_duplicate", "gates_run 出现重复 Gate ID",
+            {"duplicate_gate": ["frontend_test"]})
+
+    # T16：Gate ID 额外/未知（gates_run 出现合同外的 Gate 记录）⇒ 集合非精确必须 fail-closed
+    case_bv("T16_gate_id_extra", "gates_run 出现额外/未知 Gate ID", {
+        "extra_gate_records": [{
+            "gate": "unknown_gate_zz", "command": "<fixture> unknown_gate_zz",
+            "exit_code": 0, "started_at_local": "2026-01-01T00:00:00",
+            "ended_at_local": "2026-01-01T00:00:00", "evidence": None,
+            "evidence_sha256": None, "evidence_bytes": 0,
+            "package_exe_sha256": fx.exe_sha, "verdict": True,
+        }],
+    })
+
     failures = [f"{c['id']}:{c['case']}:{c['mode']}" for c in cases if not c["ok"]]
     return {
         "_meta": {
