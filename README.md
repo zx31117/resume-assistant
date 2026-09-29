@@ -2,7 +2,7 @@
 
 一个本地运行的 AI 简历生成应用：保存用户的完整职业经历，再根据目标岗位 JD 检索相关事实、生成针对性表达，并输出可预览、可下载的 Word/PDF 简历。
 
-当前版本为 **V2.1.0**。本版本完成核心用户界面整体重构：从简历上传、经历管理、JD 输入、四阶段生成到结果预览形成统一工作流；最终 DOCX 是排版真源，由 Microsoft Word 转换为 PDF，页面预览与 PDF 下载读取同一文件。
+当前版本为 **V2.2.0**。本版本把一次生成升级为服务端权威任务：从当前用户的 Experience / Fact 履历库选择事实，持续投影 P1～P4 阶段，支持刷新恢复、取消、失败范围续试和已发布记录；最终 DOCX/PDF、预览、下载与逐条来源绑定同一任务和同一 owner。
 
 ## 项目能做什么
 
@@ -38,6 +38,10 @@ PDF 简历 → 文本解析 → 经历提取 → SQLite Experience / Fact 事实
 - Windows x64 目录型便携启动器，支持单实例、端口选择、重开和退出释放。
 - PDF.js 展示真实生成的 PDF artifact，支持逐条事实依据定位以及 Word/PDF 双下载；
 - 运行活动、服务端四阶段实时耗时、近期同类耗时对比、脱敏后台日志和诊断摘要。
+- 服务端 Task 的保存、冻结、启动、取消、失败范围续试、SSE 恢复和已发布记录；
+- 当前本地用户的 owner scope：履历候选、Fact、任务、记录和 artifact 全链一致，跨 owner 或归属不明时 fail closed；
+- P4 事实/章节/技能热点的鼠标与键盘交互、详情消费，以及二级页面返回同一工作台任务；
+- task-scoped DOCX/PDF 下载、发布前内容完整性校验和成功状态/不可变 artifact 的原子提交。
 
 ## 技术架构
 
@@ -53,12 +57,13 @@ FastAPI 路由与请求模型
 应用服务层
 ├─ PDF 解析与经历提取
 ├─ Experience / Fact 生命周期管理
+├─ owner-scoped Task、P1～P4 状态与 artifact 生命周期
 ├─ JD 分析与两层事实选择
 ├─ 受约束改写与 ResumeBuilder 确定性装配
 ├─ DOCX 模板渲染与 Word→PDF 转换
 └─ 配置、迁移、索引维护与操作诊断
         │
-        ├─ SQLite / SQLAlchemy：Experience、Fact 与 Embedding
+        ├─ SQLite / SQLAlchemy：Experience、Fact、Embedding、Task 与发布引用
         ├─ 外部 LLM / Embedding Provider：内容理解、改写与向量生成
         └─ Runtime data root：输出文件、日志、缓存与版本化配置
 ```
@@ -76,48 +81,11 @@ FastAPI 路由与请求模型
 
 这里描述的是当前发布架构。设计理由、历史替代方案和版本级变更记录见 [开发文档入口](docs/README.md)、[架构与产品决策](docs/DECISIONS.md) 和 [当前实现状态](docs/CURRENT_STATE.md)。
 
-## 技术架构
-
-当前发布版采用本地单用户、前后端同源的分层架构。浏览器界面只负责输入、状态展示和结果下载，职业事实、检索、内容选择、生成与文件渲染统一由后端完成，不在前端建立第二套业务逻辑或数据真源。
-
-```text
-React + TypeScript + Vite
-        │  同源 HTTP API
-        ▼
-FastAPI 路由与请求模型
-        │
-        ▼
-应用服务层
-├─ PDF 解析与经历提取
-├─ Experience / Fact 生命周期管理
-├─ JD 分析与两层事实选择
-├─ 受约束改写与 ResumeBuilder 确定性装配
-├─ DOCX 模板渲染
-└─ 配置、迁移、索引维护与操作诊断
-        │
-        ├─ SQLite / SQLAlchemy：Experience、Fact、Embedding 与操作记录
-        ├─ 外部 LLM / Embedding Provider：内容理解、改写与向量生成
-        └─ Runtime data root：输出文件、日志、缓存与版本化配置
-```
-
-架构中的关键边界：
-
-- **事实真源**：Experience / Fact 保存在 SQLite；Embedding 是可以从 Fact 重建的派生索引，不能反向覆盖事实。
-- **内容决策**：程序负责流程、约束、来源校验和结构装配，模型只在明确边界内理解或改写内容。
-- **薄前端**：React 页面通过 typed API/状态模型消费后端结果，不直接访问数据库、持有长期 API Key 或实现另一套选材逻辑。
-- **输出分层**：`ResumeBuilder` 生成与版式无关的 `ResumeDocument`，模板 Renderer 负责把它渲染为最终文件；模板不参与事实选择。
-- **运行隔离**：数据库、输出、配置、日志和缓存统一位于仓库外的 `RESUME_DATA_DIR`；源码目录不承担运行数据持久化。
-- **凭据边界**：Windows 便携版的长期 API Key 保存在 Credential Manager；浏览器和生成文件不保存密钥。
-- **发行形态**：生产前端由 FastAPI 同源托管，Windows 发行采用 PyInstaller `onedir`，启动器负责 loopback 监听、单实例、端口选择和退出清理。
-- **失败策略**：迁移、索引、模型调用、来源校验或渲染失败必须显式可见；已知失败不降级为伪成功或静默使用过期数据。
-
-这里描述的是当前已发布架构。各项设计理由、历史替代方案和版本级变更记录见 [开发文档入口](docs/README.md)、[架构与产品决策](docs/DECISIONS.md) 和 [当前实现状态](docs/CURRENT_STATE.md)。
-
 ## 快速开始
 
 ### Windows 便携版（推荐）
 
-V2.1.0 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
+V2.2.0 提供 Windows x64 目录型便携发行包。获得完整 `ResumeAssistant` 目录后：
 
 1. 双击 `ResumeAssistant.exe`；
 2. 浏览器自动打开本地界面；
@@ -291,12 +259,12 @@ resume-assistant/
 
 ## 当前边界
 
-- V2.1.0 已完成欢迎上传、经历库、JD 输入、四阶段生成和结果预览的整体界面重构；
+- V2.2.0 已完成当前履历库 → owner-scoped Task → P1～P4 → DOCX/PDF → 记录与下载的可信闭环；
 - 诊断数据仅用于本地问题定位，按容量和保留期轮转，不是业务事实源、生产 APM 或云端遥测；
 - 面向单用户本地使用，尚未包含登录、多用户和服务器部署；
 - Windows x64 是当前便携发行范围；macOS/Linux 便携、Firefox 发布验收和完整移动端适配尚未覆盖；
 - 当前使用固定模板；不包含 Draft/Revision、差异回退、局部重新生成或手工覆盖选材结果；
-- 工作台状态尚未在跨页面切换后保留，该项已进入 V2.2.0 草稿；
+- 工作台可以在刷新和二级页面往返后恢复同一服务端 Task；应用进程退出后的长期后台队列与跨设备续作不属于本地版能力；
 - 不保证简历严格控制在一页，不生成个人总结或自我评价；
 - 固定槽位、事实边界和来源闭环已验收，不代表相关性权重、召回质量、措辞或招聘效果已经优化；
 - 当前用户界面左下角仍保留开发者后台入口，尚未形成面向上线环境的权限隔离；

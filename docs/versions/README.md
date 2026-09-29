@@ -27,16 +27,15 @@
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./v2.0.1/PLAN.md) | [RESULT](./v2.0.1/RESULT.md) | 已发布；独立源码验收与人工验收通过，annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./v2.0.2/PLAN.md) | [RESULT](./v2.0.2/RESULT.md) | 已发布；源码候选 `eb4bd30`，annotated tag `v2.0.2` 指向 `78bb909` |
 | V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./v2.1.0/PLAN.md) | [RESULT](./v2.1.0/RESULT.md) | 已重发；H8-R2-SRC `f5124c2`，annotated tag `v2.1.0` 指向 `5d72a2e` |
+| V2.2.0 | 当前履历到可信成品的任务、来源与渐进生成闭环 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | 已发布；独立验收与 Product Owner 人工验收通过；annotated tag `v2.2.0` |
 
 ## 当前活动版本
 
-V2.1.0 已完成开发验证、独立验收和 Product Owner 人工验收。最终源码验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`，发布包绑定 EXE SHA-256 `91e75083367eb028a8e5ddf38c74da5460dece72e0a4caecfcc82ba9b51d68d5`。首次 annotated tag 因统一预检标题仍硬编码 V2.0.2 而按 Product Owner 要求撤回；标题改为版本无关文本并重新通过本地预检和 GitHub Windows CI 后，annotated tag `v2.1.0` 已重新创建，指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`。功能候选和人工验收结论不变，完整历史保存在 [RESULT](./v2.1.0/RESULT.md)。
+V2.2.0 已完成开发验证、独立验收和 Product Owner 人工验收。冻结包为 4045 files / 170,399,477 B，EXE SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；正式发布身份为 annotated tag `v2.2.0`。完整产品返工、证据血缘、Gate 修复与验收历史保存在 [HISTORY](./v2.2.0/HISTORY.md) 和 [RESULT](./v2.2.0/RESULT.md)。
 
 ## 当前开发计划
 
-| 版本 | 定位 | 计划 | 结果 | 状态 |
-|---|---|---|---|---|
-| V2.2.0 | 当前履历到可信成品的任务、来源与渐进生成闭环 | [PLAN](./v2.2.0/PLAN.md) / [HISTORY](./v2.2.0/HISTORY.md) | [RESULT](./v2.2.0/RESULT.md) | Revision 3 已获 Product Owner 批准并进入返工；旧候选不可发布 |
+当前没有已批准的新版本开发计划。V2.3/V3 与 Agent 机制材料仍是草稿，不因 V2.2.0 发布自动获得开发授权。
 
 ## 阶段需求池（非开发指令）
 
@@ -66,5 +65,5 @@ V1.0.0 PLAN → V1.0.0 RESULT
 → V2.0.1 PLAN → V2.0.1 RESULT
 → V2.0.2 PLAN → V2.0.2 RESULT
 → V2.1.0 PLAN → V2.1.0 RESULT
-→ V2.2.0 PLAN → V2.2.0 HISTORY（仅在追查修订与事故时）
+→ V2.2.0 PLAN → V2.2.0 RESULT → V2.2.0 HISTORY（仅在追查修订与事故时）
 ~~~

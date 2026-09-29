@@ -919,3 +919,17 @@
   checksum 52/52。证据目录实际 53 个文件，其中 `CHECKSUMS.sha256` 自身不列入。
 - 最终状态：独立验收 `ACCEPTANCE_PASS`，允许进入 Product Owner 人工验收；不代表人工验收通过或发布
   授权。旧失败封存继续保留追溯。
+
+## VH-050 Product Owner 人工验收通过并发布 V2.2.0
+
+- 日期：2026-09-29
+- 阶段：Product Owner 人工验收 → 发布收口
+- 人工结论：Product Owner 明确确认 V2.2.0 人工验收通过，并授权推送和清理失效的 V2.2 分支/封存；
+  该授权不扩展到 V2.3/V3 或 Agent 机制草稿。
+- 冻结对象：包 `5a1ac9c`，EXE SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；独立验收记录对象
+  `562976bf2a0c048611fb613b392258d8b1d194c1`；manifest SHA-256
+  `CFEF733EEE137264C68F0B6BB7FEFDA04533301677AE482C7AEEF9E982A5010F`，checksum 52/52。
+- 发布身份：annotated tag `v2.2.0`；tag 目标 commit 作为唯一发布标识，RESULT 不回写自身发布 SHA。
+- 保护边界：V3 相关三份版本草稿和仍在编辑的 Agent 机制需求草稿另行保全，不并入 V2.2 产品事实，
+  不随 V2.2 失效分支和旧封存清理而删除。

@@ -2,11 +2,10 @@
 
 > 文档角色：开发者与 Agent 的总入口；保存稳定产品目标、版本边界与架构约束
 > GitHub 用户入口：[根 README](../README.md)；普通使用者不需要先阅读本开发档案
-> 当前已验收版本：V2.1.0；源码验收对象为 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
-> 当前已发布版本：V2.1.0；重新创建的 annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
-> 当前版本档案：[V2.1.0 PLAN](./versions/v2.1.0/PLAN.md) / [RESULT](./versions/v2.1.0/RESULT.md)；功能验收、预检标题修正、重新验证与重发均已完成
-> 当前开发版本：V2.2.0；Product Owner 真实成品确认当前履历未进入简历，旧候选/旧包不可发布；
-> PLAN Revision 3 已获 Product Owner 批准并进入返工；V2.1.1 仅保留给必要紧急修复
+> 当前已验收版本：V2.2.0；冻结包 EXE SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`
+> 当前已发布版本：V2.2.0；正式发布身份为 annotated tag `v2.2.0`
+> 当前版本档案：[V2.2.0 PLAN](./versions/v2.2.0/PLAN.md) / [HISTORY](./versions/v2.2.0/HISTORY.md) / [RESULT](./versions/v2.2.0/RESULT.md)；开发验证、独立验收与 Product Owner 人工验收均已完成
+> 当前开发版本：无已批准的新版本；V2.3/V3 与 Agent 机制材料仍为独立草稿，不构成开发授权
 > 当前实现事实：[CURRENT_STATE.md](./CURRENT_STATE.md)
 
 本文只保存跨版本稳定的开发信息。当前实现、历史过程和活动版本目标分别由 `CURRENT_STATE.md`、版本 `RESULT.md` 和版本 `PLAN.md` 负责。根 `README.md` 面向 GitHub 普通用户，必须独立说明项目用途、安装、运行、数据边界和已公开能力，不承担内部状态管理职责。
@@ -77,7 +76,7 @@ JD → JD 分析 → 固定经历槽位 → 入选经历内事实选择 → 受�
 → Microsoft Word COM → PDF → PDF.js viewer / Word 与 PDF 下载
 ~~~
 
-V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加图形交互及 Windows 便携启动器；V2.0.1 增加统一的本地阶段、耗时与脱敏诊断能力；V2.0.2 建立统一 Windows 预检与 CI 基线并退出旧 vectorstore 迁移契约；V2.1.0 完成用户界面整体重构、服务端四阶段投影和 DOCX→Word→PDF→viewer/download 单一产物链。当前具体实现能力以 `CURRENT_STATE.md` 为准。
+V1.5.0 已完成并验收该核心链路的事实级、两层选材和单一向量持久化收口；V2.0.0 在不建立第二业务真源的前提下，为配置、维护、履历和生成增加图形交互及 Windows 便携启动器；V2.0.1 增加统一的本地阶段、耗时与脱敏诊断能力；V2.0.2 建立统一 Windows 预检与 CI 基线并退出旧 vectorstore 迁移契约；V2.1.0 完成用户界面整体重构、服务端四阶段投影和 DOCX→Word→PDF→viewer/download 单一产物链；V2.2.0 建立 owner-scoped 服务端任务、P1～P4 刷新恢复、履历来源闭环、原子 artifact 发布和可交互结果回看。当前具体实现能力以 `CURRENT_STATE.md` 为准。
 
 ## 4. 事实所有权
 
@@ -230,5 +229,6 @@ PLAN 要求独立源码验收时，参与该候选实现、自测或源码修复
 | V2.0.1 | 本地流程可观测性与问题定位 | [PLAN](./versions/v2.0.1/PLAN.md) | [RESULT](./versions/v2.0.1/RESULT.md) | 已发布；annotated tag `v2.0.1` |
 | V2.0.2 | 工程基线与旧迁移契约退出 | [PLAN](./versions/v2.0.2/PLAN.md) | [RESULT](./versions/v2.0.2/RESULT.md) | 已发布；annotated tag `v2.0.2` 指向 `78bb909c18ca28e45b54406536aa326887caa1ca` |
 | V2.1.0 | 核心用户界面整体重构与可信结果预览 | [PLAN](./versions/v2.1.0/PLAN.md) | [RESULT](./versions/v2.1.0/RESULT.md) | 已重发；annotated tag `v2.1.0` 指向 `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd` |
+| V2.2.0 | 当前履历到可信成品的任务、来源与渐进生成闭环 | [PLAN](./versions/v2.2.0/PLAN.md) / [HISTORY](./versions/v2.2.0/HISTORY.md) | [RESULT](./versions/v2.2.0/RESULT.md) | 已发布；独立验收与 Product Owner 人工验收通过；annotated tag `v2.2.0` |
 
 历史经验的推荐阅读顺序见 [versions/README.md](./versions/README.md)。

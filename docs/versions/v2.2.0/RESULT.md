@@ -1,15 +1,16 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**独立验收 `ACCEPTANCE_PASS` / 待 Product Owner 人工验收**
-> 当前阶段：§R3-37。独立 Acceptance Agent 已对 `a03c89d` 交付链及冻结包 `5a1ac9c` 完成第二轮复验：
+> 当前状态：**已发布 / Product Owner 人工验收通过**
+> 当前阶段：§R3-38。独立 Acceptance Agent 已对 `a03c89d` 交付链及冻结包 `5a1ac9c` 完成第二轮复验：
 > 上轮封存 `.log`/`.json` 矛盾与 `docreturned_ui` 未绑定冻结 EXE 两项均闭合；在冻结 EXE 上独立运行
 > P4/非工作台交互门得到 `PASS=72/FAIL=0`，三套离线矩阵 37/23/22 全绿，中央 manifest/checksum
 > verify 均 `rc=0`，无 FAIL。真实模型门因产品与入包字节未变、证据绑定同一 EXE 而按血缘采信，未新增
 > 方舟调用。Documentation Agent 已机械复核链、包、manifest、52/52 checksum、三门刷新披露及 14 门
 > 未变 hash，并把证据数量口径统一为“53 个文件，其中 52 个由 checksum 列出”（见 §R3-37）。本文件
-> 所在 docs-only 对象为 `review` 最终目标；该状态只允许进入 Product Owner 人工验收，不代表人工通过
-> 或发布授权。
+> 所在 docs-only 对象 `562976b` 已成为 `review` 目标；Product Owner 于 2026-09-29 明确确认人工验收
+> 通过，并授权推送与发布清理。正式发布身份为 annotated tag `v2.2.0`，tag 目标提交承载最终公开文档；
+> 本结论不自动授权任何后续版本或未批准草稿进入开发。
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -6043,3 +6044,22 @@ Documentation Agent 没有重跑产品或付费 Gate，只对验收对象与中�
 本文件所在 docs-only 记录对象是 `review` 的最终目标；移动 `review` 不改变产品或封存证据字节，因而不
 使本验收血缘失效。本结论不代表 Product Owner 人工验收通过，也不构成发布授权；旧 `d500dd7*`、
 `93e88c2*` 及更早失败封存继续仅供追溯。
+
+## R3-38. Product Owner 人工验收通过与发布收口（2026-09-29）
+
+Product Owner 在收到第二轮独立验收结论和冻结应用入口后明确确认“人工通过”，并授权推送及清理失效
+分支/文件。该人工结论绑定：
+
+- 产品/入包字节：冻结包 `5a1ac9c`，4045 files / 170,399,477 B；
+- EXE：16,855,308 B，SHA-256
+  `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；
+- bundle：`index-BMdbu97O.js`；
+- 独立验收记录对象：`562976bf2a0c048611fb613b392258d8b1d194c1`；
+- 中央 manifest：38,378 B，SHA-256
+  `CFEF733EEE137264C68F0B6BB7FEFDA04533301677AE482C7AEEF9E982A5010F`，17 门、
+  `final_verdict=true`、`problems=[]`；checksum 52/52；
+- 发布标识：annotated tag `v2.2.0`。依据发布文档规则，不在本文件回写发布提交自身 SHA；tag 的目标
+  commit 是唯一发布身份。
+
+**最终状态：V2.2.0 已完成开发验证、独立验收、Product Owner 人工验收和发布文档收口。** 后续 V2.3/V3
+文档和 Agent 机制草稿仍是独立草案，不因本次 V2.2.0 发布自动获批、并入当前能力或获得开发授权。

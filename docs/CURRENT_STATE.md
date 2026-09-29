@@ -1,10 +1,11 @@
 # 当前实现状态
 
 > 文档角色：当前已验收实现事实的唯一真源
-> 已验收版本：V2.1.0
-> 源码验收对象：H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`
-> 发布标识：重新创建的 annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
-> 状态日期：2026-09-12
+> 已验收版本：V2.2.0
+> 独立验收记录对象：`562976bf2a0c048611fb613b392258d8b1d194c1`
+> 冻结包 EXE SHA-256：`0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`
+> 发布标识：annotated tag `v2.2.0`
+> 状态日期：2026-09-29
 
 ## 1. 当前结论
 
@@ -19,6 +20,8 @@ V2.0.1 已完成开发验证、独立源码验收、用户人工验收和文档�
 V2.0.2 在不改变产品业务流程和界面的前提下完成工程基线收束：Windows 本地与 CI 使用同一预检入口和固定回归计数；测试数据库、输出、日志与缓存强制位于临时 runtime，默认真实 runtime 由 fail-closed 哨兵保护；迁移 API、备份摘要、配置和 Demo 中的旧 vectorstore 活动契约已经退出。版本已完成独立源码验收、人工确认、文档验收和公开发布。详细打回、返工和证据见 [V2.0.2 RESULT](./versions/v2.0.2/RESULT.md)。
 
 V2.1.0 完成核心用户界面整体重构：欢迎页直接承接 PDF 上传，“我的经历”继续维护职业事实；生成工作台把身份与 JD 输入收束为一键生成，处理过程由后端投影为四个覆盖完整 operation 的用户阶段；结果页使用真实 PDF artifact 预览、逐条事实依据和 Word/PDF 双下载。DOCX 是唯一排版真源，PDF 只由本机 Microsoft Word 转换产生，PDF.js viewer 与 PDF 下载读取同一不可变 artifact；转换不可用时 fail closed 并保留 Word 下载。H8-R2 已完成开发验证、独立验收和 Product Owner 人工验收；首次发布后因预检标题仍硬编码 V2.0.2 被 Product Owner 要求撤回，标题改为版本无关文本并重新通过本地预检与 GitHub Windows CI 后，annotated tag `v2.1.0` 已重新创建并公开发布。完整历史见 [V2.1.0 RESULT](./versions/v2.1.0/RESULT.md)。
+
+V2.2.0 把生成过程升级为服务端权威 Task：输入保存与冻结、P1～P4 渐进状态、SSE/快照恢复、取消、失败范围续试和已发布记录都绑定同一 `task_id`。本地稳定身份成为 owner，Experience/Fact 候选、生成内容、记录和 artifact 全链按 owner 隔离；未知归属或跨 owner 访问 fail closed。最终 DOCX/PDF 在 task-scoped staging 中完成来源、内容和可读性检查后原子发布，用户下载路由同时校验 owner、task、kind 与不可变引用。P4 支持事实、章节和技能热点的鼠标/键盘选择及详情查看，二级页面和品牌区可以返回同一工作台 Task。版本已完成独立验收和 Product Owner 人工验收，完整历史见 [V2.2.0 RESULT](./versions/v2.2.0/RESULT.md)。
 
 ## 2. 已实现核心流程
 
@@ -132,6 +135,15 @@ POST /api/resume/generate-docx
 | API | `PUT/DELETE /api/experience/{id}` | 更新或删除经历，并同步 reconciliation / 失效 / 清理 |
 | API | `POST /api/jd/analyze` | JD → 7 字段分析 |
 | API | `POST /api/resume/generate-docx` | V1 唯一核心 JD → DOCX 接口 |
+| API | `POST /api/task` | 创建绑定当前本地 owner 的服务端 Task |
+| API | `PUT /api/task/{task_id}/save` | 保存未冻结输入 revision |
+| API | `POST /api/task/{task_id}/freeze` | 冻结输入并建立后续生成边界 |
+| API | `POST /api/task/{task_id}/start` / `generate` | 启动冻结 Task 的 P1～P4 生成 |
+| API | `POST /api/task/{task_id}/cancel` | 取消活动 Task，终态与 cleanup 显式可见 |
+| API | `POST /api/task/{task_id}/continue` | 仅续试失败范围，复用已完成阶段 |
+| API | `GET /api/task/{task_id}` / `stream` | 获取权威快照或 SSE 增量状态；断流后回读快照 |
+| API | `GET /api/task/records` | 只列当前 owner 已发布 Task |
+| API | `GET/HEAD /api/task/{task_id}/artifact/{kind}` | 按 owner、task、kind 与不可变引用下载 DOCX/PDF |
 | API | `POST /api/resume/generate` | 旧 Markdown 路径已退出，返回 410 |
 | API | `GET /api/template/list` | 系统模板列表 |
 | API | `POST /api/template/generate-docx` | 直接 ResumeDocument → DOCX，仅模板调试/internal |
@@ -156,6 +168,10 @@ POST /api/resume/generate-docx
 | `constrained_rewrite` | 只基于 SelectedEvidenceSet 生成带逐 bullet fact_refs 的受约束表达 |
 | `resume_builder` | 按冻结名单确定性装配 ResumeDocument、来源映射和告警 |
 | `resume_generation_service` | 编排迁移检查、两层选材、受约束改写、装配、渲染和保存 |
+| `core.task` / `task_repository` | Task、InputRevision、Subtask、Snapshot、Event、ResumeRevision 与 owner-scoped 持久化 |
+| `task_service` / `task_generation` | 输入冻结、P1～P4 生成、取消、失败范围续试、状态恢复与调用边界 |
+| `document_assembler` | 从当前 Task 的 owner-scoped 来源装配最终内容，并保留逐项 provenance |
+| `task_cleanup` | 按 owner、Task 与 retention 清理 staging/历史对象，不跨 owner 删除 |
 | `template_renderer` / `docx_writer` | 完整渲染 ResumeDocument 并保存 DOCX，不选择业务内容 |
 | `layout_optimizer` | 轻量样式处理和页数诊断；不为一页纸删除内容 |
 | `core.config_resolver` | 统一解析凭据库、runtime 配置、env/.env 与内置默认，并提供脱敏来源快照 |
@@ -181,15 +197,17 @@ POST /api/resume/generate-docx
 - V2.1.0 独立验收绑定 H8-R2-SRC `f5124c2af448fc6fa50a599187f643e62a814ff8`：确定性矩阵 **22/0**、真实 React 事件回归 **30+7 PASS**、浏览器矩阵 **16/0**、六组 Word COM 失败路径、包审计和真实模型 E2E 均通过；正常 operation 内 JD 分析恰好 1 次，P1–P4 阶段和与总时间差 18ms，锚点 10/10。
 - V2.1.0 的 DOCX、Word→PDF、PDF.js viewer 与双下载同源链已经独立验证；旧包 P4 路径可复现 6 次控制台闪窗，新包 worker、失败矩阵和完整真实生成的应用后代可见控制台/Word 窗口均为 0。Product Owner 于 2026-09-12 使用同一冻结包完成人工验收并明确确认通过。
 - V2.1.0 Windows x64 便携包位于发布档案登记的 `release-h8-r2`：4045 文件 / 170,264,106 字节；`ResumeAssistant.exe` 为 16,753,725 字节，SHA-256 `91E75083367EB028A8E5DDF38C74DA5460DECE72E0A4CAECFCC82BA9B51D68D5`；MANIFEST 4045 行一致，包内无测试注入、Key、开发机绝对路径或 ReportLab 产品链。
+- V2.2.0 独立验收绑定记录对象 `562976bf2a0c048611fb613b392258d8b1d194c1` 与同字节冻结包：17 门 manifest/checksum 闭环，P4/非工作台交互在冻结 EXE 上 **72/72**，owner/IDOR 21 例、原子发布 19 例、Design Fidelity、真实模型主链和六格性能证据按包身份闭合；Product Owner 于 2026-09-29 明确确认人工验收通过。
+- V2.2.0 Windows x64 冻结包为 4045 文件 / 170,399,477 字节；`ResumeAssistant.exe` 为 16,855,308 字节，SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；bundle 为 `index-BMdbu97O.js`。
 
 ## 8. 已知边界与后续方向
 
 以下不是当前版本缺陷或降级：
 
-1. 工作台状态尚未在跨页面切换后保留，刷新或离开生成页会丢失当前前端视图；任务连续性与最小生命周期管理已进入 V2.2.0 草稿。
+1. 工作台刷新和二级页面往返会恢复同一服务端 Task；应用完全退出后的长期后台队列、跨设备续作和云端调度不属于当前本地版能力。
 2. 不包含 Draft/Revision、条目锁定、差异/回退、单个 Fact 重新生成或用户手工覆盖选材结果。
 3. 当前只有固定模板；不保证严格一页纸或跨 Word 版本分页完全一致，也不生成个人总结。自动字体、行距、字距和容量优化属于后续排版能力。
-4. 不包含多 Provider、任意兼容 Endpoint、Token/费用统计、质量评测后台、后台任务、取消或断点恢复。
+4. 不包含多 Provider、任意兼容 Endpoint、Token/费用统计或质量评测后台；当前取消与失败范围续试属于本机 Task 生命周期，不是云端持久后台队列。
 5. Windows x64 是本版便携发行范围；PDF 生成依赖本机 Microsoft Word。Firefox、macOS/Linux 便携和完整移动端适配不属于本版 PASS 条件。
 6. 不包含登录、多用户、持久化 Profile、PostgreSQL、对象存储、云端同步、生产监控或公网部署；这些仍属于 V3。
 7. 当前用户界面左下角保留开发者后台入口，方便本地测试、配置 API Key 和维护；这不是面向上线环境的权限隔离，上线前必须关闭普通导航入口并另行冻结访问控制。
