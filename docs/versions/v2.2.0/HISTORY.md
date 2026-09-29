@@ -898,3 +898,24 @@
   manifest 与 seal 是正确边界；没有重 build、重打包、运行产品 Gate 或产生模型调用。
 - 门禁结论：`DOC_ALIGNED`。本文件所在 docs-only 对象成为 `review` 新目标，可进入全新独立 Acceptance；
   这不等于 `ACCEPTANCE_PASS`、Product Owner 人工通过或发布授权。旧失败封存全部保留追溯。
+
+## VH-049 §R3-35/§R3-36 两项离线缺口闭合并通过第二轮独立验收
+
+- 日期：2026-09-29
+- 阶段：V2.2.0 Revision 3 独立验收复验 → `ACCEPTANCE_PASS`
+- 交付链：`9798c3e → d500dd7 → 92fc012 → 24c4917 → 5a1ac9c → e4dc99c → a03c89d`；
+  其中只有离线 `scripts/h8_r3_*.py` 与 RESULT 变化，产品源码和冻结包字节未变。
+- §R3-35 闭合：以 runner 同一捕获路径真实重跑 Gate verdict 与 seal/manifest 矩阵，消除封存
+  `.log`/`.json` 版本矛盾；刷新工具对空/未知 Gate fail-closed。
+- §R3-36 闭合：`docreturned_ui` 改为直接启动冻结 EXE，证据、runner、manifest 合同和 fixture 均绑定
+  EXE SHA，并增加 T17 包身份错配反例；独立 Acceptance 在冻结包上实测 P4 与非工作台交互
+  `PASS=72/FAIL=0`。
+- 独立复验：三套矩阵 37/23/22 全绿；EXE 错配/缺失、UI 语义失败及 Gate DROP/DUP/EXTRA 均
+  fail-closed；14 个未刷新门 evidence hash 未变；真实模型证据因产品/入包字节未变且仍绑定同一 EXE
+  按血缘采信，未新增方舟调用。
+- 中央对象：`<acceptance-staging>/5a1ac9c/` 与 `5a1ac9c-evidence/`；包 4045 files /
+  170,399,477 B；EXE SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264`；
+  manifest SHA-256 `CFEF733EEE137264C68F0B6BB7FEFDA04533301677AE482C7AEEF9E982A5010F`；
+  checksum 52/52。证据目录实际 53 个文件，其中 `CHECKSUMS.sha256` 自身不列入。
+- 最终状态：独立验收 `ACCEPTANCE_PASS`，允许进入 Product Owner 人工验收；不代表人工验收通过或发布
+  授权。旧失败封存继续保留追溯。

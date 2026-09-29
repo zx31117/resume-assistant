@@ -1,17 +1,15 @@
 # V2.2.0 RESULT：执行记录
 
 > 文档角色：V2.2.0 Development Agent 执行记录（开发候选冻结前由开发维护实施、自测与偏差）
-> 当前状态：**需修正 / 独立验收 `ACCEPTANCE_FAIL` 后离线最小返工（待独立验收）**
-> 当前阶段：§R3-36。独立 Acceptance Agent 复核 §R3-35 交付对象（`review@9798c3e`，包 `93e88c2`）后报告
-> **发现 2**：`docreturned_ui` 门以**源码 uvicorn** 启动被测后端（该门脚本无 `--exe`，runner argv 亦不传
-> `--exe`），故其 P4 真实交互复验与被验证的**冻结包**脱钩；且 manifest 合同对该门 `exe_sha_path=None`，
-> 证据未绑定包身份也不会 fail-closed。本轮按该报告做**唯一允许的离线最小返工**：该门改为以冻结
-> `ResumeAssistant.exe` 启动后端并把 `exe.sha256` 写入证据、runner 传 `--exe`、manifest 合同绑定
-> `exe.sha256`、夹具补包身份并新增 T17 精确反例；随后仅刷新受影响门（`docreturned_ui`、
-> `gate_verdict_negtest`、`seal_manifest_negtest`）并重跑 `run_gates_negtest` 辅助矩阵，再
-> stage→build/verify→seal→中央二次 verify，形成新 SRC、RESULT-only HANDOFF 与数值收口、新中央封存
-> （见 §R3-36）。不改产品源码/前端/后端/依赖/配置/bundle/EXE，不重 build、不重打包、不调用模型或付费
-> Gate；不重跑原 17 门/六格/Design Fidelity；`review` 不移动，顶部不写 `DOC_ALIGNED`/`ACCEPTANCE_PASS`。
+> 当前状态：**独立验收 `ACCEPTANCE_PASS` / 待 Product Owner 人工验收**
+> 当前阶段：§R3-37。独立 Acceptance Agent 已对 `a03c89d` 交付链及冻结包 `5a1ac9c` 完成第二轮复验：
+> 上轮封存 `.log`/`.json` 矛盾与 `docreturned_ui` 未绑定冻结 EXE 两项均闭合；在冻结 EXE 上独立运行
+> P4/非工作台交互门得到 `PASS=72/FAIL=0`，三套离线矩阵 37/23/22 全绿，中央 manifest/checksum
+> verify 均 `rc=0`，无 FAIL。真实模型门因产品与入包字节未变、证据绑定同一 EXE 而按血缘采信，未新增
+> 方舟调用。Documentation Agent 已机械复核链、包、manifest、52/52 checksum、三门刷新披露及 14 门
+> 未变 hash，并把证据数量口径统一为“53 个文件，其中 52 个由 checksum 列出”（见 §R3-37）。本文件
+> 所在 docs-only 对象为 `review` 最终目标；该状态只允许进入 Product Owner 人工验收，不代表人工通过
+> 或发布授权。
 > 产品基线：annotated tag `v2.1.0` → `5d72a2e08ebd4fa416b4b1dcdd79c1d08dfc7cfd`
 > 开发路径：`<current-workspace>` 分支 `version/v2.2.0`
 > 当前批准 PLAN：Revision 3；Product Owner 批准内容基线为 canonical commit
@@ -113,7 +111,7 @@
 >   最小返工消除；旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*` 封存保留为追溯；
 >   `review` 不移动；本文件不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。
 
-> **§R3-36 离线最小返工交付对象（状态：`待独立验收`，见 §R3-36）**：
+> **§R3-36 离线最小返工交付对象（状态：独立验收 `ACCEPTANCE_PASS`，见 §R3-36/§R3-37）**：
 >
 > - **返工 SRC**：`5a1ac9c`（完整 SHA 由 `git log` 解析）。唯一 parent 为上一节点 `24c4917`，相对其只
 >   修改 6 个离线工具/夹具脚本：`scripts/h8_r3_docreturned_ui.py`（新增 `--exe`，以冻结包启动后端并写入
@@ -131,10 +129,10 @@
 >   commit 记录 manifest SHA-256、checksum 条数与中央二次 verify 的 `rc`（见 §36.5）；
 > - **原 17 门运行身份**：`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47`（该包原 17 门
 >   实际运行时的 SRC）；本轮仅刷新 3 门离线证据并按证据血缘复用，未伪造改写；
-> - **当前门禁**：独立验收报告「发现 2」（`docreturned_ui` 交互复验未绑定冻结包、manifest 未绑定该门包身份）
->   已由本轮离线最小返工消除——该门在冻结 EXE 上实测 `PASS=72/FAIL=0`、证据 `exe.sha256` 与包一致、T17
->   精确反例证明包身份错配 fail-closed；旧 `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*`、
->   `d500dd7*` 封存保留为追溯；`review` 不移动；本文件不写 `DOC_ALIGNED` / `ACCEPTANCE_PASS`。
+> - **当前门禁**：独立 Acceptance Agent 已确认该门在冻结 EXE 上 `PASS=72/FAIL=0`、证据
+>   `exe.sha256` 与包一致、T17 包身份错配 fail-closed，并给出第二轮 `ACCEPTANCE_PASS`。旧
+>   `bbe3532*`、`69a65f3*`、`1392dfb*`、`ca6c8b4*`、`93e88c2*`、`d500dd7*` 封存保留为追溯；
+>   本文件所在 docs-only 对象作为 `review` 最终目标，但本结论不代表人工验收或发布通过。
 
 > **已被人工验收打回的交付对象（历史技术验收通过；禁止发布）**：
 >
@@ -5966,7 +5964,7 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 |---|---|
 | 新中央封存入口（包） | `<acceptance-staging>/5a1ac9c/`（4045 files / 170,399,477 B） |
 | 包 EXE | `ResumeAssistant.exe` 16,855,308 B / SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264` |
-| 新中央封存入口（证据） | `<acceptance-staging>/5a1ac9c-evidence/`（52 files，`CHECKSUMS.sha256` 52 条，仅 1 个 `manifest.json`） |
+| 新中央封存入口（证据） | `<acceptance-staging>/5a1ac9c-evidence/`（53 files，含 `CHECKSUMS.sha256`；checksum 列出其余 52 项，仅 1 个 `manifest.json`） |
 | manifest | 38,378 B / SHA-256 `cfef733eee137264c68f0b6bb7fefda04533301677ae482c7aeef9e982a5010f`；`gates`=17、`gates_meta.gate_count`=17、`gate_name_set_exact`=true、`final_verdict`=true、`problems=[]` |
 | 中央二次 verify（manifest） | `rc=0`、`final_verdict=true`、`problems=[]` |
 | 中央二次 verify-checksums | `rc=0`、`listed=52`、`actual=52`、`ok=true` |
@@ -5984,3 +5982,64 @@ manifest、矩阵与 seal 失效；本轮重做这些受影响证据而不重跑
 `exe.sha256`，并由 T17 精确反例证明包身份错配 fail-closed。产品源码、包与 EXE 未做任何改动。是否形成
 `DOC_ALIGNED`、是否移动 `review`、是否进入下一轮独立验收，由 Documentation Agent 与独立 Acceptance
 Agent 复核后判定。
+
+## R3-37. 第二轮独立验收：`ACCEPTANCE_PASS`（2026-09-29）
+
+### 37.1 验收对象与独立性
+
+独立 Acceptance Agent 声明未参与产品实现、离线工具/夹具修改、开发自测、Gate 证据生成、
+RESULT/HISTORY 编写或 Documentation Gate 判定，不继承开发、Documentation、manifest 或历次验收的
+PASS。验收对象为 `a03c89d0bb0f0619a94273bc3a3352343db415b0` 交付链与冻结包 `5a1ac9c`：
+
+`9798c3e → d500dd7 → 92fc012 → 24c4917 → 5a1ac9c → e4dc99c → a03c89d`
+
+各段均为单亲；`5a1ac9c` 相对 `24c4917` 只修改 6 个 `scripts/h8_r3_*.py` 离线脚本/夹具，
+`e4dc99c` 与 `a03c89d` 均为 RESULT-only；`9798c3e..a03c89d` 未修改 backend、frontend、packaging、
+依赖或配置。生效 PLAN blob 仍为 `7d8a249a5ec3e607855f20d794bb7ed9cda351ee`。
+
+### 37.2 独立复验结论
+
+Acceptance Agent 实际完成并报告：
+
+- `h8_r3_gate_verdict_negtest.py` 37 例（含 T17）、`h8_r3_run_gates_negtest.py` 23 例、
+  `h8_r3_seal_manifest_negtest.py` 22 例均 `rc=0`；
+- 自建 fail-closed 探针对 UI EXE SHA 错配/缺失、UI 语义失败和 Gate DROP/DUP/EXTRA 全部得到
+  `rc=1 / final_verdict=false`；
+- 在冻结 `5a1ac9c/ResumeAssistant.exe` 上独立复跑 `docreturned_ui`，P4 fact/section/skills 鼠标与键盘、
+  empty/mismatch、三条非工作台返回、Task 保留、零生成/零模型请求、品牌单飞及单 fact 共
+  `PASS=72 / FAIL=0`；证据 `exe.sha256` 与冻结 EXE 一致；
+- 上轮 `.log`/`.json` 矛盾已消除：Gate verdict 37/37、seal/manifest 22/22；三个刷新门均为真实重跑
+  时间戳，`_meta.refresh.gates=[docreturned_ui,gate_verdict_negtest,seal_manifest_negtest]`；
+- 14 个未刷新产品/行为 Gate 的 evidence hash 与 `93e88c2-evidence` 逐门相同。内容来源、owner/IDOR、
+  artifact、原子发布、主链、六格和 Design Fidelity 因产品与入包字节未变且证据绑定同一 EXE，按血缘
+  独立复核后采信；没有新增真实方舟调用；
+- cleanup 完成，无临时目录、runtime、应用进程或监听端口残留。
+
+验收分类：PASS 项覆盖身份、包、manifest/checksum、17 门集合与 fail-closed、三门语义、三套矩阵、
+冻结 EXE 上的 P4/非工作台交互及上轮两项缺口；FAIL 无。真实模型 Gate 未重新执行，原因是没有产品或
+入包字节变化且既有证据仍绑定同一 EXE，属于血缘采信而非强制项遗漏。
+
+### 37.3 Documentation 收口复核
+
+Documentation Agent 没有重跑产品或付费 Gate，只对验收对象与中央字节作机械复核：
+
+| 项 | 实测 |
+|---|---|
+| 当前交付链 | 上述 7 个节点单亲关系全部成立；`9798c3e..a03c89d` 仅 RESULT 与 6 个离线脚本 |
+| 冻结包 | 4045 files / 170,399,477 B；EXE 16,855,308 B；SHA-256 `0799188676C3227E1AB1B5A9D245EF1B5A2D3F235874A8E1B44D6E328AAA4264` |
+| manifest | 38,378 B；SHA-256 `CFEF733EEE137264C68F0B6BB7FEFDA04533301677AE482C7AEEF9E982A5010F`；verify `rc=0`、`final_verdict=true`、`problems=[]` |
+| checksum | `rc=0`、`listed=52`、`actual=52`、`ok=true` |
+| 证据数量 | 实际 53 个文件：`CHECKSUMS.sha256` 自身不列入，另外 52 项逐条受 checksum 保护；§36.5 已统一该口径 |
+| UI 门 | 72 assertions、`pass=72`、`fails=[]`、`cleanup.runtime_removed=true`、EXE SHA/size 与冻结包一致 |
+| 未刷新门 | 14/14 条 Gate evidence hash 与上一权威封存完全相同 |
+
+`gates_run.json._meta.src=ff2a8e243455b74d1838454b136154026c07cb47` 是原 17 门运行身份，不应伪造
+改写；三个后续刷新门由 `_meta.refresh` 累积披露，并由各自记录时间、command、exit、evidence hash 与
+包 SHA 绑定。该口径不构成证据身份缺口。
+
+### 37.4 最终状态
+
+**独立验收结论：`ACCEPTANCE_PASS`。** 当前交付链与冻结包具备进入 Product Owner 人工验收的条件。
+本文件所在 docs-only 记录对象是 `review` 的最终目标；移动 `review` 不改变产品或封存证据字节，因而不
+使本验收血缘失效。本结论不代表 Product Owner 人工验收通过，也不构成发布授权；旧 `d500dd7*`、
+`93e88c2*` 及更早失败封存继续仅供追溯。
